@@ -1,16 +1,18 @@
 """An~: personal, novedades, cuadro mensual, puestos, horas y recargos."""
 import os
+import re
 import subprocess
 import sys
 import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from string import Template
 
 from PySide6.QtCore import QDate, QSettings, Qt, QThread, QTime, Signal
-from PySide6.QtGui import QColor, QFont, QKeySequence, QShortcut
+from PySide6.QtGui import QBrush, QColor, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QColorDialog, QComboBox, QDateEdit,
                                QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
-                               QListWidget, QMainWindow, QMenu, QMessageBox, QPushButton, QSpinBox, QTableWidget,
+                               QGridLayout, QListWidget, QMainWindow, QMenu, QMessageBox, QPushButton, QSpinBox, QSplitter, QStackedWidget, QTableWidget,
                                QTableWidgetItem, QTabWidget, QTimeEdit, QVBoxLayout, QWidget)
 
 import db
@@ -29,34 +31,48 @@ MESES = flujo.MESES
 AMARILLO = "#FFFF00"
 ABREV = exportar.ABREV_NOVEDAD
 
-ESTILO = """
-QMainWindow, QWidget#fondo { background: #F5F6F8; }
-QLabel { color: #1F2933; }
-QLabel#titulo { font-size: 20px; font-weight: 600; }
-QLabel#muted { color: #6B7280; }
-QLabel#aviso { border-radius: 8px; padding: 10px 12px; background: #E8F1F8; color: #12466B; }
-QLabel#aviso[nivel="warn"] { background: #FFF4D6; color: #6B4E00; }
-QLabel#aviso[nivel="error"] { background: #FDE8E8; color: #8E1B1B; }
-QPushButton { background: white; border: 1px solid #CBD2D9; border-radius: 6px; padding: 7px 14px; color: #1F2933; }
-QPushButton:hover { background: #F0F3F6; }
-QPushButton:disabled { color: #A0A7B0; background: #F5F6F8; }
-QPushButton#primario { background: #0F6E8C; border: 1px solid #0F6E8C; color: white; font-weight: 600; }
-QPushButton#primario:hover { background: #0C5C75; }
-QPushButton#primario:disabled { background: #9DBFCB; border-color: #9DBFCB; }
-QComboBox, QLineEdit, QDateEdit, QSpinBox, QDoubleSpinBox { background: white; border: 1px solid #CBD2D9; border-radius: 6px; padding: 5px 8px; }
-QTabWidget::pane { border: 1px solid #E3E6EA; border-radius: 8px; background: white; top: -1px; }
-QTabBar::tab { padding: 8px 16px; color: #52606D; border: none; }
-QTabBar::tab:selected { color: #0F6E8C; border-bottom: 2px solid #0F6E8C; font-weight: 600; }
-QTableWidget { border: none; gridline-color: #EDF0F3; selection-background-color: #D6E9F0; selection-color: #1F2933; background: white; }
-QHeaderView::section { background: #F7F8FA; border: none; border-bottom: 1px solid #E3E6EA; padding: 6px; color: #52606D; font-weight: 600; }
-QGroupBox { background: white; border: 1px solid #E3E6EA; border-radius: 10px; margin-top: 14px; padding: 14px 12px 10px 12px; font-weight: 600; }
-QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 6px; color: #0F6E8C; }
-QPushButton#peligro { color: #B42318; border-color: #F0C4C0; }
+TOKENS = {  # diseño: color, 8 px de ritmo, radio 8 px; contraste de texto ≥ 4.5:1 sobre blanco
+    "fondo": "#F4F6F8", "superficie": "#FFFFFF", "borde": "#DDE2E8", "borde_suave": "#EAEDF1", "texto": "#1B2733",
+    "suave": "#5B6673", "primario": "#0F6E8C", "primario_h": "#0B566E", "peligro": "#B42318", "foco": "#0B566E",
+}
+ESTILO = Template("""
+QMainWindow, QWidget#fondo { background: $fondo; }
+QLabel { color: $texto; }
+QLabel#titulo { font-size: 22px; font-weight: 700; }
+QLabel#muted { color: $suave; }
+QLabel#vacio_t { font-size: 17px; font-weight: 600; color: $texto; }
+QLabel#aviso { border-radius: 8px; border-left: 4px solid #2F7FA6; padding: 10px 14px; background: #E8F1F8; color: #0F3B57; }
+QLabel#aviso[nivel="warn"] { background: #FFF4D6; color: #5C4300; border-left-color: #D99A00; }
+QLabel#aviso[nivel="error"] { background: #FDE8E8; color: #8E1B1B; border-left-color: $peligro; }
+QPushButton { background: $superficie; border: 1px solid #C5CCD5; border-radius: 8px; padding: 7px 14px; color: $texto; }
+QPushButton:hover { background: #EEF2F6; }
+QPushButton:pressed { background: #E2E8EE; }
+QPushButton:focus { border: 2px solid $foco; padding: 6px 13px; }
+QPushButton:disabled { color: #8A94A0; background: $fondo; border-color: $borde; }
+QPushButton#primario { background: $primario; border-color: $primario; color: white; font-weight: 600; }
+QPushButton#primario:hover { background: $primario_h; }
+QPushButton#primario:pressed { background: #08485D; }
+QPushButton#primario:focus { border: 2px solid #072F3F; }
+QPushButton#primario:disabled { background: #9DBFCB; border-color: #9DBFCB; color: white; }
+QPushButton#peligro { color: $peligro; border-color: #E8B8B3; }
 QPushButton#peligro:hover { background: #FDE8E8; }
-QPushButton#peligro:disabled { color: #D8B4B0; background: #F5F6F8; }
-QCheckBox { spacing: 6px; }
-QListWidget { border: 1px solid #E3E6EA; border-radius: 6px; background: white; }
-"""
+QPushButton#peligro:disabled { color: #C9A6A2; background: $fondo; border-color: $borde; }
+QComboBox, QLineEdit, QDateEdit, QTimeEdit, QSpinBox, QDoubleSpinBox { background: $superficie; border: 1px solid #C5CCD5; border-radius: 8px; padding: 5px 8px; }
+QComboBox:focus, QLineEdit:focus, QDateEdit:focus, QTimeEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus { border: 2px solid $foco; padding: 4px 7px; }
+QComboBox:disabled, QLineEdit:disabled { background: $fondo; color: #8A94A0; }
+QTabWidget::pane { border: 1px solid $borde; border-radius: 10px; background: $superficie; top: -1px; }
+QTabBar::tab { padding: 9px 16px; color: $suave; border: none; border-bottom: 2px solid transparent; }
+QTabBar::tab:hover { color: $texto; }
+QTabBar::tab:selected { color: $primario; border-bottom: 2px solid $primario; font-weight: 600; }
+QTableWidget { outline: 0; border: none; gridline-color: $borde_suave; selection-background-color: #D6E9F0; selection-color: $texto; background: $superficie; alternate-background-color: #FAFBFC; }
+QHeaderView::section { background: #F7F8FA; border: none; border-bottom: 1px solid $borde; padding: 7px 8px; color: $suave; font-weight: 600; }
+QGroupBox { background: $superficie; border: 1px solid $borde; border-radius: 10px; margin-top: 14px; padding: 16px 12px 12px 12px; font-weight: 600; }
+QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 6px; color: $primario; }
+QCheckBox { spacing: 8px; color: $texto; }
+QListWidget { border: 1px solid $borde; border-radius: 8px; background: $superficie; padding: 4px; }
+QSplitter::handle { background: transparent; }
+QToolTip { background: #1B2733; color: white; border: none; padding: 6px 8px; }
+""").substitute(TOKENS)
 
 
 def abrir(ruta):
@@ -66,27 +82,68 @@ def abrir(ruta):
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(ruta)])
 
 
+NUMERO = re.compile(r"[+\-−]?\d+([.,]\d+)?( \(proy\.\))?")
+
+
 def tabla(columnas, editable=False):
     t = QTableWidget(0, len(columnas))
     t.setHorizontalHeaderLabels(columnas)
     if not editable:
         t.setEditTriggers(QAbstractItemView.NoEditTriggers)
     t.verticalHeader().setVisible(False)
-    t.horizontalHeader().setStretchLastSection(True)
+    t.setAlternatingRowColors(True)
+    t.setShowGrid(False)
+    t.verticalHeader().setDefaultSectionSize(34)
     return t
+
+
+def con_vacio(t, titulo, texto=""):
+    """Envuelve la tabla `t`: si no tiene filas, muestra un mensaje que guía en lugar de un espacio en blanco."""
+    pila = QStackedWidget()
+    pila.addWidget(t)
+    p = QWidget()
+    l = QVBoxLayout(p)
+    l.addStretch()
+    for txt, nombre in ((titulo, "vacio_t"), (texto, "muted")):
+        e = QLabel(txt, objectName=nombre, alignment=Qt.AlignCenter)
+        e.setWordWrap(True)
+        l.addWidget(e)
+    l.addStretch()
+    pila.addWidget(p)
+    t._pila = pila
+    return pila
 
 
 def llenar(t, filas, colores=None):
     t.blockSignals(True)
     t.setRowCount(len(filas))
+    n = t.columnCount()
+    numericas = [bool(filas)] * n
     for r, fila in enumerate(filas):
         for c, v in enumerate(fila):
-            it = QTableWidgetItem("" if v is None else str(v))
+            txt = "" if v is None else (f"{v:g}" if isinstance(v, float) else str(v))
+            it = QTableWidgetItem(txt)
+            if NUMERO.fullmatch(txt):
+                it.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            else:
+                numericas[c] = False
             if colores and (col := colores(r, c)):
                 it.setBackground(QColor(col))
             t.setItem(r, c, it)
-    t.resizeColumnsToContents()
+    h = t.horizontalHeader()
+    estirar = n - 1 if not numericas[n - 1] else 0
+    for c in range(n):
+        h.setSectionResizeMode(c, QHeaderView.Stretch if c == estirar else QHeaderView.ResizeToContents)
+        if t.horizontalHeaderItem(c):
+            t.horizontalHeaderItem(c).setTextAlignment((Qt.AlignRight if numericas[c] else Qt.AlignLeft) | Qt.AlignVCenter)
+    if hasattr(t, "_pila"):
+        t._pila.setCurrentIndex(0 if filas else 1)
     t.blockSignals(False)
+
+
+def signo(h):
+    """Horas con signo explícito; el cero se escribe sin signo."""
+    return "0" if abs(h) < 0.05 else f"{h:+g}"
 
 
 def hhmm(minutos):
@@ -140,6 +197,8 @@ class Ventana(QMainWindow):
         raiz = QWidget(objectName="fondo")
         self.setCentralWidget(raiz)
         v = QVBoxLayout(raiz)
+        v.setContentsMargins(16, 12, 16, 16)
+        v.setSpacing(10)
         cab = QHBoxLayout()
         cab.addWidget(QLabel("An~", objectName="titulo"))
         cab.addWidget(QLabel("Gestión de turnos · Central de Esterilización", objectName="muted"))
@@ -181,6 +240,12 @@ class Ventana(QMainWindow):
         for señal in (self.mes.currentIndexChanged, self.año.valueChanged, self.pestanas.currentChanged):
             señal.connect(lambda _: self._cambio_vista())
         self.f_inicio.dateChanged.connect(self._cambio_inicio)
+        for sp in self.findChildren(QSpinBox) + self.findChildren(QDoubleSpinBox):
+            sp.lineEdit().setTextMargins(6, 0, 0, 0)
+        for b in self.findChildren(QPushButton):
+            b.setCursor(Qt.PointingHandCursor)
+        self.pestanas.tabBar().setCursor(Qt.PointingHandCursor)
+        self.pestanas.setFocus()  # el primer foco no cae sobre un botón de navegación
         self.refrescar()
 
     # --- utilidades -----------------------------------------------------------------------------
@@ -255,15 +320,20 @@ class Ventana(QMainWindow):
     def _pestana_cuadro(self):
         w = QWidget()
         v = QVBoxLayout(w)
+        v.setContentsMargins(16, 14, 16, 16)
+        v.setSpacing(10)
         barra = QHBoxLayout()
+        barra.setSpacing(8)
         self.version = QComboBox()
         self.version.addItems(["Cambios", "Original"])
+        self.version.setToolTip("Cambios es la copia de trabajo; Original es la versión publicada")
         self.version.currentIndexChanged.connect(lambda _: self._ver_cuadro())
-        barra.addWidget(QLabel("Ver:"))
+        barra.addWidget(QLabel("Ver"))
         barra.addWidget(self.version)
         self.ver_puesto = QCheckBox("Mostrar puesto")
         self.ver_puesto.toggled.connect(lambda _: self._ver_cuadro())
         barra.addWidget(self.ver_puesto)
+        barra.addSpacing(16)
         self.b_generar = QPushButton("Generar…", objectName="primario")
         m = QMenu(self.b_generar)
         m.addAction("Generar desde cero (descarta mis cambios)", lambda: self.generar("cero"))
@@ -271,16 +341,26 @@ class Ventana(QMainWindow):
         m.addAction("Regenerar solo una semana…", self.generar_semana)
         self.b_generar.setMenu(m)
         barra.addWidget(self.b_generar)
-        for texto, f in (("Publicar como original", self.publicar), ("Restaurar desde original…", self.restaurar),
-                         ("Exportar Excel", self.exportar)):
+        for texto, f in (("Publicar como original", self.publicar), ("Restaurar desde original…", self.restaurar)):
             b = QPushButton(texto)
             b.clicked.connect(f)
             barra.addWidget(b)
+        barra.addStretch()
+        b = QPushButton("Exportar Excel")
+        b.clicked.connect(self.exportar)
+        barra.addWidget(b)
         self.b_cierre = QPushButton("Cerrar periodo")
+        self.b_cierre.setToolTip("Congela las horas del periodo en el banco de horas y deja el cuadro en solo lectura")
         self.b_cierre.clicked.connect(self._alternar_cierre)
         barra.addWidget(self.b_cierre)
-        barra.addStretch()
         v.addLayout(barra)
+
+        self.pila_cuadro = QStackedWidget()
+        cuerpo = QSplitter(Qt.Vertical)
+        arriba = QWidget()
+        va = QVBoxLayout(arriba)
+        va.setContentsMargins(0, 0, 0, 0)
+        va.setSpacing(8)
         self.grilla = Grilla()
         self.grilla.itemChanged.connect(self._celda_editada)
         self.grilla.soltada.connect(self._mover_celda)
@@ -291,17 +371,49 @@ class Ventana(QMainWindow):
         self.grilla.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.grilla.setContextMenuPolicy(Qt.CustomContextMenu)
         self.grilla.customContextMenuRequested.connect(self._menu_lote)
-        v.addWidget(self.grilla, 3)
-        v.addWidget(QLabel("Arrastra una celda sobre otra para intercambiarlas · clic derecho para asignar a varias "
-                           "seleccionadas · Ctrl+Z deshace · morado = día de estudio", objectName="muted"))
-        v.addWidget(QLabel(LEYENDA, objectName="muted"))
-        v.addWidget(QLabel("Alertas del cuadro (versión Cambios)", objectName="muted"))
-        self.alertas = QListWidget()
-        v.addWidget(self.alertas, 1)
-        self.lista_cambios = QListWidget()
-        v.addWidget(QLabel("Cambios respecto al original", objectName="muted"))
-        v.addWidget(self.lista_cambios, 1)
+        va.addWidget(self.grilla, 1)
+        self.leyenda = QLabel(objectName="muted")
+        self.leyenda.setTextFormat(Qt.RichText)
+        self.leyenda.setWordWrap(True)
+        va.addWidget(self.leyenda)
+        cuerpo.addWidget(arriba)
+        self.panel_inf = QTabWidget()
+        self.alertas, self.lista_cambios = QListWidget(), QListWidget()
+        self.panel_inf.addTab(self.alertas, "Alertas")
+        self.panel_inf.addTab(self.lista_cambios, "Cambios respecto al original")
+        cuerpo.addWidget(self.panel_inf)
+        cuerpo.setStretchFactor(0, 5)
+        cuerpo.setStretchFactor(1, 1)
+        cuerpo.setChildrenCollapsible(False)
+        cuerpo.setSizes([620, 150])
+        self.pila_cuadro.addWidget(cuerpo)
+
+        vacio = QWidget()
+        lv = QVBoxLayout(vacio)
+        lv.addStretch()
+        for txt, nombre in (("Este periodo aún no tiene cuadro", "vacio_t"),
+                            ("Genera una propuesta con las reglas, el personal y las novedades que ya registraste. "
+                             "Después puedes ajustar celda por celda.", "muted")):
+            e = QLabel(txt, objectName=nombre, alignment=Qt.AlignCenter)
+            e.setWordWrap(True)
+            lv.addWidget(e)
+        self.b_generar_vacio = QPushButton("Generar cuadro", objectName="primario")
+        self.b_generar_vacio.clicked.connect(lambda: self.generar("cero"))
+        lv.addWidget(self.b_generar_vacio, alignment=Qt.AlignCenter)
+        lv.addStretch()
+        self.pila_cuadro.addWidget(vacio)
+        v.addWidget(self.pila_cuadro, 1)
         self.pestanas.addTab(w, "Cuadro")
+
+    def _leyenda_html(self):
+        chip = lambda txt, bg, extra="": f'<span style="background-color:{bg}; color:#1B2733; {extra}">&nbsp;{txt}&nbsp;</span>'
+        partes = [chip(c, "#" + t.color) + f" {t.nombre}" for c, t in self.ctx.turnos.items()]
+        partes += [chip("L", "#FFFFFF") + " Libre", chip("VAC", "#D9D9D9") + " Novedad", chip("//", "#E3E6FA", "color:#4357A8;") + " Estudia",
+                   chip("M", AMARILLO) + " Cambiado", chip("1/4", "#FF9EA1") + " Falta cobertura"]
+        ayuda = "Arrastra una celda sobre otra para intercambiarlas · clic derecho: asignar a varias · Ctrl+Z: deshacer"
+        if self.ver_puesto.isChecked():
+            ayuda = LEYENDA + "<br>" + ayuda
+        return "&nbsp;&nbsp;&nbsp;".join(partes) + "<br>" + ayuda
 
     def _ver_cuadro(self):
         fechas, k = self.fechas, self.clave
@@ -309,6 +421,7 @@ class Ventana(QMainWindow):
         ver_orig = self.version.currentText() == "Original"
         cerrado = self.bd.periodo_cerrado(k)
         self.b_cierre.setText("Reabrir periodo" if cerrado else "Cerrar periodo")
+        self.leyenda.setText(self._leyenda_html())
         cuadro = orig if ver_orig else self.bd.asignaciones(k)
         puesto = {} if ver_orig else por_persona(self.bd.puestos(k))  # los puestos se calculan sobre «Cambios»
         gente = [p for p in self.ctx.colabs if p.en_solver]
@@ -342,7 +455,7 @@ class Ventana(QMainWindow):
                 if estudia:
                     it.setToolTip((it.toolTip() + "\n" if it.toolTip() else "") + "Estudia: " + " y ".join(x.lower() for x in estudia))
                     if cod == "L" and not nov:
-                        it.setBackground(QColor("#E3E6FA"))
+                        it.setBackground(QBrush(QColor("#9AA8E0"), Qt.BDiagPattern))  # trama: no se confunde con la noche
                 if not ver_orig and orig.get((p.id, f), "L") != cod:
                     it.setBackground(QColor(AMARILLO))
                 if ver_orig or cerrado or nov and cod == "L":
@@ -364,23 +477,22 @@ class Ventana(QMainWindow):
         for c, f in enumerate(fechas):
             if self.ctx.tipo_dia(f) == "DF":
                 g.horizontalHeaderItem(c).setBackground(QColor("#F8CBAD"))
-        g.resizeColumnsToContents()
+        g.horizontalHeader().setDefaultSectionSize(40)
+        g.setColumnWidth(len(fechas), 56)
         g.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
         g.blockSignals(False)
         hay_cuadro = bool(cuadro)
+        self.pila_cuadro.setCurrentIndex(0 if hay_cuadro else 1)
         self.alertas.clear()
         self.lista_cambios.clear()
-        if hay_cuadro:
-            for a in reglas.validar(self.ctx, self.bd.asignaciones(k), fechas, self.bd.fijos(k)):
-                self.alertas.addItem(a.texto)
-            for cid, f, antes, ahora in self.bd.diferencias(k):
-                self.lista_cambios.addItem(f"{self.nombres.get(cid, cid)} · {f:%d/%m}: {antes} → {ahora}")
-        for a in reglas.validar_catalogo(self.ctx.turnos):
-            self.alertas.addItem("Aviso: " + a.texto)
-        if not hay_cuadro and not self.aviso.text():  # no pisa el mensaje de la acción que acaba de ocurrir
-            self.avisar("Este periodo aún no tiene cuadro. Pulsa «Generar…».", "warn")
-        elif self.aviso.text().startswith("Este periodo aún"):
-            self.avisar("")
+        alertas = [a.texto for a in reglas.validar(self.ctx, self.bd.asignaciones(k), fechas, self.bd.fijos(k))] if hay_cuadro else []
+        alertas += ["Aviso: " + a.texto for a in reglas.validar_catalogo(self.ctx.turnos)]
+        cambios = [f"{self.nombres.get(cid, cid)} · {f:%d/%m}: {antes} → {ahora}"
+                   for cid, f, antes, ahora in self.bd.diferencias(k)] if hay_cuadro else []
+        self.alertas.addItems(alertas or ["Todo en orden: sin alertas."])
+        self.lista_cambios.addItems(cambios or ["Sin cambios respecto al original."])
+        self.panel_inf.setTabText(0, f"Alertas ({len(alertas)})")
+        self.panel_inf.setTabText(1, f"Cambios respecto al original ({len(cambios)})")
 
     def _gente(self):
         return [p for p in self.ctx.colabs if p.en_solver]
@@ -558,7 +670,7 @@ class Ventana(QMainWindow):
         self.t_personal.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.t_personal.setSelectionMode(QAbstractItemView.SingleSelection)
         self.t_personal.itemSelectionChanged.connect(self._cargar_persona)
-        izq.addWidget(self.t_personal)
+        izq.addWidget(con_vacio(self.t_personal, "Aún no hay colaboradores", "Usa «+ Nuevo colaborador» para agregar al personal del servicio."))
         h.addLayout(izq, 3)
 
         caja = QGroupBox("Colaborador")
@@ -713,11 +825,17 @@ class Ventana(QMainWindow):
     # --- novedades ------------------------------------------------------------------------------
     def _pestana_novedades(self):
         w = QWidget()
-        v = QVBoxLayout(w)
+        h = QHBoxLayout(w)
+        h.setContentsMargins(16, 14, 16, 16)
+        h.setSpacing(16)
         self.t_nov = tabla(["Colaborador", "Tipo", "Desde", "Hasta", "Nota"])
         self.t_nov.setSelectionBehavior(QAbstractItemView.SelectRows)
-        v.addWidget(self.t_nov, 2)
-        f = QFormLayout()
+        self.t_nov.setSelectionMode(QAbstractItemView.SingleSelection)
+        h.addWidget(con_vacio(self.t_nov, "Sin novedades registradas", "Registra vacaciones, incapacidades, licencias o "
+                                                                        "días libres para que el generador los respete."), 3)
+        caja = QGroupBox("Nueva novedad")
+        caja.setMinimumWidth(420)
+        f = QFormLayout(caja)
         self.n_colab, self.n_tipo = QComboBox(), QComboBox()
         self.n_tipo.addItems(TIPOS_NOVEDAD)
         self.n_desde, self.n_hasta = QDateEdit(QDate.currentDate()), QDateEdit(QDate.currentDate())
@@ -725,18 +843,19 @@ class Ventana(QMainWindow):
             d.setCalendarPopup(True)
             d.setDisplayFormat("dd/MM/yyyy")
         self.n_nota = QLineEdit()
+        self.n_nota.setPlaceholderText("Opcional")
         for et, wd in (("Colaborador", self.n_colab), ("Tipo", self.n_tipo), ("Desde", self.n_desde),
                        ("Hasta", self.n_hasta), ("Nota", self.n_nota)):
             f.addRow(et, wd)
-        v.addLayout(f)
         bs = QHBoxLayout()
-        b1, b2 = QPushButton("Agregar novedad", objectName="primario"), QPushButton("Borrar la seleccionada")
+        b1, b2 = QPushButton("Agregar novedad", objectName="primario"), QPushButton("Borrar la seleccionada", objectName="peligro")
         b1.clicked.connect(self._agregar_novedad)
         b2.clicked.connect(self._borrar_novedad)
         bs.addWidget(b1)
         bs.addWidget(b2)
         bs.addStretch()
-        v.addLayout(bs)
+        f.addRow(bs)
+        h.addWidget(caja, 0, Qt.AlignTop)
         self.pestanas.addTab(w, "Novedades")
 
     def _ver_novedades(self):
@@ -769,7 +888,7 @@ class Ventana(QMainWindow):
         w = QWidget()
         v = QVBoxLayout(w)
         self.t_puestos = tabla(["Día", "Franja"] + [PUESTOS[p] for p in (1, 2, 3, 4, 5)] + ["Apoyo"])
-        v.addWidget(self.t_puestos, 3)
+        v.addWidget(con_vacio(self.t_puestos, "Sin puestos asignados", "Se calculan al generar el cuadro del periodo."), 3)
         v.addWidget(QLabel("Capacitación del mes", objectName="muted"))
         self.l_cap = QListWidget()
         v.addWidget(self.l_cap, 1)
@@ -800,7 +919,7 @@ class Ventana(QMainWindow):
         v = QVBoxLayout(w)
         self.t_horas = tabla(["Colaborador", "Contratadas", "Trabajadas", "Pendientes", "Adicionales", "Extra (h)",
                               "Nocturnas (h)", "Dom/fest (h)", "Días dom/fest", "Habitual", "Horas equivalentes"])
-        v.addWidget(self.t_horas)
+        v.addWidget(con_vacio(self.t_horas, "Sin horas que mostrar", "Genera el cuadro de este periodo en la pestaña Cuadro."), 1)
         self.l_regimen = QLabel("", objectName="muted")
         self.l_regimen.setWordWrap(True)
         v.addWidget(self.l_regimen)
@@ -839,7 +958,7 @@ class Ventana(QMainWindow):
         self.t_banco.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.t_banco.setSelectionMode(QAbstractItemView.SingleSelection)
         self.t_banco.itemSelectionChanged.connect(self._ver_movimientos)
-        izq.addWidget(self.t_banco)
+        izq.addWidget(con_vacio(self.t_banco, "Sin personal para mostrar", "Agrega colaboradores en la pestaña Personal."))
         h.addLayout(izq, 3)
         caja = QGroupBox("Movimientos de la persona")
         caja.setMinimumWidth(470)
@@ -847,7 +966,7 @@ class Ventana(QMainWindow):
         self.t_movs = tabla(["Fecha", "Concepto", "Horas", "Detalle"])
         self.t_movs.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.t_movs.setSelectionMode(QAbstractItemView.SingleSelection)
-        v.addWidget(self.t_movs)
+        v.addWidget(con_vacio(self.t_movs, "Sin movimientos", "Selecciona una persona. Los cierres de periodo y los movimientos que registres aparecen aquí."))
         f = QFormLayout()
         self.m_fecha = QDateEdit(QDate.currentDate())
         self.m_fecha.setCalendarPopup(True)
@@ -892,7 +1011,7 @@ class Ventana(QMainWindow):
         self.t_hist.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.t_hist.setSelectionMode(QAbstractItemView.SingleSelection)
         self.t_hist.itemDoubleClicked.connect(lambda _: self._ir_al_periodo())
-        v.addWidget(self.t_hist)
+        v.addWidget(con_vacio(self.t_hist, "Aún no hay esquemas con cuadro", "Cuando generes un cuadro, el periodo queda en este historial."))
         v.addWidget(QLabel("«Saldo del periodo» = horas trabajadas − contratadas de todo el personal; solo existe al cerrar. "
                            "Doble clic abre el periodo en el cuadro.", objectName="muted"))
         self.sub_banco.addTab(w, "Historial de esquemas")
@@ -907,8 +1026,8 @@ class Ventana(QMainWindow):
         self._banco = flujo.estado_banco(self.bd, *self.periodo())
         verde, rojo = "#E3F4E8", "#FDE8E8"
         color = lambda h: verde if h >= 0.05 else (rojo if h <= -0.05 else None)
-        llenar(self.t_banco, [(b["nombre"], f"{b['anterior']:+g}", f"{b['periodo']:+g}" + ("" if b["cerrado"] else " (proy.)"),
-                               f"{b['total']:+g}", self._texto_saldo(b["total"])) for b in self._banco],
+        llenar(self.t_banco, [(b["nombre"], signo(b["anterior"]), signo(b["periodo"]) + ("" if b["cerrado"] else " (proy.)"),
+                               signo(b["total"]), self._texto_saldo(b["total"])) for b in self._banco],
                lambda r, c: color(self._banco[r]["total"]) if c >= 3 else None)
         for r, b in enumerate(self._banco):
             if b["id"] == self.persona_banco:
@@ -917,7 +1036,7 @@ class Ventana(QMainWindow):
         self._pista_movimiento(self.m_concepto.currentText())
         self._hist = flujo.historial(self.bd)
         llenar(self.t_hist, [(flujo.etiqueta(h["inicio"], h["fin"]), h["dias"], "Cerrado" if h["cerrado"] else "Abierto",
-                              h["personas"], f"{h['trabajadas']:g}", "—" if h["saldo"] is None else f"{h['saldo']:+g}",
+                              h["personas"], f"{h['trabajadas']:g}", "—" if h["saldo"] is None else signo(h["saldo"]),
                               h["cambios"], h["alertas"]) for h in self._hist],
                lambda r, c: "#EEF0F2" if self._hist[r]["cerrado"] else ("#FDE8E8" if c == 7 and self._hist[r]["alertas"] else None))
 
@@ -935,7 +1054,7 @@ class Ventana(QMainWindow):
             filas += [(i, f, c, h, n) for i, _, f, h, c, n in self.bd.movimientos(self.persona_banco)]
         filas.sort(key=lambda x: (x[1], x[0] or 0))
         self._movs = filas
-        llenar(self.t_movs, [(f"{f:%d/%m/%Y}", c, f"{h:+g}", n) for _, f, c, h, n in filas])
+        llenar(self.t_movs, [(f"{f:%d/%m/%Y}", c, signo(h), n) for _, f, c, h, n in filas])
         self.b_borrar_mov.setEnabled(bool(filas))
 
     def _pista_movimiento(self, concepto):
@@ -1019,7 +1138,7 @@ class Ventana(QMainWindow):
         self.t_tabla.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.t_tabla.setSelectionMode(QAbstractItemView.SingleSelection)
         self.t_tabla.itemSelectionChanged.connect(self._cargar_turno)
-        izq.addWidget(self.t_tabla)
+        izq.addWidget(con_vacio(self.t_tabla, "Aún no hay turnos", "Usa «+ Nuevo turno» para crear el primero."))
         h.addLayout(izq, 3)
         caja = QGroupBox("Turno")
         caja.setMinimumWidth(470)
@@ -1069,60 +1188,78 @@ class Ventana(QMainWindow):
         self.sub.addTab(w, "Turnos")
 
         w = QWidget()
-        v = QVBoxLayout(w)
-        f = QFormLayout()
+        g = QGridLayout(w)
+        g.setContentsMargins(16, 14, 16, 16)
+        g.setHorizontalSpacing(16)
+        g.setVerticalSpacing(8)
+
+        def spin(minimo, maximo, sufijo="", especial="", tip=""):
+            x = QSpinBox()
+            x.setRange(minimo, maximo)
+            x.setFixedWidth(130)
+            if sufijo:
+                x.setSuffix(sufijo)
+            if especial:
+                x.setSpecialValueText(especial)
+            if tip:
+                x.setToolTip(tip)
+            return x
+
+        def tarjeta(titulo, ayuda):
+            caja = QGroupBox(titulo)
+            f = QFormLayout(caja)
+            f.setVerticalSpacing(10)
+            a = QLabel(ayuda, objectName="muted")
+            a.setWordWrap(True)
+            f.addRow(a)
+            return caja, f
+
         self.s_cob = {}
+        caja1, f = tarjeta("Cobertura requerida", "Personas que deben estar cubiertas en cada franja.")
         for td, nombre in (("LS", "Lunes a sábado"), ("DF", "Domingo y festivo")):
             fila = QHBoxLayout()
             for fr, et in (("M", "Mañana"), ("T", "Tarde"), ("N", "Noche")):
-                s = QSpinBox()
-                s.setRange(0, 30)
-                self.s_cob[td, fr] = s
+                s_ = spin(0, 30)
+                s_.setFixedWidth(64)
+                self.s_cob[td, fr] = s_
                 fila.addWidget(QLabel(et))
-                fila.addWidget(s)
+                fila.addWidget(s_)
+                fila.addSpacing(10)
             fila.addStretch()
             f.addRow(nombre, fila)
+        caja2, f = tarjeta("Esquema y horas", "Cada cuánto se programa y cómo se promedian las horas (art. 165 CST).")
         self.s_modo = QComboBox()
-        self.s_modo.addItem("Mes calendario (del 1 al último día)", "mes")
-        self.s_modo.addItem("Semanas completas desde un lunes", "semanas")
-        f.addRow("Esquema de programación", self.s_modo)
-        self.s_semanas = QSpinBox()
-        self.s_semanas.setRange(1, 8)
-        self.s_semanas.setSuffix(" semana(s)")
-        f.addRow("Duración del esquema por semanas", self.s_semanas)
-        self.s_vent = QSpinBox()
-        self.s_vent.setRange(1, 8)
-        f.addRow("Semanas de la ventana (art. 165)", self.s_vent)
-        self.s_noches = QSpinBox()
-        self.s_noches.setRange(0, 7)
-        self.s_noches.setSpecialValueText("Sin tope")
-        f.addRow("Máximo de noches en racha (NC, L, NC, L…)", self.s_noches)
-        self.s_c = QSpinBox()
-        self.s_c.setRange(0, 7)
-        self.s_c.setSpecialValueText("Sin tope")
-        f.addRow("Máximo de corridos (C) seguidos", self.s_c)
-        self.s_igual = QSpinBox()
-        self.s_igual.setRange(0, 7)
-        self.s_igual.setSpecialValueText("Sin tope")
-        f.addRow("Máximo del mismo turno (M, T…) seguido", self.s_igual)
-        self.s_libre = QSpinBox()
-        self.s_libre.setRange(0, 3)
-        self.s_libre.setSpecialValueText("Sin regla")
-        self.s_libre.setSuffix(" día(s)")
-        f.addRow("Libre obligatorio después de una noche", self.s_libre)
-        self.s_sem = QSpinBox()
-        self.s_sem.setRange(1, 3)
-        self.s_sem.setSuffix(" día(s)")
-        f.addRow("Mínimo de días libres por semana", self.s_sem)
-        self.s_fines = QSpinBox()
-        self.s_fines.setRange(0, 4)
-        self.s_fines.setSpecialValueText("Sin regla")
-        f.addRow("Fines de semana libres por esquema (sáb. y dom.)", self.s_fines)
-        v.addLayout(f)
-        b = QPushButton("Guardar", objectName="primario")
+        self.s_modo.addItem("Mes calendario", "mes")
+        self.s_modo.addItem("Semanas desde un lunes", "semanas")
+        self.s_modo.setFixedWidth(200)
+        self.s_semanas = spin(1, 8, " semana(s)")
+        self.s_vent = spin(1, 8, " semana(s)")
+        for et, wd in (("Esquema", self.s_modo), ("Duración por semanas", self.s_semanas), ("Ventana de horas", self.s_vent)):
+            f.addRow(et, wd)
+        caja3, f = tarjeta("Descansos", "Se cumplen por defecto; una edición manual puede saltarlos en un caso puntual.")
+        self.s_libre = spin(0, 3, " día(s)", "Sin regla")
+        self.s_sem = spin(1, 3, " día(s)")
+        self.s_fines = spin(0, 4, "", "Sin regla", "Sábado y domingo libres, por persona y esquema")
+        for et, wd in (("Libre después de una noche", self.s_libre), ("Libres por semana (mínimo)", self.s_sem),
+                       ("Fines de semana libres", self.s_fines)):
+            f.addRow(et, wd)
+        caja4, f = tarjeta("Límites de repetición", "Evitan rachas pesadas y reparten mejor los turnos.")
+        self.s_noches = spin(0, 7, "", "Sin tope", "Noches en racha NC, L, NC, L…")
+        self.s_c = spin(0, 7, "", "Sin tope")
+        self.s_igual = spin(0, 7, "", "Sin tope", "Mismo turno de 6 h (M o T) en días seguidos")
+        for et, wd in (("Noches en racha (NC, L, NC…)", self.s_noches), ("Corridos (C) seguidos", self.s_c),
+                       ("Mismo turno (M, T) seguido", self.s_igual)):
+            f.addRow(et, wd)
+        g.addWidget(caja1, 0, 0)
+        g.addWidget(caja2, 0, 1)
+        g.addWidget(caja3, 1, 0)
+        g.addWidget(caja4, 1, 1)
+        b = QPushButton("Guardar cambios", objectName="primario")
         b.clicked.connect(self._guardar_reglas)
-        v.addWidget(b, alignment=Qt.AlignLeft)
-        v.addStretch()
+        g.addWidget(b, 2, 0, 1, 2, Qt.AlignLeft)
+        g.setRowStretch(3, 1)
+        g.setColumnStretch(0, 1)
+        g.setColumnStretch(1, 1)
         self.sub.addTab(w, "Cobertura y reglas")
 
         w = QWidget()

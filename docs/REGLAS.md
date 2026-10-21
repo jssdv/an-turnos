@@ -33,6 +33,10 @@ Estado: v1. Todo lo marcado **[confirmar]** lo debe validar la coordinación, RR
 - Trabajo en día de descanso: ocasional hasta 2 al mes, habitual desde 3 (afecta el compensatorio). La app reporta el conteo.
 - Datos personales (Ley 1581 de 2012): la base `turnos.db` es local y no se versiona.
 
+## Banco de horas
+
+El banco lleva, por persona, **horas trabajadas − horas contratadas** de cada periodo cerrado, más los movimientos manuales (saldo inicial, compensaciones, pagos, ajustes). Positivo significa que la institución le debe horas a la persona; negativo, que la persona debe horas. Al cerrar se guarda una foto de las horas contratadas y trabajadas, así que cambios posteriores de jornada o de tarifas no reescriben el historial. Las horas contratadas descuentan las novedades del periodo. Qué se hace con un saldo (compensarlo, pagarlo, trasladarlo) es una decisión de la coordinación y de RR. HH. **[confirmar]**; An~ solo lo registra.
+
 ## Esquema de programación
 
 No todos los servicios programan por mes calendario. An~ trabaja con **periodos**: un **mes calendario** (del 1 al último día) o **N semanas completas desde un lunes** (4 por defecto). Se elige en Parámetros → Cobertura y reglas. Los descansos entre un periodo y el siguiente se respetan (por ejemplo, una noche del domingo deja libre el lunes siguiente aunque cambie de periodo) y la equidad arrastra lo acumulado de los periodos anteriores.
