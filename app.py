@@ -1,4 +1,4 @@
-"""Turnos Esterilización: personal, novedades, cuadro mensual, puestos, horas y recargos."""
+"""Cuadrante: personal, novedades, cuadro mensual, puestos, horas y recargos."""
 import os
 import subprocess
 import sys
@@ -114,9 +114,9 @@ class Trabajo(QThread):
 class Ventana(QMainWindow):
     def __init__(self, ruta_bd=BD_RUTA):
         super().__init__()
-        self.setWindowTitle("Turnos · Esterilización")
+        self.setWindowTitle("Cuadrante · Esterilización")
         self.resize(1360, 860)
-        self.cfg = QSettings("Esterilizacion", "Turnos")
+        self.cfg = QSettings("Cuadrante", "Cuadrante")
         self.bd = db.BD(str(ruta_bd))
         self.trabajo = None
         hoy = date.today()
@@ -124,7 +124,8 @@ class Ventana(QMainWindow):
         self.setCentralWidget(raiz)
         v = QVBoxLayout(raiz)
         cab = QHBoxLayout()
-        cab.addWidget(QLabel("Turnos · Esterilización", objectName="titulo"))
+        cab.addWidget(QLabel("Cuadrante", objectName="titulo"))
+        cab.addWidget(QLabel("Central de Esterilización", objectName="muted"))
         cab.addStretch()
         self.mes = QComboBox()
         self.mes.addItems(MESES)

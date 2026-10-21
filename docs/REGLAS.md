@@ -1,5 +1,7 @@
 # Reglas del servicio y marco legal
 
+[← Volver al inicio](../README.md) · [Arquitectura](ARQUITECTURA.md) · [Hoja de ruta](HOJA_DE_RUTA.md)
+
 Estado: v1. Todo lo marcado **[confirmar]** lo debe validar la coordinación, RR. HH. o jurídico.
 
 ## Del servicio

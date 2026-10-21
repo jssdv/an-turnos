@@ -1,6 +1,6 @@
 #!/bin/bash
 # Arma la carpeta portátil para Windows (sin instalar nada en el PC destino).
-#   ./empaquetar.sh          -> dist/TurnosEsterilizacion.zip   (la app completa)
+#   ./empaquetar.sh          -> dist/Cuadrante.zip   (la app completa)
 #   ./empaquetar.sh prueba   -> dist/PruebaPC.zip               (prueba que OR-Tools y Qt corren en el PC corporativo)
 # Se corre en el Mac: baja el Python "embeddable" oficial y las librerías ya compiladas para Windows.
 set -euo pipefail
@@ -10,7 +10,7 @@ PY_VER=3.13.16
 PY_TAG=313
 CACHE=.build_cache
 MODO=${1:-app}
-NOMBRE=$([ "$MODO" = prueba ] && echo PruebaPC || echo TurnosEsterilizacion)
+NOMBRE=$([ "$MODO" = prueba ] && echo PruebaPC || echo Cuadrante)
 DEST=dist/$NOMBRE
 
 mkdir -p "$CACHE/wheels"
@@ -47,7 +47,7 @@ EOF
 else
   cp app.py dominio.py db.py reglas.py recargos.py solver.py puestos.py capacitacion.py exportar.py flujo.py "$DEST/app/"
 fi
-printf '@echo off\r\nstart "" "%%~dp0python\\pythonw.exe" "%%~dp0app\\app.py"\r\n' > "$DEST/$( [ "$MODO" = prueba ] && echo 'Probar' || echo 'Turnos Esterilizacion').bat"
+printf '@echo off\r\nstart "" "%%~dp0python\\pythonw.exe" "%%~dp0app\\app.py"\r\n' > "$DEST/$( [ "$MODO" = prueba ] && echo 'Probar' || echo 'Cuadrante').bat"
 
 (cd dist && zip -qr "$NOMBRE.zip" "$NOMBRE")
 du -sh "$DEST" "dist/$NOMBRE.zip"

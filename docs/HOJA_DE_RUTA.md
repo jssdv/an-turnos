@@ -1,5 +1,7 @@
 # Hoja de ruta
 
+[← Volver al inicio](../README.md) · [Reglas](REGLAS.md) · [Arquitectura](ARQUITECTURA.md)
+
 Estado a oct-2026. v1 está construida; falta validarla con la coordinación y en el PC corporativo.
 
 ## Antes de seguir creciendo
