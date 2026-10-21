@@ -1,9 +1,9 @@
 <div align="center">
 
-# Cuadrante
+# An~
 
-**Programación de turnos para la Central de Esterilización**<br>
-Genera el cuadro mensual, asigna los puestos del día y calcula horas y recargos según el Código Sustantivo del Trabajo.
+**Gestión de turnos y de los procesos que giran alrededor**<br>
+Hoy programa la Central de Esterilización: genera el cuadro mensual, asigna puestos y calcula horas y recargos según el Código Sustantivo del Trabajo. Está pensada para crecer a más servicios y a procesos administrativos vinculados.
 
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![Qt](https://img.shields.io/badge/Interfaz-PySide6%20(Qt)-41CD52?logo=qt&logoColor=white)
@@ -11,11 +11,11 @@ Genera el cuadro mensual, asigna los puestos del día y calcula horas y recargos
 ![SQLite](https://img.shields.io/badge/Datos-SQLite-003B57?logo=sqlite&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-portátil%2C%20sin%20instalar-0078D6?logo=windows&logoColor=white)
 
-[Guía de uso](docs/GUIA_USUARIO.md) · [Reglas y marco legal](docs/REGLAS.md) · [Arquitectura](docs/ARQUITECTURA.md) · [Hoja de ruta](docs/HOJA_DE_RUTA.md)
+[Guía de uso](docs/GUIA_USUARIO.md) · [Visión](docs/VISION.md) · [Reglas y marco legal](docs/REGLAS.md) · [Arquitectura](docs/ARQUITECTURA.md) · [Hoja de ruta](docs/HOJA_DE_RUTA.md)
 
 <br>
 
-<img src="docs/img/cuadro.png" alt="Cuadro mensual generado por Cuadrante" width="900">
+<img src="docs/img/cuadro.png" alt="Cuadro mensual generado por An~" width="900">
 
 <sub>Cuadro de octubre de 2026 con datos de ejemplo: cobertura completa, descansos de 12 h y novedades (VAC, INC) respetadas.</sub>
 
@@ -25,9 +25,19 @@ Genera el cuadro mensual, asigna los puestos del día y calcula horas y recargos
 
 ## Por qué existe
 
-Hoy el cuadro de turnos se arma a mano en Excel: ciclos que rotan, 12 colaboradores con distintas restricciones, estudiantes con horarios fijos, vacaciones, incapacidades… y después hay que contar horas y recargos. **Cuadrante** hace ese trabajo en segundos, deja que la coordinadora ajuste lo que quiera y explica cada alerta.
+En muchos servicios de un hospital el cuadro de turnos se arma a mano en Excel: ciclos que rotan, personas con restricciones, estudiantes con horarios fijos, vacaciones, incapacidades… y después hay que contar horas y recargos. **An~** hace ese trabajo en segundos, deja que la coordinadora ajuste lo que quiera y explica cada alerta.
 
 Está pensada para una persona no técnica en un **PC corporativo sin permisos de administrador**: se entrega como una carpeta que se descomprime y se abre con doble clic.
+
+## Hacia dónde va
+
+La v1 resuelve un servicio, la **Central de Esterilización**, y lo hace con reglas y turnos como *datos* editables, no como código. Esa es la base para convertirla en una herramienta general de gestión de turnos:
+
+- **Más servicios** con la misma estructura, cada uno con sus turnos, cobertura y puestos.
+- **Procesos administrativos vinculados**: novedades, solicitudes y permutas, capacitaciones, y el cierre de horas y recargos para nómina.
+- **Más personas usándola**, con aprobaciones y trazabilidad.
+
+El plan, los principios y las preguntas abiertas están en [docs/VISION.md](docs/VISION.md). Hoy el alcance es solo Esterilización.
 
 ## Qué hace
 
@@ -78,23 +88,23 @@ El solver cumple las reglas duras y optimiza el resto (horas de la ventana, rota
 **Desarrollo (Mac o Linux)**
 
 ```bash
-git clone https://github.com/jssdv/cuadrante.git
-cd cuadrante
+git clone https://github.com/jssdv/an-turnos.git
+cd an-turnos
 python3 -m venv .venv
 .venv/bin/pip install PySide6-Essentials openpyxl ortools
 .venv/bin/python app.py
 ```
 
-En Mac también sirve el doble clic en `Cuadrante.command`: prepara el entorno la primera vez y abre la app. Los datos quedan en `turnos.db`, junto a `app.py`.
+En Mac también sirve el doble clic en `An.command`: prepara el entorno la primera vez y abre la app. Los datos quedan en `turnos.db`, junto a `app.py`.
 
 **Paquete para Windows** (se arma desde el Mac)
 
 ```bash
 ./empaquetar.sh prueba   # dist/PruebaPC.zip: comprueba Qt y OR-Tools en el PC corporativo
-./empaquetar.sh          # dist/Cuadrante.zip: la app completa (≈ 150 MB comprimida)
+./empaquetar.sh          # dist/An.zip: la app completa (≈ 150 MB comprimida)
 ```
 
-En el PC destino basta descomprimir y abrir `Cuadrante.bat`. No se instala nada.
+En el PC destino basta descomprimir y abrir `An.bat`. No se instala nada.
 
 **Pruebas**
 
@@ -107,6 +117,7 @@ En el PC destino basta descomprimir y abrir `Cuadrante.bat`. No se instala nada.
 | Documento | Para quién | Contenido |
 |---|---|---|
 | [Guía de uso](docs/GUIA_USUARIO.md) | Coordinación | El mes paso a paso: personal, novedades, generar, ajustar, exportar |
+| [Visión](docs/VISION.md) | Todos | Hacia dónde crece An~: más servicios y procesos vinculados |
 | [Reglas y marco legal](docs/REGLAS.md) | Coordinación, RR. HH., jurídico | Reglas del servicio, normativa aplicada y puntos por confirmar |
 | [Arquitectura](docs/ARQUITECTURA.md) | Desarrollo | Módulos, datos, modelo del solver, empaquetado |
 | [Hoja de ruta](docs/HOJA_DE_RUTA.md) | Todos | Qué falta validar y hacia dónde crece |

@@ -2,7 +2,7 @@
 
 [← Volver al inicio](../README.md) · [Reglas](REGLAS.md) · [Hoja de ruta](HOJA_DE_RUTA.md)
 
-Esta guía recorre un mes completo. Todo se hace dentro de Cuadrante; no hace falta tocar Excel hasta el final.
+Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta tocar Excel hasta el final.
 
 ## Antes de empezar (una sola vez)
 
@@ -28,7 +28,7 @@ Pestaña **Cuadro** → elige el mes → **Generar… → Generar desde cero**. 
 
 ### 3. Ajustar
 
-Haz doble clic en una celda y escribe el código del turno (`M`, `T`, `C`, `NC`) o `L` para libre. Cuadrante:
+Haz doble clic en una celda y escribe el código del turno (`M`, `T`, `C`, `NC`) o `L` para libre. An~:
 
 - guarda el cambio como **fijo** (el solver ya no lo mueve),
 - lo marca en **amarillo** frente al original,
@@ -79,4 +79,4 @@ Si el archivo ya existe, guarda `v2`, `v3`… y no sobrescribe nada.
 
 **Cambié un horario de turno y salieron alertas.** Es lo esperado: el cuadro existente se revalida con los horarios nuevos. Regenera el mes o la semana.
 
-**¿Qué hago si algo falla?** El detalle queda en `errores.log`, junto a la app. Envíalo a quien mantiene Cuadrante.
+**¿Qué hago si algo falla?** El detalle queda en `errores.log`, junto a la app. Envíalo a quien mantiene An~.
