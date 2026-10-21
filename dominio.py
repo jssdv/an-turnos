@@ -132,7 +132,7 @@ class Contexto:
     fest: dict  # fecha -> nombre
     libre_tras_noche: int = 1  # días libres obligatorios después de una noche (0 = sin regla)
     libres_semana: int = 1  # días libres mínimos en cada semana completa
-    fines_libres: int = 1  # fines de semana completos (sábado y domingo) libres al mes por persona (0 = sin regla)
+    fines_libres: int = 1  # fines de semana completos (sábado y domingo) libres por periodo y persona (0 = sin regla)
     max_noches: int = 2  # noches seguidas del tipo NC-L-NC-L… (separadas por el libre posterior); 0 = sin tope
     max_c: int = 2  # turnos corridos (de 12 h de día) en días consecutivos; 0 = sin tope
     max_igual: int = 3  # mismo turno de 6 h (M, T…) en días consecutivos; 0 = sin tope

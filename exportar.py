@@ -10,8 +10,6 @@ import recargos
 from dominio import DIAS
 from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
 
-MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre",
-         "Noviembre", "Diciembre"]
 ABREV_NOVEDAD = {"Vacaciones": "VAC", "Incapacidad": "INC", "Licencia": "LIC", "Libre solicitado": "LIB"}
 ENCABEZADO = PatternFill("solid", fgColor="1F3864")
 AMARILLO = PatternFill("solid", fgColor="FFFF00")
@@ -172,7 +170,7 @@ def exportar_horas(carpeta, mes_txt, ctx, tarifas, cuadro, fechas, ventana_sem):
     nota = wb.create_sheet("Régimen")
     f0 = fechas[0]
     filas = [("Régimen de horas", f"Art. 165 CST: promedio en ventanas de {ventana_sem} semanas contra la jornada contratada."),
-             ("Ventana", f"Contada desde el primer día del mes; no cruza meses."),
+             ("Ventana", f"Contada desde el primer día del periodo; no cruza periodos."),
              ("Pendientes / adicionales", "Déficit o exceso de la ventana frente a lo contratado (descontando novedades)."),
              ("Horas extra", "Se toman de las últimas horas trabajadas de la ventana."),
              ("Dominical/festivo", f"{recargos.tarifa(tarifas, 'dominical', f0)} %"),

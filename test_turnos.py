@@ -13,6 +13,9 @@ import solver
 from dominio import Colaborador, Novedad, Turno, festivos
 
 
+P = flujo.periodo_mes(2026, 10)
+K = flujo.clave(*P)  # «2026-10-01/2026-10-31»
+
 def cuadro_vacio(bd):
     return bd.contexto(2026)
 
@@ -155,26 +158,73 @@ def test_rachas():
     assert len(avisos({(a.id, dias[i]): "C" for i in (0, 1, 2)})) == 1 and avisos({(a.id, dias[i]): "C" for i in (0, 1)}) == []
 
 
+def test_periodos():
+    ini, fin = flujo.periodo_mes(2026, 2)
+    assert (ini, fin) == (date(2026, 2, 1), date(2026, 2, 28)) and len(flujo.fechas(ini, fin)) == 28
+    lunes = date(2026, 10, 5)
+    assert lunes.weekday() == 0 and flujo.periodo_semanas(lunes, 4) == (lunes, date(2026, 11, 1))
+    assert flujo.desde_clave(flujo.clave(lunes, date(2026, 11, 1))) == (lunes, date(2026, 11, 1))
+    assert flujo.etiqueta(*P) == "Octubre 2026" and flujo.etiqueta(lunes, date(2026, 11, 1)) == "05-10 AL 01-11 2026"
+
+
+def test_migracion_v1():
+    """Una base con claves «AAAA-MM» pasa a claves de periodo sin perder el cuadro."""
+    import sqlite3
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = tmp + "/v1.db"
+        bd = db.BD(ruta)
+        bd.c.execute("INSERT INTO asignacion VALUES ('2026-02','cambios',1,'2026-02-03','M','solver',0)")
+        bd.c.execute("INSERT INTO puesto_dia VALUES ('2026-02','2026-02-03','M',2,1,1)")
+        bd.c.execute("DELETE FROM parametro WHERE clave IN ('periodo_modo','periodo_semanas')")
+        bd.c.execute("PRAGMA user_version = 1")
+        bd.c.commit()
+        bd.c.close()
+        bd = db.BD(ruta)
+        k = "2026-02-01/2026-02-28"
+        assert bd.periodos() == [k] and bd.asignaciones(k) == {(1, date(2026, 2, 3)): "M"} and len(bd.puestos(k)) == 1
+        assert bd.param("periodo_modo") == "mes" and bd.c.execute("PRAGMA user_version").fetchone()[0] == 2
+
+
+def test_esquema_por_semanas():
+    """4 semanas desde un lunes: el cuadro respeta los descansos con el periodo anterior y no usa el mes."""
+    bd = db.BD()
+    for i in range(13):
+        bd.guardar_colaborador(Colaborador(0, f"P{i}"))
+    lunes = date(2026, 10, 5)
+    ini, fin = flujo.periodo_semanas(lunes, 4)
+    # el periodo anterior terminó el domingo con una noche de la persona 1: el lunes 5 debe quedar libre
+    bd.guardar_cuadro(flujo.clave(lunes - timedelta(days=28), ini - timedelta(days=1)), {(1, ini - timedelta(days=1)): "NC"})
+    info = flujo.generar(bd, ini, fin, tiempo=10)
+    k = flujo.clave(ini, fin)
+    cuadro, dias = bd.asignaciones(k), flujo.fechas(ini, fin)
+    assert len(dias) == 28 and dias[0].weekday() == 0 and dias[-1].weekday() == 6 and not info["faltan"]
+    assert (1, ini) not in cuadro  # libre tras la noche del periodo anterior
+    ctx = bd.contexto(2026)
+    assert not [a for a in reglas.validar(ctx, cuadro, dias) if a.nivel == "error"]
+    assert bd.puestos(k) and bd.capacitacion(k) and k in bd.periodos()
+
+
 def test_versiones():
     bd = db.BD()
     pid = bd.guardar_colaborador(Colaborador(0, "A"))
     f = date(2026, 10, 5)
-    bd.guardar_cuadro("2026-10", {(pid, f): "M"})
-    bd.set_celda("2026-10", pid, f, "T")
-    assert bd.asignaciones("2026-10", "original")[(pid, f)] == "M"
-    assert bd.diferencias("2026-10") == [(pid, f, "M", "T")]
-    bd.guardar_cuadro("2026-10", {(pid, f): "NC"})  # regenerar respeta la celda fija
-    assert bd.asignaciones("2026-10")[(pid, f)] == "T"
-    bd.restaurar("2026-10")
-    assert bd.diferencias("2026-10") == []
+    bd.guardar_cuadro(K, {(pid, f): "M"})
+    bd.set_celda(K, pid, f, "T")
+    assert bd.asignaciones(K, "original")[(pid, f)] == "M"
+    assert bd.diferencias(K) == [(pid, f, "M", "T")]
+    bd.guardar_cuadro(K, {(pid, f): "NC"})  # regenerar respeta la celda fija
+    assert bd.asignaciones(K)[(pid, f)] == "T"
+    bd.restaurar(K)
+    assert bd.diferencias(K) == []
     g = date(2026, 10, 6)  # celda libre en el original: restaurar la deja libre y sin fila
-    bd.set_celda("2026-10", pid, g, "M")
-    assert bd.diferencias("2026-10") == [(pid, g, "L", "M")]
-    bd.restaurar("2026-10", {pid}, {g})
-    assert bd.diferencias("2026-10") == [] and (pid, g) not in bd.asignaciones("2026-10")
-    bd.set_celda("2026-10", pid, f, "C")
-    bd.publicar("2026-10")
-    assert bd.diferencias("2026-10") == []
+    bd.set_celda(K, pid, g, "M")
+    assert bd.diferencias(K) == [(pid, g, "L", "M")]
+    bd.restaurar(K, {pid}, {g})
+    assert bd.diferencias(K) == [] and (pid, g) not in bd.asignaciones(K)
+    bd.set_celda(K, pid, f, "C")
+    bd.publicar(K)
+    assert bd.diferencias(K) == []
     assert bd.turno_en_uso("C")
     bd.borrar_turno("C")
     assert "C" not in bd.turnos() and "C" in bd.turnos(solo_activos=False)
@@ -241,12 +291,12 @@ def test_mes_completo():
     assert len({f - timedelta(days=f.weekday()) for f in dias}) == len(dias)
     assert len(ses) + len(sin) == 13
     # exportación: tres libros, el cuadro marca en amarillo lo cambiado y nunca sobrescribe
-    bd.guardar_cuadro("2026-10", cuadro)
-    bd.set_celda("2026-10", 1, fechas[0], "NC")
-    cam = bd.asignaciones("2026-10")
+    bd.guardar_cuadro(K, cuadro)
+    bd.set_celda(K, 1, fechas[0], "NC")
+    cam = bd.asignaciones(K)
     with tempfile.TemporaryDirectory() as tmp:
-        r1 = exportar.exportar_cuadro(tmp, "Octubre 2026", ctx, cam, bd.asignaciones("2026-10", "original"), fechas,
-                                      bd.diferencias("2026-10"))
+        r1 = exportar.exportar_cuadro(tmp, "Octubre 2026", ctx, cam, bd.asignaciones(K, "original"), fechas,
+                                      bd.diferencias(K))
         assert exportar.exportar_cuadro(tmp, "Octubre 2026", ctx, cam, cam, fechas, []).name.endswith("v2.xlsx")
         exportar.exportar_puestos(tmp, "Octubre 2026", ctx, cam, fechas, filas, ses)
         r3 = exportar.exportar_horas(tmp, "Octubre 2026", ctx, bd.tarifas(), cam, fechas, 3)
@@ -257,7 +307,7 @@ def test_mes_completo():
         assert wb2.sheetnames[:2] == ["Cuadro", "Cuadro con puestos"]
         ejemplo = next(c.value for fila in wb2["Cuadro con puestos"].iter_rows(min_row=2, min_col=2) for c in fila if c.value and "·" in str(c.value))
         assert ejemplo.split("·")[0] in ("M", "T", "C") and ejemplo.split("·")[1] in "12345A"
-        assert wb["Cuadro"].cell(2, 2).fill.fgColor.rgb.endswith("FFFF00") or bd.asignaciones("2026-10", "original").get((1, fechas[0])) == "NC"
+        assert wb["Cuadro"].cell(2, 2).fill.fgColor.rgb.endswith("FFFF00") or bd.asignaciones(K, "original").get((1, fechas[0])) == "NC"
         assert openpyxl.load_workbook(r3)["Horas y recargos"].max_row == 14
 
 
@@ -267,19 +317,19 @@ def test_flujo_y_estudio():
     bd = db.BD()
     for i in range(13):
         bd.guardar_colaborador(Colaborador(0, f"P{i}"))
-    info = flujo.generar(bd, 2026, 10, tiempo=8)
-    assert not info["faltan"] and bd.diferencias("2026-10") == [] and bd.puestos("2026-10") and bd.capacitacion("2026-10")
+    info = flujo.generar(bd, *P, tiempo=8)
+    assert not info["faltan"] and bd.diferencias(K) == [] and bd.puestos(K) and bd.capacitacion(K)
     # edición manual → aparece como diferencia; «respetar» la conserva y no toca original
-    cambios = bd.asignaciones("2026-10")
+    cambios = bd.asignaciones(K)
     f = date(2026, 10, 7)
-    bd.set_celda("2026-10", 1, f, "L")
-    flujo.generar(bd, 2026, 10, "respetar", tiempo=8)
-    assert bd.asignaciones("2026-10").get((1, f), "L") == "L"  # regenerar todo el mes sí puede mover otras celdas (por eso existe «semana»)
+    bd.set_celda(K, 1, f, "L")
+    flujo.generar(bd, *P, "respetar", tiempo=8)
+    assert bd.asignaciones(K).get((1, f), "L") == "L"  # regenerar todo el mes sí puede mover otras celdas (por eso existe «semana»)
     # novedad sobrevenida + regenerar solo esa semana: nada fuera de la semana cambia
     bd.guardar_novedad(Novedad(2, "Incapacidad", date(2026, 10, 14), date(2026, 10, 16)))
-    antes = bd.asignaciones("2026-10")
-    flujo.generar(bd, 2026, 10, "semana", lunes=date(2026, 10, 12), tiempo=8)
-    despues = bd.asignaciones("2026-10")
+    antes = bd.asignaciones(K)
+    flujo.generar(bd, *P, "semana", lunes=date(2026, 10, 12), tiempo=8)
+    despues = bd.asignaciones(K)
     fuera = lambda d: not date(2026, 10, 12) <= d <= date(2026, 10, 18)
     assert {k: v for k, v in antes.items() if fuera(k[1])} == {k: v for k, v in despues.items() if fuera(k[1])}
     assert all((2, date(2026, 10, d)) not in despues for d in (14, 15, 16))

@@ -11,7 +11,7 @@ Estado: v1. Todo lo marcado **[confirmar]** lo debe validar la coordinación, RR
 - Mínimo **12 h** entre el fin de un turno y el inicio del siguiente.
 - **Después de una noche, el día siguiente es libre** por defecto (configurable de 0 a 3 días). Como la noche termina a las 6:00, cualquier turno de día al día siguiente rompería además las 12 h de descanso; solo cabe otra noche. Quien coordina puede dejarlo sin libre editando la celda a mano: el generador respeta esa decisión y no la reclama como alerta.
 - Al menos **1 día libre por semana** completa (configurable de 1 a 3). Los días de novedad y el libre posterior a la noche cuentan como libres.
-- Al menos **1 fin de semana completo libre al mes** por persona (sábado y domingo; configurable de 0 a 4). El libre posterior a una noche del viernes cuenta como parte del fin de semana. Si una edición manual ya fijó esos días, no se exige.
+- Al menos **1 fin de semana completo libre por esquema** (mes o N semanas) y persona (sábado y domingo; configurable de 0 a 4). El libre posterior a una noche del viernes cuenta como parte del fin de semana. Si una edición manual ya fijó esos días, no se exige.
 - **Rachas de noches NC-L-NC-L…:** como después de cada noche va un libre, las noches se cuentan en racha (separadas por ese libre). Máximo **2** por defecto, configurable (0 = sin tope) **[confirmar]**.
 - **Mismo turno de 6 h seguido (M o T):** máximo **3** días iguales seguidos (por ejemplo, nunca 4 M en fila), configurable; el generador además evita llegar a 3.
 - **Corridos (C) seguidos:** máximo **2** en días consecutivos (configurable). Además el generador evita al máximo repetir dos corridos seguidos, aunque el tope lo permita.
@@ -33,8 +33,12 @@ Estado: v1. Todo lo marcado **[confirmar]** lo debe validar la coordinación, RR
 - Trabajo en día de descanso: ocasional hasta 2 al mes, habitual desde 3 (afecta el compensatorio). La app reporta el conteo.
 - Datos personales (Ley 1581 de 2012): la base `turnos.db` es local y no se versiona.
 
+## Esquema de programación
+
+No todos los servicios programan por mes calendario. An~ trabaja con **periodos**: un **mes calendario** (del 1 al último día) o **N semanas completas desde un lunes** (4 por defecto). Se elige en Parámetros → Cobertura y reglas. Los descansos entre un periodo y el siguiente se respetan (por ejemplo, una noche del domingo deja libre el lunes siguiente aunque cambie de periodo) y la equidad arrastra lo acumulado de los periodos anteriores.
+
 ## Cómo se aplica en la app
 
-- Horas contratadas del mes = horas semanales × (días ÷ 7) × % de jornada, descontando novedades.
-- Ventana de N semanas (3 por defecto) contada desde el primer día del mes; no cruza meses. El exceso son horas extra tomadas de las últimas horas de la ventana.
+- Horas contratadas del periodo = horas semanales × (días ÷ 7) × % de jornada, descontando novedades.
+- Ventana de N semanas (3 por defecto) contada desde el primer día del periodo; no cruza periodos. El exceso son horas extra tomadas de las últimas horas de la ventana.
 - Tarifas y hora de inicio de la noche son filas con fecha de vigencia (Parámetros → Tarifas): un cambio de ley no requiere código.

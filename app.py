@@ -25,7 +25,7 @@ from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
 AQUI = Path(__file__).parent
 LOG = AQUI / "errores.log"
 BD_RUTA = AQUI / "turnos.db"
-MESES = exportar.MESES
+MESES = flujo.MESES
 AMARILLO = "#FFFF00"
 ABREV = exportar.ABREV_NOVEDAD
 
@@ -150,9 +150,20 @@ class Ventana(QMainWindow):
         self.año = QSpinBox()
         self.año.setRange(2024, 2100)
         self.año.setValue(hoy.year)
-        cab.addWidget(QLabel("Mes:"))
-        cab.addWidget(self.mes)
-        cab.addWidget(self.año)
+        lunes = hoy - timedelta(days=hoy.weekday())
+        self.f_inicio = QDateEdit(QDate(lunes.year, lunes.month, lunes.day))
+        self.f_inicio.setCalendarPopup(True)
+        self.f_inicio.setDisplayFormat("dd/MM/yyyy")
+        self.l_periodo = QLabel("", objectName="muted")
+        self.b_ant, self.b_sig = QPushButton("◀"), QPushButton("▶")
+        for b, d in ((self.b_ant, -1), (self.b_sig, 1)):
+            b.setFixedWidth(36)
+            b.clicked.connect(lambda _=False, d=d: self._mover_periodo(d))
+        self.e_mes, self.e_semanas = QLabel("Mes:"), QLabel("Desde el lunes:")
+        cab.addWidget(self.b_ant)
+        for x in (self.e_mes, self.mes, self.año, self.e_semanas, self.f_inicio, self.l_periodo):
+            cab.addWidget(x)
+        cab.addWidget(self.b_sig)
         v.addLayout(cab)
         self.aviso = QLabel("", objectName="aviso")
         self.aviso.setWordWrap(True)
@@ -168,16 +179,56 @@ class Ventana(QMainWindow):
         self._pestana_parametros()
         for señal in (self.mes.currentIndexChanged, self.año.valueChanged, self.pestanas.currentChanged):
             señal.connect(lambda _: self._cambio_vista())
+        self.f_inicio.dateChanged.connect(self._cambio_inicio)
         self.refrescar()
 
     # --- utilidades -----------------------------------------------------------------------------
     @property
+    def modo_periodo(self):
+        return self.bd.param("periodo_modo", "mes")
+
+    def periodo(self):
+        """(inicio, fin) del esquema en pantalla: un mes calendario o N semanas completas desde un lunes."""
+        if self.modo_periodo == "semanas":
+            return flujo.periodo_semanas(self.f_inicio.date().toPython(), int(self.bd.param("periodo_semanas", 4)))
+        return flujo.periodo_mes(self.año.value(), self.mes.currentIndex() + 1)
+
+    @property
     def clave(self):
-        return flujo.clave(self.año.value(), self.mes.currentIndex() + 1)
+        return flujo.clave(*self.periodo())
 
     @property
     def fechas(self):
-        return flujo.fechas_mes(self.año.value(), self.mes.currentIndex() + 1)
+        return flujo.fechas(*self.periodo())
+
+    def _mostrar_selector(self):
+        semanas = self.modo_periodo == "semanas"
+        for x in (self.e_mes, self.mes, self.año):
+            x.setVisible(not semanas)
+        for x in (self.e_semanas, self.f_inicio):
+            x.setVisible(semanas)
+        ini, fin = self.periodo()
+        self.l_periodo.setText(f"{ini:%d/%m} – {fin:%d/%m/%Y} · {(fin - ini).days // 7 + 1} sem." if semanas
+                               else f"{(fin - ini).days + 1} días")
+
+    def _mover_periodo(self, d):
+        if self.modo_periodo == "semanas":
+            n = int(self.bd.param("periodo_semanas", 4))
+            self.f_inicio.setDate(self.f_inicio.date().addDays(7 * n * d))
+        else:
+            i = self.mes.currentIndex() + d
+            if not 0 <= i < 12:
+                self.año.setValue(self.año.value() + (1 if i > 11 else -1))
+                i %= 12
+            self.mes.setCurrentIndex(i)
+
+    def _cambio_inicio(self, q):
+        d = q.toPython()
+        if d.weekday() != 0:  # los esquemas por semanas arrancan en lunes
+            self.f_inicio.setDate(q.addDays(-d.weekday()))  # dispara de nuevo esta función con el lunes
+            self.avisar("El esquema por semanas arranca en lunes; ajusté la fecha al lunes anterior.", "warn")
+            return
+        self._cambio_vista()
 
     def avisar(self, texto, nivel="info"):
         self.aviso.setProperty("nivel", nivel)
@@ -192,7 +243,8 @@ class Ventana(QMainWindow):
         self.refrescar()
 
     def refrescar(self):
-        self.ctx = self.bd.contexto(self.año.value())
+        self._mostrar_selector()
+        self.ctx = self.bd.contexto(self.periodo()[0].year)
         self.nombres = {p.id: p.nombre for p in self.ctx.colabs}
         for f in (self._ver_cuadro, self._ver_personal, self._ver_novedades, self._ver_puestos, self._ver_horas,
                   self._ver_parametros):
@@ -320,8 +372,8 @@ class Ventana(QMainWindow):
         for a in reglas.validar_catalogo(self.ctx.turnos):
             self.alertas.addItem("Aviso: " + a.texto)
         if not hay_cuadro and not self.aviso.text():  # no pisa el mensaje de la acción que acaba de ocurrir
-            self.avisar("Este mes aún no tiene cuadro. Pulsa «Generar…».", "warn")
-        elif self.aviso.text().startswith("Este mes aún"):
+            self.avisar("Este periodo aún no tiene cuadro. Pulsa «Generar…».", "warn")
+        elif self.aviso.text().startswith("Este periodo aún"):
             self.avisar("")
 
     def _gente(self):
@@ -345,7 +397,7 @@ class Ventana(QMainWindow):
             self.bd.set_celda(k, p.id, f, cod)
             if cod != "L" and (m := self.ctx.bloqueo(p, self.ctx.turnos[cod], f)):
                 motivos.append(f"{p.nombre} {f:%d/%m}: {m}")
-        flujo.recalcular(self.bd, self.año.value(), self.mes.currentIndex() + 1, self.ctx)
+        flujo.recalcular(self.bd, *self.periodo(), self.ctx)
         self.avisar(texto + (" — ojo: " + "; ".join(motivos[:3]) + "." if motivos else ""), "warn" if motivos else "info")
         self._ver_cuadro()
 
@@ -393,7 +445,7 @@ class Ventana(QMainWindow):
                 self.bd.restaurar(k, {cid}, {f})
             else:
                 self.bd.set_celda(k, cid, f, antes)
-        flujo.recalcular(self.bd, self.año.value(), self.mes.currentIndex() + 1, self.ctx)
+        flujo.recalcular(self.bd, *self.periodo(), self.ctx)
         self.avisar("Cambio deshecho.")
         self._ver_cuadro()
 
@@ -407,7 +459,7 @@ class Ventana(QMainWindow):
                 return
         if not any(p.en_solver for p in self.ctx.colabs):
             return self.avisar("Primero agrega personal en la pestaña «Personal».", "warn")
-        ctx, fechas, kw = flujo.preparar(self.bd, self.año.value(), self.mes.currentIndex() + 1, modo, lunes)
+        ctx, fechas, kw = flujo.preparar(self.bd, *self.periodo(), modo, lunes)
         self.b_generar.setEnabled(False)
         self.avisar("Generando el cuadro… puede tardar hasta 20 segundos.")
         self.trabajo = Trabajo(ctx, fechas, kw)
@@ -418,7 +470,7 @@ class Ventana(QMainWindow):
     def _generado(self, ctx, fechas, cuadro, info, modo):
         self._deshacer.clear()
         self.b_generar.setEnabled(True)
-        flujo.terminar(self.bd, self.año.value(), self.mes.currentIndex() + 1, ctx, fechas, cuadro, modo)
+        flujo.terminar(self.bd, *self.periodo(), ctx, fechas, cuadro, modo)
         if info["faltan"]:
             dias = ", ".join(f"{d:%d/%m} ({fr}: faltan {n})" for d, fr, n in info["faltan"][:6])
             self.avisar("No se pudo cubrir todo: " + dias + ". Revisa novedades y personal disponible.", "warn")
@@ -460,7 +512,7 @@ class Ventana(QMainWindow):
         if not carpeta:
             return
         self.cfg.setValue("carpeta", carpeta)
-        txt = f"{MESES[self.mes.currentIndex()]} {self.año.value()}"
+        txt = flujo.etiqueta(*self.periodo())
         tar, ventana = self.bd.tarifas(), int(self.bd.param("ventana_semanas", 3))
         with ocupado():
             a = exportar.exportar_cuadro(carpeta, txt, self.ctx, cuadro, self.bd.asignaciones(k, "original"), fechas,
@@ -834,6 +886,14 @@ class Ventana(QMainWindow):
                 fila.addWidget(s)
             fila.addStretch()
             f.addRow(nombre, fila)
+        self.s_modo = QComboBox()
+        self.s_modo.addItem("Mes calendario (del 1 al último día)", "mes")
+        self.s_modo.addItem("Semanas completas desde un lunes", "semanas")
+        f.addRow("Esquema de programación", self.s_modo)
+        self.s_semanas = QSpinBox()
+        self.s_semanas.setRange(1, 8)
+        self.s_semanas.setSuffix(" semana(s)")
+        f.addRow("Duración del esquema por semanas", self.s_semanas)
         self.s_vent = QSpinBox()
         self.s_vent.setRange(1, 8)
         f.addRow("Semanas de la ventana (art. 165)", self.s_vent)
@@ -861,7 +921,7 @@ class Ventana(QMainWindow):
         self.s_fines = QSpinBox()
         self.s_fines.setRange(0, 4)
         self.s_fines.setSpecialValueText("Sin regla")
-        f.addRow("Fines de semana libres al mes (sáb. y dom.)", self.s_fines)
+        f.addRow("Fines de semana libres por esquema (sáb. y dom.)", self.s_fines)
         v.addLayout(f)
         b = QPushButton("Guardar", objectName="primario")
         b.clicked.connect(self._guardar_reglas)
@@ -904,6 +964,8 @@ class Ventana(QMainWindow):
         for (td, fr), s in self.s_cob.items():
             s.setValue(self.ctx.cobertura.get(td, {}).get(fr, 0))
         self.s_vent.setValue(int(self.bd.param("ventana_semanas", 3)))
+        self.s_modo.setCurrentIndex(max(0, self.s_modo.findData(self.modo_periodo)))
+        self.s_semanas.setValue(int(self.bd.param("periodo_semanas", 4)))
         self.s_noches.setValue(self.ctx.max_noches)
         self.s_c.setValue(self.ctx.max_c)
         self.s_igual.setValue(self.ctx.max_igual)
@@ -1026,6 +1088,8 @@ class Ventana(QMainWindow):
     def _guardar_reglas(self):
         self.bd.guardar_cobertura({td: {fr: self.s_cob[td, fr].value() for fr in "MTN"} for td in ("LS", "DF")})
         self.bd.set_param("ventana_semanas", self.s_vent.value())
+        self.bd.set_param("periodo_modo", self.s_modo.currentData())
+        self.bd.set_param("periodo_semanas", self.s_semanas.value())
         self.bd.set_param("max_noches_seguidas", self.s_noches.value())
         self.bd.set_param("max_c_seguidos", self.s_c.value())
         self.bd.set_param("max_igual_seguidos", self.s_igual.value())

@@ -5,6 +5,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import Qt, QTime
 import app
+import flujo
+P = flujo.periodo_mes(2026, 10)
+K = flujo.clave(*P)
 qa = QApplication([]); qa.setStyleSheet(app.ESTILO)
 QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)  # confirmar diálogos
 v = app.Ventana(tempfile.mkdtemp() + "/t.db")
@@ -42,17 +45,17 @@ for n in ("Ana", "Beto"):
 v.año.setValue(2026); v.mes.setCurrentIndex(9)
 a, b = [p.id for p in v.bd.colaboradores()][-2:]
 d1, d2 = date(2026, 10, 5), date(2026, 10, 6)
-v.bd.guardar_cuadro("2026-10", {(a, d1): "M", (b, d1): "T", (b, d2): "NC"}); v.refrescar()
+v.bd.guardar_cuadro(K, {(a, d1): "M", (b, d1): "T", (b, d2): "NC"}); v.refrescar()
 gente = [p.id for p in v._gente()]; ra, rb = gente.index(a), gente.index(b)
 g = v.grilla; c1, c2 = 4, 5
-ver = lambda: v.bd.asignaciones("2026-10")
+ver = lambda: v.bd.asignaciones(K)
 # soltar de verdad: el evento de drop llama a la señal con origen y destino
 g._origen = (ra, c1)
 pos = g.visualRect(g.model().index(rb, c1)).center()
 g.dropEvent(QDropEvent(QPointF(pos), Qt.MoveAction, QMimeData(), Qt.LeftButton, Qt.NoModifier))
 assert ver()[(a, d1)] == "T" and ver()[(b, d1)] == "M", ver()
-assert v.bd.diferencias("2026-10"), "el intercambio debe verse como cambio frente al original"
-v.deshacer(); assert ver()[(a, d1)] == "M" and ver()[(b, d1)] == "T" and v.bd.diferencias("2026-10") == []
+assert v.bd.diferencias(K), "el intercambio debe verse como cambio frente al original"
+v.deshacer(); assert ver()[(a, d1)] == "M" and ver()[(b, d1)] == "T" and v.bd.diferencias(K) == []
 # no se pisa una celda de totales ni se cambia en la vista Original
 v._mover_celda(ra, c1, len(gente), c1); assert "no se puede" in v.aviso.text()
 # lote: seleccionar dos celdas y asignar L
@@ -60,12 +63,20 @@ v._aplicar([(v._gente()[ra], d1, "L"), (v._gente()[rb], d1, "L")], "lote"); asse
 v.deshacer(); assert ver()[(a, d1)] == "M"
 # puesto visible: con «Mostrar puesto» la celda dice M·n, y editarla sigue leyendo solo el código
 import flujo
-flujo.recalcular(v.bd, 2026, 10); v.refrescar()
+flujo.recalcular(v.bd, *P); v.refrescar()
 assert v.grilla.item(ra, c1).text() == "M" and v.grilla.item(ra, c1).toolTip().startswith("Puesto: ")
 v.ver_puesto.setChecked(True)
 txt = v.grilla.item(ra, c1).text(); assert txt.startswith("M·") and txt[2] in "12345A", txt
-v.grilla.item(ra, c1).setText("T·2"); assert v.bd.asignaciones("2026-10")[(a, d1)] == "T"
+v.grilla.item(ra, c1).setText("T·2"); assert v.bd.asignaciones(K)[(a, d1)] == "T"
 v.deshacer(); v.ver_puesto.setChecked(False)
+# esquema por semanas: el selector cambia a «desde el lunes» y avanza de N en N semanas
+v.bd.set_param("periodo_modo", "semanas"); v.bd.set_param("periodo_semanas", 4)
+from PySide6.QtCore import QDate
+v.f_inicio.setDate(QDate(2026, 10, 7)); assert v.f_inicio.date().toPython() == date(2026, 10, 5) and "lunes" in v.aviso.text()  # ajusta al lunes
+assert v.periodo() == (date(2026, 10, 5), date(2026, 11, 1)) and v.clave == "2026-10-05/2026-11-01" and len(v.fechas) == 28
+assert v.f_inicio.isVisibleTo(v) and not v.mes.isVisibleTo(v)
+v._mover_periodo(1); assert v.periodo()[0] == date(2026, 11, 2)
+v._mover_periodo(-1); v.bd.set_param("periodo_modo", "mes"); v.refrescar(); assert v.periodo() == P and v.mes.isVisibleTo(v)
 # estudio visible: la celda libre de quien estudia ese día lleva aviso
 v._nueva_persona(); v.p_nombre.setText("Eva"); v.p_est.item(0, 0).setCheckState(Qt.Checked); v._guardar_persona(); v.refrescar()
 fila = [p.nombre for p in v._gente()].index("Eva")

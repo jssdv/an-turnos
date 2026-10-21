@@ -24,7 +24,7 @@ def segmentos(turno, fecha, ctx, tarifas):
 
 def reporte(ctx, tarifas, colab, cuadro, fechas, ventana_sem=3):
     """Horas del mes de `colab` clasificadas por recargo. Ventanas de `ventana_sem` semanas contadas desde el
-    primer día (ponytail: la ventana no cruza meses; el siguiente mes arranca una nueva)."""
+    primer día (ponytail: la ventana no cruza periodos; el siguiente arranca una nueva)."""
     fechas = sorted(fechas)
     segs = []
     for f in fechas:
