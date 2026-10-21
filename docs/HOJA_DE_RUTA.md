@@ -17,7 +17,7 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación y e
 
 | Etapa | Idea | Notas |
 |---|---|---|
-| Interfaz más ágil | Arrastrar y soltar turnos, asignar varios días a la vez, mostrar bloques de estudio en la grilla, deshacer | Ver [inspiración](ARQUITECTURA.md#interfaz-y-tecnología) |
+| Interfaz más ágil | Aviso anticipado de subcobertura, rehacer (Ctrl+Y), mover un turno a una celda libre sin intercambiar, vista por semana | Arrastrar, lote, deshacer y estudio ya están; ver [inspiración](ARQUITECTURA.md#interfaz-y-tecnología) |
 | Importar el Excel actual | Cargar personal y ciclos desde `TURNOS ESTERILIZACION*.xlsx` | Evita digitar a mano la primera vez |
 | Cambios y solicitudes | Permutas entre colaboradores con aprobación y registro (quién, cuándo, por qué) | Hoy solo hay edición manual |
 | Pausas en cobertura | Que el solver reserve relevos de almuerzo por puesto | Hoy solo se asignan grupos de pausa |

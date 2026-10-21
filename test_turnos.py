@@ -109,6 +109,11 @@ def test_versiones():
     assert bd.asignaciones("2026-10")[(pid, f)] == "T"
     bd.restaurar("2026-10")
     assert bd.diferencias("2026-10") == []
+    g = date(2026, 10, 6)  # celda libre en el original: restaurar la deja libre y sin fila
+    bd.set_celda("2026-10", pid, g, "M")
+    assert bd.diferencias("2026-10") == [(pid, g, "L", "M")]
+    bd.restaurar("2026-10", {pid}, {g})
+    assert bd.diferencias("2026-10") == [] and (pid, g) not in bd.asignaciones("2026-10")
     bd.set_celda("2026-10", pid, f, "C")
     bd.publicar("2026-10")
     assert bd.diferencias("2026-10") == []

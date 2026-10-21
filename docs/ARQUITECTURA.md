@@ -88,8 +88,8 @@ De productos de turnos como [Deputy y When I Work](https://www.softwaresuggest.c
 
 - **Color por turno y por estado** (aplicado: turnos con color, novedades en gris, cambios en amarillo, faltantes en rojo).
 - **Alertas de cumplimiento al armar el cuadro** (aplicado: validación en vivo de descanso, cobertura y estudios).
-- **No disponibilidad visible en la grilla** antes de asignar (aplicado con VAC/INC; falta mostrar los bloques de estudio).
-- **Arrastrar y soltar** para mover turnos y **asignación en lote** de varios días (pendiente).
+- **No disponibilidad visible en la grilla** antes de asignar (aplicado: VAC/INC en gris y bloques de estudio en morado).
+- **Arrastrar y soltar** para intercambiar turnos y **asignación en lote** de varias celdas, con deshacer (aplicado).
 - **Aviso anticipado de subcobertura** (pendiente).
 
 Las fuentes son páginas de comparación y de producto, no estudios de usabilidad; sirven como referencia de patrones, no como validación.

@@ -183,11 +183,16 @@ class BD:
         self.c.commit()
 
     def restaurar(self, mes, cids=None, fechas=None):
-        """Devuelve celdas de `cambios` a lo que dice `original` (todas si no se filtra)."""
-        for (cid, f), t in self.asignaciones(mes, "original").items():
+        """Devuelve celdas de `cambios` a lo que dice `original` (todas si no se filtra). Una celda libre en el
+        original deja de tener fila en `cambios`."""
+        orig, cam = self.asignaciones(mes, "original"), self.asignaciones(mes, "cambios")
+        for (cid, f) in set(orig) | set(cam):
             if (cids is None or cid in cids) and (fechas is None or f in fechas):
-                self.c.execute("INSERT OR REPLACE INTO asignacion VALUES (?,?,?,?,?,?,0)",
-                               (mes, "cambios", cid, f.isoformat(), t, "restaurado"))
+                self.c.execute("DELETE FROM asignacion WHERE mes=? AND version='cambios' AND colab_id=? AND fecha=?",
+                               (mes, cid, f.isoformat()))
+                if (cid, f) in orig:
+                    self.c.execute("INSERT INTO asignacion VALUES (?,?,?,?,?,?,0)",
+                                   (mes, "cambios", cid, f.isoformat(), orig[cid, f], "restaurado"))
         self.c.commit()
 
     def publicar(self, mes):
