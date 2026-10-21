@@ -65,12 +65,11 @@ class BD:
         return self.c.execute("SELECT 1 FROM asignacion WHERE turno=? LIMIT 1", (codigo,)).fetchone() is not None
 
     def borrar_turno(self, codigo):
-        """Un turno en uso no se borra: se desactiva."""
-        if self.turno_en_uso(codigo):
-            self.c.execute("UPDATE turno SET activo=0 WHERE codigo=?", (codigo,))
-        else:
-            self.c.execute("DELETE FROM turno WHERE codigo=?", (codigo,))
+        """Un turno en uso no se borra: se desactiva. Devuelve «borrado» o «desactivado»."""
+        en_uso = self.turno_en_uso(codigo)
+        self.c.execute("UPDATE turno SET activo=0 WHERE codigo=?" if en_uso else "DELETE FROM turno WHERE codigo=?", (codigo,))
         self.c.commit()
+        return "desactivado" if en_uso else "borrado"
 
     def guardar_cobertura(self, cob):
         self.c.execute("DELETE FROM cobertura")
@@ -114,6 +113,14 @@ class BD:
                             None if r["permitidos"] is None else tuple(json.loads(r["permitidos"])),
                             r["puesto_fijo"], tuple(tuple(e) for e in json.loads(r["estudio"])), bool(r["activo"]))
                 for r in self.c.execute(q)]
+
+    def borrar_colaborador(self, id_):
+        """Con historial (cuadros o novedades) se desactiva para no perderlo. Devuelve «borrado» o «desactivado»."""
+        historia = self.c.execute("SELECT 1 FROM asignacion WHERE colab_id=? UNION SELECT 1 FROM novedad WHERE colab_id=? LIMIT 1",
+                                  (id_, id_)).fetchone()
+        self.c.execute("UPDATE colaborador SET activo=0 WHERE id=?" if historia else "DELETE FROM colaborador WHERE id=?", (id_,))
+        self.c.commit()
+        return "desactivado" if historia else "borrado"
 
     def guardar_novedad(self, n):
         vals = (n.colab_id, n.tipo, n.desde.isoformat(), n.hasta.isoformat(), n.nota)

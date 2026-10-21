@@ -46,8 +46,8 @@ El plan, los principios y las preguntas abiertas están en [docs/VISION.md](docs
 | 🧮 **Cuadro con solver** | OR-Tools genera el mes completo: cobertura 4+4+2 (lunes a sábado) y 2+2+2 (domingo y festivo), 12 h de descanso entre turnos, un día libre por semana y tope de noches seguidas. |
 | ⚖️ **Rotación y equidad** | Reparte noches, domingos/festivos y corridos, y arrastra lo acumulado de meses anteriores. |
 | 🗂️ **Original y cambios** | Dos versiones por mes. Lo que se edita queda en amarillo, con lista de diferencias, y se puede publicar o restaurar. |
-| 👥 **Personal y novedades** | Restricciones por persona, estudiantes con horario fijo, vacaciones, incapacidades, licencias y días libres. |
-| 🕘 **Turnos editables** | Cambia horarios, crea turnos nuevos y define la pausa de almuerzo (pagada o no). Todo se recalcula. |
+| 👥 **Personal y novedades** | Crear, editar y eliminar colaboradores con casillas para turnos permitidos y bloques de estudio; vacaciones, incapacidades, licencias y días libres. |
+| 🕘 **Turnos editables** | Crea, edita y elimina turnos: horarios, franjas que cubren, color y pausa de almuerzo (pagada o no). Todo se recalcula. |
 | 📍 **Puestos del día** | Lavado, autoclave, sterrad, cuarto estéril y ropa, con rotación y grupos de relevo. |
 | 🎓 **Capacitación** | Una sesión por semana como máximo, el lunes o el siguiente día hábil, para que asistan todos. |
 | 💰 **Horas y recargos** | Ventana del art. 165 CST, pendientes y adicionales, nocturno, dominical/festivo y extras con tarifas por fecha. |
@@ -110,6 +110,7 @@ En el PC destino basta descomprimir y abrir `An.bat`. No se instala nada.
 
 ```bash
 .venv/bin/python test_turnos.py   # imprime OK (≈ 1 min: resuelve meses completos)
+.venv/bin/python test_gui.py      # imprime OK (ventana sin pantalla)
 ```
 
 ## Documentación

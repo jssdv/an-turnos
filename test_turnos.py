@@ -115,6 +115,12 @@ def test_versiones():
     assert bd.turno_en_uso("C")
     bd.borrar_turno("C")
     assert "C" not in bd.turnos() and "C" in bd.turnos(solo_activos=False)
+    # eliminar: sin historial se borra; con historial se desactiva
+    nuevo = bd.guardar_colaborador(Colaborador(0, "Sin historia"))
+    assert bd.borrar_colaborador(nuevo) == "borrado" and len(bd.colaboradores(solo_activos=False)) == 1
+    assert bd.borrar_colaborador(pid) == "desactivado" and bd.colaboradores() == []
+    bd.guardar_turno(Turno("X", "X", 0, 360))
+    assert bd.borrar_turno("X") == "borrado" and "X" not in bd.turnos(solo_activos=False)
 
 
 def test_mes_completo():
@@ -168,9 +174,8 @@ def test_mes_completo():
 
 
 def test_flujo_y_estudio():
-    from dominio import parsear_estudio, texto_estudio
-    assert parsear_estudio("Lun M, Jue M, Vie, Mar T") == ((0, "M"), (1, "T"), (3, "M"), (4, "M"), (4, "T"))
-    assert texto_estudio(parsear_estudio("Lun M, Vie")) == "Lun M, Vie"
+    from dominio import texto_estudio
+    assert texto_estudio(((0, "M"), (1, "T"), (3, "M"), (4, "M"), (4, "T"))) == "Lun M, Mar T, Jue M, Vie"
     bd = db.BD()
     for i in range(13):
         bd.guardar_colaborador(Colaborador(0, f"P{i}"))

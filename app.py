@@ -6,12 +6,12 @@ import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import QDate, QSettings, Qt, QThread, Signal
+from PySide6.QtCore import QDate, QSettings, Qt, QThread, QTime, Signal
 from PySide6.QtGui import QColor, QFont
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox,
-                               QFileDialog, QFormLayout, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QColorDialog, QComboBox, QDateEdit,
+                               QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
                                QListWidget, QMainWindow, QMenu, QMessageBox, QPushButton, QSpinBox, QTableWidget,
-                               QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
+                               QTableWidgetItem, QTabWidget, QTimeEdit, QVBoxLayout, QWidget)
 
 import db
 import exportar
@@ -19,7 +19,7 @@ import flujo
 import recargos
 import reglas
 import solver
-from dominio import (DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, parsear_estudio, texto_estudio)
+from dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
 from puestos import PUESTOS
 
 AQUI = Path(__file__).parent
@@ -49,6 +49,12 @@ QTabBar::tab { padding: 8px 16px; color: #52606D; border: none; }
 QTabBar::tab:selected { color: #0F6E8C; border-bottom: 2px solid #0F6E8C; font-weight: 600; }
 QTableWidget { border: none; gridline-color: #EDF0F3; selection-background-color: #D6E9F0; selection-color: #1F2933; background: white; }
 QHeaderView::section { background: #F7F8FA; border: none; border-bottom: 1px solid #E3E6EA; padding: 6px; color: #52606D; font-weight: 600; }
+QGroupBox { background: white; border: 1px solid #E3E6EA; border-radius: 10px; margin-top: 14px; padding: 14px 12px 10px 12px; font-weight: 600; }
+QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 6px; color: #0F6E8C; }
+QPushButton#peligro { color: #B42318; border-color: #F0C4C0; }
+QPushButton#peligro:hover { background: #FDE8E8; }
+QPushButton#peligro:disabled { color: #D8B4B0; background: #F5F6F8; }
+QCheckBox { spacing: 6px; }
 QListWidget { border: 1px solid #E3E6EA; border-radius: 6px; background: white; }
 """
 
@@ -85,13 +91,6 @@ def llenar(t, filas, colores=None):
 
 def hhmm(minutos):
     return f"{minutos // 60 % 24:02d}:{minutos % 60:02d}"
-
-
-def minutos(texto):
-    h, m = texto.strip().split(":")
-    if not (0 <= int(h) < 24 and 0 <= int(m) < 60):
-        raise ValueError
-    return int(h) * 60 + int(m)
 
 
 class Trabajo(QThread):
@@ -149,9 +148,8 @@ class Ventana(QMainWindow):
         self._pestana_puestos()
         self._pestana_horas()
         self._pestana_parametros()
-        self.mes.currentIndexChanged.connect(self.refrescar)
-        self.año.valueChanged.connect(self.refrescar)
-        self.pestanas.currentChanged.connect(lambda _: self.refrescar())
+        for señal in (self.mes.currentIndexChanged, self.año.valueChanged, self.pestanas.currentChanged):
+            señal.connect(lambda _: self._cambio_vista())
         self.refrescar()
 
     # --- utilidades -----------------------------------------------------------------------------
@@ -170,7 +168,11 @@ class Ventana(QMainWindow):
         self.aviso.setText(texto)
         self.aviso.setVisible(bool(texto))
 
-    def refrescar(self, *_):
+    def _cambio_vista(self):
+        self.avisar("")
+        self.refrescar()
+
+    def refrescar(self):
         self.ctx = self.bd.contexto(self.año.value())
         self.nombres = {p.id: p.nombre for p in self.ctx.colabs}
         for f in (self._ver_cuadro, self._ver_personal, self._ver_novedades, self._ver_puestos, self._ver_horas,
@@ -272,7 +274,7 @@ class Ventana(QMainWindow):
                 self.lista_cambios.addItem(f"{self.nombres.get(cid, cid)} · {f:%d/%m}: {antes} → {ahora}")
         for a in reglas.validar_catalogo(self.ctx.turnos):
             self.alertas.addItem("Aviso: " + a.texto)
-        if not hay_cuadro:
+        if not hay_cuadro and not self.aviso.text():  # no pisa el mensaje de la acción que acaba de ocurrir
             self.avisar("Este mes aún no tiene cuadro. Pulsa «Generar…».", "warn")
         elif self.aviso.text().startswith("Este mes aún"):
             self.avisar("")
@@ -368,49 +370,106 @@ class Ventana(QMainWindow):
     # --- personal -------------------------------------------------------------------------------
     def _pestana_personal(self):
         w = QWidget()
-        v = QVBoxLayout(w)
-        self.t_personal = tabla(["Nombre", "Tipo", "Horas/sem", "% jornada", "Turnos permitidos", "Puesto fijo", "Estudio", "Activo"])
+        h = QHBoxLayout(w)
+        izq = QVBoxLayout()
+        barra = QHBoxLayout()
+        nuevo = QPushButton("+ Nuevo colaborador", objectName="primario")
+        nuevo.clicked.connect(self._nueva_persona)
+        self.p_inactivos = QCheckBox("Mostrar inactivos")
+        self.p_inactivos.toggled.connect(lambda _: self._ver_personal())
+        for x in (nuevo, self.p_inactivos):
+            barra.addWidget(x)
+        barra.addStretch()
+        izq.addLayout(barra)
+        self.t_personal = tabla(["Nombre", "Tipo", "Horas/sem", "Turnos", "Puesto fijo", "Estudio", "Estado"])
         self.t_personal.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.t_personal.setSelectionMode(QAbstractItemView.SingleSelection)
         self.t_personal.itemSelectionChanged.connect(self._cargar_persona)
-        v.addWidget(self.t_personal, 2)
-        f = QFormLayout()
+        izq.addWidget(self.t_personal)
+        h.addLayout(izq, 3)
+
+        caja = QGroupBox("Colaborador")
+        caja.setMinimumWidth(470)
+        f = QFormLayout(caja)
         self.p_nombre, self.p_tipo = QLineEdit(), QComboBox()
         self.p_tipo.addItems(TIPOS_COLAB)
         self.p_horas, self.p_pct = QDoubleSpinBox(), QDoubleSpinBox()
         self.p_horas.setRange(1, 60)
-        self.p_horas.setValue(42)
+        self.p_horas.setSuffix(" h")
         self.p_pct.setRange(1, 100)
-        self.p_pct.setValue(100)
-        self.p_perm, self.p_puesto, self.p_estudio = QLineEdit(), QComboBox(), QLineEdit()
-        self.p_perm.setPlaceholderText("vacío = todos; ej. M, T (sin noches)")
+        self.p_pct.setSuffix(" %")
+        self.p_perm_caja = QHBoxLayout()
+        self.p_perm_cbs = {}
+        self.p_puesto = QComboBox()
         self.p_puesto.addItem("Ninguno", None)
         for n, nombre in PUESTOS.items():
             if n:
                 self.p_puesto.addItem(f"{n} · {nombre}", n)
-        self.p_estudio.setPlaceholderText("ej. Lun M, Jue M, Vie, Mar T  (sin franja = todo el día)")
-        self.p_activo = QCheckBox("Activo")
-        self.p_activo.setChecked(True)
-        for et, wd in (("Nombre", self.p_nombre), ("Tipo", self.p_tipo), ("Horas por semana", self.p_horas),
-                       ("% de jornada", self.p_pct), ("Turnos permitidos", self.p_perm), ("Puesto fijo", self.p_puesto),
-                       ("Horario de estudio", self.p_estudio), ("", self.p_activo)):
+        self.p_est = QTableWidget(2, 7)
+        self.p_est.setHorizontalHeaderLabels(DIAS)
+        self.p_est.setVerticalHeaderLabels(["Mañana", "Tarde"])
+        self.p_est.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.p_est.setFixedHeight(92)
+        self.p_est.horizontalHeader().setStyleSheet("QHeaderView::section { padding: 2px; }")
+        self.p_est.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        for r in range(2):
+            for c in range(7):
+                it = QTableWidgetItem()
+                it.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                it.setCheckState(Qt.Unchecked)
+                self.p_est.setItem(r, c, it)
+        self.p_activo = QCheckBox("Activo (entra en los cuadros nuevos)")
+        for et, wd in (("Nombre", self.p_nombre), ("Tipo", self.p_tipo), ("Jornada semanal", self.p_horas),
+                       ("% de jornada", self.p_pct), ("Puede hacer", self.p_perm_caja), ("Puesto fijo", self.p_puesto),
+                       ("No disponible por estudio", self.p_est), ("", self.p_activo)):
             f.addRow(et, wd)
-        v.addLayout(f)
-        bs = QHBoxLayout()
-        for texto, fn in (("Nuevo", self._nueva_persona), ("Guardar", self._guardar_persona)):
-            b = QPushButton(texto, objectName="primario" if texto == "Guardar" else "")
-            b.clicked.connect(fn)
-            bs.addWidget(b)
-        bs.addStretch()
-        v.addLayout(bs)
+        botones = QHBoxLayout()
+        guardar = QPushButton("Guardar", objectName="primario")
+        self.b_borrar_persona = QPushButton("Eliminar", objectName="peligro")
+        guardar.clicked.connect(self._guardar_persona)
+        self.b_borrar_persona.clicked.connect(self._eliminar_persona)
+        botones.addWidget(guardar)
+        botones.addWidget(self.b_borrar_persona)
+        botones.addStretch()
+        f.addRow(botones)
+        h.addWidget(caja, 0, Qt.AlignTop)
         self.persona_id = None
         self.pestanas.addTab(w, "Personal")
 
+    @staticmethod
+    def _sin_seleccion(t):
+        t.blockSignals(True)  # sin señal: no debe recargar el registro anterior en el formulario
+        t.clearSelection()
+        t.setCurrentCell(-1, -1)
+        t.blockSignals(False)
+
+    def _armar_permitidos(self):
+        """Una casilla por turno activo del catálogo; conserva lo marcado."""
+        if list(self.p_perm_cbs) == list(self.ctx.turnos):
+            return
+        marcado = {c: cb.isChecked() for c, cb in self.p_perm_cbs.items()}
+        while self.p_perm_caja.count():
+            cb = self.p_perm_caja.takeAt(0).widget()
+            cb.setParent(None)
+            cb.deleteLater()
+        self.p_perm_cbs = {}
+        for cod in self.ctx.turnos:
+            cb = QCheckBox(cod)
+            cb.setChecked(marcado.get(cod, True))
+            self.p_perm_cbs[cod] = cb
+            self.p_perm_caja.addWidget(cb)
+
     def _ver_personal(self):
-        todos = self.bd.colaboradores(solo_activos=False)
-        self._personal = todos
-        llenar(self.t_personal, [(p.nombre, p.tipo, p.horas_sem, p.pct * 100,
-                                  "todos" if p.permitidos is None else ", ".join(p.permitidos), p.puesto_fijo or "",
-                                  texto_estudio(p.estudio), "Sí" if p.activo else "No") for p in todos])
+        self._personal = [p for p in self.bd.colaboradores(solo_activos=False) if p.activo or self.p_inactivos.isChecked()]
+        self._armar_permitidos()
+        llenar(self.t_personal,
+               [(p.nombre, p.tipo, f"{p.horas_sem:g} h ({p.pct * 100:g} %)",
+                 "todos" if p.permitidos is None else ", ".join(p.permitidos), p.puesto_fijo or "",
+                 texto_estudio(p.estudio), "Activo" if p.activo else "Inactivo") for p in self._personal],
+               lambda r, c: None if self._personal[r].activo else "#EEF0F2")
+        for r, p in enumerate(self._personal):
+            if p.id == self.persona_id:
+                self.t_personal.selectRow(r)
 
     def _cargar_persona(self):
         r = self.t_personal.currentRow()
@@ -422,39 +481,60 @@ class Ventana(QMainWindow):
         self.p_tipo.setCurrentText(p.tipo)
         self.p_horas.setValue(p.horas_sem)
         self.p_pct.setValue(p.pct * 100)
-        self.p_perm.setText("" if p.permitidos is None else ", ".join(p.permitidos))
+        for cod, cb in self.p_perm_cbs.items():
+            cb.setChecked(p.permitidos is None or cod in p.permitidos)
         self.p_puesto.setCurrentIndex(max(0, self.p_puesto.findData(p.puesto_fijo)))
-        self.p_estudio.setText(texto_estudio(p.estudio))
+        for rr in range(2):
+            for c in range(7):
+                self.p_est.item(rr, c).setCheckState(Qt.Checked if (c, "MT"[rr]) in p.estudio else Qt.Unchecked)
         self.p_activo.setChecked(p.activo)
+        self.b_borrar_persona.setEnabled(True)
 
     def _nueva_persona(self):
         self.persona_id = None
-        self.t_personal.clearSelection()
-        for e in (self.p_nombre, self.p_perm, self.p_estudio):
-            e.clear()
+        self._sin_seleccion(self.t_personal)
+        self.p_nombre.clear()
         self.p_tipo.setCurrentIndex(0)
         self.p_horas.setValue(42)
         self.p_pct.setValue(100)
+        for cb in self.p_perm_cbs.values():
+            cb.setChecked(True)
         self.p_puesto.setCurrentIndex(0)
+        for rr in range(2):
+            for c in range(7):
+                self.p_est.item(rr, c).setCheckState(Qt.Unchecked)
         self.p_activo.setChecked(True)
+        self.b_borrar_persona.setEnabled(False)
         self.p_nombre.setFocus()
 
     def _guardar_persona(self):
         nombre = self.p_nombre.text().strip()
         if not nombre:
             return self.avisar("Escribe el nombre del colaborador.", "error")
-        try:
-            estudio = parsear_estudio(self.p_estudio.text())
-        except ValueError as e:
-            return self.avisar(str(e), "error")
-        perm = tuple(c.strip().upper() for c in self.p_perm.text().split(",") if c.strip()) or None
-        mal = [c for c in perm or () if c not in self.ctx.turnos]
-        if mal:
-            return self.avisar(f"Turnos desconocidos: {', '.join(mal)}. Disponibles: {', '.join(self.ctx.turnos)}.", "error")
+        marcados = tuple(c for c, cb in self.p_perm_cbs.items() if cb.isChecked())
+        if not marcados:
+            return self.avisar("Marca al menos un turno que pueda hacer.", "error")
+        estudio = tuple(sorted((c, "MT"[r]) for r in range(2) for c in range(7)
+                               if self.p_est.item(r, c).checkState() == Qt.Checked))
+        perm = None if len(marcados) == len(self.p_perm_cbs) else marcados
         p = Colaborador(self.persona_id or 0, nombre, self.p_tipo.currentText(), self.p_horas.value(),
                         self.p_pct.value() / 100, perm, self.p_puesto.currentData(), estudio, self.p_activo.isChecked())
-        self.bd.guardar_colaborador(p)
+        self.persona_id = self.bd.guardar_colaborador(p)
         self.avisar(f"«{nombre}» guardado. Regenera el cuadro para que lo tome en cuenta.")
+        self.refrescar()
+
+    def _eliminar_persona(self):
+        if self.persona_id is None:
+            return self.avisar("Selecciona un colaborador de la lista.", "warn")
+        nombre = self.p_nombre.text()
+        if QMessageBox.question(self, "Eliminar colaborador", f"¿Eliminar a «{nombre}»?") != QMessageBox.Yes:
+            return
+        if self.bd.borrar_colaborador(self.persona_id) == "borrado":
+            self.avisar(f"«{nombre}» eliminado.")
+        else:
+            self.avisar(f"«{nombre}» tiene cuadros o novedades en su historial, así que quedó inactivo en lugar de "
+                        "borrarse. Ya no entra en cuadros nuevos; márcalo «Mostrar inactivos» para verlo.", "warn")
+        self._nueva_persona()
         self.refrescar()
 
     # --- novedades ------------------------------------------------------------------------------
@@ -578,19 +658,62 @@ class Ventana(QMainWindow):
     def _pestana_parametros(self):
         self.sub = QTabWidget()
         w = QWidget()
-        v = QVBoxLayout(w)
-        v.addWidget(QLabel("Turnos. Hora en formato 24 h (06:00). La pausa se pone a la hora del reloj; «Pagada» la cuenta como trabajada. "
-                           "«Cubre» usa M, T y/o N. Un turno en uso se desactiva en lugar de borrarse.", objectName="muted"))
-        self.t_turnos = tabla(["Código", "Nombre", "Inicio", "Fin", "Pausa (min)", "Pausa a las", "Pagada", "Cubre",
-                               "Dom/fest", "Solver", "Activo", "Color"], editable=True)
-        v.addWidget(self.t_turnos)
-        bs = QHBoxLayout()
-        for texto, fn in (("Nuevo turno", self._nuevo_turno), ("Guardar turnos", self._guardar_turnos)):
-            b = QPushButton(texto, objectName="primario" if texto.startswith("Guardar") else "")
-            b.clicked.connect(fn)
-            bs.addWidget(b)
-        bs.addStretch()
-        v.addLayout(bs)
+        h = QHBoxLayout(w)
+        izq = QVBoxLayout()
+        nuevo = QPushButton("+ Nuevo turno", objectName="primario")
+        nuevo.clicked.connect(self._nuevo_turno)
+        izq.addWidget(nuevo, alignment=Qt.AlignLeft)
+        self.t_tabla = tabla(["Código", "Nombre", "Horario", "Horas", "Cubre", "Estado"])
+        self.t_tabla.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.t_tabla.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.t_tabla.itemSelectionChanged.connect(self._cargar_turno)
+        izq.addWidget(self.t_tabla)
+        h.addLayout(izq, 3)
+        caja = QGroupBox("Turno")
+        caja.setMinimumWidth(470)
+        f = QFormLayout(caja)
+        self.t_cod, self.t_nom = QLineEdit(), QLineEdit()
+        self.t_cod.setMaxLength(4)
+        self.t_ini, self.t_fin, self.t_pini = QTimeEdit(), QTimeEdit(), QTimeEdit()
+        for t in (self.t_ini, self.t_fin, self.t_pini):
+            t.setDisplayFormat("HH:mm")
+            t.timeChanged.connect(lambda _: self._resumen_turno())
+        self.t_pmin = QSpinBox()
+        self.t_pmin.setRange(0, 240)
+        self.t_pmin.setSuffix(" min")
+        self.t_pmin.setSpecialValueText("Sin pausa")
+        self.t_pmin.valueChanged.connect(lambda _: self._resumen_turno())
+        self.t_ppag = QCheckBox("La pausa cuenta como trabajada")
+        self.t_ppag.toggled.connect(lambda _: self._resumen_turno())
+        cubre = QHBoxLayout()
+        self.t_cubre = {}
+        for fr, et in (("M", "Mañana"), ("T", "Tarde"), ("N", "Noche")):
+            self.t_cubre[fr] = QCheckBox(et)
+            cubre.addWidget(self.t_cubre[fr])
+        self.t_dom = QCheckBox("Se puede usar en domingo y festivo")
+        self.t_sol = QCheckBox("El generador puede asignarlo")
+        self.t_act = QCheckBox("Activo")
+        self.t_color = QPushButton()
+        self.t_color.clicked.connect(self._elegir_color)
+        self.t_resumen = QLabel("", objectName="muted")
+        self.t_resumen.setWordWrap(True)
+        for et, wd in (("Código", self.t_cod), ("Nombre", self.t_nom), ("Empieza", self.t_ini), ("Termina", self.t_fin),
+                       ("Pausa de almuerzo", self.t_pmin), ("Pausa a las", self.t_pini), ("", self.t_ppag),
+                       ("Cubre", cubre), ("", self.t_dom), ("", self.t_sol), ("", self.t_act), ("Color", self.t_color),
+                       ("", self.t_resumen)):
+            f.addRow(et, wd)
+        botones = QHBoxLayout()
+        guardar = QPushButton("Guardar", objectName="primario")
+        self.b_borrar_turno = QPushButton("Eliminar", objectName="peligro")
+        guardar.clicked.connect(self._guardar_turno)
+        self.b_borrar_turno.clicked.connect(self._eliminar_turno)
+        botones.addWidget(guardar)
+        botones.addWidget(self.b_borrar_turno)
+        botones.addStretch()
+        f.addRow(botones)
+        h.addWidget(caja, 0, Qt.AlignTop)
+        self.turno_cod = None
+        self._nuevo_turno()
         self.sub.addTab(w, "Turnos")
 
         w = QWidget()
@@ -644,24 +767,14 @@ class Ventana(QMainWindow):
         self.pestanas.addTab(self.sub, "Parámetros")
 
     def _ver_parametros(self):
-        t = self.t_turnos
-        t.blockSignals(True)
-        turnos = list(self.bd.turnos(solo_activos=False).values())
-        t.setRowCount(len(turnos))
-        for r, x in enumerate(turnos):
-            p = x.pausas[0] if x.pausas else None
-            vals = [x.codigo, x.nombre, hhmm(x.inicio), hhmm(x.fin), p["min"] if p else 0,
-                    hhmm(x.inicio + p["ini"]) if p else "", "Sí" if p and p["pagada"] else "No", ",".join(x.cubre),
-                    "Sí" if x.dom_fest else "No", "Sí" if x.solver else "No", "Sí" if x.activo else "No", x.color]
-            for c, val in enumerate(vals):
-                it = QTableWidgetItem(str(val))
-                if c == 0:
-                    it.setFlags(it.flags() & ~Qt.ItemIsEditable)
-                if c == 11:
-                    it.setBackground(QColor("#" + x.color))
-                t.setItem(r, c, it)
-        t.resizeColumnsToContents()
-        t.blockSignals(False)
+        self._turnos = list(self.bd.turnos(solo_activos=False).values())
+        llenar(self.t_tabla, [(x.codigo, x.nombre, f"{hhmm(x.inicio)}–{hhmm(x.fin)}", f"{x.horas:g}",
+                               ", ".join(x.cubre), "Activo" if x.activo else "Inactivo") for x in self._turnos],
+               lambda r, c: ("#" + self._turnos[r].color) if c == 0 else (None if self._turnos[r].activo else "#EEF0F2"))
+        for r, x in enumerate(self._turnos):
+            if x.codigo == self.turno_cod:
+                self.t_tabla.selectRow(r)
+        self._resumen_turno()
         for (td, fr), s in self.s_cob.items():
             s.setValue(self.ctx.cobertura.get(td, {}).get(fr, 0))
         self.s_vent.setValue(int(self.bd.param("ventana_semanas", 3)))
@@ -673,43 +786,110 @@ class Ventana(QMainWindow):
                 self.l_fest.addItem(f"{DIAS[f.weekday()]} {f:%d/%m/%Y} · {n}")
 
     def _nuevo_turno(self):
-        t = self.t_turnos
-        r = t.rowCount()
-        t.insertRow(r)
-        for c, val in enumerate(["", "", "06:00", "12:00", "0", "", "No", "M", "Sí", "Sí", "Sí", "FFFFFF"]):
-            t.setItem(r, c, QTableWidgetItem(val))
-        t.editItem(t.item(r, 0))
+        self.turno_cod = None
+        self._sin_seleccion(self.t_tabla)
+        self.t_cod.setReadOnly(False)
+        self.t_cod.clear()
+        self.t_nom.clear()
+        self.t_ini.setTime(QTime(6, 0))
+        self.t_fin.setTime(QTime(12, 0))
+        self.t_pmin.setValue(0)
+        self.t_pini.setTime(QTime(12, 0))
+        self.t_ppag.setChecked(False)
+        for fr, cb in self.t_cubre.items():
+            cb.setChecked(fr == "M")
+        self.t_dom.setChecked(True)
+        self.t_sol.setChecked(True)
+        self.t_act.setChecked(True)
+        self._poner_color("FFFFFF")
+        self.b_borrar_turno.setEnabled(False)
+        self.t_cod.setFocus()
 
-    def _guardar_turnos(self):
-        t, nuevos = self.t_turnos, []
-        si = lambda r, c: t.item(r, c).text().strip().lower() in ("sí", "si", "s", "1", "true")
+    def _cargar_turno(self):
+        r = self.t_tabla.currentRow()
+        if r < 0 or r >= len(self._turnos):
+            return
+        t = self._turnos[r]
+        self.turno_cod = t.codigo
+        self.t_cod.setText(t.codigo)
+        self.t_cod.setReadOnly(True)
+        self.t_nom.setText(t.nombre)
+        self.t_ini.setTime(QTime(t.inicio // 60 % 24, t.inicio % 60))
+        self.t_fin.setTime(QTime(t.fin // 60 % 24, t.fin % 60))
+        p = t.pausas[0] if t.pausas else None
+        self.t_pmin.setValue(p["min"] if p else 0)
+        pa = t.inicio + (p["ini"] if p else 360)
+        self.t_pini.setTime(QTime(pa // 60 % 24, pa % 60))
+        self.t_ppag.setChecked(bool(p and p["pagada"]))
+        for fr, cb in self.t_cubre.items():
+            cb.setChecked(fr in t.cubre)
+        self.t_dom.setChecked(t.dom_fest)
+        self.t_sol.setChecked(t.solver)
+        self.t_act.setChecked(t.activo)
+        self._poner_color(t.color)
+        self.b_borrar_turno.setEnabled(True)
+
+    def _poner_color(self, color):
+        self._color = color
+        self.t_color.setStyleSheet(f"background: #{color}; border: 1px solid #CBD2D9; border-radius: 6px; padding: 7px;")
+        self.t_color.setText(f"#{color}")
+
+    def _elegir_color(self):
+        c = QColorDialog.getColor(QColor("#" + self._color), self, "Color del turno")
+        if c.isValid():
+            self._poner_color(c.name()[1:].upper())
+
+    def _turno_desde_form(self):
+        cod = self.t_cod.text().strip().upper()
+        if not cod or cod == "L":
+            raise ValueError("Escribe un código para el turno (distinto de L).")
+        minutos = lambda t: t.hour() * 60 + t.minute()
+        ini, fin = minutos(self.t_ini.time()), minutos(self.t_fin.time())
+        if ini == fin:
+            raise ValueError("El turno no puede empezar y terminar a la misma hora.")
+        cubre = tuple(fr for fr, cb in self.t_cubre.items() if cb.isChecked())
+        if not cubre:
+            raise ValueError("Marca qué franjas cubre (mañana, tarde, noche).")
+        pausas = ()
+        if self.t_pmin.value() > 0:
+            pausas = ({"ini": (minutos(self.t_pini.time()) - ini) % 1440, "min": self.t_pmin.value(),
+                       "pagada": self.t_ppag.isChecked()},)
+        t = Turno(cod, self.t_nom.text().strip() or cod, ini, fin, self._color, cubre, pausas, self.t_dom.isChecked(),
+                  self.t_sol.isChecked(), self.t_act.isChecked())
+        if pausas and pausas[0]["ini"] + pausas[0]["min"] > t.duracion:
+            raise ValueError("La pausa debe quedar dentro del turno.")
+        return t
+
+    def _resumen_turno(self):
         try:
-            for r in range(t.rowCount()):
-                txt = lambda c: t.item(r, c).text().strip()
-                cod = txt(0).upper()
-                if not cod or cod == "L":
-                    raise ValueError("Cada turno necesita un código (distinto de L).")
-                ini, fin = minutos(txt(2)), minutos(txt(3))
-                cubre = tuple(x.strip().upper() for x in txt(7).split(",") if x.strip())
-                if any(x not in ("M", "T", "N") for x in cubre):
-                    raise ValueError(f"{cod}: «Cubre» solo admite M, T y N.")
-                pausas = ()
-                if int(txt(4) or 0) > 0:
-                    pausas = ({"ini": (minutos(txt(5)) - ini) % 1440, "min": int(txt(4)), "pagada": si(r, 6)},)
-                color = txt(11).lstrip("#")
-                if len(color) != 6 or any(ch not in "0123456789abcdefABCDEF" for ch in color):
-                    raise ValueError(f"{cod}: el color debe ser 6 dígitos hexadecimales, ej. FFF2CC.")
-                nuevos.append(Turno(cod, txt(1), ini, fin, color.upper(), cubre, pausas, si(r, 8), si(r, 9), si(r, 10)))
-            if len({x.codigo for x in nuevos}) != len(nuevos):
-                raise ValueError("Hay códigos de turno repetidos.")
-            for x in nuevos:
-                if x.pausas and not 0 <= x.pausas[0]["ini"] < x.duracion:
-                    raise ValueError(f"{x.codigo}: la pausa debe empezar dentro del turno.")
-        except (ValueError, AttributeError) as e:
-            return self.avisar(f"No se guardó: {e if str(e) and 'int()' not in str(e) else 'revisa horas (06:00) y números.'}", "error")
-        for x in nuevos:
-            self.bd.guardar_turno(x)
-        self.avisar("Turnos guardados. El cuadro existente se revalidó; regenera si hay alertas.")
+            t = self._turno_desde_form()
+            self.t_resumen.setText(f"Dura {t.duracion / 60:g} h · se cuentan {t.horas:g} h trabajadas")
+        except ValueError as e:
+            self.t_resumen.setText(str(e))
+
+    def _guardar_turno(self):
+        try:
+            t = self._turno_desde_form()
+        except ValueError as e:
+            return self.avisar(str(e), "error")
+        if self.turno_cod is None and t.codigo in self.bd.turnos(solo_activos=False):
+            return self.avisar(f"Ya existe un turno «{t.codigo}».", "error")
+        self.bd.guardar_turno(t)
+        self.turno_cod = t.codigo
+        self.avisar(f"Turno «{t.codigo}» guardado. El cuadro existente se revalidó; regenera si hay alertas.")
+        self.refrescar()
+
+    def _eliminar_turno(self):
+        if self.turno_cod is None:
+            return self.avisar("Selecciona un turno de la lista.", "warn")
+        cod = self.turno_cod
+        if QMessageBox.question(self, "Eliminar turno", f"¿Eliminar el turno «{cod}»?") != QMessageBox.Yes:
+            return
+        if self.bd.borrar_turno(cod) == "borrado":
+            self.avisar(f"Turno «{cod}» eliminado.")
+        else:
+            self.avisar(f"«{cod}» ya está en cuadros guardados, así que quedó inactivo en lugar de borrarse.", "warn")
+        self._nuevo_turno()
         self.refrescar()
 
     def _guardar_reglas(self):
