@@ -65,7 +65,7 @@ def recalcular(bd, año, mes, ctx=None):
     bd.guardar_puestos(k, puestos.asignar(ctx, cuadro, fechas))
     sesiones, _ = capacitacion.programar(ctx, cuadro, fechas)
     bd.guardar_capacitacion(k, sesiones)
-    return reglas.validar(ctx, cuadro, fechas)
+    return reglas.validar(ctx, cuadro, fechas, bd.fijos(k))
 
 
 def generar(bd, año, mes, modo="cero", lunes=None, tiempo=20):

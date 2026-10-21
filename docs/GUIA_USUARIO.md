@@ -21,7 +21,13 @@ Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta to
    - Si se puede usar en domingo o festivo, si el generador puede asignarlo, el color y si está activo.
 
    *Eliminar* borra el turno si nunca se usó; si ya está en cuadros guardados queda inactivo. Mientras un turno de más de 6 h no tenga pausa, la app lo avisa.
-3. **Cobertura y reglas.** En **Parámetros → Cobertura y reglas** confirma cuántas personas se necesitan por franja, las semanas de la ventana legal y el máximo de noches seguidas.
+3. **Cobertura y reglas.** En **Parámetros → Cobertura y reglas** confirma cuántas personas se necesitan por franja, las semanas de la ventana legal y las reglas de descanso, que vienen activas por defecto:
+   - **Libre después de una noche**: 1 día.
+   - **Días libres por semana**: mínimo 1.
+   - **Fines de semana libres al mes** (sábado y domingo): mínimo 1 por persona; el libre posterior a una noche cuenta.
+   - **Máximo de noches seguidas**.
+
+   Si quieres romper una regla en un caso puntual, edita la celda a mano: el generador lo respeta y no lo marca como alerta.
 
 ## Cada mes
 

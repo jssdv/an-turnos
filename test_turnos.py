@@ -97,6 +97,40 @@ def test_reglas():
     assert reglas.validar_catalogo(ctx.turnos)  # C y NC sin pausa → aviso
 
 
+def test_libre_tras_noche():
+    bd = db.BD()
+    for i in range(2):
+        bd.guardar_colaborador(Colaborador(0, f"P{i}"))
+    ctx = bd.contexto(2026)
+    assert ctx.libre_tras_noche == 1
+    a = ctx.colabs[0]
+    lunes, martes = date(2026, 10, 19), date(2026, 10, 20)
+    cuadro = {(a.id, lunes): "NC", (a.id, martes): "T"}  # T empieza 12:00: cumple las 12 h, pero no hay día libre
+    sin = lambda **kw: [x.texto for x in reglas.validar(ctx, cuadro, [lunes, martes], **kw) if "sin día libre" in x.texto]
+    assert len(sin()) == 1
+    assert sin(fijos={(a.id, martes)}) == []  # decisión manual: no se reclama
+    bd.set_param("libre_tras_noche", 0)  # regla apagada: no hay alerta
+    ctx = bd.contexto(2026)
+    assert ctx.libre_tras_noche == 0 and sin() == []
+
+
+def test_fin_de_semana_y_libres():
+    bd = db.BD()
+    bd.guardar_colaborador(Colaborador(0, "A"))
+    ctx = bd.contexto(2026)
+    a = ctx.colabs[0]
+    assert (ctx.libres_semana, ctx.fines_libres) == (1, 1)
+    sab, dom = date(2026, 10, 3), date(2026, 10, 4)
+    mes = [date(2026, 10, 1) + timedelta(days=i) for i in range(10)]  # 1-oct (jue) a 10-oct (sáb): un solo fin de semana completo
+    sin_fin = lambda cuadro, **kw: [x.texto for x in reglas.validar(ctx, cuadro, mes, **kw) if "fin de semana" in x.texto]
+    assert len(sin_fin({(a.id, sab): "M"})) == 1
+    assert sin_fin({(a.id, sab): "M"}, fijos={(a.id, sab)}) == []  # decisión manual
+    assert sin_fin({(a.id, d): "M" for d in mes if d not in (sab, dom)}) == []  # sábado y domingo libres
+    semana = [date(2026, 10, 5) + timedelta(days=i) for i in range(7)]
+    todo = {(a.id, d): "M" for d in semana}
+    assert any("día(s) libre(s)" in x.texto for x in reglas.validar(ctx, todo, semana))
+
+
 def test_versiones():
     bd = db.BD()
     pid = bd.guardar_colaborador(Colaborador(0, "A"))
@@ -147,11 +181,20 @@ def test_mes_completo():
     assert not info["faltan"] and not reglas.validar(ctx, cuadro, fechas)
     assert all((3, date(2026, 10, d)) not in cuadro for d in range(12, 19))
     assert all(cuadro.get((11, f), "M") in ("M", "T") for f in fechas)  # la restringida nunca hace noche
-    noche = lambda p, f: cuadro.get((p, f)) == "NC"  # nunca más de 3 noches seguidas
-    assert not any(all(noche(p.id, fechas[i + k]) for k in range(4)) for p in ctx.colabs for i in range(len(fechas) - 3))
+    noche = lambda p, f: cuadro.get((p, f)) == "NC"
+    assert not any(noche(p.id, f) and (p.id, f + timedelta(days=1)) in cuadro for p in ctx.colabs for f in fechas)  # tras una noche, día libre
     # una celda fija se respeta al regenerar
     c2, _ = solver.generar(ctx, fechas, fijos={(1, fechas[0]): "NC"}, tiempo=10)
-    assert c2[(1, fechas[0])] == "NC"
+    assert c2[(1, fechas[0])] == "NC" and (1, fechas[1]) not in c2  # la noche fija arrastra su día libre
+    # edición manual: forzar un turno el día después de una noche se respeta (y no genera alerta)
+    c3, _ = solver.generar(ctx, fechas, fijos={(1, fechas[0]): "NC", (1, fechas[1]): "NC"}, tiempo=10)
+    assert c3[(1, fechas[0])] == "NC" and c3[(1, fechas[1])] == "NC"
+    # cada persona tiene al menos un fin de semana completo libre (sáb. y dom.)
+    fines = [(d, d + timedelta(days=1)) for d in fechas if d.weekday() == 5 and d + timedelta(days=1) in fechas]
+    assert all(any((p.id, s) not in cuadro and (p.id, d) not in cuadro for s, d in fines) for p in ctx.colabs)
+    # el mes anterior terminó en noche: el día 1 queda libre
+    c4, _ = solver.generar(ctx, fechas, previo={(2, date(2026, 9, 30)): "NC"}, tiempo=10)
+    assert (2, fechas[0]) not in c4
     # puestos: la restringida siempre en el 3; sin repetir puesto en una misma franja
     filas = puestos.asignar(ctx, cuadro, fechas)
     assert all(p == 3 for f, fr, p, c, g in filas if c == 11)

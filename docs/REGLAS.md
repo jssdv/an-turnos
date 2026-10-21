@@ -8,7 +8,11 @@ Estado: v1. Todo lo marcado **[confirmar]** lo debe validar la coordinación, RR
 
 - Turnos: **M** y **T** de 6 h; **C** (corrido) de 12 h, cubre mañana y tarde; **NC** de 12 h de noche; **L** libre. Horarios iniciales M 06–12, T 12–18, C 06–18, NC 18–06 **[confirmar]**, editables en la app.
 - Cobertura lunes a sábado: 4 M + 4 T + 2 NC. Domingo: 2 M + 2 T + 2 NC. Domingos y festivos solo medios turnos de día (M o T); el corrido no se usa. Un C cuenta para mañana y tarde.
-- Mínimo **12 h** entre el fin de un turno y el inicio del siguiente. Al menos **1 día libre** por semana. Tope de noches seguidas configurable (3 por defecto) **[confirmar]**.
+- Mínimo **12 h** entre el fin de un turno y el inicio del siguiente.
+- **Después de una noche, el día siguiente es libre** por defecto (configurable de 0 a 3 días). Como la noche termina a las 6:00, cualquier turno de día al día siguiente rompería además las 12 h de descanso; solo cabe otra noche. Quien coordina puede dejarlo sin libre editando la celda a mano: el generador respeta esa decisión y no la reclama como alerta.
+- Al menos **1 día libre por semana** completa (configurable de 1 a 3). Los días de novedad y el libre posterior a la noche cuentan como libres.
+- Al menos **1 fin de semana completo libre al mes** por persona (sábado y domingo; configurable de 0 a 4). El libre posterior a una noche del viernes cuenta como parte del fin de semana. Si una edición manual ya fijó esos días, no se exige.
+- Tope de noches seguidas configurable (3 por defecto); con «libre tras noche» activo no puede haber noches consecutivas salvo edición manual **[confirmar]**.
 - 13 personas en cuadro: 12 con rotación completa y 1 con restricciones (sin noches, solo M/T, siempre en el puesto 3). Hay 2 estudiantes con bloques de estudio y 1 estudiante de refuerzo (7–5 de lunes a jueves y 7–1 el viernes) que queda fuera del solver.
 - Puestos del día: 1 lavado, 2 autoclave, 3 sterrad y esto, 4 cuarto estéril, 5 ropa (solo si sobra gente). La hoja original decía «siempre autoclave» para la restringida; se usa el 3 **[confirmar]**.
 - Capacitación mensual, una vez por semana como máximo, preferiblemente el lunes (festivo → siguiente día hábil), con todos pudiendo asistir.

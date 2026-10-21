@@ -23,9 +23,11 @@ def cobertura_dia(ctx, cuadro, f):
     return cuenta
 
 
-def validar(ctx, cuadro, fechas):
+def validar(ctx, cuadro, fechas, fijos=()):
+    """`fijos`: celdas (colab_id, fecha) editadas a mano; romper allí «libre tras noche» es decisión de quien coordina."""
     out = []
     fechas = sorted(fechas)
+    dias = set(fechas)
     nombres = {p.id: p.nombre for p in ctx.colabs}
     en = [p for p in ctx.colabs if p.en_solver]
     for p in en:
@@ -44,10 +46,25 @@ def validar(ctx, cuadro, fechas):
                 ini = intervalo(ctx.turnos[tb], b)[0]
                 if (ini - fin).total_seconds() / 60 < DESCANSO_MIN:
                     out.append(Alerta("error", b, p.id, f"{nombres[p.id]}: menos de 12 h entre {ta} ({a:%d/%m}) y {tb} ({b:%d/%m})"))
+        for a in fechas:  # libre después de una noche
+            t = ctx.turnos.get(cuadro.get((p.id, a), "L"))
+            if t and "N" in t.cubre:
+                for k in range(1, ctx.libre_tras_noche + 1):
+                    b = a + timedelta(days=k)
+                    if b in dias and cuadro.get((p.id, b), "L") in ctx.turnos and (p.id, b) not in fijos:
+                        out.append(Alerta("aviso", b, p.id, f"{nombres[p.id]}: sin día libre después de la noche del {a:%d/%m}"))
+                        break
         for lunes in (f for f in fechas if f.weekday() == 0):
             sem = [lunes + timedelta(days=i) for i in range(7)]
-            if sem[-1] in fechas and all(cuadro.get((p.id, d), "L") in ctx.turnos for d in sem):
-                out.append(Alerta("error", lunes, p.id, f"{nombres[p.id]}: sin día libre en la semana del {lunes:%d/%m}"))
+            if sem[-1] in dias and sum(cuadro.get((p.id, d), "L") not in ctx.turnos for d in sem) < ctx.libres_semana:
+                out.append(Alerta("error", lunes, p.id, f"{nombres[p.id]}: menos de {ctx.libres_semana} día(s) libre(s) en la semana del {lunes:%d/%m}"))
+        fines = [(f, f + timedelta(days=1)) for f in fechas if f.weekday() == 5 and f + timedelta(days=1) in dias]
+        if ctx.fines_libres and fines:
+            libre = lambda x: cuadro.get((p.id, x), "L") not in ctx.turnos
+            hay = sum(libre(s) and libre(d) for s, d in fines)
+            manual = sum(not (libre(s) and libre(d)) and ((p.id, s) in fijos or (p.id, d) in fijos) for s, d in fines)
+            if hay + manual < min(ctx.fines_libres, len(fines)):
+                out.append(Alerta("aviso", None, p.id, f"{nombres[p.id]}: sin fin de semana libre (sábado y domingo) este mes"))
     for f in fechas:
         req, hay = ctx.cobertura[ctx.tipo_dia(f)], cobertura_dia(ctx, cuadro, f)
         for fr, n in req.items():

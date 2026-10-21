@@ -81,13 +81,47 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ma
     for p in P:  # tope de noches consecutivas
         for i in range(len(fechas) - max_noches):
             m.Add(sum(v for d in fechas[i:i + max_noches + 1] for s, v in por_pd[p.id, d] if es_noche(s)) <= max_noches)
+    n_libres = ctx.libre_tras_noche  # después de una noche, el día siguiente es libre (salvo edición manual)
+    for p in P:
+        for i, a in enumerate(fechas):
+            for k in range(1, n_libres + 1):
+                if i + k >= len(fechas):
+                    break
+                b = fechas[i + k]
+                if fijos.get((p.id, b), "L") != "L":
+                    continue
+                for s1, v1 in por_pd[p.id, a]:
+                    if es_noche(s1):
+                        for s2, v2 in por_pd[p.id, b]:
+                            if s2 != "L":
+                                m.Add(v1 + v2 <= 1)
+        for j in range(1, n_libres + 1):  # la noche fue en el último día del mes anterior
+            if es_noche(previo.get((p.id, fechas[0] - timedelta(days=j)), "L")):
+                for k in range(n_libres - j + 1):
+                    if fijos.get((p.id, fechas[k]), "L") == "L":
+                        m.Add(sum(v for s, v in por_pd[p.id, fechas[k]] if s != "L") == 0)
+    fines = [(d, d + timedelta(days=1)) for d in fechas if d.weekday() == 5 and d + timedelta(days=1) in set(fechas)]
+    if ctx.fines_libres and fines:  # al menos un fin de semana completo libre al mes (el libre posterior a la noche cuenta)
+        for p in P:
+            libres = []
+            for sab, dom in fines:
+                if any(fijos.get((p.id, x), "L") != "L" for x in (sab, dom)):
+                    continue  # una edición manual ya decidió ese fin de semana
+                z = m.NewBoolVar("")
+                for x in (sab, dom):
+                    for s, v in por_pd[p.id, x]:
+                        if s != "L":
+                            m.Add(z + v <= 1)
+                libres.append(z)
+            if libres:
+                m.Add(sum(libres) >= min(ctx.fines_libres, len(libres)))
     semanas = defaultdict(list)
     for d in fechas:
         semanas[d - timedelta(days=d.weekday())].append(d)
     for p in P:  # al menos un día libre en cada semana completa
         for lunes, dias in semanas.items():
             if len(dias) == 7:
-                m.Add(sum(v for d in dias for s, v in por_pd[p.id, d] if s == "L") >= 1)
+                m.Add(sum(v for d in dias for s, v in por_pd[p.id, d] if s == "L") >= ctx.libres_semana)
 
     for d in fechas:  # cobertura: faltante muy caro, sobrante barato
         for fr, req in ctx.cobertura[ctx.tipo_dia(d)].items():
