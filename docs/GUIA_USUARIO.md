@@ -125,6 +125,8 @@ Para registrar algo que no sale del cuadro:
 | Pagado en nómina | Horas pagadas | Escribe las horas en positivo: se restan |
 | Ajuste | Cualquier corrección | Con signo |
 
+**Compensación automática.** Al generar el siguiente periodo, An~ ajusta la **meta de horas** de cada persona con su saldo anterior: a quien se le deben horas se le baja la meta (trabaja menos) y a quien las debe se le sube. Hay un tope por periodo en cada dirección, 12 h por defecto, que se cambia en **Parámetros → Cobertura y reglas → Banco de horas**; con 0 esa dirección se apaga. Al terminar, el aviso dice a quién se le compensó y cuántas horas. La compensación es una preferencia: la cobertura y las reglas de descanso siempre mandan, y el cierre del periodo sigue midiendo contra las horas contratadas reales.
+
 Los cierres no se borran desde el banco; se deshacen reabriendo el periodo. Los movimientos manuales sí se pueden borrar.
 
 ### 8. Ver el historial de esquemas

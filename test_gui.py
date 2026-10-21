@@ -97,4 +97,8 @@ v.t_movs.selectRow(1 if v._movs[1][0] else 0); v._borrar_movimiento(); assert v.
 assert v.t_hist.rowCount() == 1 and v.t_hist.item(0, 2).text() == "Cerrado"
 v.t_hist.selectRow(0); v.sub_banco.setCurrentIndex(1); v._ir_al_periodo(); assert v.periodo() == P and v.pestanas.currentIndex() == 0
 v._alternar_cierre(); assert not v.bd.periodo_cerrado(K) and v.bd.cierres() == []
+# banco: los topes de compensación se guardan desde Parámetros
+assert (v.s_favor.value(), v.s_deuda.value()) == (12, 12)
+v.s_favor.setValue(8); v.s_deuda.setValue(0); v._guardar_reglas()
+assert (v.bd.param("banco_tope_favor_h"), v.bd.param("banco_tope_deuda_h")) == ("8", "0") and v.s_favor.value() == 8
 print("OK")

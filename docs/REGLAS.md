@@ -35,7 +35,7 @@ Estado: v1. Todo lo marcado **[confirmar]** lo debe validar la coordinación, RR
 
 ## Banco de horas
 
-El banco lleva, por persona, **horas trabajadas − horas contratadas** de cada periodo cerrado, más los movimientos manuales (saldo inicial, compensaciones, pagos, ajustes). Positivo significa que la institución le debe horas a la persona; negativo, que la persona debe horas. Al cerrar se guarda una foto de las horas contratadas y trabajadas, así que cambios posteriores de jornada o de tarifas no reescriben el historial. Las horas contratadas descuentan las novedades del periodo. Qué se hace con un saldo (compensarlo, pagarlo, trasladarlo) es una decisión de la coordinación y de RR. HH. **[confirmar]**; An~ solo lo registra.
+El banco lleva, por persona, **horas trabajadas − horas contratadas** de cada periodo cerrado, más los movimientos manuales (saldo inicial, compensaciones, pagos, ajustes). Positivo significa que la institución le debe horas a la persona; negativo, que la persona debe horas. Al cerrar se guarda una foto de las horas contratadas y trabajadas, así que cambios posteriores de jornada o de tarifas no reescriben el historial. Las horas contratadas descuentan las novedades del periodo. Al generar un periodo, el saldo anterior mueve la meta de horas: se baja a quien se le deben horas y se sube a quien las debe, con un tope por periodo en cada dirección (12 h por defecto, 0 = apagado). Pedir más horas a quien las debe puede tener implicaciones laborales, así que cada dirección se puede apagar por separado **[confirmar]**. Qué se hace con un saldo (compensarlo, pagarlo, trasladarlo) es una decisión de la coordinación y de RR. HH.; An~ lo registra y lo usa solo como preferencia del generador.
 
 ## Esquema de programación
 

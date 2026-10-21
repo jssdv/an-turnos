@@ -32,20 +32,21 @@ def carga(ctx, cuadro, fechas):
     return {k: dict(v) for k, v in out.items()}
 
 
-def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0):
-    """Devuelve (cuadro {(colab_id, fecha): código}, info). Los días libres no aparecen en el cuadro."""
+def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0, ajuste=None):
+    """Devuelve (cuadro {(colab_id, fecha): código}, info). Los días libres no aparecen en el cuadro.
+    `ajuste`: {colab_id: horas} que se suman a la meta de horas del periodo (negativo: se le deben horas, trabaja menos)."""
     fechas, fijos, previo, acum = sorted(fechas), fijos or {}, previo or {}, acum or {}
     try:
-        return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla)
+        return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste or {})
     except ErrorSolver:
         if not fijos:
             raise
-        _resolver(ctx, fechas, {}, previo, acum, ventana_sem, min(tiempo, 10), semilla)  # sin fijos tampoco → sale ese error
+        _resolver(ctx, fechas, {}, previo, acum, ventana_sem, min(tiempo, 10), semilla, ajuste or {})  # sin fijos tampoco → sale ese error
         raise ErrorSolver("Las celdas fijas (ediciones manuales) hacen imposible cumplir el descanso de 12 h "
                           "o el día libre semanal. Quita algunas con «Restaurar» y vuelve a generar.")
 
 
-def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla):
+def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste):
     P = [p for p in ctx.colabs if p.en_solver]
     S = [c for c, t in ctx.turnos.items() if t.solver]
     mal = incompatibles(ctx.turnos)
@@ -155,6 +156,7 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla):
         for i in range((len(fechas) + dias_vent - 1) // dias_vent):
             dias = fechas[i * dias_vent:(i + 1) * dias_vent]
             meta = round(p.horas_sem * p.pct * 60 * sum(1 for d in dias if not ctx.novedad(p.id, d)) / 7)
+            meta = max(0, meta + round(ajuste.get(p.id, 0) * 60 * len(dias) / len(fechas)))  # banco de horas, repartido por ventana
             hechas = sum(round(ctx.turnos[s].horas * 60) * v for d in dias for s, v in por_pd[p.id, d] if s in ctx.turnos)
             de, ex = m.NewIntVar(0, 100_000, ""), m.NewIntVar(0, 100_000, "")
             m.Add(de >= meta - hechas)
@@ -246,4 +248,5 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla):
         raise ErrorSolver("No existe un cuadro que cumpla el descanso de 12 h y el día libre semanal con estos datos.")
     cuadro = {(p.id, d): s for p in P for d in fechas for s, v in por_pd[p.id, d] if s != "L" and sol.Value(v)}
     faltan = [(d, fr, sol.Value(v)) for (d, fr), v in faltas.items() if sol.Value(v)]
-    return cuadro, {"estado": sol.StatusName(estado), "objetivo": sol.ObjectiveValue(), "faltan": sorted(faltan)}
+    return cuadro, {"estado": sol.StatusName(estado), "objetivo": sol.ObjectiveValue(), "faltan": sorted(faltan),
+                    "ajuste": {c: h for c, h in ajuste.items() if h}}

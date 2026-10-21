@@ -67,8 +67,10 @@ def preparar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20):
         fijos = {**{(p.id, d): actual.get((p.id, d), "L") for p in ctx.colabs if p.en_solver for d in dias
                     if d not in sem}, **{c: t for c, t in fijos.items() if c[1] in sem}}
     previo = bd.asignaciones_rango(inicio - timedelta(days=3), inicio - timedelta(days=1))  # descanso entre periodos
+    activos = {p.id for p in ctx.colabs if p.en_solver}
+    ajuste = {c: h for c, h in ajustes_banco(bd, inicio, fin).items() if c in activos}
     return ctx, dias, dict(fijos=fijos, previo=previo, acum=acumulado(bd, ctx, inicio),
-                           ventana_sem=int(bd.param("ventana_semanas", 3)), tiempo=tiempo)
+                           ventana_sem=int(bd.param("ventana_semanas", 3)), tiempo=tiempo, ajuste=ajuste)
 
 
 def terminar(bd, inicio, fin, ctx, dias, cuadro, modo="cero"):
@@ -121,6 +123,26 @@ def cerrar(bd, inicio, fin):
     if not bd.asignaciones(k):
         raise ValueError("Este periodo no tiene cuadro: genera uno antes de cerrarlo.")
     bd.cerrar_periodo(k, resumen_horas(bd, inicio, fin))
+
+
+def ajustes_banco(bd, inicio, fin):
+    """{colab_id: horas} que el generador suma a la meta del periodo según el saldo del banco: a quien se le deben horas
+    se le baja la meta y a quien las debe se le sube, con un tope por periodo en cada dirección (0 = no compensar)."""
+    favor, deuda = int(bd.param("banco_tope_favor_h", 12)), int(bd.param("banco_tope_deuda_h", 12))
+    saldo = defaultdict(float)
+    for per, cid, contr, trab in bd.cierres():
+        if desde_clave(per)[1] < inicio:
+            saldo[cid] += trab - contr
+    for _, cid, fecha, horas, _, _ in bd.movimientos():
+        if fecha <= fin:
+            saldo[cid] += horas
+    out = {}
+    for cid, s in saldo.items():
+        if s > 0.05 and favor:
+            out[cid] = -min(round(s, 2), favor)
+        elif s < -0.05 and deuda:
+            out[cid] = min(round(-s, 2), deuda)
+    return out
 
 
 def estado_banco(bd, inicio, fin):

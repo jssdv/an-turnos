@@ -17,7 +17,6 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación y e
 
 | Etapa | Idea | Notas |
 |---|---|---|
-| Compensar el banco al generar | Que el generador use el saldo del banco para dar menos horas a quien se le deben y más a quien las debe, con un tope por periodo | Hoy el banco solo se consulta y se registra |
 | Excel del banco | Exportar saldos y movimientos para RR. HH. | Hoy se ve en pantalla |
 | Interfaz más ágil | Aviso anticipado de subcobertura, rehacer (Ctrl+Y), mover un turno a una celda libre sin intercambiar, vista por semana | Arrastrar, lote, deshacer y estudio ya están; ver [inspiración](ARQUITECTURA.md#interfaz-y-tecnología) |
 | Importar el Excel actual | Cargar personal y ciclos desde `TURNOS ESTERILIZACION*.xlsx` | Evita digitar a mano la primera vez |
