@@ -135,6 +135,7 @@ class Contexto:
     fines_libres: int = 1  # fines de semana completos (sábado y domingo) libres al mes por persona (0 = sin regla)
     max_noches: int = 2  # noches seguidas del tipo NC-L-NC-L… (separadas por el libre posterior); 0 = sin tope
     max_c: int = 2  # turnos corridos (de 12 h de día) en días consecutivos; 0 = sin tope
+    max_igual: int = 3  # mismo turno de 6 h (M, T…) en días consecutivos; 0 = sin tope
     _nov: dict = field(default_factory=dict, repr=False)
 
     def __post_init__(self):

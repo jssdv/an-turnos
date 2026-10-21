@@ -8,8 +8,8 @@ from dominio import DESCANSO_MIN
 
 # Pesos del objetivo (minutos de desviación = 1 punto). La cobertura faltante domina todo lo demás.
 W_FALTA, W_SOBRA, W_DEFICIT, W_EXCESO = 100_000, 20, 1, 2
-W_CAMBIO, W_NOCHE_SEG, W_DF_SEG, W_ESTUDIO, W_EQUIDAD = 15, 200, 100, 300, 100
-W_C_PAR, W_LIBRE_FDS = 250, 120  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
+W_CAMBIO, W_NOCHE_SEG, W_DF_SEG, W_ESTUDIO, W_EQUIDAD = 15, 200, 100, 300, 200
+W_C_PAR, W_LIBRE_FDS, W_IGUAL = 250, 120, 60  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
 
 
 class ErrorSolver(Exception):
@@ -86,6 +86,14 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla):
                 racha = [fechas[i + k * paso] for k in range(ctx.max_noches + 1) if i + k * paso < len(fechas)]
                 if len(racha) > ctx.max_noches and libre_ok(p, racha):
                     m.Add(sum(v for d in racha for s, v in por_pd[p.id, d] if es_noche(s)) <= ctx.max_noches)
+        if ctx.max_igual:  # el mismo turno de 6 h (M, T…) no se repite más de `max_igual` días seguidos
+            for cod in S:
+                if es_noche(cod) or es_c(cod):
+                    continue
+                for i in range(len(fechas) - ctx.max_igual):
+                    ventana = fechas[i:i + ctx.max_igual + 1]
+                    if libre_ok(p, ventana):
+                        m.Add(sum(x[p.id, d, cod] for d in ventana if (p.id, d, cod) in x) <= ctx.max_igual)
         if ctx.max_c:  # a lo sumo `max_c` corridos en días consecutivos
             for i in range(len(fechas) - ctx.max_c):
                 ventana = fechas[i:i + ctx.max_c + 1]
@@ -115,11 +123,11 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla):
         for p in P:
             libres = []
             for sab, dom in fines:
-                if any(fijos.get((p.id, x), "L") != "L" for x in (sab, dom)):
+                if any(fijos.get((p.id, dia), "L") != "L" for dia in (sab, dom)):
                     continue  # una edición manual ya decidió ese fin de semana
                 z = m.NewBoolVar("")
-                for x in (sab, dom):
-                    for s, v in por_pd[p.id, x]:
+                for dia in (sab, dom):
+                    for s, v in por_pd[p.id, dia]:
                         if s != "L":
                             m.Add(z + v <= 1)
                 libres.append(z)
@@ -167,6 +175,16 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla):
                 par = m.NewBoolVar("")
                 m.Add(par >= sum(va) + sum(vb) - 1)
                 obj.append(W_C_PAR * par)
+        if ctx.max_igual >= 3:  # y se evita incluso llegar a tres iguales seguidos
+            for cod in S:
+                if es_noche(cod) or es_c(cod):
+                    continue
+                for i in range(len(fechas) - 2):
+                    vs = [x[p.id, d, cod] for d in fechas[i:i + 3] if (p.id, d, cod) in x]
+                    if len(vs) == 3:
+                        tres = m.NewBoolVar("")
+                        m.Add(tres >= sum(vs) - 2)
+                        obj.append(W_IGUAL * tres)
         for lunes, dias in semanas.items():  # los libres, de preferencia en sábado o domingo
             fds = [v for d in dias if d.weekday() >= 5 for s, v in por_pd[p.id, d] if s == "L"]
             if fds:
@@ -214,7 +232,9 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla):
             for p in elegibles:
                 m.Add(mx >= tot[p.id])
                 m.Add(mn <= tot[p.id])
-            obj.append(W_EQUIDAD * (mx - mn))
+            exceso = m.NewIntVar(0, 1000, "")  # la diferencia hasta 2 pesa normal; lo que pase de 2 pesa el triple
+            m.Add(exceso >= mx - mn - 2)
+            obj += [W_EQUIDAD * (mx - mn), 3 * W_EQUIDAD * exceso]
 
     m.Minimize(sum(obj))
     sol = cp_model.CpSolver()

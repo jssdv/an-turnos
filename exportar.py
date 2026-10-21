@@ -8,7 +8,7 @@ from openpyxl.utils import get_column_letter
 
 import recargos
 from dominio import DIAS
-from puestos import PUESTOS
+from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
 
 MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre",
          "Noviembre", "Diciembre"]
@@ -40,7 +40,7 @@ def _ancho(ws, primera, resto, desde=2):
         ws.column_dimensions[get_column_letter(i)].width = resto
 
 
-def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None):
+def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
     cols = [p for p in ctx.colabs if p.en_solver]
     _encabezado(ws, 1, ["Colaborador"] + [f"{DIAS[f.weekday()]}\n{f.day}" for f in fechas] + ["Horas"])
     for i, f in enumerate(fechas, 2):
@@ -52,7 +52,10 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None):
         for i, f in enumerate(fechas, 2):
             cod = cuadro.get((p.id, f), "L")
             nov = ctx.novedad(p.id, f)
-            c = ws.cell(r, i, ABREV_NOVEDAD[nov.tipo] if nov and cod == "L" else cod)
+            texto = ABREV_NOVEDAD[nov.tipo] if nov and cod == "L" else cod
+            if puestos is not None and cod in ctx.turnos and tiene_puesto(ctx.turnos[cod]) and (p.id, f) in puestos:
+                texto = etiqueta(cod, puestos[p.id, f])
+            c = ws.cell(r, i, texto)
             c.alignment = CENTRO
             if cod in ctx.turnos:
                 c.fill = PatternFill("solid", fgColor=ctx.turnos[cod].color)
@@ -77,11 +80,15 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None):
     ws.freeze_panes = "B2"
 
 
-def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias):
-    """Hojas: Cuadro (de `cambios`, celdas modificadas en amarillo), Original y Cambios (lista de diferencias)."""
+def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias, filas_puestos=()):
+    """Hojas: Cuadro (de `cambios`, celdas modificadas en amarillo), Cuadro con puestos, Original y Cambios (diferencias)."""
     wb = Workbook()
     _hoja_cuadro(wb.active, ctx, cuadro, fechas, comparar=original)
     wb.active.title = "Cuadro"
+    if filas_puestos:
+        con = wb.create_sheet("Cuadro con puestos")
+        _hoja_cuadro(con, ctx, cuadro, fechas, puestos=por_persona(filas_puestos))
+        con.cell(con.max_row + 2, 1, LEYENDA)
     _hoja_cuadro(wb.create_sheet("Original"), ctx, original, fechas)
     ws = wb.create_sheet("Cambios")
     _encabezado(ws, 1, ["Colaborador", "Fecha", "Antes", "Después"])

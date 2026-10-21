@@ -58,6 +58,14 @@ v._mover_celda(ra, c1, len(gente), c1); assert "no se puede" in v.aviso.text()
 # lote: seleccionar dos celdas y asignar L
 v._aplicar([(v._gente()[ra], d1, "L"), (v._gente()[rb], d1, "L")], "lote"); assert (a, d1) not in {k for k, x in ver().items() if x != "L"}
 v.deshacer(); assert ver()[(a, d1)] == "M"
+# puesto visible: con «Mostrar puesto» la celda dice M·n, y editarla sigue leyendo solo el código
+import flujo
+flujo.recalcular(v.bd, 2026, 10); v.refrescar()
+assert v.grilla.item(ra, c1).text() == "M" and v.grilla.item(ra, c1).toolTip().startswith("Puesto: ")
+v.ver_puesto.setChecked(True)
+txt = v.grilla.item(ra, c1).text(); assert txt.startswith("M·") and txt[2] in "12345A", txt
+v.grilla.item(ra, c1).setText("T·2"); assert v.bd.asignaciones("2026-10")[(a, d1)] == "T"
+v.deshacer(); v.ver_puesto.setChecked(False)
 # estudio visible: la celda libre de quien estudia ese día lleva aviso
 v._nueva_persona(); v.p_nombre.setText("Eva"); v.p_est.item(0, 0).setCheckState(Qt.Checked); v._guardar_persona(); v.refrescar()
 fila = [p.nombre for p in v._gente()].index("Eva")

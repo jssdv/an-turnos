@@ -56,7 +56,7 @@ Variable `x[persona, día, turno]` con L más los turnos del catálogo marcados 
 
 **Duras:** una opción por persona y día; descanso de 12 h (transiciones prohibidas calculadas con los horarios reales); día libre después de una noche (también cuando la noche cae al final del mes anterior); mínimo de días libres por semana completa; al menos un fin de semana completo libre al mes por persona; novedades, estudio y turnos permitidos; tope de noches seguidas; celdas fijas por edición manual (si una edición manual ocupa el día libre o el fin de semana, esa regla no se exige para ese caso); continuidad con el mes anterior.
 
-**También duras:** máximo de noches en racha NC-L-NC-L… y máximo de corridos seguidos (si una edición manual cae en la ventana, esa ventana no se exige).
+**También duras:** máximo de noches en racha NC-L-NC-L…, máximo de corridos seguidos y máximo del mismo turno de 6 h seguido (si una edición manual cae en la ventana, esa ventana no se exige).
 
 **Objetivo:** faltante de cobertura (peso muy alto) y sobrante; desviación de horas por ventana del art. 165; cambios de turno día a día; noche antes de estudio de mañana; noches y domingos/festivos en semanas seguidas; dos corridos seguidos; semanas sin libre en sábado o domingo; equidad de cada turno (M, T, C, NC…) y de domingos/festivos entre quienes tienen las mismas restricciones, incluyendo meses anteriores.
 
