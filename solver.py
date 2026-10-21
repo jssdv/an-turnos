@@ -9,6 +9,7 @@ from dominio import DESCANSO_MIN
 # Pesos del objetivo (minutos de desviación = 1 punto). La cobertura faltante domina todo lo demás.
 W_FALTA, W_SOBRA, W_DEFICIT, W_EXCESO = 100_000, 20, 1, 2
 W_CAMBIO, W_NOCHE_SEG, W_DF_SEG, W_ESTUDIO, W_EQUIDAD = 15, 200, 100, 300, 100
+W_C_PAR, W_LIBRE_FDS = 250, 120  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
 
 
 class ErrorSolver(Exception):
@@ -22,31 +23,29 @@ def incompatibles(turnos):
 
 
 def carga(ctx, cuadro, fechas):
-    """{colab_id: (noches, domingos/festivos trabajados, corridos)} de un cuadro; sirve de acumulado para meses futuros."""
-    out = defaultdict(lambda: [0, 0, 0])
+    """{colab_id: {código de turno: veces, "DF": domingos/festivos trabajados}}; sirve de acumulado para meses futuros."""
+    out = defaultdict(lambda: defaultdict(int))
     for (cid, f), cod in cuadro.items():
-        t = ctx.turnos.get(cod)
-        if t and f in fechas:
-            out[cid][0] += "N" in t.cubre
-            out[cid][1] += ctx.tipo_dia(f) == "DF"
-            out[cid][2] += len(t.cubre) > 1
-    return {k: tuple(v) for k, v in out.items()}
+        if cod in ctx.turnos and f in fechas:
+            out[cid][cod] += 1
+            out[cid]["DF"] += ctx.tipo_dia(f) == "DF"
+    return {k: dict(v) for k, v in out.items()}
 
 
-def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0, max_noches=3):
+def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0):
     """Devuelve (cuadro {(colab_id, fecha): código}, info). Los días libres no aparecen en el cuadro."""
     fechas, fijos, previo, acum = sorted(fechas), fijos or {}, previo or {}, acum or {}
     try:
-        return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, max_noches)
+        return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla)
     except ErrorSolver:
         if not fijos:
             raise
-        _resolver(ctx, fechas, {}, previo, acum, ventana_sem, min(tiempo, 10), semilla, max_noches)  # sin fijos tampoco → sale ese error
+        _resolver(ctx, fechas, {}, previo, acum, ventana_sem, min(tiempo, 10), semilla)  # sin fijos tampoco → sale ese error
         raise ErrorSolver("Las celdas fijas (ediciones manuales) hacen imposible cumplir el descanso de 12 h "
                           "o el día libre semanal. Quita algunas con «Restaurar» y vuelve a generar.")
 
 
-def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, max_noches):
+def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla):
     P = [p for p in ctx.colabs if p.en_solver]
     S = [c for c, t in ctx.turnos.items() if t.solver]
     mal = incompatibles(ctx.turnos)
@@ -78,9 +77,20 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ma
                     if (s1, s2) in mal:
                         m.Add(v1 + v2 <= 1)
     es_noche = lambda s: s in ctx.turnos and "N" in ctx.turnos[s].cubre
-    for p in P:  # tope de noches consecutivas
-        for i in range(len(fechas) - max_noches):
-            m.Add(sum(v for d in fechas[i:i + max_noches + 1] for s, v in por_pd[p.id, d] if es_noche(s)) <= max_noches)
+    es_c = lambda s: s in ctx.turnos and len(ctx.turnos[s].cubre) > 1
+    libre_ok = lambda p, dias: all(fijos.get((p.id, d), "L") == "L" for d in dias)  # una edición manual en la ventana manda
+    paso = ctx.libre_tras_noche + 1  # separación entre noches de una racha NC-L-NC-L…
+    for p in P:
+        if ctx.max_noches:  # a lo sumo `max_noches` noches en racha
+            for i in range(len(fechas)):
+                racha = [fechas[i + k * paso] for k in range(ctx.max_noches + 1) if i + k * paso < len(fechas)]
+                if len(racha) > ctx.max_noches and libre_ok(p, racha):
+                    m.Add(sum(v for d in racha for s, v in por_pd[p.id, d] if es_noche(s)) <= ctx.max_noches)
+        if ctx.max_c:  # a lo sumo `max_c` corridos en días consecutivos
+            for i in range(len(fechas) - ctx.max_c):
+                ventana = fechas[i:i + ctx.max_c + 1]
+                if libre_ok(p, ventana):
+                    m.Add(sum(v for d in ventana for s, v in por_pd[p.id, d] if es_c(s)) <= ctx.max_c)
     n_libres = ctx.libre_tras_noche  # después de una noche, el día siguiente es libre (salvo edición manual)
     for p in P:
         for i, a in enumerate(fechas):
@@ -151,6 +161,18 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ma
                     if s1 != s2 and s1 != "L" and s2 != "L":
                         m.Add(cambio >= v1 + v2 - 1)
             obj.append(W_CAMBIO * cambio)
+        for a, b in zip(fechas, fechas[1:]):  # evitar dos corridos seguidos
+            va, vb = [v for s, v in por_pd[p.id, a] if es_c(s)], [v for s, v in por_pd[p.id, b] if es_c(s)]
+            if va and vb:
+                par = m.NewBoolVar("")
+                m.Add(par >= sum(va) + sum(vb) - 1)
+                obj.append(W_C_PAR * par)
+        for lunes, dias in semanas.items():  # los libres, de preferencia en sábado o domingo
+            fds = [v for d in dias if d.weekday() >= 5 for s, v in por_pd[p.id, d] if s == "L"]
+            if fds:
+                t = m.NewBoolVar("")
+                m.Add(t <= sum(fds))
+                obj.append(W_LIBRE_FDS * (1 - t))
         for d in fechas:  # evitar noche justo antes de un bloque de estudio de mañana
             if any(dia == (d + timedelta(days=1)).weekday() and fr == "M" for dia, fr in p.estudio):
                 obj += [W_ESTUDIO * v for s, v in por_pd[p.id, d] if s in ctx.turnos and "N" in ctx.turnos[s].cubre]
@@ -174,22 +196,25 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ma
         seguidas(W_NOCHE_SEG, p, lambda d, s: s in ctx.turnos and "N" in ctx.turnos[s].cubre)
         seguidas(W_DF_SEG, p, lambda d, s: s in ctx.turnos and ctx.tipo_dia(d) == "DF")
 
-    metricas = [  # (cuenta el turno s del día d, ¿puede la persona acumular esta carga?)
-        (lambda d, s: "N" in ctx.turnos[s].cubre, lambda p: any("N" in ctx.turnos[c].cubre for c in S if p.permitidos is None or c in p.permitidos)),
-        (lambda d, s: ctx.tipo_dia(d) == "DF", lambda p: True),
-        (lambda d, s: len(ctx.turnos[s].cubre) > 1, lambda p: any(len(ctx.turnos[c].cubre) > 1 for c in S if p.permitidos is None or c in p.permitidos)),
-    ]
-    for k, (cond, puede) in enumerate(metricas):  # equidad: reducir la diferencia entre mayor y menor carga acumulada
-        elegibles = [p for p in P if puede(p)]
-        if len(elegibles) < 2:
-            continue
-        tot = {p.id: acum.get(p.id, (0, 0, 0))[k] + sum(v for d in fechas for s, v in por_pd[p.id, d]
-                                                          if s in ctx.turnos and cond(d, s)) for p in elegibles}
-        mx, mn = m.NewIntVar(0, 1000, ""), m.NewIntVar(0, 1000, "")
-        for p in elegibles:
-            m.Add(mx >= tot[p.id])
-            m.Add(mn <= tot[p.id])
-        obj.append(W_EQUIDAD * (mx - mn))
+    # equidad: M, T, C, NC (y cada turno nuevo) y domingos/festivos parejos entre quienes pueden hacerlos,
+    # contando lo acumulado de meses anteriores
+    cargas = [(cod, lambda d, s, cod=cod: s == cod, lambda p, cod=cod: p.permitidos is None or cod in p.permitidos) for cod in S]
+    cargas.append(("DF", lambda d, s: s in ctx.turnos and ctx.tipo_dia(d) == "DF", lambda p: True))
+    for clave, cond, puede in cargas:
+        grupos = defaultdict(list)  # se compara entre quienes tienen las mismas restricciones (la restringida va aparte)
+        for p in P:
+            if puede(p):
+                grupos[p.permitidos if clave != "DF" else None].append(p)
+        for elegibles in grupos.values():
+            if len(elegibles) < 2:
+                continue
+            tot = {p.id: acum.get(p.id, {}).get(clave, 0) + sum(v for d in fechas for s, v in por_pd[p.id, d] if cond(d, s))
+                   for p in elegibles}
+            mx, mn = m.NewIntVar(0, 1000, ""), m.NewIntVar(0, 1000, "")
+            for p in elegibles:
+                m.Add(mx >= tot[p.id])
+                m.Add(mn <= tot[p.id])
+            obj.append(W_EQUIDAD * (mx - mn))
 
     m.Minimize(sum(obj))
     sol = cp_model.CpSolver()
