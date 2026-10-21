@@ -27,6 +27,7 @@ Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta to
    - **Fines de semana libres al mes** (sábado y domingo): mínimo 1 por persona; el libre posterior a una noche cuenta.
    - **Máximo de noches en racha** (NC, L, NC, L…): 2 por defecto.
    - **Máximo de corridos (C) seguidos**: 2 por defecto; además el generador intenta evitar incluso los pares.
+   - **Máximo del mismo turno (M, T…) seguido**: 3 por defecto (nunca 4 M seguidas).
 
    Además, el generador reparte parejo M, T, C y NC entre el personal y prefiere poner los libres en sábado o domingo.
 
@@ -60,6 +61,17 @@ Cada cambio:
 - se puede **deshacer con Ctrl+Z** (hasta que generes, publiques o restaures).
 
 Los días de estudio aparecen en **morado** sobre las celdas libres, y al pasar el cursor dice si es de mañana o tarde. El listado **Cambios respecto al original** muestra cada diferencia (persona, fecha, antes → después).
+
+### Dónde se ve la asignación (el puesto)
+
+Cada celda del cuadro muestra el turno. Para ver **en qué puesto** está cada persona:
+
+- Marca **Mostrar puesto** junto al selector *Ver*: las celdas pasan de `M` a `M·2`. El número es el puesto (1 lavado, 2 autoclave, 3 sterrad y esto, 4 cuarto estéril, 5 ropa) y `A` significa **apoyo**, sin puesto fijo ese día. La leyenda está bajo la grilla.
+- Pasa el cursor sobre una celda de día: el aviso dice «Puesto: Autoclave».
+- La pestaña **Puestos y capacitación** muestra lo mismo por día, con el grupo de pausa (P1/P2).
+- En Excel, el archivo del cuadro trae la hoja **Cuadro con puestos** y el archivo de puestos, una hoja por semana.
+
+Las noches no llevan puesto. Si escribes en una celda con el puesto visible, basta el código (`T`, o `T·2`, ambos valen). Los puestos se recalculan solos con cada cambio.
 
 ### 4. Cuando llega una novedad tarde
 

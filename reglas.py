@@ -64,6 +64,15 @@ def validar(ctx, cuadro, fechas, fijos=()):
                     n += 1
                 if n > ctx.max_noches and not any((p.id, a + timedelta(days=paso * k)) in fijos for k in range(n)):
                     out.append(Alerta("aviso", a, p.id, f"{nombres[p.id]}: {n} noches seguidas desde el {a:%d/%m} (máximo {ctx.max_noches})"))
+            if ctx.max_igual:
+                cod = cuadro.get((p.id, a), "L")
+                t = ctx.turnos.get(cod)
+                if t and "N" not in t.cubre and len(t.cubre) == 1 and cuadro.get((p.id, a - timedelta(days=1)), "L") != cod:
+                    n = 0
+                    while cuadro.get((p.id, a + timedelta(days=n)), "L") == cod:
+                        n += 1
+                    if n > ctx.max_igual and not any((p.id, a + timedelta(days=k)) in fijos for k in range(n)):
+                        out.append(Alerta("aviso", a, p.id, f"{nombres[p.id]}: {n} {cod} seguidos desde el {a:%d/%m} (máximo {ctx.max_igual})"))
             if ctx.max_c and corrido(a) and not corrido(a - timedelta(days=1)):
                 n = 0
                 while corrido(a + timedelta(days=n)):

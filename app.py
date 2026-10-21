@@ -20,7 +20,7 @@ import recargos
 import reglas
 import solver
 from dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
-from puestos import PUESTOS
+from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
 
 AQUI = Path(__file__).parent
 LOG = AQUI / "errores.log"
@@ -208,6 +208,9 @@ class Ventana(QMainWindow):
         self.version.currentIndexChanged.connect(lambda _: self._ver_cuadro())
         barra.addWidget(QLabel("Ver:"))
         barra.addWidget(self.version)
+        self.ver_puesto = QCheckBox("Mostrar puesto")
+        self.ver_puesto.toggled.connect(lambda _: self._ver_cuadro())
+        barra.addWidget(self.ver_puesto)
         self.b_generar = QPushButton("Generar…", objectName="primario")
         m = QMenu(self.b_generar)
         m.addAction("Generar desde cero (descarta mis cambios)", lambda: self.generar("cero"))
@@ -235,6 +238,7 @@ class Ventana(QMainWindow):
         v.addWidget(self.grilla, 3)
         v.addWidget(QLabel("Arrastra una celda sobre otra para intercambiarlas · clic derecho para asignar a varias "
                            "seleccionadas · Ctrl+Z deshace · morado = día de estudio", objectName="muted"))
+        v.addWidget(QLabel(LEYENDA, objectName="muted"))
         v.addWidget(QLabel("Alertas del cuadro (versión Cambios)", objectName="muted"))
         self.alertas = QListWidget()
         v.addWidget(self.alertas, 1)
@@ -248,6 +252,7 @@ class Ventana(QMainWindow):
         orig = self.bd.asignaciones(k, "original")
         ver_orig = self.version.currentText() == "Original"
         cuadro = orig if ver_orig else self.bd.asignaciones(k)
+        puesto = {} if ver_orig else por_persona(self.bd.puestos(k))  # los puestos se calculan sobre «Cambios»
         gente = [p for p in self.ctx.colabs if p.en_solver]
         g = self.grilla
         g.blockSignals(True)
@@ -261,7 +266,11 @@ class Ventana(QMainWindow):
             for c, f in enumerate(fechas):
                 cod = cuadro.get((p.id, f), "L")
                 nov = self.ctx.novedad(p.id, f)
-                it = QTableWidgetItem(ABREV[nov.tipo] if nov and cod == "L" else cod)
+                pu = puesto.get((p.id, f))
+                texto = ABREV[nov.tipo] if nov and cod == "L" else cod
+                if pu is not None and cod in self.ctx.turnos and tiene_puesto(self.ctx.turnos[cod]):
+                    texto = etiqueta(cod, pu) if self.ver_puesto.isChecked() else cod
+                it = QTableWidgetItem(texto)
                 it.setTextAlignment(Qt.AlignCenter)
                 it.setData(Qt.UserRole, cod)
                 if cod in self.ctx.turnos:
@@ -269,9 +278,11 @@ class Ventana(QMainWindow):
                     horas += self.ctx.turnos[cod].horas
                 elif nov:
                     it.setBackground(QColor("#D9D9D9"))
+                if pu is not None and cod in self.ctx.turnos and tiene_puesto(self.ctx.turnos[cod]):
+                    it.setToolTip("Puesto: " + (PUESTOS[pu] if pu else "apoyo"))
                 estudia = [("Mañana", "Tarde")["MT".index(fr)] for dia, fr in p.estudio if dia == f.weekday()]
                 if estudia:
-                    it.setToolTip("Estudia: " + " y ".join(x.lower() for x in estudia))
+                    it.setToolTip((it.toolTip() + "\n" if it.toolTip() else "") + "Estudia: " + " y ".join(x.lower() for x in estudia))
                     if cod == "L" and not nov:
                         it.setBackground(QColor("#E3E6FA"))
                 if not ver_orig and orig.get((p.id, f), "L") != cod:
@@ -343,7 +354,7 @@ class Ventana(QMainWindow):
         if not celda:
             return
         p, f = celda
-        cod = it.text().strip().upper() or "L"
+        cod = it.text().split("·")[0].strip().upper() or "L"  # «M·2» (con puesto) se lee como M
         if cod != "L" and cod not in self.ctx.turnos:
             self.avisar(f"«{cod}» no es un turno. Usa L o uno de: {', '.join(self.ctx.turnos)}.", "error")
             self._ver_cuadro()
@@ -453,7 +464,7 @@ class Ventana(QMainWindow):
         tar, ventana = self.bd.tarifas(), int(self.bd.param("ventana_semanas", 3))
         with ocupado():
             a = exportar.exportar_cuadro(carpeta, txt, self.ctx, cuadro, self.bd.asignaciones(k, "original"), fechas,
-                                         self.bd.diferencias(k))
+                                         self.bd.diferencias(k), self.bd.puestos(k))
             b = exportar.exportar_puestos(carpeta, txt, self.ctx, cuadro, fechas, self.bd.puestos(k),
                                           self.bd.capacitacion(k))
             c = exportar.exportar_horas(carpeta, txt, self.ctx, tar, cuadro, fechas, ventana)
@@ -834,6 +845,10 @@ class Ventana(QMainWindow):
         self.s_c.setRange(0, 7)
         self.s_c.setSpecialValueText("Sin tope")
         f.addRow("Máximo de corridos (C) seguidos", self.s_c)
+        self.s_igual = QSpinBox()
+        self.s_igual.setRange(0, 7)
+        self.s_igual.setSpecialValueText("Sin tope")
+        f.addRow("Máximo del mismo turno (M, T…) seguido", self.s_igual)
         self.s_libre = QSpinBox()
         self.s_libre.setRange(0, 3)
         self.s_libre.setSpecialValueText("Sin regla")
@@ -891,6 +906,7 @@ class Ventana(QMainWindow):
         self.s_vent.setValue(int(self.bd.param("ventana_semanas", 3)))
         self.s_noches.setValue(self.ctx.max_noches)
         self.s_c.setValue(self.ctx.max_c)
+        self.s_igual.setValue(self.ctx.max_igual)
         self.s_libre.setValue(self.ctx.libre_tras_noche)
         self.s_sem.setValue(self.ctx.libres_semana)
         self.s_fines.setValue(self.ctx.fines_libres)
@@ -1012,6 +1028,7 @@ class Ventana(QMainWindow):
         self.bd.set_param("ventana_semanas", self.s_vent.value())
         self.bd.set_param("max_noches_seguidas", self.s_noches.value())
         self.bd.set_param("max_c_seguidos", self.s_c.value())
+        self.bd.set_param("max_igual_seguidos", self.s_igual.value())
         self.bd.set_param("libre_tras_noche", self.s_libre.value())
         self.bd.set_param("libres_por_semana", self.s_sem.value())
         self.bd.set_param("fines_semana_libres", self.s_fines.value())

@@ -6,6 +6,27 @@ PUESTOS = {0: "Apoyo", 1: "Lavado", 2: "Autoclave", 3: "Sterrad y esto", 4: "Cua
 PRIORIDAD = [2, 1, 3, 4, 5]  # si falta gente, se cubren primero estos puestos
 
 
+LEYENDA = "Puestos: " + " · ".join(f"{n} {PUESTOS[n]}" for n in (1, 2, 3, 4, 5)) + " · A apoyo (sin puesto fijo ese día)"
+
+
+def por_persona(filas):
+    """{(colab_id, fecha): puesto} a partir de las filas de `asignar`; un corrido tiene el mismo puesto en M y T."""
+    out = {}
+    for f, fr, p, c, g in sorted(filas, key=lambda x: x[1] != "M"):
+        out.setdefault((c, f), p)
+    return out
+
+
+def tiene_puesto(turno):
+    """Solo los turnos de día (que cubren mañana o tarde) llevan puesto; la noche no."""
+    return bool({"M", "T"} & set(turno.cubre))
+
+
+def etiqueta(cod, puesto):
+    """Texto de celda con el puesto: «M·2» (autoclave), «T·A» (apoyo)."""
+    return cod if puesto is None else f"{cod}·{puesto or 'A'}"
+
+
 def _mejor(personas, opciones, costo):
     """Reparte `opciones` (más ceros de apoyo) entre `personas` con el menor costo total."""
     destino = (list(opciones) + [0] * len(personas))[:len(personas)]

@@ -131,6 +131,13 @@ def test_fin_de_semana_y_libres():
     assert any("día(s) libre(s)" in x.texto for x in reglas.validar(ctx, todo, semana))
 
 
+def test_etiqueta_de_puesto():
+    import puestos
+    assert puestos.etiqueta("M", 2) == "M·2" and puestos.etiqueta("T", 0) == "T·A" and puestos.etiqueta("NC", None) == "NC"
+    filas = [(date(2026, 10, 5), "M", 3, 7, 1), (date(2026, 10, 5), "T", 3, 7, 1), (date(2026, 10, 5), "T", 1, 8, 2)]
+    assert puestos.por_persona(filas) == {(7, date(2026, 10, 5)): 3, (8, date(2026, 10, 5)): 1}
+
+
 def test_rachas():
     bd = db.BD()
     bd.guardar_colaborador(Colaborador(0, "A"))
@@ -142,6 +149,9 @@ def test_rachas():
     assert len(avisos(tres)) == 1 and "3 noches" in avisos(tres)[0]
     assert avisos({(a.id, dias[i]): "NC" for i in (0, 2)}) == []
     assert avisos(tres, fijos={(a.id, dias[4])}) == []  # edición manual
+    cuatro = {(a.id, dias[i]): "M" for i in range(4)}  # 4 M seguidas, máximo 3
+    assert len(avisos(cuatro)) == 1 and "4 M" in avisos(cuatro)[0]
+    assert avisos({(a.id, dias[i]): "M" for i in range(3)}) == [] and avisos(cuatro, fijos={(a.id, dias[3])}) == []
     assert len(avisos({(a.id, dias[i]): "C" for i in (0, 1, 2)})) == 1 and avisos({(a.id, dias[i]): "C" for i in (0, 1)}) == []
 
 
@@ -191,7 +201,7 @@ def test_mes_completo():
     fechas = [date(2026, 10, 1) + timedelta(days=i) for i in range(31)]
     bd.guardar_novedad(Novedad(3, "Vacaciones", date(2026, 10, 12), date(2026, 10, 18)))
     ctx = bd.contexto(2026)
-    cuadro, info = solver.generar(ctx, fechas, tiempo=15)
+    cuadro, info = solver.generar(ctx, fechas, tiempo=20)
     assert not info["faltan"] and not reglas.validar(ctx, cuadro, fechas)
     assert all((3, date(2026, 10, d)) not in cuadro for d in range(12, 19))
     assert all(cuadro.get((11, f), "M") in ("M", "T") for f in fechas)  # la restringida nunca hace noche
@@ -201,6 +211,9 @@ def test_mes_completo():
     assert ctx.max_noches == 2 and ctx.max_c == 2
     assert not any(all(noche(p.id, fechas[i + 2 * k]) for k in range(3)) for p in ctx.colabs for i in range(len(fechas) - 4))
     assert not any(all(cuadro.get((p.id, fechas[i + k])) == "C" for k in range(3)) for p in ctx.colabs for i in range(len(fechas) - 2))
+    # nunca más de 3 turnos de 6 h iguales seguidos (p. ej. 4 M)
+    assert ctx.max_igual == 3
+    assert not any(all(cuadro.get((p.id, fechas[i + k])) == cod for k in range(4)) for p in ctx.colabs for cod in ("M", "T") for i in range(len(fechas) - 3))
     # reparto parejo de M, T, C y NC entre quienes pueden hacerlos
     for cod in ("M", "T", "C", "NC"):
         n = [sum(1 for f in fechas if cuadro.get((p.id, f)) == cod) for p in ctx.colabs if p.permitidos is None]
@@ -238,7 +251,12 @@ def test_mes_completo():
         exportar.exportar_puestos(tmp, "Octubre 2026", ctx, cam, fechas, filas, ses)
         r3 = exportar.exportar_horas(tmp, "Octubre 2026", ctx, bd.tarifas(), cam, fechas, 3)
         wb = openpyxl.load_workbook(r1)
-        assert wb.sheetnames == ["Cuadro", "Original", "Cambios"]
+        assert wb.sheetnames == ["Cuadro", "Original", "Cambios"]  # sin puestos calculados no hay hoja de puestos
+        r2 = exportar.exportar_cuadro(tmp, "Octubre 2026", ctx, cam, cam, fechas, [], filas)
+        wb2 = openpyxl.load_workbook(r2)
+        assert wb2.sheetnames[:2] == ["Cuadro", "Cuadro con puestos"]
+        ejemplo = next(c.value for fila in wb2["Cuadro con puestos"].iter_rows(min_row=2, min_col=2) for c in fila if c.value and "·" in str(c.value))
+        assert ejemplo.split("·")[0] in ("M", "T", "C") and ejemplo.split("·")[1] in "12345A"
         assert wb["Cuadro"].cell(2, 2).fill.fgColor.rgb.endswith("FFFF00") or bd.asignaciones("2026-10", "original").get((1, fechas[0])) == "NC"
         assert openpyxl.load_workbook(r3)["Horas y recargos"].max_row == 14
 

@@ -79,8 +79,12 @@ El solver cumple las reglas duras y optimiza el resto (horas de la ventana, rota
 <td width="50%"><img src="docs/img/horas.png" alt="Horas y recargos"><br><sub><b>Horas y recargos.</b> Contratadas, trabajadas, pendientes y adicionales por persona.</sub></td>
 </tr>
 <tr>
+<td width="50%"><img src="docs/img/cuadro_puestos.png" alt="Cuadro con puestos"><br><sub><b>Cuadro con puestos.</b> «Mostrar puesto» pasa <code>M</code> a <code>M·2</code> (autoclave).</sub></td>
 <td width="50%"><img src="docs/img/personal.png" alt="Personal"><br><sub><b>Personal.</b> Restricciones, puesto fijo y horario de estudio.</sub></td>
+</tr>
+<tr>
 <td width="50%"><img src="docs/img/turnos.png" alt="Catálogo de turnos"><br><sub><b>Turnos.</b> Horarios, pausas y turnos nuevos desde la propia app.</sub></td>
+<td></td>
 </tr>
 </table>
 
