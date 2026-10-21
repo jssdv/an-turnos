@@ -81,4 +81,20 @@ v._mover_periodo(-1); v.bd.set_param("periodo_modo", "mes"); v.refrescar(); asse
 v._nueva_persona(); v.p_nombre.setText("Eva"); v.p_est.item(0, 0).setCheckState(Qt.Checked); v._guardar_persona(); v.refrescar()
 fila = [p.nombre for p in v._gente()].index("Eva")
 assert v.grilla.item(fila, c1).toolTip() == "Estudia: mañana" and v.grilla.item(fila, c1).background().color().name() == "#e3e6fa"
+# --- cierre del periodo y banco de horas
+assert v.b_cierre.text() == "Cerrar periodo"
+v._alternar_cierre(); assert v.bd.periodo_cerrado(K) and "CERRADO" in v.l_periodo.text() and v.b_cierre.text() == "Reabrir periodo"
+assert v._editable(ra, c1) is None  # cerrado: solo lectura
+v.generar("cero"); assert "cerrado" in v.aviso.text()
+v.publicar(); assert "cerrado" in v.aviso.text()
+filas = {b["nombre"]: b for b in v._banco}
+assert v.t_banco.rowCount() >= 2 and all(b["cerrado"] for b in v._banco)
+fila_a = [b["id"] for b in v._banco].index(a); v.t_banco.selectRow(fila_a)
+assert v.persona_banco == a and v.t_movs.rowCount() == 1 and v.t_movs.item(0, 1).text().startswith("Cierre")
+v.m_concepto.setCurrentText("Pagado en nómina"); v.m_horas.setValue(3); v._registrar_movimiento()
+assert v.bd.movimientos(a)[0][3] == -3 and v.t_movs.rowCount() == 2  # «Pagado» se guarda como resta
+v.t_movs.selectRow(1 if v._movs[1][0] else 0); v._borrar_movimiento(); assert v.bd.movimientos(a) == []
+assert v.t_hist.rowCount() == 1 and v.t_hist.item(0, 2).text() == "Cerrado"
+v.t_hist.selectRow(0); v.sub_banco.setCurrentIndex(1); v._ir_al_periodo(); assert v.periodo() == P and v.pestanas.currentIndex() == 0
+v._alternar_cierre(); assert not v.bd.periodo_cerrado(K) and v.bd.cierres() == []
 print("OK")
