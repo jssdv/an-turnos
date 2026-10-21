@@ -161,21 +161,6 @@ class Contexto:
         return None
 
 
-def parsear_estudio(texto):
-    """«Lun M, Jue M, Vie» → ((0,"M"),(3,"M"),(4,"M"),(4,"T")). Sin franja = todo el día."""
-    out = []
-    for tok in texto.replace(";", ",").split(","):
-        partes = tok.split()
-        if not partes:
-            continue
-        dia = [d.lower() for d in DIAS].index(partes[0][:3].lower()) if partes[0][:3].lower() in [d.lower() for d in DIAS] else None
-        if dia is None:
-            raise ValueError(f"Día no reconocido: «{partes[0]}». Usa Lun, Mar, Mié, Jue, Vie, Sáb o Dom.")
-        franjas = ("M", "T") if len(partes) == 1 or partes[1].upper() not in ("M", "T") else (partes[1].upper(),)
-        out += [(dia, fr) for fr in franjas if (dia, fr) not in out]
-    return tuple(sorted(out))
-
-
 def texto_estudio(estudio):
     por_dia = {}
     for dia, fr in estudio:

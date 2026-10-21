@@ -6,11 +6,21 @@ Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta to
 
 ## Antes de empezar (una sola vez)
 
-1. **Personal.** Pestaña **Personal** → *Nuevo*. Para cada colaborador indica tipo, horas por semana y, si aplica:
-   - **Turnos permitidos**: por ejemplo `M, T` para quien no hace noches.
+1. **Personal.** Pestaña **Personal** → *+ Nuevo colaborador*. A la derecha se llena la ficha:
+   - **Jornada semanal** y **% de jornada**.
+   - **Puede hacer**: desmarca los turnos que no puede cubrir (por ejemplo, quita NC y C a quien no hace noches).
    - **Puesto fijo**: por ejemplo el 3 (sterrad y esto).
-   - **Horario de estudio**: `Lun M, Jue M, Vie, Mar T` (la letra es la franja; sin letra, todo el día).
-2. **Turnos.** Pestaña **Parámetros → Turnos**. Revisa que los horarios sean los reales y define la **pausa de almuerzo** de los turnos de 12 h (minutos, hora y si es pagada). Mientras falte, la app lo avisa.
+   - **No disponible por estudio**: marca los bloques de mañana o tarde de cada día en que estudia.
+   - **Activo**: desmárcalo para que no entre en los cuadros nuevos sin perder su historial.
+
+   Para **editar**, haz clic en la persona de la lista, cambia la ficha y pulsa *Guardar*. Para **eliminar**, selecciónala y pulsa *Eliminar*: si nunca tuvo cuadros ni novedades se borra; si tiene historial queda **inactiva** (se ve con *Mostrar inactivos*) para no perder lo ya registrado.
+2. **Turnos.** Pestaña **Parámetros → Turnos**. Selecciona un turno para editarlo o usa *+ Nuevo turno*:
+   - **Empieza / Termina** (formato 24 h; si termina antes de empezar, cruza la medianoche).
+   - **Pausa de almuerzo**: minutos y hora; marca *cuenta como trabajada* si es pagada. Abajo ves cuántas horas se cuentan.
+   - **Cubre**: qué franjas (mañana, tarde, noche) cuenta para la cobertura.
+   - Si se puede usar en domingo o festivo, si el generador puede asignarlo, el color y si está activo.
+
+   *Eliminar* borra el turno si nunca se usó; si ya está en cuadros guardados queda inactivo. Mientras un turno de más de 6 h no tenga pausa, la app lo avisa.
 3. **Cobertura y reglas.** En **Parámetros → Cobertura y reglas** confirma cuántas personas se necesitan por franja, las semanas de la ventana legal y el máximo de noches seguidas.
 
 ## Cada mes
@@ -76,6 +86,8 @@ Si el archivo ya existe, guarda `v2`, `v3`… y no sobrescribe nada.
 **La app dice que faltan personas en un día.** Hay demasiadas novedades o restricciones ese día. Revisa **Novedades**, o baja la cobertura requerida si es una decisión del servicio.
 
 **¿Dónde quedan mis datos?** En `turnos.db`, junto a la app. Para respaldarlos, copia ese archivo.
+
+**Quité a alguien y no desaparece.** Si tenía cuadros o novedades queda inactivo para conservar el historial; actívalo de nuevo con *Mostrar inactivos* y marcando *Activo*.
 
 **Cambié un horario de turno y salieron alertas.** Es lo esperado: el cuadro existente se revalida con los horarios nuevos. Regenera el mes o la semana.
 

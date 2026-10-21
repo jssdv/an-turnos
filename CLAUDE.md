@@ -6,7 +6,7 @@
 - Dev env: `python3 -m venv .venv && .venv/bin/pip install PySide6-Essentials openpyxl ortools` (or double-click `An.command`).
 - Run GUI: `.venv/bin/python app.py` (data in `turnos.db` next to `app.py`).
 - Tests: `.venv/bin/python test_turnos.py` (prints `OK`, ~1 min: solves full months).
-- GUI smoke without display: `QT_QPA_PLATFORM=offscreen` + instantiate `app.Ventana(tmp_db_path)`.
+- GUI test without display: `.venv/bin/python test_gui.py` (offscreen; CRUD of staff and shifts). Also useful: `QT_QPA_PLATFORM=offscreen` + `app.Ventana(tmp_db_path)` + `grab()` for screenshots.
 - Windows zip: `./empaquetar.sh` → `dist/An.zip`; `./empaquetar.sh prueba` → `dist/PruebaPC.zip` (checks Qt + OR-Tools run on the target PC).
 
 ## Architecture
