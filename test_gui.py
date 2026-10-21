@@ -80,7 +80,7 @@ v._mover_periodo(-1); v.bd.set_param("periodo_modo", "mes"); v.refrescar(); asse
 # estudio visible: la celda libre de quien estudia ese día lleva aviso
 v._nueva_persona(); v.p_nombre.setText("Eva"); v.p_est.item(0, 0).setCheckState(Qt.Checked); v._guardar_persona(); v.refrescar()
 fila = [p.nombre for p in v._gente()].index("Eva")
-assert v.grilla.item(fila, c1).toolTip() == "Estudia: mañana" and v.grilla.item(fila, c1).background().color().name() == "#e3e6fa"
+assert v.grilla.item(fila, c1).toolTip() == "Estudia: mañana" and v.grilla.item(fila, c1).background().style() == Qt.BDiagPattern
 # --- cierre del periodo y banco de horas
 assert v.b_cierre.text() == "Cerrar periodo"
 v._alternar_cierre(); assert v.bd.periodo_cerrado(K) and "CERRADO" in v.l_periodo.text() and v.b_cierre.text() == "Reabrir periodo"

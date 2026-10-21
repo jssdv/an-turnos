@@ -48,7 +48,7 @@ flowchart TB
 
 ## Datos (SQLite)
 
-`turno`, `cobertura`, `colaborador`, `novedad`, `asignacion` (mes, versión, colaborador, fecha, turno, origen, `fijo`), `puesto_dia`, `capacitacion`, `tarifa`, `parametro`. La base se crea sola en `turnos.db` junto a la app.
+`turno`, `cobertura`, `colaborador`, `novedad`, `asignacion` (periodo, versión, colaborador, fecha, turno, origen, `fijo`), `puesto_dia`, `capacitacion`, `tarifa`, `parametro`, y desde la versión 3 `periodo_estado` (periodos cerrados), `cierre` (foto de horas contratadas y trabajadas por persona) y `banco_mov` (movimientos manuales del banco de horas). La base se crea sola en `turnos.db` junto a la app.
 
 ## Solver
 
@@ -87,6 +87,19 @@ El cuadro no está atado al mes: se identifica por un **periodo** con inicio y f
 Cuándo volver a evaluar: si el producto pasa a ser **multiusuario o web** (varias personas, varios servicios, aprobaciones). Entonces el núcleo Python seguiría igual detrás de una API y la interfaz sería otra.
 
 Fuentes consultadas: [comparativa de librerías GUI de Python (Unite.ai)](https://www.unite.ai/?p=385304) y [alternativas a Electron en 2026 (TeamDev)](https://teamdev.com/mobrowser/blog/top-5-electron-alternatives-in-2026/).
+
+### Principios de diseño de la interfaz
+
+La hoja de estilo (`app.py`) parte de **tokens** (color, radio, ritmo de 8 px) y se aplica a todo por igual:
+
+- **Contraste y foco:** el texto cumple 4.5:1 sobre sus fondos; todos los controles muestran un anillo de foco visible al navegar con teclado.
+- **Jerarquía de acciones:** una acción primaria por pantalla (relleno), secundarias con borde, destructivas en rojo y siempre con confirmación.
+- **Estados vacíos que guían:** una tabla sin filas explica qué hacer; el cuadro vacío ofrece «Generar cuadro».
+- **Datos:** filas alternas, números alineados a la derecha, ceros y signos consistentes (`+12`, `0`), estado siempre en texto además de color.
+- **Densidad:** la grilla muestra el mes completo sin desplazarse en pantallas de 1500 px; alertas y cambios van en un panel inferior redimensionable con contador.
+- **Leyenda:** los colores del cuadro tienen leyenda en pantalla; el estudio usa trama para no confundirse con la noche.
+
+Las pautas se tomaron de las guías de [UI Taste](https://uizze.com) y de UI/UX Pro Max, adaptando lo que aplica a una app de escritorio densa; no se usó su estilo neumórfico por su riesgo de accesibilidad.
 
 ### Inspiración de interfaz
 

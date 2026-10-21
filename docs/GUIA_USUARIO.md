@@ -29,6 +29,8 @@ Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta to
    - **Máximo de corridos (C) seguidos**: 2 por defecto; además el generador intenta evitar incluso los pares.
    - **Máximo del mismo turno (M, T…) seguido**: 3 por defecto (nunca 4 M seguidas).
 
+   La pantalla agrupa estos valores en tarjetas: cobertura, esquema y horas, descansos y límites de repetición.
+
    Además, el generador reparte parejo M, T, C y NC entre el personal y prefiere poner los libres en sábado o domingo.
 
    Si quieres romper una regla en un caso puntual, edita la celda a mano: el generador lo respeta y no lo marca como alerta.
@@ -103,7 +105,33 @@ Regístrala en **Novedades** y usa **Generar…**:
 - **Puestos y capacitación**: quién ocupa cada puesto cada día, el grupo de pausa (P1 sale primero, P2 cubre) y las sesiones de capacitación del mes.
 - **Horas y recargos**: contratadas, trabajadas, pendientes y adicionales por persona, horas extra, nocturnas y dominicales/festivas, y días de descanso trabajados. Una persona con 3 o más domingos/festivos queda marcada como *habitual*.
 
-### 7. Exportar
+### 7. Cerrar el periodo y llevar el banco de horas
+
+Con el periodo terminado, pulsa **Cerrar periodo**. An~ guarda, por persona, las horas **contratadas** y las **trabajadas**, y la diferencia entra al **banco de horas**:
+
+- **Saldo positivo**: trabajó más de lo contratado, se le deben horas.
+- **Saldo negativo**: trabajó menos, debe horas.
+
+Un periodo cerrado queda en **solo lectura** (no se genera, edita, publica ni restaura) y el encabezado dice «CERRADO». Para corregirlo, **Reabrir periodo**: el cierre sale del banco y vuelve a poder editarse.
+
+En la pestaña **Historial y banco de horas → Banco de horas** ves por persona el **saldo anterior** (periodos cerrados y movimientos), lo del **periodo actual** (proyectado mientras no lo cierres) y el **saldo total**, con el estado en texto («Se le deben 12 h», «Debe 8 h», «Al día») y en color. Al seleccionar a alguien, la lista de la derecha muestra cada cierre y cada movimiento.
+
+Para registrar algo que no sale del cuadro:
+
+| Concepto | Para qué | Cómo se anota |
+|---|---|---|
+| Saldo inicial | Arrancar con lo que ya se debía o se debe | Con signo (+ se le deben, − debe) |
+| Compensado en descanso | Horas devueltas con tiempo libre | Escribe las horas en positivo: se restan |
+| Pagado en nómina | Horas pagadas | Escribe las horas en positivo: se restan |
+| Ajuste | Cualquier corrección | Con signo |
+
+Los cierres no se borran desde el banco; se deshacen reabriendo el periodo. Los movimientos manuales sí se pueden borrar.
+
+### 8. Ver el historial de esquemas
+
+**Historial y banco de horas → Historial de esquemas** lista todos los periodos con cuadro: días, estado (abierto o cerrado), personas, horas trabajadas, saldo del periodo al cerrarlo, cambios frente al original y alertas. Doble clic en uno lo abre en el cuadro, cambiando solo el selector de periodo.
+
+### 9. Exportar
 
 **Exportar Excel** pide una carpeta y guarda tres archivos:
 
