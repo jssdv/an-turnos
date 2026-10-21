@@ -595,7 +595,10 @@ class Ventana(QMainWindow):
             dias = ", ".join(f"{d:%d/%m} ({fr}: faltan {n})" for d, fr, n in info["faltan"][:6])
             self.avisar("No se pudo cubrir todo: " + dias + ". Revisa novedades y personal disponible.", "warn")
         else:
-            self.avisar("Cuadro generado. Cobertura completa y reglas cumplidas.")
+            comp = info.get("ajuste") or {}
+            extra = (f" Se compensó el banco de horas de {len(comp)} persona(s): " + ", ".join(
+                f"{self.nombres.get(c, c)} {h:+g} h" for c, h in list(comp.items())[:4]) + ("…" if len(comp) > 4 else ".")) if comp else ""
+            self.avisar("Cuadro generado. Cobertura completa y reglas cumplidas." + extra)
         self.refrescar()
 
     def _fallo(self, texto):
@@ -1250,14 +1253,21 @@ class Ventana(QMainWindow):
         for et, wd in (("Noches en racha (NC, L, NC…)", self.s_noches), ("Corridos (C) seguidos", self.s_c),
                        ("Mismo turno (M, T) seguido", self.s_igual)):
             f.addRow(et, wd)
+        caja5, f = tarjeta("Banco de horas", "Al generar, la meta de horas de cada persona se ajusta con su saldo anterior: "
+                                              "a quien se le deben horas se le baja y a quien las debe se le sube. 0 = no compensar.")
+        self.s_favor = spin(0, 48, " h", "No compensar", "Máximo de horas que se descuentan por periodo a quien se le deben")
+        self.s_deuda = spin(0, 48, " h", "No compensar", "Máximo de horas que se suman por periodo a quien las debe")
+        for et, wd in (("Descontar a quien se le deben (máx.)", self.s_favor), ("Sumar a quien las debe (máx.)", self.s_deuda)):
+            f.addRow(et, wd)
         g.addWidget(caja1, 0, 0)
         g.addWidget(caja2, 0, 1)
         g.addWidget(caja3, 1, 0)
         g.addWidget(caja4, 1, 1)
+        g.addWidget(caja5, 2, 0, 1, 2)
         b = QPushButton("Guardar cambios", objectName="primario")
         b.clicked.connect(self._guardar_reglas)
-        g.addWidget(b, 2, 0, 1, 2, Qt.AlignLeft)
-        g.setRowStretch(3, 1)
+        g.addWidget(b, 3, 0, 1, 2, Qt.AlignLeft)
+        g.setRowStretch(4, 1)
         g.setColumnStretch(0, 1)
         g.setColumnStretch(1, 1)
         self.sub.addTab(w, "Cobertura y reglas")
@@ -1297,6 +1307,8 @@ class Ventana(QMainWindow):
         for (td, fr), s in self.s_cob.items():
             s.setValue(self.ctx.cobertura.get(td, {}).get(fr, 0))
         self.s_vent.setValue(int(self.bd.param("ventana_semanas", 3)))
+        self.s_favor.setValue(int(self.bd.param("banco_tope_favor_h", 12)))
+        self.s_deuda.setValue(int(self.bd.param("banco_tope_deuda_h", 12)))
         self.s_modo.setCurrentIndex(max(0, self.s_modo.findData(self.modo_periodo)))
         self.s_semanas.setValue(int(self.bd.param("periodo_semanas", 4)))
         self.s_noches.setValue(self.ctx.max_noches)
@@ -1421,6 +1433,8 @@ class Ventana(QMainWindow):
     def _guardar_reglas(self):
         self.bd.guardar_cobertura({td: {fr: self.s_cob[td, fr].value() for fr in "MTN"} for td in ("LS", "DF")})
         self.bd.set_param("ventana_semanas", self.s_vent.value())
+        self.bd.set_param("banco_tope_favor_h", self.s_favor.value())
+        self.bd.set_param("banco_tope_deuda_h", self.s_deuda.value())
         self.bd.set_param("periodo_modo", self.s_modo.currentData())
         self.bd.set_param("periodo_semanas", self.s_semanas.value())
         self.bd.set_param("max_noches_seguidas", self.s_noches.value())

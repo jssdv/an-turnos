@@ -246,6 +246,36 @@ def test_banco_de_horas():
         pass
 
 
+def test_compensar_banco():
+    bd = db.BD()
+    a = bd.guardar_colaborador(Colaborador(0, "A"))
+    b = bd.guardar_colaborador(Colaborador(0, "B"))
+    c = bd.guardar_colaborador(Colaborador(0, "C"))
+    lunes = date(2026, 10, 5)
+    ini, fin = flujo.periodo_semanas(lunes, 1)
+    dias = flujo.fechas(ini, fin)
+    # A trabajó +6, B −6 y C quedó al día; luego se cierra
+    bd.guardar_cuadro(flujo.clave(ini, fin), {**{(a, d): "C" for d in dias[:4]}, **{(b, d): "M" for d in dias[:6]}, **{(c, d): "T" for d in dias[:7]}})
+    flujo.cerrar(bd, ini, fin)
+    sig = flujo.periodo_semanas(lunes + timedelta(days=7), 1)
+    assert flujo.ajustes_banco(bd, *sig) == {a: -6, b: 6}  # a quien se le deben se le baja; a quien debe se le sube
+    bd.set_param("banco_tope_favor_h", 4); bd.set_param("banco_tope_deuda_h", 0)
+    assert flujo.ajustes_banco(bd, *sig) == {a: -4}  # tope por periodo y dirección apagada
+    bd.agregar_movimiento(a, date(2026, 10, 14), -6, "Compensado en descanso")  # ya se compensó: saldo 0
+    assert flujo.ajustes_banco(bd, *sig) == {}
+    # el periodo anterior al cierre no se ajusta con su propio saldo
+    assert flujo.ajustes_banco(bd, ini, fin) == {}
+    # el solver baja la meta de A y sube la de B (13 personas, un mes): A termina con menos horas que B
+    bd2 = db.BD()
+    for i in range(13):
+        bd2.guardar_colaborador(Colaborador(0, f"P{i}"))
+    ctx = bd2.contexto(2026)
+    mes = flujo.fechas(*P)
+    cuadro, info = solver.generar(ctx, mes, tiempo=15, ajuste={1: -24, 2: 24})
+    horas = lambda pid: sum(ctx.turnos[x].horas for (p, _), x in cuadro.items() if p == pid)
+    assert info["ajuste"] == {1: -24, 2: 24} and horas(2) - horas(1) >= 24, (horas(1), horas(2))
+
+
 def test_versiones():
     bd = db.BD()
     pid = bd.guardar_colaborador(Colaborador(0, "A"))

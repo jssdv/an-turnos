@@ -58,6 +58,8 @@ Variable `x[persona, día, turno]` con L más los turnos del catálogo marcados 
 
 **También duras:** máximo de noches en racha NC-L-NC-L…, máximo de corridos seguidos y máximo del mismo turno de 6 h seguido (si una edición manual cae en la ventana, esa ventana no se exige).
 
+**Meta de horas:** la meta de cada ventana se ajusta con `ajuste` (`flujo.ajustes_banco`, a partir del saldo del banco y de los topes `banco_tope_favor_h` y `banco_tope_deuda_h`); es solo un cambio en el objetivo suave de horas, no una regla dura.
+
 **Objetivo:** faltante de cobertura (peso muy alto) y sobrante; desviación de horas por ventana del art. 165; cambios de turno día a día; noche antes de estudio de mañana; noches y domingos/festivos en semanas seguidas; dos corridos seguidos; semanas sin libre en sábado o domingo; equidad de cada turno (M, T, C, NC…) y de domingos/festivos entre quienes tienen las mismas restricciones, incluyendo meses anteriores.
 
 Si hay celdas fijas imposibles, el error lo indica y sugiere «Restaurar».
