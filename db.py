@@ -144,7 +144,9 @@ class BD:
         fest = {}
         for a in años | {a + 1 for a in años} | {a - 1 for a in años}:
             fest.update(festivos(a))
-        return Contexto(self.turnos(), self.colaboradores(), self.novedades(), self.cobertura(), fest)
+        return Contexto(self.turnos(), self.colaboradores(), self.novedades(), self.cobertura(), fest,
+                        int(self.param("libre_tras_noche", 1)), int(self.param("libres_por_semana", 1)),
+                        int(self.param("fines_semana_libres", 1)))
 
     # --- cuadro: versiones original / cambios ---------------------------------------------------
     def asignaciones(self, mes, version="cambios"):

@@ -130,6 +130,9 @@ class Contexto:
     novedades: list
     cobertura: dict
     fest: dict  # fecha -> nombre
+    libre_tras_noche: int = 1  # días libres obligatorios después de una noche (0 = sin regla)
+    libres_semana: int = 1  # días libres mínimos en cada semana completa
+    fines_libres: int = 1  # fines de semana completos (sábado y domingo) libres al mes por persona (0 = sin regla)
     _nov: dict = field(default_factory=dict, repr=False)
 
     def __post_init__(self):

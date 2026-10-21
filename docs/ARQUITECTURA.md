@@ -54,7 +54,7 @@ flowchart TB
 
 Variable `x[persona, día, turno]` con L más los turnos del catálogo marcados para el solver.
 
-**Duras:** una opción por persona y día; descanso de 12 h (transiciones prohibidas calculadas con los horarios reales); al menos un día libre por semana completa; novedades, estudio y turnos permitidos; tope de noches seguidas; celdas fijas por edición manual; continuidad con el mes anterior.
+**Duras:** una opción por persona y día; descanso de 12 h (transiciones prohibidas calculadas con los horarios reales); día libre después de una noche (también cuando la noche cae al final del mes anterior); mínimo de días libres por semana completa; al menos un fin de semana completo libre al mes por persona; novedades, estudio y turnos permitidos; tope de noches seguidas; celdas fijas por edición manual (si una edición manual ocupa el día libre o el fin de semana, esa regla no se exige para ese caso); continuidad con el mes anterior.
 
 **Objetivo:** faltante de cobertura (peso muy alto) y sobrante; desviación de horas por ventana del art. 165; cambios de turno día a día; noche antes de estudio de mañana; noches y domingos/festivos en semanas seguidas; equidad de noches, domingos/festivos y corridos incluyendo meses anteriores.
 

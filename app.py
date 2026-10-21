@@ -302,7 +302,7 @@ class Ventana(QMainWindow):
         self.alertas.clear()
         self.lista_cambios.clear()
         if hay_cuadro:
-            for a in reglas.validar(self.ctx, self.bd.asignaciones(k), fechas):
+            for a in reglas.validar(self.ctx, self.bd.asignaciones(k), fechas, self.bd.fijos(k)):
                 self.alertas.addItem(a.texto)
             for cid, f, antes, ahora in self.bd.diferencias(k):
                 self.lista_cambios.addItem(f"{self.nombres.get(cid, cid)} · {f:%d/%m}: {antes} → {ahora}")
@@ -829,6 +829,19 @@ class Ventana(QMainWindow):
         self.s_noches = QSpinBox()
         self.s_noches.setRange(1, 7)
         f.addRow("Máximo de noches seguidas", self.s_noches)
+        self.s_libre = QSpinBox()
+        self.s_libre.setRange(0, 3)
+        self.s_libre.setSpecialValueText("Sin regla")
+        self.s_libre.setSuffix(" día(s)")
+        f.addRow("Libre obligatorio después de una noche", self.s_libre)
+        self.s_sem = QSpinBox()
+        self.s_sem.setRange(1, 3)
+        self.s_sem.setSuffix(" día(s)")
+        f.addRow("Mínimo de días libres por semana", self.s_sem)
+        self.s_fines = QSpinBox()
+        self.s_fines.setRange(0, 4)
+        self.s_fines.setSpecialValueText("Sin regla")
+        f.addRow("Fines de semana libres al mes (sáb. y dom.)", self.s_fines)
         v.addLayout(f)
         b = QPushButton("Guardar", objectName="primario")
         b.clicked.connect(self._guardar_reglas)
@@ -872,6 +885,9 @@ class Ventana(QMainWindow):
             s.setValue(self.ctx.cobertura.get(td, {}).get(fr, 0))
         self.s_vent.setValue(int(self.bd.param("ventana_semanas", 3)))
         self.s_noches.setValue(int(self.bd.param("max_noches_seguidas", 3)))
+        self.s_libre.setValue(self.ctx.libre_tras_noche)
+        self.s_sem.setValue(self.ctx.libres_semana)
+        self.s_fines.setValue(self.ctx.fines_libres)
         llenar(self.t_tar, sorted(((c, v, f"{d:%d/%m/%Y}") for c, v, d in self.bd.tarifas()), key=lambda x: (x[0], x[2][6:] + x[2][3:5])))
         self.l_fest.clear()
         for f, n in sorted(self.ctx.fest.items()):
@@ -989,6 +1005,9 @@ class Ventana(QMainWindow):
         self.bd.guardar_cobertura({td: {fr: self.s_cob[td, fr].value() for fr in "MTN"} for td in ("LS", "DF")})
         self.bd.set_param("ventana_semanas", self.s_vent.value())
         self.bd.set_param("max_noches_seguidas", self.s_noches.value())
+        self.bd.set_param("libre_tras_noche", self.s_libre.value())
+        self.bd.set_param("libres_por_semana", self.s_sem.value())
+        self.bd.set_param("fines_semana_libres", self.s_fines.value())
         self.avisar("Cobertura y ventana guardadas.")
         self.refrescar()
 
