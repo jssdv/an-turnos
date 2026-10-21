@@ -22,7 +22,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación y e
 | Cambios y solicitudes | Permutas entre colaboradores con aprobación y registro (quién, cuándo, por qué) | Hoy solo hay edición manual |
 | Pausas en cobertura | Que el solver reserve relevos de almuerzo por puesto | Hoy solo se asignan grupos de pausa |
 | Refuerzo y practicantes | Modelar su horario fijo y que cubran ropa | Hoy quedan fuera del solver |
-| Ventana entre meses | Que la ventana del art. 165 continúe de un mes al siguiente | Hoy se reinicia cada mes |
+| Ventana entre periodos | Que la ventana del art. 165 continúe de un periodo al siguiente | Hoy se reinicia en cada periodo |
+| Día de inicio por servicio | Esquemas que arranquen en otro día distinto del lunes | Hoy: mes calendario o semanas desde un lunes |
 | Salario y costo | Ingresar salario para ver el costo de recargos en pesos | Opcional; el dato es sensible |
 | Agendas y PDF | Calendario `.ics` por persona y versión imprimible | Existen en la app de Radiología |
 | Otros servicios | Reutilizar el modelo para áreas con la misma estructura | Hoy el proyecto es solo Esterilización; requeriría servicios configurables |

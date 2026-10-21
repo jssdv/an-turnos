@@ -33,6 +33,15 @@ Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta to
 
    Si quieres romper una regla en un caso puntual, edita la celda a mano: el generador lo respeta y no lo marca como alerta.
 
+## Elegir el esquema (mes o semanas)
+
+Algunos servicios programan por **mes** y otros por **semanas que arrancan un lunes**. En **Parámetros → Cobertura y reglas → Esquema de programación** elige:
+
+- **Mes calendario**: arriba aparece el selector de mes y año.
+- **Semanas completas desde un lunes** y su duración (4 por defecto): arriba aparece «Desde el lunes». Si eliges otro día, la app lo ajusta al lunes anterior y lo avisa.
+
+Las flechas ◀ ▶ del encabezado avanzan o retroceden un periodo (un mes, o N semanas). Cada periodo tiene su propio cuadro, y la app cuida el descanso y el reparto entre un periodo y el siguiente. En el resto de esta guía, «mes» significa el periodo que hayas elegido.
+
 ## Cada mes
 
 ### 1. Registrar las novedades

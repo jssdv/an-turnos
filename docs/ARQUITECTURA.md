@@ -62,6 +62,10 @@ Variable `x[persona, día, turno]` con L más los turnos del catálogo marcados 
 
 Si hay celdas fijas imposibles, el error lo indica y sugiere «Restaurar».
 
+## Periodos
+
+El cuadro no está atado al mes: se identifica por un **periodo** con inicio y fin, con clave `AAAA-MM-DD/AAAA-MM-DD` (`flujo.py`). El esquema puede ser un mes calendario o N semanas completas desde un lunes, según el parámetro `periodo_modo`. Las reglas entre periodos (descanso de 12 h, libre tras noche, acumulado de equidad) leen el cuadro vigente de los días anteriores sin importar a qué periodo pertenecen (`BD.asignaciones_rango`). La base pasó a la versión 2 y migra sola las claves antiguas `AAAA-MM`.
+
 ## Versiones del cuadro
 
 `original` se congela al generar desde cero o al publicar. Las ediciones manuales y las regeneraciones parciales solo tocan `cambios`. La grilla marca en amarillo lo distinto y el Excel trae las hojas `Cuadro`, `Original` y `Cambios`.

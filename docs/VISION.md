@@ -59,6 +59,7 @@ Las líneas punteadas son ideas, no compromisos.
 | Servicio | Uno, implícito | Entidad `servicio` con sus turnos, cobertura, puestos y personal |
 | Puestos | Los 5 de Esterilización | Catálogo de puestos por servicio |
 | Reglas | Parámetros globales | Reglas por servicio sobre el mismo motor |
+| Esquema | Mes calendario o N semanas desde un lunes, igual para todo | Esquema propio por servicio (mes, semanas, otro día de inicio) |
 | Personal | Una lista | Personas que pueden pertenecer a más de un servicio |
 | Usuarios | Una persona, un equipo | Varias personas y roles (coordina, aprueba, consulta) |
 | Datos | SQLite local | SQLite compartido o base de servidor, según el hospital |

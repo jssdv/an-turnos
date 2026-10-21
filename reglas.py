@@ -89,7 +89,7 @@ def validar(ctx, cuadro, fechas, fijos=()):
             hay = sum(libre(s) and libre(d) for s, d in fines)
             manual = sum(not (libre(s) and libre(d)) and ((p.id, s) in fijos or (p.id, d) in fijos) for s, d in fines)
             if hay + manual < min(ctx.fines_libres, len(fines)):
-                out.append(Alerta("aviso", None, p.id, f"{nombres[p.id]}: sin fin de semana libre (sábado y domingo) este mes"))
+                out.append(Alerta("aviso", None, p.id, f"{nombres[p.id]}: sin fin de semana libre (sábado y domingo) en este periodo"))
     for f in fechas:
         req, hay = ctx.cobertura[ctx.tipo_dia(f)], cobertura_dia(ctx, cuadro, f)
         for fr, n in req.items():

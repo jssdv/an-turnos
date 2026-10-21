@@ -25,7 +25,7 @@ TARIFAS_BASE = [  # valores en %; noche_inicio en minutos desde 00:00
     ("dominical", 100, "2027-07-01"), ("nocturno", 35, "2000-01-01"), ("extra_diurna", 25, "2000-01-01"),
     ("extra_nocturna", 75, "2000-01-01"), ("noche_inicio", 1260, "2000-01-01"), ("noche_inicio", 1140, "2025-12-25"),
 ]
-PARAMETROS_BASE = {"ventana_semanas": "3", "capacitacion_horas": "2"}
+PARAMETROS_BASE = {"ventana_semanas": "3", "capacitacion_horas": "2", "periodo_modo": "mes", "periodo_semanas": "4"}
 
 
 def _dt(s):
@@ -44,8 +44,22 @@ class BD:
             self.c.executemany("INSERT INTO tarifa VALUES (?,?,?)", TARIFAS_BASE)
             for k, v in PARAMETROS_BASE.items():
                 self.set_param(k, v)
-            self.c.execute("PRAGMA user_version = 1")
+            self.c.execute("PRAGMA user_version = 2")
             self.c.commit()
+        elif self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
+            self._migrar_a_2()
+
+    def _migrar_a_2(self):
+        """v1 identificaba el mes como «AAAA-MM»; v2 usa la clave de periodo «inicio/fin»."""
+        import calendar
+        for tabla in ("asignacion", "puesto_dia", "capacitacion"):
+            for (m,) in self.c.execute(f"SELECT DISTINCT mes FROM {tabla} WHERE length(mes)=7").fetchall():
+                año, mes = int(m[:4]), int(m[5:])
+                nueva = f"{m}-01/{m}-{calendar.monthrange(año, mes)[1]:02d}"
+                self.c.execute(f"UPDATE {tabla} SET mes=? WHERE mes=?", (nueva, m))
+        self.c.executemany("INSERT OR IGNORE INTO parametro VALUES (?,?)", [(k, v) for k, v in PARAMETROS_BASE.items()])
+        self.c.execute("PRAGMA user_version = 2")
+        self.c.commit()
 
     # --- catálogo -------------------------------------------------------------------------------
     def guardar_turno(self, t):
@@ -154,8 +168,15 @@ class BD:
         return {(r["colab_id"], _dt(r["fecha"])): r["turno"] for r in self.c.execute(
             "SELECT * FROM asignacion WHERE mes=? AND version=?", (mes, version))}
 
-    def meses(self):
+    def periodos(self):
+        """Claves de los periodos con cuadro guardado, de más antiguo a más reciente."""
         return [r[0] for r in self.c.execute("SELECT DISTINCT mes FROM asignacion ORDER BY mes")]
+
+    def asignaciones_rango(self, desde, hasta):
+        """Cuadro vigente (`cambios`) de cualquier periodo entre dos fechas; sirve para el descanso entre periodos."""
+        return {(r["colab_id"], _dt(r["fecha"])): r["turno"] for r in self.c.execute(
+            "SELECT * FROM asignacion WHERE version='cambios' AND fecha BETWEEN ? AND ?",
+            (desde.isoformat(), hasta.isoformat()))}
 
     def agregar_tarifa(self, concepto, valor, desde):
         self.c.execute("INSERT INTO tarifa VALUES (?,?,?)", (concepto, valor, desde.isoformat()))
