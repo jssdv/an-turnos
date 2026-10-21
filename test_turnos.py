@@ -183,7 +183,7 @@ def test_migracion_v1():
         bd = db.BD(ruta)
         k = "2026-02-01/2026-02-28"
         assert bd.periodos() == [k] and bd.asignaciones(k) == {(1, date(2026, 2, 3)): "M"} and len(bd.puestos(k)) == 1
-        assert bd.param("periodo_modo") == "mes" and bd.c.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert bd.param("periodo_modo") == "mes" and bd.c.execute("PRAGMA user_version").fetchone()[0] == 3
 
 
 def test_esquema_por_semanas():
@@ -203,6 +203,47 @@ def test_esquema_por_semanas():
     ctx = bd.contexto(2026)
     assert not [a for a in reglas.validar(ctx, cuadro, dias) if a.nivel == "error"]
     assert bd.puestos(k) and bd.capacitacion(k) and k in bd.periodos()
+
+
+def test_banco_de_horas():
+    bd = db.BD()
+    a = bd.guardar_colaborador(Colaborador(0, "A"))
+    b = bd.guardar_colaborador(Colaborador(0, "B"))
+    lunes = date(2026, 10, 5)
+    ini, fin = flujo.periodo_semanas(lunes, 1)
+    k = flujo.clave(ini, fin)
+    dias = flujo.fechas(ini, fin)
+    # A trabaja 4 corridos (48 h) y B 6 mañanas (36 h) frente a 42 h contratadas
+    bd.guardar_cuadro(k, {**{(a, d): "C" for d in dias[:4]}, **{(b, d): "M" for d in dias[:6]}})
+    saldo = lambda filas, nombre, clave: next(f[clave] for f in filas if f["nombre"] == nombre)
+    abierto = flujo.estado_banco(bd, ini, fin)  # proyectado mientras está abierto
+    assert saldo(abierto, "A", "periodo") == 6 and saldo(abierto, "B", "periodo") == -6 and not abierto[0]["cerrado"]
+    flujo.cerrar(bd, ini, fin)
+    assert bd.periodo_cerrado(k) and bd.cierres() == [(k, a, 42.0, 48.0), (k, b, 42.0, 36.0)]
+    cerrado = flujo.estado_banco(bd, ini, fin)
+    assert saldo(cerrado, "A", "total") == 6 and saldo(cerrado, "A", "anterior") == 0 and cerrado[0]["cerrado"]
+    # la semana siguiente arranca con el saldo anterior
+    ini2, fin2 = flujo.periodo_semanas(lunes + timedelta(days=7), 1)
+    sig = flujo.estado_banco(bd, ini2, fin2)
+    assert saldo(sig, "A", "anterior") == 6 and saldo(sig, "B", "anterior") == -6 and saldo(sig, "A", "periodo") == 0
+    # movimientos manuales: compensar 4 h a A y registrar un saldo inicial de +10 a B
+    mov = bd.agregar_movimiento(a, date(2026, 10, 14), -4, "Compensado en descanso", "viernes libre")
+    bd.agregar_movimiento(b, date(2026, 10, 1), 10, "Saldo inicial")
+    sig = flujo.estado_banco(bd, ini2, fin2)
+    assert saldo(sig, "A", "total") == 2 and saldo(sig, "B", "total") == 4
+    assert [m[3] for m in bd.movimientos(a)] == [-4] and flujo.CONCEPTOS_BANCO["Pagado en nómina"] is True
+    bd.borrar_movimiento(mov)
+    assert saldo(flujo.estado_banco(bd, ini2, fin2), "A", "total") == 6
+    # historial: un periodo cerrado, 84 h trabajadas y saldo total 0 (+6 y −6)
+    h = flujo.historial(bd)
+    assert len(h) == 1 and h[0]["cerrado"] and h[0]["trabajadas"] == 84 and h[0]["saldo"] == 0 and h[0]["personas"] == 2
+    bd.reabrir_periodo(k)
+    assert not bd.periodo_cerrado(k) and bd.cierres() == [] and flujo.historial(bd)[0]["saldo"] is None
+    try:
+        flujo.cerrar(bd, ini2, fin2)  # sin cuadro
+        assert False
+    except ValueError:
+        pass
 
 
 def test_versiones():

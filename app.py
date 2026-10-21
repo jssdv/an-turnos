@@ -176,6 +176,7 @@ class Ventana(QMainWindow):
         self._pestana_novedades()
         self._pestana_puestos()
         self._pestana_horas()
+        self._pestana_banco()
         self._pestana_parametros()
         for señal in (self.mes.currentIndexChanged, self.año.valueChanged, self.pestanas.currentChanged):
             señal.connect(lambda _: self._cambio_vista())
@@ -208,8 +209,8 @@ class Ventana(QMainWindow):
         for x in (self.e_semanas, self.f_inicio):
             x.setVisible(semanas)
         ini, fin = self.periodo()
-        self.l_periodo.setText(f"{ini:%d/%m} – {fin:%d/%m/%Y} · {(fin - ini).days // 7 + 1} sem." if semanas
-                               else f"{(fin - ini).days + 1} días")
+        self.l_periodo.setText((f"{ini:%d/%m} – {fin:%d/%m/%Y} · {(fin - ini).days // 7 + 1} sem." if semanas
+                                else f"{(fin - ini).days + 1} días") + (" · CERRADO" if self.bd.periodo_cerrado(self.clave) else ""))
 
     def _mover_periodo(self, d):
         if self.modo_periodo == "semanas":
@@ -247,7 +248,7 @@ class Ventana(QMainWindow):
         self.ctx = self.bd.contexto(self.periodo()[0].year)
         self.nombres = {p.id: p.nombre for p in self.ctx.colabs}
         for f in (self._ver_cuadro, self._ver_personal, self._ver_novedades, self._ver_puestos, self._ver_horas,
-                  self._ver_parametros):
+                  self._ver_banco, self._ver_parametros):
             f()
 
     # --- cuadro ---------------------------------------------------------------------------------
@@ -275,6 +276,9 @@ class Ventana(QMainWindow):
             b = QPushButton(texto)
             b.clicked.connect(f)
             barra.addWidget(b)
+        self.b_cierre = QPushButton("Cerrar periodo")
+        self.b_cierre.clicked.connect(self._alternar_cierre)
+        barra.addWidget(self.b_cierre)
         barra.addStretch()
         v.addLayout(barra)
         self.grilla = Grilla()
@@ -303,6 +307,8 @@ class Ventana(QMainWindow):
         fechas, k = self.fechas, self.clave
         orig = self.bd.asignaciones(k, "original")
         ver_orig = self.version.currentText() == "Original"
+        cerrado = self.bd.periodo_cerrado(k)
+        self.b_cierre.setText("Reabrir periodo" if cerrado else "Cerrar periodo")
         cuadro = orig if ver_orig else self.bd.asignaciones(k)
         puesto = {} if ver_orig else por_persona(self.bd.puestos(k))  # los puestos se calculan sobre «Cambios»
         gente = [p for p in self.ctx.colabs if p.en_solver]
@@ -339,7 +345,7 @@ class Ventana(QMainWindow):
                         it.setBackground(QColor("#E3E6FA"))
                 if not ver_orig and orig.get((p.id, f), "L") != cod:
                     it.setBackground(QColor(AMARILLO))
-                if ver_orig or nov and cod == "L":
+                if ver_orig or cerrado or nov and cod == "L":
                     it.setFlags(it.flags() & ~Qt.ItemIsEditable)
                 g.setItem(r, c, it)
             h = QTableWidgetItem(f"{horas:g}")
@@ -382,7 +388,7 @@ class Ventana(QMainWindow):
     def _editable(self, r, c):
         """Persona y fecha de la celda (r, c) si se puede cambiar; None si es de totales, novedad u original."""
         gente = self._gente()
-        if r >= len(gente) or c >= len(self.fechas) or self.version.currentText() == "Original":
+        if r >= len(gente) or c >= len(self.fechas) or self.version.currentText() == "Original" or self.bd.periodo_cerrado(self.clave):
             return None
         p, f = gente[r], self.fechas[c]
         nov = self.ctx.novedad(p.id, f)
@@ -417,7 +423,7 @@ class Ventana(QMainWindow):
         """Intercambia el contenido de dos celdas (arrastrar y soltar)."""
         a, b = self._editable(r1, c1), self._editable(r2, c2)
         if not (a and b):
-            return self.avisar("Esa celda no se puede cambiar (novedad, totales o vista Original).", "warn")
+            return self.avisar("Esa celda no se puede cambiar (novedad, totales, vista Original o periodo cerrado).", "warn")
         cuadro = self.bd.asignaciones(self.clave)
         x, y = cuadro.get((a[0].id, a[1]), "L"), cuadro.get((b[0].id, b[1]), "L")
         if x == y:
@@ -437,7 +443,7 @@ class Ventana(QMainWindow):
         m.exec(self.grilla.viewport().mapToGlobal(pos))
 
     def deshacer(self):
-        if not self._deshacer or self.version.currentText() == "Original":
+        if not self._deshacer or self.version.currentText() == "Original" or self.bd.periodo_cerrado(self.clave):
             return
         k, orig = self.clave, self.bd.asignaciones(self.clave, "original")
         for cid, f, antes in self._deshacer.pop():
@@ -452,6 +458,8 @@ class Ventana(QMainWindow):
     def generar(self, modo, lunes=None):
         if self.trabajo and self.trabajo.isRunning():
             return
+        if self.bd.periodo_cerrado(self.clave):
+            return self.avisar("Este periodo está cerrado. Reábrelo para volver a generar o editar.", "warn")
         k = self.clave
         if modo == "cero" and self.bd.diferencias(k):
             if QMessageBox.question(self, "Generar desde cero", "Hay cambios manuales sobre el original. "
@@ -489,7 +497,14 @@ class Ventana(QMainWindow):
         if ok:
             self.generar("semana", lunes[opciones.index(sel)])
 
+    def _cerrado_aviso(self):
+        if self.bd.periodo_cerrado(self.clave):
+            self.avisar("Este periodo está cerrado. Reábrelo para cambiarlo.", "warn")
+            return True
+
     def publicar(self):
+        if self._cerrado_aviso():
+            return
         if QMessageBox.question(self, "Publicar", "El cuadro actual pasará a ser el «original». ¿Continuar?") == QMessageBox.Yes:
             self.bd.publicar(self.clave)
             self._deshacer.clear()
@@ -497,6 +512,8 @@ class Ventana(QMainWindow):
             self._ver_cuadro()
 
     def restaurar(self):
+        if self._cerrado_aviso():
+            return
         if QMessageBox.question(self, "Restaurar", "Se devolverán todas las celdas al original. ¿Continuar?") == QMessageBox.Yes:
             self.bd.restaurar(self.clave)
             self._deshacer.clear()
@@ -809,6 +826,185 @@ class Ventana(QMainWindow):
             f"Art. 165 CST: promedio en ventanas de {ventana} semanas contra la jornada contratada. Dominical/festivo "
             f"{recargos.tarifa(tar, 'dominical', f0)} %, nocturno {recargos.tarifa(tar, 'nocturno', f0)} % desde las "
             f"{recargos.tarifa(tar, 'noche_inicio', f0) // 60}:00. Cifras de apoyo: confirma con RR. HH./jurídico.")
+
+    # --- historial y banco de horas -------------------------------------------------------------
+    def _pestana_banco(self):
+        self.sub_banco = QTabWidget()
+        w = QWidget()
+        h = QHBoxLayout(w)
+        izq = QVBoxLayout()
+        izq.addWidget(QLabel("Saldo de horas por persona. Positivo: se le deben horas. Negativo: debe horas. «Este periodo» "
+                             "es proyectado hasta que lo cierres.", objectName="muted"))
+        self.t_banco = tabla(["Colaborador", "Saldo anterior", "Este periodo", "Saldo total", "Estado"])
+        self.t_banco.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.t_banco.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.t_banco.itemSelectionChanged.connect(self._ver_movimientos)
+        izq.addWidget(self.t_banco)
+        h.addLayout(izq, 3)
+        caja = QGroupBox("Movimientos de la persona")
+        caja.setMinimumWidth(470)
+        v = QVBoxLayout(caja)
+        self.t_movs = tabla(["Fecha", "Concepto", "Horas", "Detalle"])
+        self.t_movs.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.t_movs.setSelectionMode(QAbstractItemView.SingleSelection)
+        v.addWidget(self.t_movs)
+        f = QFormLayout()
+        self.m_fecha = QDateEdit(QDate.currentDate())
+        self.m_fecha.setCalendarPopup(True)
+        self.m_fecha.setDisplayFormat("dd/MM/yyyy")
+        self.m_concepto = QComboBox()
+        self.m_concepto.addItems(list(flujo.CONCEPTOS_BANCO))
+        self.m_horas = QDoubleSpinBox()
+        self.m_horas.setRange(-500, 500)
+        self.m_horas.setDecimals(1)
+        self.m_horas.setSingleStep(0.5)
+        self.m_horas.setSuffix(" h")
+        self.m_nota = QLineEdit()
+        self.m_concepto.currentTextChanged.connect(self._pista_movimiento)
+        self.l_pista = QLabel("", objectName="muted")
+        self.l_pista.setWordWrap(True)
+        for et, wd in (("Fecha", self.m_fecha), ("Concepto", self.m_concepto), ("Horas", self.m_horas),
+                       ("Nota", self.m_nota), ("", self.l_pista)):
+            f.addRow(et, wd)
+        v.addLayout(f)
+        botones = QHBoxLayout()
+        reg = QPushButton("Registrar", objectName="primario")
+        self.b_borrar_mov = QPushButton("Borrar el seleccionado", objectName="peligro")
+        reg.clicked.connect(self._registrar_movimiento)
+        self.b_borrar_mov.clicked.connect(self._borrar_movimiento)
+        botones.addWidget(reg)
+        botones.addWidget(self.b_borrar_mov)
+        botones.addStretch()
+        v.addLayout(botones)
+        h.addWidget(caja, 0)
+        self.sub_banco.addTab(w, "Banco de horas")
+
+        w = QWidget()
+        v = QVBoxLayout(w)
+        barra = QHBoxLayout()
+        ir = QPushButton("Abrir el periodo seleccionado", objectName="primario")
+        ir.clicked.connect(self._ir_al_periodo)
+        barra.addWidget(ir)
+        barra.addStretch()
+        v.addLayout(barra)
+        self.t_hist = tabla(["Periodo", "Días", "Estado", "Personas", "Horas trabajadas", "Saldo del periodo",
+                             "Cambios vs original", "Alertas"])
+        self.t_hist.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.t_hist.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.t_hist.itemDoubleClicked.connect(lambda _: self._ir_al_periodo())
+        v.addWidget(self.t_hist)
+        v.addWidget(QLabel("«Saldo del periodo» = horas trabajadas − contratadas de todo el personal; solo existe al cerrar. "
+                           "Doble clic abre el periodo en el cuadro.", objectName="muted"))
+        self.sub_banco.addTab(w, "Historial de esquemas")
+        self.pestanas.addTab(self.sub_banco, "Historial y banco de horas")
+        self.persona_banco = None
+
+    @staticmethod
+    def _texto_saldo(h):
+        return "Al día" if abs(h) < 0.05 else (f"Se le deben {h:g} h" if h > 0 else f"Debe {-h:g} h")
+
+    def _ver_banco(self):
+        self._banco = flujo.estado_banco(self.bd, *self.periodo())
+        verde, rojo = "#E3F4E8", "#FDE8E8"
+        color = lambda h: verde if h >= 0.05 else (rojo if h <= -0.05 else None)
+        llenar(self.t_banco, [(b["nombre"], f"{b['anterior']:+g}", f"{b['periodo']:+g}" + ("" if b["cerrado"] else " (proy.)"),
+                               f"{b['total']:+g}", self._texto_saldo(b["total"])) for b in self._banco],
+               lambda r, c: color(self._banco[r]["total"]) if c >= 3 else None)
+        for r, b in enumerate(self._banco):
+            if b["id"] == self.persona_banco:
+                self.t_banco.selectRow(r)
+        self._ver_movimientos()
+        self._pista_movimiento(self.m_concepto.currentText())
+        self._hist = flujo.historial(self.bd)
+        llenar(self.t_hist, [(flujo.etiqueta(h["inicio"], h["fin"]), h["dias"], "Cerrado" if h["cerrado"] else "Abierto",
+                              h["personas"], f"{h['trabajadas']:g}", "—" if h["saldo"] is None else f"{h['saldo']:+g}",
+                              h["cambios"], h["alertas"]) for h in self._hist],
+               lambda r, c: "#EEF0F2" if self._hist[r]["cerrado"] else ("#FDE8E8" if c == 7 and self._hist[r]["alertas"] else None))
+
+    def _persona_banco_actual(self):
+        r = self.t_banco.currentRow()
+        return self._banco[r]["id"] if 0 <= r < len(self._banco) else None
+
+    def _ver_movimientos(self):
+        self.persona_banco = self._persona_banco_actual()
+        filas = []
+        if self.persona_banco:
+            for per, cid, contr, trab in self.bd.cierres(self.persona_banco):
+                ini, fin = flujo.desde_clave(per)
+                filas.append((None, fin, f"Cierre {flujo.etiqueta(ini, fin)}", trab - contr, f"{trab:g} h trabajadas de {contr:g} contratadas"))
+            filas += [(i, f, c, h, n) for i, _, f, h, c, n in self.bd.movimientos(self.persona_banco)]
+        filas.sort(key=lambda x: (x[1], x[0] or 0))
+        self._movs = filas
+        llenar(self.t_movs, [(f"{f:%d/%m/%Y}", c, f"{h:+g}", n) for _, f, c, h, n in filas])
+        self.b_borrar_mov.setEnabled(bool(filas))
+
+    def _pista_movimiento(self, concepto):
+        resta = flujo.CONCEPTOS_BANCO.get(concepto, False)
+        self.l_pista.setText("Escribe las horas en positivo: se restan del saldo." if resta else
+                             "Positivo: se le deben más horas. Negativo: debe horas.")
+
+    def _registrar_movimiento(self):
+        if self.persona_banco is None:
+            return self.avisar("Selecciona una persona de la lista.", "warn")
+        horas = self.m_horas.value()
+        if not horas:
+            return self.avisar("Escribe las horas del movimiento.", "error")
+        concepto = self.m_concepto.currentText()
+        if flujo.CONCEPTOS_BANCO[concepto]:
+            horas = -abs(horas)
+        self.bd.agregar_movimiento(self.persona_banco, self.m_fecha.date().toPython(), horas, concepto, self.m_nota.text().strip())
+        self.m_horas.setValue(0)
+        self.m_nota.clear()
+        self.avisar(f"Movimiento registrado: {concepto} {horas:+g} h.")
+        self._ver_banco()
+
+    def _borrar_movimiento(self):
+        r = self.t_movs.currentRow()
+        if not 0 <= r < len(self._movs):
+            return self.avisar("Selecciona un movimiento de la lista.", "warn")
+        if self._movs[r][0] is None:
+            return self.avisar("Los cierres de periodo no se borran aquí: reabre el periodo en el cuadro.", "warn")
+        self.bd.borrar_movimiento(self._movs[r][0])
+        self._ver_banco()
+
+    def _ir_al_periodo(self):
+        r = self.t_hist.currentRow()
+        if not 0 <= r < len(self._hist):
+            return self.avisar("Selecciona un periodo de la lista.", "warn")
+        ini, fin = self._hist[r]["inicio"], self._hist[r]["fin"]
+        if (ini, fin) == flujo.periodo_mes(ini.year, ini.month):
+            self.bd.set_param("periodo_modo", "mes")
+            self.año.setValue(ini.year)
+            self.mes.setCurrentIndex(ini.month - 1)
+        elif ini.weekday() == 0 and (fin - ini).days % 7 == 6:
+            self.bd.set_param("periodo_modo", "semanas")
+            self.bd.set_param("periodo_semanas", (fin - ini).days // 7 + 1)
+            self.f_inicio.setDate(QDate(ini.year, ini.month, ini.day))
+        else:
+            return self.avisar("Ese periodo no se puede abrir con los esquemas disponibles.", "warn")
+        self.pestanas.setCurrentIndex(0)
+        self.refrescar()
+
+    # --- cierre del periodo ---------------------------------------------------------------------
+    def _alternar_cierre(self):
+        ini, fin = self.periodo()
+        if self.bd.periodo_cerrado(self.clave):
+            if QMessageBox.question(self, "Reabrir periodo", "El cuadro volverá a ser editable y se borrará el cierre "
+                                    "de este periodo del banco de horas. ¿Continuar?") != QMessageBox.Yes:
+                return
+            self.bd.reabrir_periodo(self.clave)
+            self.avisar("Periodo reabierto. Su cierre salió del banco de horas.")
+        else:
+            if QMessageBox.question(self, "Cerrar periodo", "Se guardarán las horas trabajadas y contratadas de cada "
+                                    "persona en el banco de horas y el cuadro quedará en solo lectura. ¿Continuar?") != QMessageBox.Yes:
+                return
+            try:
+                flujo.cerrar(self.bd, ini, fin)
+            except ValueError as e:
+                return self.avisar(str(e), "warn")
+            self.avisar("Periodo cerrado. Las horas ya están en el banco.")
+        self._deshacer.clear()
+        self.refrescar()
 
     # --- parámetros -----------------------------------------------------------------------------
     def _pestana_parametros(self):

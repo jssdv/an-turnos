@@ -6,6 +6,7 @@ from datetime import date, timedelta
 
 import capacitacion
 import puestos
+import recargos
 import reglas
 import solver
 
@@ -96,3 +97,76 @@ def generar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20):
     cuadro, info = solver.generar(ctx, dias, **kw)
     terminar(bd, inicio, fin, ctx, dias, cuadro, modo)
     return info
+
+
+# --- cierre de periodos, banco de horas e historial ---------------------------------------------------
+CONCEPTOS_BANCO = {  # concepto -> ¿resta del saldo? (el valor se ingresa positivo y se guarda negativo)
+    "Saldo inicial": False, "Compensado en descanso": True, "Pagado en nómina": True, "Ajuste": False}
+
+
+def resumen_horas(bd, inicio, fin):
+    """[(colab_id, contratadas, trabajadas)] del cuadro vigente (`cambios`) del periodo."""
+    ctx, k, dias = bd.contexto(inicio.year), clave(inicio, fin), fechas(inicio, fin)
+    cuadro, tar, vent = bd.asignaciones(k), bd.tarifas(), int(bd.param("ventana_semanas", 3))
+    out = []
+    for p in (p for p in ctx.colabs if p.en_solver):
+        r = recargos.reporte(ctx, tar, p, cuadro, dias, vent)
+        out.append((p.id, round(r["contratadas"], 2), round(r["trabajadas"], 2)))
+    return out
+
+
+def cerrar(bd, inicio, fin):
+    """Congela las horas del periodo en el banco. El cuadro queda en solo lectura hasta reabrirlo."""
+    k = clave(inicio, fin)
+    if not bd.asignaciones(k):
+        raise ValueError("Este periodo no tiene cuadro: genera uno antes de cerrarlo.")
+    bd.cerrar_periodo(k, resumen_horas(bd, inicio, fin))
+
+
+def estado_banco(bd, inicio, fin):
+    """Saldo de horas por persona: [{id, nombre, anterior, periodo, total, cerrado}]. Positivo = se le deben horas.
+    `anterior` suma los periodos cerrados (menos el actual) y los movimientos manuales; `periodo` es lo ya cerrado
+    o, si sigue abierto, lo proyectado con el cuadro actual."""
+    k = clave(inicio, fin)
+    cerrados = {}
+    por_periodo = defaultdict(float)
+    for per, cid, contr, trab in bd.cierres():
+        cerrados[cid] = cerrados.get(cid, 0) + (trab - contr if per != k else 0)
+        if per == k:
+            por_periodo[cid] = trab - contr
+    movs = defaultdict(float)
+    for _, cid, _, horas, _, _ in bd.movimientos():
+        movs[cid] += horas
+    abierto = not bd.periodo_cerrado(k)
+    if abierto and bd.asignaciones(k):
+        for cid, contr, trab in resumen_horas(bd, inicio, fin):
+            por_periodo[cid] = trab - contr
+    filas = []
+    for p in bd.colaboradores(solo_activos=False):
+        if not p.en_solver:
+            continue
+        ant = round(cerrados.get(p.id, 0) + movs.get(p.id, 0), 2)
+        per = round(por_periodo.get(p.id, 0), 2)
+        if p.activo or ant or per:
+            filas.append({"id": p.id, "nombre": p.nombre, "anterior": ant, "periodo": per, "total": round(ant + per, 2),
+                          "cerrado": not abierto})
+    return filas
+
+
+def historial(bd):
+    """Un registro por periodo con cuadro, del más reciente al más antiguo."""
+    horas_cierre = defaultdict(float)
+    for per, cid, contr, trab in bd.cierres():
+        horas_cierre[per] += trab - contr
+    out = []
+    for k in bd.periodos():
+        ini, fin = desde_clave(k)
+        ctx, dias, cuadro = bd.contexto(ini.year), fechas(ini, fin), bd.asignaciones(k)
+        gente = {c for c, _ in cuadro}
+        trabajadas = sum(ctx.turnos[t].horas for t in cuadro.values() if t in ctx.turnos)
+        errores = [a for a in reglas.validar(ctx, cuadro, dias, bd.fijos(k)) if a.nivel == "error"]
+        cerrado = bd.periodo_cerrado(k)
+        out.append({"clave": k, "inicio": ini, "fin": fin, "dias": len(dias), "cerrado": cerrado, "personas": len(gente),
+                    "trabajadas": round(trabajadas, 1), "saldo": round(horas_cierre[k], 1) if cerrado else None,
+                    "cambios": len(bd.diferencias(k)), "alertas": len(errores)})
+    return sorted(out, key=lambda r: r["inicio"], reverse=True)

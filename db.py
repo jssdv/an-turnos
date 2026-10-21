@@ -18,6 +18,10 @@ CREATE TABLE puesto_dia (mes TEXT, fecha TEXT, franja TEXT, puesto INT, colab_id
 CREATE TABLE capacitacion (mes TEXT, fecha TEXT, colab_id INT);
 CREATE TABLE tarifa (concepto TEXT, valor REAL, desde TEXT);
 CREATE TABLE parametro (clave TEXT PRIMARY KEY, valor TEXT);
+""" + """
+CREATE TABLE periodo_estado (clave TEXT PRIMARY KEY, cerrado_en TEXT);
+CREATE TABLE cierre (periodo TEXT, colab_id INT, contratadas REAL, trabajadas REAL, PRIMARY KEY (periodo, colab_id));
+CREATE TABLE banco_mov (id INTEGER PRIMARY KEY, colab_id INT, fecha TEXT, horas REAL, concepto TEXT, nota TEXT);
 """
 
 TARIFAS_BASE = [  # valores en %; noche_inicio en minutos desde 00:00
@@ -44,10 +48,23 @@ class BD:
             self.c.executemany("INSERT INTO tarifa VALUES (?,?,?)", TARIFAS_BASE)
             for k, v in PARAMETROS_BASE.items():
                 self.set_param(k, v)
-            self.c.execute("PRAGMA user_version = 2")
+            self.c.execute("PRAGMA user_version = 3")
             self.c.commit()
-        elif self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
-            self._migrar_a_2()
+        else:
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
+                self._migrar_a_2()
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 2:
+                self._migrar_a_3()
+
+    def _migrar_a_3(self):
+        """v3 agrega el cierre de periodos y el banco de horas."""
+        self.c.executescript("CREATE TABLE IF NOT EXISTS periodo_estado (clave TEXT PRIMARY KEY, cerrado_en TEXT);"
+                             "CREATE TABLE IF NOT EXISTS cierre (periodo TEXT, colab_id INT, contratadas REAL, trabajadas REAL, "
+                             "PRIMARY KEY (periodo, colab_id));"
+                             "CREATE TABLE IF NOT EXISTS banco_mov (id INTEGER PRIMARY KEY, colab_id INT, fecha TEXT, horas REAL, "
+                             "concepto TEXT, nota TEXT);")
+        self.c.execute("PRAGMA user_version = 3")
+        self.c.commit()
 
     def _migrar_a_2(self):
         """v1 identificaba el mes como «AAAA-MM»; v2 usa la clave de periodo «inicio/fin»."""
@@ -232,6 +249,44 @@ class BD:
         return sorted(((cid, f, o.get((cid, f), "L"), c.get((cid, f), "L"))
                        for cid, f in set(o) | set(c) if o.get((cid, f), "L") != c.get((cid, f), "L")),
                       key=lambda x: (x[1], x[0]))
+
+    # --- cierre de periodos y banco de horas ---------------------------------------------------
+    def periodo_cerrado(self, k):
+        return self.c.execute("SELECT 1 FROM periodo_estado WHERE clave=?", (k,)).fetchone() is not None
+
+    def cerrar_periodo(self, k, filas):
+        """Congela las horas del periodo. filas: [(colab_id, contratadas, trabajadas)]."""
+        self.c.execute("INSERT OR REPLACE INTO periodo_estado VALUES (?, datetime('now'))", (k,))
+        self.c.execute("DELETE FROM cierre WHERE periodo=?", (k,))
+        self.c.executemany("INSERT INTO cierre VALUES (?,?,?,?)", [(k, c, a, b) for c, a, b in filas])
+        self.c.commit()
+
+    def reabrir_periodo(self, k):
+        self.c.execute("DELETE FROM periodo_estado WHERE clave=?", (k,))
+        self.c.execute("DELETE FROM cierre WHERE periodo=?", (k,))
+        self.c.commit()
+
+    def cierres(self, colab_id=None):
+        """[(periodo, colab_id, contratadas, trabajadas)] de los periodos cerrados, del más antiguo al más reciente."""
+        q = "SELECT * FROM cierre" + (" WHERE colab_id=?" if colab_id else "") + " ORDER BY periodo"
+        return [(r["periodo"], r["colab_id"], r["contratadas"], r["trabajadas"])
+                for r in self.c.execute(q, (colab_id,) if colab_id else ())]
+
+    def agregar_movimiento(self, colab_id, fecha, horas, concepto, nota=""):
+        i = self.c.execute("INSERT INTO banco_mov (colab_id,fecha,horas,concepto,nota) VALUES (?,?,?,?,?)",
+                           (colab_id, fecha.isoformat(), horas, concepto, nota)).lastrowid
+        self.c.commit()
+        return i
+
+    def borrar_movimiento(self, id_):
+        self.c.execute("DELETE FROM banco_mov WHERE id=?", (id_,))
+        self.c.commit()
+
+    def movimientos(self, colab_id=None):
+        """[(id, colab_id, fecha, horas, concepto, nota)]; horas positivas = se le deben, negativas = se le descontaron."""
+        q = "SELECT * FROM banco_mov" + (" WHERE colab_id=?" if colab_id else "") + " ORDER BY fecha, id"
+        return [(r["id"], r["colab_id"], _dt(r["fecha"]), r["horas"], r["concepto"], r["nota"])
+                for r in self.c.execute(q, (colab_id,) if colab_id else ())]
 
     # --- puestos y capacitación -----------------------------------------------------------------
     def guardar_puestos(self, mes, filas):
