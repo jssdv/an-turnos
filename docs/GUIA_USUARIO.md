@@ -25,7 +25,10 @@ Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta to
    - **Libre después de una noche**: 1 día.
    - **Días libres por semana**: mínimo 1.
    - **Fines de semana libres al mes** (sábado y domingo): mínimo 1 por persona; el libre posterior a una noche cuenta.
-   - **Máximo de noches seguidas**.
+   - **Máximo de noches en racha** (NC, L, NC, L…): 2 por defecto.
+   - **Máximo de corridos (C) seguidos**: 2 por defecto; además el generador intenta evitar incluso los pares.
+
+   Además, el generador reparte parejo M, T, C y NC entre el personal y prefiere poner los libres en sábado o domingo.
 
    Si quieres romper una regla en un caso puntual, edita la celda a mano: el generador lo respeta y no lo marca como alerta.
 

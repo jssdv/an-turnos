@@ -131,6 +131,20 @@ def test_fin_de_semana_y_libres():
     assert any("día(s) libre(s)" in x.texto for x in reglas.validar(ctx, todo, semana))
 
 
+def test_rachas():
+    bd = db.BD()
+    bd.guardar_colaborador(Colaborador(0, "A"))
+    ctx = bd.contexto(2026)
+    a = ctx.colabs[0]
+    dias = [date(2026, 10, 5) + timedelta(days=i) for i in range(7)]
+    avisos = lambda cuadro, **kw: [x.texto for x in reglas.validar(ctx, cuadro, dias, **kw) if "seguidos" in x.texto or "seguidas" in x.texto]
+    tres = {(a.id, dias[i]): "NC" for i in (0, 2, 4)}  # NC L NC L NC: 3 noches en racha, máximo 2
+    assert len(avisos(tres)) == 1 and "3 noches" in avisos(tres)[0]
+    assert avisos({(a.id, dias[i]): "NC" for i in (0, 2)}) == []
+    assert avisos(tres, fijos={(a.id, dias[4])}) == []  # edición manual
+    assert len(avisos({(a.id, dias[i]): "C" for i in (0, 1, 2)})) == 1 and avisos({(a.id, dias[i]): "C" for i in (0, 1)}) == []
+
+
 def test_versiones():
     bd = db.BD()
     pid = bd.guardar_colaborador(Colaborador(0, "A"))
@@ -183,6 +197,14 @@ def test_mes_completo():
     assert all(cuadro.get((11, f), "M") in ("M", "T") for f in fechas)  # la restringida nunca hace noche
     noche = lambda p, f: cuadro.get((p, f)) == "NC"
     assert not any(noche(p.id, f) and (p.id, f + timedelta(days=1)) in cuadro for p in ctx.colabs for f in fechas)  # tras una noche, día libre
+    # racha NC-L-NC-L…: nunca más de `max_noches` (2); corridos: nunca más de `max_c` (2) en días consecutivos
+    assert ctx.max_noches == 2 and ctx.max_c == 2
+    assert not any(all(noche(p.id, fechas[i + 2 * k]) for k in range(3)) for p in ctx.colabs for i in range(len(fechas) - 4))
+    assert not any(all(cuadro.get((p.id, fechas[i + k])) == "C" for k in range(3)) for p in ctx.colabs for i in range(len(fechas) - 2))
+    # reparto parejo de M, T, C y NC entre quienes pueden hacerlos
+    for cod in ("M", "T", "C", "NC"):
+        n = [sum(1 for f in fechas if cuadro.get((p.id, f)) == cod) for p in ctx.colabs if p.permitidos is None]
+        assert max(n) - min(n) <= 4, (cod, n)
     # una celda fija se respeta al regenerar
     c2, _ = solver.generar(ctx, fechas, fijos={(1, fechas[0]): "NC"}, tiempo=10)
     assert c2[(1, fechas[0])] == "NC" and (1, fechas[1]) not in c2  # la noche fija arrastra su día libre

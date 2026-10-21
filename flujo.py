@@ -23,12 +23,13 @@ def fechas_mes(año, mes):
 
 def acumulado(bd, ctx, mes):
     """Noches, domingos/festivos y corridos de los meses anteriores, para que la equidad no empiece de cero."""
-    total = defaultdict(lambda: (0, 0, 0))
+    total = defaultdict(lambda: defaultdict(int))
     for m in (m for m in bd.meses() if m < mes):
         cuadro = bd.asignaciones(m)
         for cid, v in solver.carga(ctx, cuadro, {f for _, f in cuadro}).items():
-            total[cid] = tuple(a + b for a, b in zip(total[cid], v))
-    return dict(total)
+            for clave, n in v.items():
+                total[cid][clave] += n
+    return {cid: dict(v) for cid, v in total.items()}
 
 
 def preparar(bd, año, mes, modo="cero", lunes=None, tiempo=20):
@@ -44,8 +45,7 @@ def preparar(bd, año, mes, modo="cero", lunes=None, tiempo=20):
         fijos = {**{(p.id, d): actual.get((p.id, d), "L") for p in ctx.colabs if p.en_solver for d in fechas
                     if d not in sem}, **{c: t for c, t in fijos.items() if c[1] in sem}}
     return ctx, fechas, dict(fijos=fijos, previo=bd.asignaciones(clave(ant.year, ant.month)),
-                             acum=acumulado(bd, ctx, k), ventana_sem=int(bd.param("ventana_semanas", 3)), tiempo=tiempo,
-                             max_noches=int(bd.param("max_noches_seguidas", 3)))
+                             acum=acumulado(bd, ctx, k), ventana_sem=int(bd.param("ventana_semanas", 3)), tiempo=tiempo)
 
 
 def terminar(bd, año, mes, ctx, fechas, cuadro, modo="cero"):

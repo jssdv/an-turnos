@@ -54,6 +54,22 @@ def validar(ctx, cuadro, fechas, fijos=()):
                     if b in dias and cuadro.get((p.id, b), "L") in ctx.turnos and (p.id, b) not in fijos:
                         out.append(Alerta("aviso", b, p.id, f"{nombres[p.id]}: sin día libre después de la noche del {a:%d/%m}"))
                         break
+        noche = lambda d: (t := ctx.turnos.get(cuadro.get((p.id, d), "L"))) is not None and "N" in t.cubre
+        corrido = lambda d: (t := ctx.turnos.get(cuadro.get((p.id, d), "L"))) is not None and len(t.cubre) > 1
+        paso = ctx.libre_tras_noche + 1
+        for a in fechas:  # rachas demasiado largas (si alguna celda es edición manual, es decisión de quien coordina)
+            if ctx.max_noches and noche(a) and not noche(a - timedelta(days=paso)):
+                n = 0
+                while noche(a + timedelta(days=paso * n)):
+                    n += 1
+                if n > ctx.max_noches and not any((p.id, a + timedelta(days=paso * k)) in fijos for k in range(n)):
+                    out.append(Alerta("aviso", a, p.id, f"{nombres[p.id]}: {n} noches seguidas desde el {a:%d/%m} (máximo {ctx.max_noches})"))
+            if ctx.max_c and corrido(a) and not corrido(a - timedelta(days=1)):
+                n = 0
+                while corrido(a + timedelta(days=n)):
+                    n += 1
+                if n > ctx.max_c and not any((p.id, a + timedelta(days=k)) in fijos for k in range(n)):
+                    out.append(Alerta("aviso", a, p.id, f"{nombres[p.id]}: {n} corridos seguidos desde el {a:%d/%m} (máximo {ctx.max_c})"))
         for lunes in (f for f in fechas if f.weekday() == 0):
             sem = [lunes + timedelta(days=i) for i in range(7)]
             if sem[-1] in dias and sum(cuadro.get((p.id, d), "L") not in ctx.turnos for d in sem) < ctx.libres_semana:
