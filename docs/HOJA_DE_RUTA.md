@@ -1,6 +1,8 @@
 # Hoja de ruta
 
-[← Volver al inicio](../README.md) · [Reglas](REGLAS.md) · [Arquitectura](ARQUITECTURA.md)
+La dirección general, los principios y las preguntas abiertas están en la [visión](VISION.md).
+
+[← Volver al inicio](../README.md) · [Visión](VISION.md) · [Reglas](REGLAS.md) · [Arquitectura](ARQUITECTURA.md)
 
 Estado a oct-2026. v1 está construida; falta validarla con la coordinación y en el PC corporativo.
 
