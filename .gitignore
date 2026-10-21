@@ -1,0 +1,7 @@
+.venv/
+dist/
+.build_cache/
+__pycache__/
+errores.log
+turnos.db
+~$*
