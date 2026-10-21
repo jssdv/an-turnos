@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from PySide6.QtCore import QDate, QSettings, Qt, QThread, QTime, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QColorDialog, QComboBox, QDateEdit,
                                QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
                                QListWidget, QMainWindow, QMenu, QMessageBox, QPushButton, QSpinBox, QTableWidget,
@@ -93,6 +93,22 @@ def hhmm(minutos):
     return f"{minutos // 60 % 24:02d}:{minutos % 60:02d}"
 
 
+class Grilla(QTableWidget):
+    """Tabla del cuadro: al soltar una celda sobre otra emite `soltada(origen_fila, origen_col, destino_fila, destino_col)`."""
+    soltada = Signal(int, int, int, int)
+
+    def startDrag(self, acciones):
+        self._origen = (self.currentRow(), self.currentColumn())
+        super().startDrag(acciones)
+
+    def dropEvent(self, e):
+        d = self.indexAt(e.position().toPoint())
+        if d.isValid() and (d.row(), d.column()) != self._origen:
+            self.soltada.emit(*self._origen, d.row(), d.column())
+        e.setDropAction(Qt.CopyAction)  # evita que Qt vacíe la celda de origen
+        e.accept()
+
+
 class Trabajo(QThread):
     listo = Signal(object, object)
     fallo = Signal(str)
@@ -118,6 +134,8 @@ class Ventana(QMainWindow):
         self.cfg = QSettings("An", "An")
         self.bd = db.BD(str(ruta_bd))
         self.trabajo = None
+        self._deshacer = []
+        QShortcut(QKeySequence.Undo, self, activated=self.deshacer)
         hoy = date.today()
         raiz = QWidget(objectName="fondo")
         self.setCentralWidget(raiz)
@@ -169,6 +187,7 @@ class Ventana(QMainWindow):
         self.aviso.setVisible(bool(texto))
 
     def _cambio_vista(self):
+        self._deshacer.clear()
         self.avisar("")
         self.refrescar()
 
@@ -203,9 +222,19 @@ class Ventana(QMainWindow):
             barra.addWidget(b)
         barra.addStretch()
         v.addLayout(barra)
-        self.grilla = QTableWidget()
+        self.grilla = Grilla()
         self.grilla.itemChanged.connect(self._celda_editada)
+        self.grilla.soltada.connect(self._mover_celda)
+        self.grilla.setDragEnabled(True)
+        self.grilla.setAcceptDrops(True)
+        self.grilla.setDropIndicatorShown(True)
+        self.grilla.setDragDropMode(QAbstractItemView.DragDrop)
+        self.grilla.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.grilla.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.grilla.customContextMenuRequested.connect(self._menu_lote)
         v.addWidget(self.grilla, 3)
+        v.addWidget(QLabel("Arrastra una celda sobre otra para intercambiarlas · clic derecho para asignar a varias "
+                           "seleccionadas · Ctrl+Z deshace · morado = día de estudio", objectName="muted"))
         v.addWidget(QLabel("Alertas del cuadro (versión Cambios)", objectName="muted"))
         self.alertas = QListWidget()
         v.addWidget(self.alertas, 1)
@@ -240,6 +269,11 @@ class Ventana(QMainWindow):
                     horas += self.ctx.turnos[cod].horas
                 elif nov:
                     it.setBackground(QColor("#D9D9D9"))
+                estudia = [("Mañana", "Tarde")["MT".index(fr)] for dia, fr in p.estudio if dia == f.weekday()]
+                if estudia:
+                    it.setToolTip("Estudia: " + " y ".join(x.lower() for x in estudia))
+                    if cod == "L" and not nov:
+                        it.setBackground(QColor("#E3E6FA"))
                 if not ver_orig and orig.get((p.id, f), "L") != cod:
                     it.setBackground(QColor(AMARILLO))
                 if ver_orig or nov and cod == "L":
@@ -279,21 +313,77 @@ class Ventana(QMainWindow):
         elif self.aviso.text().startswith("Este mes aún"):
             self.avisar("")
 
-    def _celda_editada(self, it):
-        r, c = it.row(), it.column()
-        gente = [p for p in self.ctx.colabs if p.en_solver]
-        if r >= len(gente) or c >= len(self.fechas):
-            return
+    def _gente(self):
+        return [p for p in self.ctx.colabs if p.en_solver]
+
+    def _editable(self, r, c):
+        """Persona y fecha de la celda (r, c) si se puede cambiar; None si es de totales, novedad u original."""
+        gente = self._gente()
+        if r >= len(gente) or c >= len(self.fechas) or self.version.currentText() == "Original":
+            return None
         p, f = gente[r], self.fechas[c]
+        nov = self.ctx.novedad(p.id, f)
+        return None if nov and self.bd.asignaciones(self.clave).get((p.id, f), "L") == "L" else (p, f)
+
+    def _aplicar(self, cambios, texto):
+        """cambios: [(persona, fecha, código)]. Guarda, recalcula, deja deshacer y avisa de reglas que se rompen."""
+        k, cuadro = self.clave, self.bd.asignaciones(self.clave)
+        self._deshacer.append([(p.id, f, cuadro.get((p.id, f), "L")) for p, f, _ in cambios])
+        motivos = []
+        for p, f, cod in cambios:
+            self.bd.set_celda(k, p.id, f, cod)
+            if cod != "L" and (m := self.ctx.bloqueo(p, self.ctx.turnos[cod], f)):
+                motivos.append(f"{p.nombre} {f:%d/%m}: {m}")
+        flujo.recalcular(self.bd, self.año.value(), self.mes.currentIndex() + 1, self.ctx)
+        self.avisar(texto + (" — ojo: " + "; ".join(motivos[:3]) + "." if motivos else ""), "warn" if motivos else "info")
+        self._ver_cuadro()
+
+    def _celda_editada(self, it):
+        celda = self._editable(it.row(), it.column())
+        if not celda:
+            return
+        p, f = celda
         cod = it.text().strip().upper() or "L"
         if cod != "L" and cod not in self.ctx.turnos:
             self.avisar(f"«{cod}» no es un turno. Usa L o uno de: {', '.join(self.ctx.turnos)}.", "error")
+            self._ver_cuadro()
         else:
-            self.bd.set_celda(self.clave, p.id, f, cod)
-            flujo.recalcular(self.bd, self.año.value(), self.mes.currentIndex() + 1, self.ctx)
-            motivo = self.ctx.bloqueo(p, self.ctx.turnos[cod], f) if cod != "L" else None
-            self.avisar(f"{p.nombre} · {f:%d/%m}: {cod}" + (f" — ojo: {motivo}." if motivo else ""),
-                        "warn" if motivo else "info")
+            self._aplicar([(p, f, cod)], f"{p.nombre} · {f:%d/%m}: {cod}")
+
+    def _mover_celda(self, r1, c1, r2, c2):
+        """Intercambia el contenido de dos celdas (arrastrar y soltar)."""
+        a, b = self._editable(r1, c1), self._editable(r2, c2)
+        if not (a and b):
+            return self.avisar("Esa celda no se puede cambiar (novedad, totales o vista Original).", "warn")
+        cuadro = self.bd.asignaciones(self.clave)
+        x, y = cuadro.get((a[0].id, a[1]), "L"), cuadro.get((b[0].id, b[1]), "L")
+        if x == y:
+            return
+        self._aplicar([(a[0], a[1], y), (b[0], b[1], x)],
+                      f"Intercambio: {a[0].nombre} {a[1]:%d/%m} ({x}) ⇄ {b[0].nombre} {b[1]:%d/%m} ({y})")
+
+    def _menu_lote(self, pos):
+        celdas = [c for i in self.grilla.selectedIndexes() if (c := self._editable(i.row(), i.column()))]
+        if not celdas:
+            return
+        m = QMenu(self)
+        m.addSection(f"Asignar a {len(celdas)} celda(s)")
+        for cod in [*self.ctx.turnos, "L"]:
+            m.addAction(cod if cod != "L" else "L · libre", lambda cod=cod: self._aplicar(
+                [(p, f, cod) for p, f in celdas], f"{len(celdas)} celda(s) → {cod}"))
+        m.exec(self.grilla.viewport().mapToGlobal(pos))
+
+    def deshacer(self):
+        if not self._deshacer or self.version.currentText() == "Original":
+            return
+        k, orig = self.clave, self.bd.asignaciones(self.clave, "original")
+        for cid, f, antes in self._deshacer.pop():
+            if orig.get((cid, f), "L") == antes:
+                self.bd.restaurar(k, {cid}, {f})
+            else:
+                self.bd.set_celda(k, cid, f, antes)
+        flujo.recalcular(self.bd, self.año.value(), self.mes.currentIndex() + 1, self.ctx)
+        self.avisar("Cambio deshecho.")
         self._ver_cuadro()
 
     def generar(self, modo, lunes=None):
@@ -315,6 +405,7 @@ class Ventana(QMainWindow):
         self.trabajo.start()
 
     def _generado(self, ctx, fechas, cuadro, info, modo):
+        self._deshacer.clear()
         self.b_generar.setEnabled(True)
         flujo.terminar(self.bd, self.año.value(), self.mes.currentIndex() + 1, ctx, fechas, cuadro, modo)
         if info["faltan"]:
@@ -338,12 +429,14 @@ class Ventana(QMainWindow):
     def publicar(self):
         if QMessageBox.question(self, "Publicar", "El cuadro actual pasará a ser el «original». ¿Continuar?") == QMessageBox.Yes:
             self.bd.publicar(self.clave)
+            self._deshacer.clear()
             self.avisar("Cuadro publicado como original.")
             self._ver_cuadro()
 
     def restaurar(self):
         if QMessageBox.question(self, "Restaurar", "Se devolverán todas las celdas al original. ¿Continuar?") == QMessageBox.Yes:
             self.bd.restaurar(self.clave)
+            self._deshacer.clear()
             flujo.recalcular(self.bd, self.año.value(), self.mes.currentIndex() + 1)
             self.refrescar()
 

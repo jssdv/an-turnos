@@ -38,13 +38,19 @@ Pestaña **Cuadro** → elige el mes → **Generar… → Generar desde cero**. 
 
 ### 3. Ajustar
 
-Haz doble clic en una celda y escribe el código del turno (`M`, `T`, `C`, `NC`) o `L` para libre. An~:
+Hay tres formas, todas sobre la versión *Cambios*:
 
-- guarda el cambio como **fijo** (el solver ya no lo mueve),
-- lo marca en **amarillo** frente al original,
-- revalida y avisa si rompe una regla, sin impedírtelo.
+- **Escribir:** doble clic en una celda y el código del turno (`M`, `T`, `C`, `NC`), o `L` para libre.
+- **Arrastrar y soltar:** arrastra una celda sobre otra para **intercambiarlas**, sea de otra persona o de otro día. El pie de la grilla lo recuerda.
+- **En lote:** selecciona varias celdas (con Mayús o Ctrl), clic derecho y elige el turno o «L · libre» para todas a la vez.
 
-El listado **Cambios respecto al original** muestra cada diferencia (persona, fecha, antes → después).
+Cada cambio:
+
+- queda como **fijo** (el generador ya no lo mueve) y en **amarillo** frente al original,
+- se revalida al instante y avisa si rompe una regla, sin impedírtelo,
+- se puede **deshacer con Ctrl+Z** (hasta que generes, publiques o restaures).
+
+Los días de estudio aparecen en **morado** sobre las celdas libres, y al pasar el cursor dice si es de mañana o tarde. El listado **Cambios respecto al original** muestra cada diferencia (persona, fecha, antes → después).
 
 ### 4. Cuando llega una novedad tarde
 
@@ -81,7 +87,7 @@ Si el archivo ya existe, guarda `v2`, `v3`… y no sobrescribe nada.
 
 ## Preguntas frecuentes
 
-**¿Por qué una celda no deja cambiar?** Los días de novedad (VAC, INC…) y la vista *Original* son de solo lectura.
+**¿Por qué una celda no deja cambiar?** Los días de novedad (VAC, INC…), las filas de totales y la vista *Original* son de solo lectura; arrastrar sobre ellas avisa.
 
 **La app dice que faltan personas en un día.** Hay demasiadas novedades o restricciones ese día. Revisa **Novedades**, o baja la cobertura requerida si es una decisión del servicio.
 

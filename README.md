@@ -45,6 +45,7 @@ El plan, los principios y las preguntas abiertas están en [docs/VISION.md](docs
 |---|---|
 | 🧮 **Cuadro con solver** | OR-Tools genera el mes completo: cobertura 4+4+2 (lunes a sábado) y 2+2+2 (domingo y festivo), 12 h de descanso entre turnos, un día libre por semana y tope de noches seguidas. |
 | ⚖️ **Rotación y equidad** | Reparte noches, domingos/festivos y corridos, y arrastra lo acumulado de meses anteriores. |
+| ✋ **Edición ágil** | Arrastra celdas para intercambiarlas, asigna turnos a varias celdas con clic derecho y deshaz con Ctrl+Z. Los días de estudio se ven en la grilla. |
 | 🗂️ **Original y cambios** | Dos versiones por mes. Lo que se edita queda en amarillo, con lista de diferencias, y se puede publicar o restaurar. |
 | 👥 **Personal y novedades** | Crear, editar y eliminar colaboradores con casillas para turnos permitidos y bloques de estudio; vacaciones, incapacidades, licencias y días libres. |
 | 🕘 **Turnos editables** | Crea, edita y elimina turnos: horarios, franjas que cubren, color y pausa de almuerzo (pagada o no). Todo se recalcula. |
