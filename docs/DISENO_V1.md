@@ -1,6 +1,6 @@
 # Diseño v1 (aprobado)
 
-> Documento de diseño con el que se construyó la v1. Para el estado actual, ver [README](../README.md) y [CLAUDE.md](../CLAUDE.md).
+> Documento de diseño con el que se construyó la v1. Para el estado actual, ver el [README](../README.md), la [arquitectura](ARQUITECTURA.md) y las [reglas](REGLAS.md).
 
 ## Contexto
 
@@ -53,7 +53,7 @@ Corre en un PC corporativo sin permisos de administrador (mismo empaquetado port
 
 ## Arquitectura
 
-Proyecto nuevo, carpeta propia (propuesta: `/Users/jss/Desktop/TURNOS_ESTERILIZACION/`, git propio). Python 3.13, `PySide6-Essentials`, `openpyxl`, `ortools`, `sqlite3` (stdlib). Núcleo sin GUI; Qt solo lo llama. Pocos archivos planos, como la app de Radiología.
+Proyecto nuevo, carpeta propia (propuesta: la raíz del repositorio, git propio). Python 3.13, `PySide6-Essentials`, `openpyxl`, `ortools`, `sqlite3` (stdlib). Núcleo sin GUI; Qt solo lo llama. Pocos archivos planos, como la app de Radiología.
 
 ```
 dominio.py     dataclasses + catálogo de turnos (horas, hora inicio/fin, cuenta M/T), cobertura por tipo de día,

@@ -1,6 +1,35 @@
 # Arquitectura
 
+[← Volver al inicio](../README.md) · [Reglas](REGLAS.md) · [Hoja de ruta](HOJA_DE_RUTA.md)
+
 Principios: núcleo en Python puro y sin interfaz; reglas y tarifas como **datos**, no código; Excel como formato de intercambio; todo portátil y sin permisos de administrador; el solver propone y la persona decide.
+
+## Vista general
+
+```mermaid
+flowchart TB
+    subgraph UI[Interfaz]
+        app[app.py<br/>PySide6]
+    end
+    subgraph Nucleo[Núcleo sin interfaz]
+        flujo[flujo.py]
+        solver[solver.py]
+        reglas[reglas.py]
+        puestos[puestos.py]
+        cap[capacitacion.py]
+        rec[recargos.py]
+        dom[dominio.py]
+    end
+    db[(db.py<br/>SQLite)]
+    exp[exportar.py<br/>Excel]
+    app --> flujo
+    app --> exp
+    flujo --> solver & puestos & cap & reglas
+    exp --> rec
+    solver & reglas & puestos & rec --> dom
+    flujo --> db
+    app --> db
+```
 
 ## Módulos
 

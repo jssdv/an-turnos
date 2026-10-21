@@ -1,13 +1,13 @@
 # CLAUDE.md
 
-Desktop app (Spanish UI) for the Esterilización service: staff + absences, monthly shift grid generated with OR-Tools CP-SAT, daily post assignment, training sessions, hours and Colombian surcharges (CST). Used by a non-technical coordinator on a locked-down Windows PC (no admin, no installs). Sister of `../ASIGSEMRADIO` (Radiología); the two apps share no code, only ideas.
+**Cuadrante** — desktop app (Spanish UI) for the Central de Esterilización: staff + absences, monthly shift grid generated with OR-Tools CP-SAT, daily post assignment, training sessions, hours and Colombian surcharges (CST). Used by a non-technical coordinator on a locked-down Windows PC (no admin, no installs). Sister of `../ASIGSEMRADIO` (Radiología); the two apps share no code, only ideas.
 
 ## Commands
-- Dev env: `python3 -m venv .venv && .venv/bin/pip install PySide6-Essentials openpyxl ortools` (or double-click `Turnos Esterilizacion.command`).
+- Dev env: `python3 -m venv .venv && .venv/bin/pip install PySide6-Essentials openpyxl ortools` (or double-click `Cuadrante.command`).
 - Run GUI: `.venv/bin/python app.py` (data in `turnos.db` next to `app.py`).
 - Tests: `.venv/bin/python test_turnos.py` (prints `OK`, ~1 min: solves full months).
 - GUI smoke without display: `QT_QPA_PLATFORM=offscreen` + instantiate `app.Ventana(tmp_db_path)`.
-- Windows zip: `./empaquetar.sh` → `dist/TurnosEsterilizacion.zip`; `./empaquetar.sh prueba` → `dist/PruebaPC.zip` (checks Qt + OR-Tools run on the target PC).
+- Windows zip: `./empaquetar.sh` → `dist/Cuadrante.zip`; `./empaquetar.sh prueba` → `dist/PruebaPC.zip` (checks Qt + OR-Tools run on the target PC).
 
 ## Architecture
 Pure core, Qt only calls it.
