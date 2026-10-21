@@ -1,0 +1,183 @@
+"""Modelo del servicio: turnos (catálogo editable), personal, novedades, festivos y contexto de reglas."""
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+
+# Ventanas del día en minutos desde las 00:00 (la noche cruza medianoche).
+FRANJAS = {"M": (360, 720), "T": (720, 1080), "N": (1080, 1800)}
+TIPOS_NOVEDAD = ("Vacaciones", "Incapacidad", "Licencia", "Libre solicitado")
+TIPOS_COLAB = ("regular", "restringido", "estudiante", "refuerzo")
+DESCANSO_MIN = 12 * 60
+DIAS = ("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")
+
+
+@dataclass
+class Turno:
+    codigo: str
+    nombre: str
+    inicio: int  # minutos desde las 00:00
+    fin: int  # si fin <= inicio el turno cruza medianoche
+    color: str = "FFFFFF"
+    cubre: tuple = ()  # subconjunto de ("M", "T", "N") que cuenta para la cobertura
+    pausas: tuple = ()  # dicts {"ini": min desde inicio de turno, "min": duración, "pagada": bool}
+    dom_fest: bool = True  # se permite en domingo/festivo
+    solver: bool = True  # el solver puede usarlo
+    activo: bool = True
+
+    @property
+    def duracion(self):
+        return (self.fin - self.inicio) % 1440 or 1440
+
+    def tramos(self):
+        """Tramos pagados (minutos relativos al inicio): el turno menos las pausas no pagadas."""
+        tr = [(0, self.duracion)]
+        for p in self.pausas:
+            if p.get("pagada"):
+                continue
+            a, b = p["ini"], p["ini"] + p["min"]
+            tr = [t for x, y in tr for t in ((x, min(y, a)), (max(x, b), y)) if t[0] < t[1]]
+        return tr
+
+    @property
+    def horas(self):
+        return sum(b - a for a, b in self.tramos()) / 60
+
+
+def intervalo(turno, fecha):
+    ini = datetime.combine(fecha, datetime.min.time()) + timedelta(minutes=turno.inicio)
+    return ini, ini + timedelta(minutes=turno.duracion)
+
+
+def solape_min(turno, fecha, franja, fecha_franja):
+    """Minutos en que el turno de `fecha` se cruza con la franja M/T/N de `fecha_franja`."""
+    a, b = intervalo(turno, fecha)
+    f0 = datetime.combine(fecha_franja, datetime.min.time())
+    fa, fb = f0 + timedelta(minutes=FRANJAS[franja][0]), f0 + timedelta(minutes=FRANJAS[franja][1])
+    return max(0, (min(b, fb) - max(a, fa)).total_seconds() / 60)
+
+
+def turnos_base():
+    pa = 360
+    return [
+        Turno("M", "Mañana", pa, pa + 360, "FFF2CC", ("M",), dom_fest=True),
+        Turno("T", "Tarde", pa + 360, pa + 720, "DDEBF7", ("T",), dom_fest=True),
+        Turno("C", "Corrido", pa, pa + 720, "E2EFDA", ("M", "T"), dom_fest=False),
+        Turno("NC", "Noche corrida", pa + 720, pa, "D9D2E9", ("N",), dom_fest=True),
+    ]
+
+
+COBERTURA_BASE = {"LS": {"M": 4, "T": 4, "N": 2}, "DF": {"M": 2, "T": 2, "N": 2}}
+
+
+def _pascua(a):
+    g = a % 19
+    c, d = divmod(a, 100)
+    h = (19 * g + c - c // 4 - (c - (c + 8) // 25 + 1) // 3 + 15) % 30
+    i, k = divmod(d, 4)
+    l = (32 + 2 * (c % 4) + 2 * i - h - k) % 7
+    m = (g + 11 * h + 22 * l) // 451
+    mes, dia = divmod(h + l - 7 * m + 114, 31)
+    return date(a, mes, dia + 1)
+
+
+def festivos(a):
+    """Festivos de Colombia (Ley Emiliani, Ley 51/1983): fijos, trasladados al lunes y de Semana Santa."""
+    sig_lunes = lambda f: f + timedelta(days=(7 - f.weekday()) % 7)
+    p = _pascua(a)
+    r = {date(a, m, d): n for m, d, n in [(1, 1, "Año Nuevo"), (5, 1, "Día del Trabajo"), (7, 20, "Independencia"),
+                                         (8, 7, "Batalla de Boyacá"), (12, 8, "Inmaculada Concepción"), (12, 25, "Navidad")]}
+    for m, d, n in [(1, 6, "Reyes Magos"), (3, 19, "San José"), (6, 29, "San Pedro y San Pablo"), (8, 15, "Asunción"),
+                    (10, 12, "Día de la Raza"), (11, 1, "Todos los Santos"), (11, 11, "Independencia de Cartagena")]:
+        r[sig_lunes(date(a, m, d))] = n
+    r[p - timedelta(days=3)] = "Jueves Santo"
+    r[p - timedelta(days=2)] = "Viernes Santo"
+    for dias, n in [(39, "Ascensión"), (60, "Corpus Christi"), (68, "Sagrado Corazón")]:
+        r[sig_lunes(p + timedelta(days=dias))] = n
+    return r
+
+
+@dataclass
+class Colaborador:
+    id: int
+    nombre: str
+    tipo: str = "regular"
+    horas_sem: float = 42
+    pct: float = 1.0
+    permitidos: tuple = None  # códigos de turno permitidos; None = todos
+    puesto_fijo: int = None
+    estudio: tuple = ()  # ((día 0-6, "M"|"T"), ...) bloques en que no está disponible
+    activo: bool = True
+
+    @property
+    def en_solver(self):
+        return self.activo and self.tipo != "refuerzo"
+
+
+@dataclass
+class Novedad:
+    colab_id: int
+    tipo: str
+    desde: date
+    hasta: date
+    nota: str = ""
+    id: int = None
+
+
+@dataclass
+class Contexto:
+    """Todo lo que necesitan reglas, solver y recargos para un conjunto de fechas."""
+    turnos: dict  # código -> Turno (activos)
+    colabs: list
+    novedades: list
+    cobertura: dict
+    fest: dict  # fecha -> nombre
+    _nov: dict = field(default_factory=dict, repr=False)
+
+    def __post_init__(self):
+        for n in self.novedades:
+            d = n.desde
+            while d <= n.hasta:
+                self._nov.setdefault((n.colab_id, d), n)
+                d += timedelta(days=1)
+
+    def tipo_dia(self, f):
+        return "DF" if f.weekday() == 6 or f in self.fest else "LS"
+
+    def novedad(self, cid, f):
+        return self._nov.get((cid, f))
+
+    def bloqueo(self, colab, turno, f):
+        """Motivo por el que `colab` no puede hacer `turno` el día `f`, o None."""
+        n = self.novedad(colab.id, f)
+        if n:
+            return n.tipo
+        if colab.permitidos is not None and turno.codigo not in colab.permitidos:
+            return "turno no permitido"
+        if not turno.dom_fest and self.tipo_dia(f) == "DF":
+            return "turno no permitido en domingo/festivo"
+        for fd in (f, f + timedelta(days=1)):
+            for dia, fr in colab.estudio:
+                if dia == fd.weekday() and solape_min(turno, f, fr, fd) > 0:
+                    return "estudio"
+        return None
+
+
+def parsear_estudio(texto):
+    """«Lun M, Jue M, Vie» → ((0,"M"),(3,"M"),(4,"M"),(4,"T")). Sin franja = todo el día."""
+    out = []
+    for tok in texto.replace(";", ",").split(","):
+        partes = tok.split()
+        if not partes:
+            continue
+        dia = [d.lower() for d in DIAS].index(partes[0][:3].lower()) if partes[0][:3].lower() in [d.lower() for d in DIAS] else None
+        if dia is None:
+            raise ValueError(f"Día no reconocido: «{partes[0]}». Usa Lun, Mar, Mié, Jue, Vie, Sáb o Dom.")
+        franjas = ("M", "T") if len(partes) == 1 or partes[1].upper() not in ("M", "T") else (partes[1].upper(),)
+        out += [(dia, fr) for fr in franjas if (dia, fr) not in out]
+    return tuple(sorted(out))
+
+
+def texto_estudio(estudio):
+    por_dia = {}
+    for dia, fr in estudio:
+        por_dia.setdefault(dia, []).append(fr)
+    return ", ".join(DIAS[d] if len(f) == 2 else f"{DIAS[d]} {f[0]}" for d, f in sorted(por_dia.items()))
