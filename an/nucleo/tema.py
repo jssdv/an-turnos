@@ -95,6 +95,7 @@ def icono_app():
 
 def preparar_app(argv):
     app = QApplication(argv)
+    app.setOrganizationName("An")
     app.setApplicationName("An")
     app.setWindowIcon(icono_app())
     app.setStyle("Fusion")

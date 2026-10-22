@@ -5,8 +5,8 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QHeaderView, QLabel, QTableWidget,
-                               QTableWidgetItem, QVBoxLayout)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QHeaderView, QLabel, QStackedWidget,
+                               QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 
 def abrir(ruta):
@@ -45,6 +45,8 @@ def tabla(columnas, ayudas=None):
 
 
 def llenar(t, filas, colores=None, orden=None):
+    """Llena la tabla sin disparar sus señales. Si se envolvió con `con_vacio`, alterna el mensaje de «sin datos»."""
+    t.blockSignals(True)
     t.setSortingEnabled(False)
     t.clearContents()
     t.setRowCount(len(filas))
@@ -59,6 +61,43 @@ def llenar(t, filas, colores=None, orden=None):
     if orden is not None:
         t.setSortingEnabled(True)
         t.sortByColumn(orden, Qt.AscendingOrder)
+    if hasattr(t, "_pila"):
+        t._pila.setCurrentIndex(0 if filas else 1)
+    t.blockSignals(False)
+
+
+def con_vacio(t, titulo, texto=""):
+    """Envuelve la tabla `t`: si no tiene filas, muestra un mensaje que guía en lugar de un espacio en blanco."""
+    pila = QStackedWidget()
+    pila.addWidget(t)
+    p = QWidget()
+    l = QVBoxLayout(p)
+    l.addStretch()
+    for txt, nombre in ((titulo, "vacio_t"), (texto, "muted")):
+        e = QLabel(txt, objectName=nombre, alignment=Qt.AlignCenter)
+        e.setWordWrap(True)
+        l.addWidget(e)
+    l.addStretch()
+    pila.addWidget(p)
+    t._pila = pila
+    return pila
+
+
+def signo(h):
+    """Horas con signo explícito; el cero se escribe sin signo."""
+    return "0" if abs(h) < 0.05 else f"{h:+g}"
+
+
+def hhmm(minutos):
+    return f"{minutos // 60 % 24:02d}:{minutos % 60:02d}"
+
+
+def sin_seleccion(t):
+    """Limpia la selección de la tabla sin disparar señales (no debe recargar el registro anterior en un formulario)."""
+    t.blockSignals(True)
+    t.clearSelection()
+    t.setCurrentCell(-1, -1)
+    t.blockSignals(False)
 
 
 class ocupado:

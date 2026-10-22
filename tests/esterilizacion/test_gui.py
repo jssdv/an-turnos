@@ -2,16 +2,32 @@
 import sys, os, tempfile
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import Qt, QTime
-from an.esterilizacion import app
 from an.esterilizacion import flujo
 from datetime import date
 P = flujo.periodo_mes(2026, 10)
 K = flujo.clave(*P)
-qa = QApplication([]); qa.setStyleSheet(app.ESTILO)
+from PySide6.QtCore import QSettings
+_ini = tempfile.mkdtemp()
+QSettings.setDefaultFormat(QSettings.IniFormat)  # no tocar los ajustes reales del usuario
+QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, _ini)
+from an.nucleo.shell import Ventana
+from an.nucleo.tema import preparar_app
+from an.esterilizacion.paginas import Turnos
+qa = preparar_app([])
+
+
+def ventana(ruta_bd):
+    """El área Turnos dentro del shell, con una base de datos temporal."""
+    class T(Turnos):
+        def __init__(self, v):
+            super().__init__(v, ruta_bd)
+    return Ventana(T).area
+
+
 QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)  # confirmar diálogos
-v = app.Ventana(tempfile.mkdtemp() + "/t.db")
+v = ventana(tempfile.mkdtemp() + "/t.db")
 # --- colaboradores: crear, editar, eliminar
 v._nueva_persona(); v.p_nombre.setText("Ana"); v.p_perm_cbs["NC"].setChecked(False); v.p_est.item(0, 0).setCheckState(Qt.Checked)
 v._guardar_persona(); assert v.persona_id and v.t_personal.rowCount() == 1, v.aviso.text()
@@ -80,9 +96,9 @@ v.bd.set_param("periodo_modo", "semanas"); v.bd.set_param("periodo_semanas", 4)
 from PySide6.QtCore import QDate
 v.f_inicio.setDate(QDate(2026, 10, 7)); assert v.f_inicio.date().toPython() == date(2026, 10, 5) and "lunes" in v.aviso.text()  # ajusta al lunes
 assert v.periodo() == (date(2026, 10, 5), date(2026, 11, 1)) and v.clave == "2026-10-05/2026-11-01" and len(v.fechas) == 28
-assert v.f_inicio.isVisibleTo(v) and not v.mes.isVisibleTo(v)
+assert v.f_inicio.isVisibleTo(v.v) and not v.mes.isVisibleTo(v.v)
 v._mover_periodo(1); assert v.periodo()[0] == date(2026, 11, 2)
-v._mover_periodo(-1); v.bd.set_param("periodo_modo", "mes"); v.refrescar(); assert v.periodo() == P and v.mes.isVisibleTo(v)
+v._mover_periodo(-1); v.bd.set_param("periodo_modo", "mes"); v.refrescar(); assert v.periodo() == P and v.mes.isVisibleTo(v.v)
 # estudio visible: la celda libre de quien estudia ese día lleva aviso
 v._nueva_persona(); v.p_nombre.setText("Eva"); v.p_est.item(0, 0).setCheckState(Qt.Checked); v._guardar_persona(); v.refrescar()
 fila = [p.nombre for p in v._gente()].index("Eva")
@@ -101,7 +117,7 @@ v.m_concepto.setCurrentText("Pagado en nómina"); v.m_horas.setValue(3); v._regi
 assert v.bd.movimientos(a)[0][3] == -3 and v.t_movs.rowCount() == 2  # «Pagado» se guarda como resta
 v.t_movs.selectRow(1 if v._movs[1][0] else 0); v._borrar_movimiento(); assert v.bd.movimientos(a) == []
 assert v.t_hist.rowCount() == 1 and v.t_hist.item(0, 2).text() == "Cerrado"
-v.t_hist.selectRow(0); v.sub_banco.setCurrentIndex(1); v._ir_al_periodo(); assert v.periodo() == P and v.pestanas.currentIndex() == 0
+v.t_hist.selectRow(0); v.sub_banco.setCurrentIndex(1); v._ir_al_periodo(); assert v.periodo() == P and v.v.nav.currentRow() == 0
 v._alternar_cierre(); assert not v.bd.periodo_cerrado(K) and v.bd.cierres() == []
 # banco: los topes de compensación se guardan desde Parámetros
 assert (v.s_favor.value(), v.s_deuda.value()) == (12, 12)
@@ -147,7 +163,7 @@ assert por_nombre("Vacío") and tp.t_lista.item([p.id for p in tp._puestos].inde
 tp.t_lista.selectRow([p.id for p in tp._puestos].index(por_nombre("Vacío"))); tp.agregar_regla(); tp.agregar_regla()
 tp.guardar(); assert "Las reglas solapadas se suman" in v.aviso.text()
 # --- puestos permitidos en la ficha de personal
-v.pestanas.setCurrentIndex(1)
+v.v.ir_a(1)
 ids_p = {p.numero: i for i, p in v.bd.catalogo_puestos().items()}
 n_antes = len(v.bd.colaboradores(solo_activos=False))
 v._nueva_persona(); v.p_nombre.setText("Solo tres")
@@ -170,7 +186,7 @@ assert "Marca al menos un puesto que pueda ocupar" in v.aviso.text() and len(v.b
 # --- pestaña Dotación (estimación por horas)
 import tempfile as _tf
 from an.esterilizacion.dominio import Colaborador
-v2 = app.Ventana(_tf.mkdtemp() + "/d.db")
+v2 = ventana(_tf.mkdtemp() + "/d.db")
 for i in range(13):
     v2.bd.guardar_colaborador(Colaborador(0, f"P{i}"))
 v2.refrescar()
@@ -186,7 +202,7 @@ assert td.t_puesto.rowCount() == 6 and td.l_horas.text() == "552"
 td.s_margen.setValue(0); td.c_deseables.setChecked(False)
 assert td.l_personas.text() == "12" and td.l_diferencia.text() == "Sobran 1"
 # --- cobertura por tramos en la grilla
-v4 = app.Ventana(_tf.mkdtemp() + "/c.db")
+v4 = ventana(_tf.mkdtemp() + "/c.db")
 for pid in list(v4.bd.catalogo_puestos()):
     v4.bd.reemplazar_demandas(pid, [])
 pz = v4.bd.guardar_puesto(__import__("an.esterilizacion.dominio", fromlist=["x"]).Puesto(0, 30, "Solo mañana"))

@@ -3,9 +3,10 @@ import sys
 
 from .nucleo.shell import Ventana, error_inesperado
 from .nucleo.tema import preparar_app
+from .esterilizacion.paginas import Turnos
 from .radiologia.paginas import Planilla
 
-AREAS = {"radiologia": Planilla}
+AREAS = {"radiologia": Planilla, "esterilizacion": Turnos}
 
 
 def main():

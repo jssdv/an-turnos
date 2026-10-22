@@ -31,7 +31,7 @@ class Ventana(QMainWindow):
         super().__init__()
         self.setWindowTitle(f"An · {Area.NOMBRE}")
         self.setWindowIcon(icono_app())
-        self.cfg = QSettings("An", "An")
+        self.cfg = QSettings()  # organización y nombre de la app los fija preparar_app
         self._clave_geometria = f"{Area.CLAVE}/geometria"
 
         fondo = QWidget(objectName="fondo")
@@ -41,7 +41,8 @@ class Ventana(QMainWindow):
         raiz.setSpacing(0)
 
         self.nav = QListWidget(objectName="nav")
-        self.nav.setFixedWidth(190)
+        self.nav.setFixedWidth(200)
+        self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.aviso = QLabel(objectName="aviso", wordWrap=True)
         self.aviso.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.aviso.hide()
@@ -86,6 +87,7 @@ class Ventana(QMainWindow):
         self.nav.setCurrentRow(0)
         if hasattr(self.area, "iniciar"):
             self.area.iniciar()
+        self.nav.setFocus()  # el primer foco no cae sobre un botón de la cabecera
 
     def _cabecera(self, Area, usuario):
         cab = QFrame(objectName="cabecera")
