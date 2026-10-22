@@ -5,6 +5,7 @@ import tempfile
 
 import db
 import demanda
+import dotacion
 from dominio import Colaborador, Contexto, Demanda, Puesto, Turno
 
 
@@ -150,6 +151,31 @@ def test_puestos_permitidos_roundtrip():
         assert False
     except ValueError:
         pass
+
+
+def test_estimar_con_la_base():
+    bd = db.BD()
+    for i in range(13):
+        bd.guardar_colaborador(Colaborador(0, f"P{i}"))
+    e = dotacion.estimar(bd)
+    # 4 puestos de día × 12 h × 6 días + 2 puestos × 12 h × 1 domingo + guardia noche 2 × 12 h × 7 días
+    assert e["horas_semana"] == 288 + 24 + 168 == 480 and e["personas"] == 13
+    assert e["activos"] == 13 and e["diferencia"] == 0 and e["margen"] == 0.10 and e["jornada_media"] == 42
+    bd.set_param("dotacion_margen_pct", 0)
+    assert dotacion.estimar(bd)["personas"] == 12 and dotacion.estimar(bd)["diferencia"] == 1
+    assert dotacion.estimar(bd, incluir_deseables=True)["horas_semana"] == 480 + 72  # Ropa deseable: 12 h × 6 días
+
+
+def test_estimar_ignora_puestos_inactivos_y_refuerzo():
+    bd = db.BD()
+    bd.guardar_colaborador(Colaborador(0, "P"))
+    bd.guardar_colaborador(Colaborador(0, "R", tipo="refuerzo"))
+    guardia = next(i for i, p in bd.catalogo_puestos().items() if p.numero == 6)
+    p = bd.catalogo_puestos()[guardia]
+    p.activo = False
+    bd.guardar_puesto(p)
+    e = dotacion.estimar(bd)
+    assert e["horas_semana"] == 288 + 24 and e["activos"] == 1
 
 
 if __name__ == "__main__":
