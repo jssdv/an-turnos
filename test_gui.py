@@ -101,4 +101,43 @@ v._alternar_cierre(); assert not v.bd.periodo_cerrado(K) and v.bd.cierres() == [
 assert (v.s_favor.value(), v.s_deuda.value()) == (12, 12)
 v.s_favor.setValue(8); v.s_deuda.setValue(0); v._guardar_reglas()
 assert (v.bd.param("banco_tope_favor_h"), v.bd.param("banco_tope_deuda_h")) == ("8", "0") and v.s_favor.value() == 8
+# --- puestos: crear, editar, eliminar, avisos
+from PySide6.QtCore import QTime
+tp = v.tab_puestos
+celda = lambda r, c: tp.t_reglas.cellWidget(r, c)
+por_nombre = lambda n: next((i for i, p in v.bd.catalogo_puestos().items() if p.nombre == n), None)
+tp.nuevo(); tp.f_numero.setValue(7); tp.f_nombre.setText("Esterilización de lencería"); tp.agregar_regla()
+celda(0, 1).setTime(QTime(8, 0)); celda(0, 2).setTime(QTime(14, 0)); celda(0, 3).setValue(2)
+tp.guardar(); pid = por_nombre("Esterilización de lencería")
+assert pid and [(d.tipo_dia, d.inicio, d.fin, d.personas, d.obligatorio) for d in v.bd.demandas(pid)] == [("LS", 480, 840, 2, True)], v.aviso.text()
+assert v.ctx.cobertura["LS"]["M"] == 6  # pico de 08:00–12:00: 4 de los puestos base + 2
+filas = [p for p in tp._puestos]
+tp.t_lista.selectRow([p.id for p in tp._puestos].index(pid)); celda(0, 3).setValue(3); tp.guardar()
+assert v.bd.demandas(pid)[0].personas == 3
+tp.t_lista.selectRow([p.id for p in tp._puestos].index(pid)); tp.eliminar(); assert por_nombre("Esterilización de lencería") is None
+# un puesto con reparto guardado se desactiva
+v.bd.c.execute("INSERT INTO puesto_dia VALUES (?,?,?,?,?,?)", (K, "2026-10-05", "M", 2, 1, 1))
+aut = next(i for i, p in v.bd.catalogo_puestos().items() if p.numero == 2)
+tp.t_lista.selectRow([p.id for p in tp._puestos].index(aut)); tp.eliminar()
+assert not v.bd.catalogo_puestos()[aut].activo and "inactivo" in v.aviso.text()
+v.bd.c.execute("DELETE FROM puesto_dia"); a_ = v.bd.catalogo_puestos()[aut]; a_.activo = True; v.bd.guardar_puesto(a_); v.refrescar()
+# ventana con inicio = fin: no guarda
+tp.nuevo(); tp.f_numero.setValue(8); tp.f_nombre.setText("Mala"); tp.agregar_regla(); celda(0, 1).setTime(QTime(8, 0)); celda(0, 2).setTime(QTime(8, 0))
+tp.guardar(); assert por_nombre("Mala") is None and "no puede empezar y terminar a la misma hora" in v.aviso.text()
+# personas ≥ 1 y número repetido
+tp.nuevo(); tp.f_numero.setValue(2); tp.f_nombre.setText("Repetido"); tp.guardar(); assert por_nombre("Repetido") is None and "Ya existe el puesto número 2" in v.aviso.text()
+# aviso si ningún turno cubre la ventana: se guarda igual
+for cod in ("M", "T", "C"):
+    t_ = v.bd.turnos(False)[cod]; t_.activo = False; v.bd.guardar_turno(t_)
+v.refrescar(); tp.nuevo(); tp.f_numero.setValue(9); tp.f_nombre.setText("Sin turno"); tp.agregar_regla()
+celda(0, 1).setTime(QTime(8, 0)); celda(0, 2).setTime(QTime(14, 0)); tp.guardar()
+assert por_nombre("Sin turno") and "Ningún turno cubre 08:00–14:00" in v.aviso.text()
+for cod in ("M", "T", "C"):
+    t_ = v.bd.turnos(False)[cod]; t_.activo = True; v.bd.guardar_turno(t_)
+v.refrescar()
+# puesto sin reglas y reglas solapadas
+tp.nuevo(); tp.f_numero.setValue(10); tp.f_nombre.setText("Vacío"); tp.guardar()
+assert por_nombre("Vacío") and tp.t_lista.item([p.id for p in tp._puestos].index(por_nombre("Vacío")), 2).text() == "Sin demanda"
+tp.t_lista.selectRow([p.id for p in tp._puestos].index(por_nombre("Vacío"))); tp.agregar_regla(); tp.agregar_regla()
+tp.guardar(); assert "Las reglas solapadas se suman" in v.aviso.text()
 print("OK")
