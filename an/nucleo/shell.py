@@ -16,8 +16,8 @@ from datetime import datetime
 
 from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QMainWindow, QMessageBox, QStackedWidget,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QMainWindow, QMessageBox, QPushButton,
+                               QStackedWidget, QVBoxLayout, QWidget)
 
 from . import RAIZ
 from .tema import icono_app
@@ -32,6 +32,7 @@ class Ventana(QMainWindow):
         self.setWindowTitle(f"An · {Area.NOMBRE}")
         self.setWindowIcon(icono_app())
         self.cfg = QSettings()  # organización y nombre de la app los fija preparar_app
+        self.cambiar_usuario = False  # lo pone en True el botón de la cabecera; `main` vuelve a pedir usuario
         self._clave_geometria = f"{Area.CLAVE}/geometria"
 
         fondo = QWidget(objectName="fondo")
@@ -100,14 +101,22 @@ class Ventana(QMainWindow):
         marca = QVBoxLayout()
         marca.setSpacing(0)
         marca.addWidget(QLabel("An", objectName="marca"))
-        marca.addWidget(QLabel(Area.NOMBRE + (f" · {usuario}" if usuario else ""), objectName="sub"))
+        marca.addWidget(QLabel(f"{Area.NOMBRE} · {usuario}" if usuario else Area.NOMBRE, objectName="sub"))
         h.addLayout(marca)
         h.addSpacing(24)
         if hasattr(self.area, "cabecera"):
             h.addWidget(self.area.cabecera, 1)
         else:
             h.addStretch(1)
+        if usuario:
+            b = QPushButton("Cambiar usuario", toolTip="Volver a elegir usuario (y con él, el área)")
+            b.clicked.connect(self._cambiar_usuario)
+            h.addWidget(b)
         return cab
+
+    def _cambiar_usuario(self):
+        self.cambiar_usuario = True
+        self.close()
 
     # ---------------------------------------------------------------- navegación y estado
     def atajo(self, tecla, funcion):

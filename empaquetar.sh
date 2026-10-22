@@ -1,6 +1,6 @@
 #!/bin/bash
 # Arma la carpeta portátil para Windows (sin instalar nada en el PC destino).
-#   ./empaquetar.sh          -> dist/An.zip   (la app completa)
+#   ./empaquetar.sh          -> dist/An.zip   (la app completa: núcleo + áreas Radiología y Esterilización)
 #   ./empaquetar.sh prueba   -> dist/PruebaPC.zip               (prueba que OR-Tools y Qt corren en el PC corporativo)
 # Se corre en el Mac: baja el Python "embeddable" oficial y las librerías ya compiladas para Windows.
 set -euo pipefail
@@ -18,7 +18,7 @@ ZIP="$CACHE/python-$PY_VER-embed-amd64.zip"
 [ -f "$ZIP" ] || curl -fL -o "$ZIP" "https://www.python.org/ftp/python/$PY_VER/python-$PY_VER-embed-amd64.zip"
 python3 -m pip download -q --dest "$CACHE/wheels" --only-binary=:all: \
   --platform win_amd64 --python-version $PY_TAG --implementation cp \
-  PySide6-Essentials openpyxl ortools
+  -r requirements.txt
 
 rm -rf "$DEST" "dist/$NOMBRE.zip"
 mkdir -p "$DEST/python/Lib/site-packages" "$DEST/app"
@@ -28,7 +28,7 @@ for w in "$CACHE"/wheels/*.whl; do unzip -q -o "$w" -d "$DEST/python/Lib/site-pa
 printf 'python%s.zip\r\n.\r\nLib\\site-packages\r\n..\\app\r\nimport site\r\n' "$PY_TAG" > "$DEST/python/python$PY_TAG._pth"
 
 if [ "$MODO" = prueba ]; then
-  cat > "$DEST/app/app.py" <<'EOF'
+  cat > "$DEST/app/prueba.py" <<'EOF'
 import sys, platform, traceback
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 app = QApplication(sys.argv)
@@ -44,10 +44,14 @@ w = QWidget(); w.setWindowTitle("Prueba PC"); w.resize(520, 220)
 QVBoxLayout(w).addWidget(QLabel(texto))
 w.show(); sys.exit(app.exec())
 EOF
+  LANZA='"%~dp0app\prueba.py"'
+  BAT=Probar
 else
-  cp app.py dominio.py db.py reglas.py recargos.py solver.py puestos.py capacitacion.py exportar.py flujo.py "$DEST/app/"
+  rsync -a --exclude __pycache__ an "$DEST/app/"  # todo el paquete (núcleo + áreas + plantillas), no una lista a mano
+  LANZA='-m an'
+  BAT=An
 fi
-printf '@echo off\r\nstart "" "%%~dp0python\\pythonw.exe" "%%~dp0app\\app.py"\r\n' > "$DEST/$( [ "$MODO" = prueba ] && echo 'Probar' || echo 'An').bat"
+printf '@echo off\r\nstart "" "%%~dp0python\\pythonw.exe" %s\r\n' "$LANZA" > "$DEST/$BAT.bat"
 
 (cd dist && zip -qr "$NOMBRE.zip" "$NOMBRE")
 du -sh "$DEST" "dist/$NOMBRE.zip"

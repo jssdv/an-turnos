@@ -18,7 +18,7 @@ Hoy el cuadro mensual de turnos se arma a mano en Excel y de ahí sale, también
 |---|---|---|
 | Núcleo | `app/generar_semana.py` | Lee la hoja `Cambios …` del cuadro mensual, interpreta los códigos y arma la planilla semanal con el formato de `plantilla_semana.xlsx`. |
 | Análisis | `app/analisis.py` | Reglas de descanso, revisión del cuadro (cruces, nombres, códigos), equidad del mes y de varios meses, agendas `.ics` y texto, comparación entre versiones, versión imprimible. |
-| App | `app/app.py` | Ventana PySide6 con panel de resumen (indicadores y cobertura de la semana), vista previa con los colores del Excel, alertas, equidad, agendas y cambios. Recarga sola al guardar el Excel; arrastrar y soltar; atajos de teclado. Guarda `SEMANA … .xlsx` sin sobrescribir. |
+| App | `an/radiologia/paginas.py` (sobre `an/nucleo/`) | Ventana PySide6 con panel de resumen (indicadores y cobertura de la semana), vista previa con los colores del Excel, alertas, equidad, agendas y cambios. Recarga sola al guardar el Excel; arrastrar y soltar; atajos de teclado. Guarda `SEMANA … .xlsx` sin sobrescribir. |
 | Distribución | `empaquetar.sh` | Carpeta portátil para Windows (Python embeddable + librerías), sin instalar nada. En Mac: `Planilla Semanal.command`. |
 
 **Limitaciones que condicionan lo que sigue:**
@@ -183,7 +183,7 @@ Marca `[x]` al terminar cada paso. Cada etapa empieza con su diseño (`docs/etap
 ### Etapa 0 — Base actual
 - [x] 0.1 Generador de la planilla semanal desde el cuadro mensual (`generar_semana.py`)
 - [x] 0.2 Fechas completas en la fila 3; las semanas se ubican por fecha exacta
-- [x] 0.3 App de escritorio: vista previa, alertas, equidad, agendas y cambios (`app.py`)
+- [x] 0.3 App de escritorio: vista previa, alertas, equidad, agendas y cambios (`an/radiologia/paginas.py`)
 - [x] 0.4 Revisión del cuadro, equidad de varios meses y versión para imprimir
 - [x] 0.5 Paquete portátil para Windows (`empaquetar.sh`) y lanzador para Mac
 - [x] 0.5b Interfaz renovada, carpeta ordenada (`app/`, `tests/`, `ejemplos/`) y recarga automática

@@ -104,11 +104,11 @@ El solver cumple las reglas duras y optimiza el resto (horas de la ventana, rota
 git clone https://github.com/jssdv/an-turnos.git
 cd an-turnos
 python3 -m venv .venv
-.venv/bin/pip install PySide6-Essentials openpyxl ortools
-.venv/bin/python app.py
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m an
 ```
 
-En Mac también sirve el doble clic en `An.command`: prepara el entorno la primera vez y abre la app. Los datos quedan en `turnos.db`, junto a `app.py`.
+An es una sola app con un núcleo común y un área por servicio (Radiología, Esterilización); el usuario local que eliges al abrir decide el área (`docs/NUCLEO.md`). En Mac también sirve el doble clic en `An.command`: prepara el entorno la primera vez y abre la app. Los datos de Esterilización quedan en `turnos.db` y los usuarios en `usuarios.json`, junto al paquete `an`.
 
 **Paquete para Windows** (se arma desde el Mac)
 
@@ -122,8 +122,11 @@ En el PC destino basta descomprimir y abrir `An.bat`. No se instala nada.
 **Pruebas**
 
 ```bash
-.venv/bin/python test_turnos.py   # imprime OK (≈ 1 min: resuelve meses completos)
-.venv/bin/python test_gui.py      # imprime OK (ventana sin pantalla)
+.venv/bin/python tests/esterilizacion/test_turnos.py   # imprime OK (≈ 2 min: resuelve meses completos)
+.venv/bin/python tests/esterilizacion/test_gui.py      # imprime OK (ventana sin pantalla)
+.venv/bin/python tests/radiologia/test_generar_semana.py
+.venv/bin/python tests/radiologia/test_gui.py
+.venv/bin/python tests/nucleo/test_nucleo.py
 ```
 
 ## Documentación
