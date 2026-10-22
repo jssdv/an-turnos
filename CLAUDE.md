@@ -1,26 +1,32 @@
 # CLAUDE.md
 
-**An~** — desktop app (Spanish UI) for the Central de Esterilización: staff + absences, monthly shift grid generated with OR-Tools CP-SAT, daily post assignment, training sessions, hours and Colombian surcharges (CST). Used by a non-technical coordinator on a locked-down Windows PC (no admin, no installs). Long-term direction (general shift management, more services, linked admin processes): `docs/VISION.md`. Sister of `../ASIGSEMRADIO` (Radiología); the two apps share no code, only ideas.
+**An** — one desktop app (Spanish UI) with a shared core and one area per service: **Radiología** (monthly roster → weekly assignment workbook) and **Esterilización** (shift grid with OR-Tools CP-SAT, posts, hours and Colombian surcharges). The local user picked at startup decides the area. Used by non-technical coordinators on a locked-down Windows PC (no admin, no installs). Remote: `origin` = `jssdv/an-turnos`.
+
+Design of the core and how areas plug in: `docs/NUCLEO.md`. Roadmap toward a full scheduling system: `docs/PROYECTO.md` (Radiología stages) and `docs/VISION.md` (Esterilización / multi-service). Each new stage gets its own design doc in `docs/` before coding.
 
 ## Commands
-- Dev env: `python3 -m venv .venv && .venv/bin/pip install PySide6-Essentials openpyxl ortools` (or double-click `An.command`).
-- Run GUI: `.venv/bin/python app.py` (data in `turnos.db` next to `app.py`).
-- Tests: `.venv/bin/python test_turnos.py` (prints `OK`, ~2 min: solves full months) and `.venv/bin/python test_puestos.py` (posts, demand, assignment, staffing).
-- GUI test without display: `.venv/bin/python test_gui.py` (offscreen; CRUD of staff, shifts and posts, staffing tab). Also useful: `QT_QPA_PLATFORM=offscreen` + `app.Ventana(tmp_db_path)` + `grab()` for screenshots.
-- Windows zip: `./empaquetar.sh` → `dist/An.zip`; `./empaquetar.sh prueba` → `dist/PruebaPC.zip` (checks Qt + OR-Tools run on the target PC).
+- Dev env: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt` (or double-click `An.command`, which does it and opens the app).
+- Run: `.venv/bin/python -m an [usuario]` (without a name it asks; users live in `usuarios.json`, created on first run, git-ignored).
+- Radiología CLI: `.venv/bin/python -m an.radiologia.generar_semana "<mensual>.xlsx" YYYY-MM-DD [salida.xlsx]` (date = Monday).
+- Tests (each prints `OK`): `tests/radiologia/test_generar_semana.py`, `tests/radiologia/test_gui.py`, `tests/esterilizacion/test_puestos.py`, `tests/esterilizacion/test_gui.py`, `tests/esterilizacion/test_turnos.py` (~2 min, solves full months), `tests/nucleo/test_nucleo.py`. GUI tests run offscreen (`QT_QPA_PLATFORM=offscreen`) and point `QSettings` at a temp ini so the user's saved settings are not touched; `Ventana(Area).grab()` gives screenshots.
+- Windows zip: `./empaquetar.sh` → `dist/An.zip` (Python 3.13 embeddable + win_amd64 wheels from `requirements.txt`, launched by `An.bat` → `pythonw.exe -m an`; copies the whole `an/` package). `./empaquetar.sh prueba` builds a minimal hello-window zip to test a corporate PC. Not yet tested on the target PC.
 
-## Architecture
-Pure core, Qt only calls it.
-- `dominio.py` — `Turno` (editable catalog: times, paid/unpaid pauses, `cubre` M/T/N), `Colaborador`, `Novedad`, `Contexto` (`bloqueo()` = why someone can't work a shift), Colombian holidays (`festivos`, Ley Emiliani).
-- `db.py` — SQLite. `asignacion` has two versions per month: `original` (published) and `cambios` (working copy; manual edits are `fijo`). `publicar`, `restaurar`, `diferencias`.
-- `reglas.py` — validation of a grid `{(colab_id, fecha): código}`: slot coverage (`faltantes_dia`), 12 h rest, study/absence/permitted shifts, weekly day off.
-- `solver.py` — CP-SAT month model. Coverage per slot from posts' demand (penalty, or hard with `estricto`). Hard: rest, weekly day off, absences, max consecutive nights, fixed cells. Soft: hours per art. 165 window, rotation, equity (carries previous months via `flujo.acumulado`).
-- `demanda.py` — pure slot model (48 × 30 min per day): posts' demand rules → demand per date, shift franjas, `cobertura_derivada`, hour estimate. `dotacion.py` — staffing estimate and `verificar_minimo` (bisection with the solver, `estricto=True`).
-- `puestos.py` — `asignar_tramos`: per-day CP-SAT assigning people to posts by blocks of slots (allowed posts, continuity, rotation); labels for «Mostrar puesto». `capacitacion.py` — one training per week (Monday, else next business day).
-- `recargos.py` — splits each paid segment by night/holiday/extra; tariffs are rows with `desde` dates (dominical 80→90→100 %, night start 21:00→19:00).
-- `flujo.py` — month orchestration (modes `cero` / `respetar` / `semana`). `exportar.py` — 3 Excel files, never overwrites (`v2`, `v3`…). `app.py` — PySide6 window; solver runs in a `QThread`.
+## Layout
+- `an/nucleo/` — shared core: `tema.py` (ESTILO = Radiología's look, `preparar_app`, `icono_app`), `widgets.py` (`Tarjeta`, `tabla`, `llenar`, `con_vacio`, `ocupado`, `poner_nivel`…), `shell.py` (`Ventana`: header, sidebar, banner, toast, shortcuts, settings; `error_inesperado` → `errores.log`), `usuarios.py` (local user → area).
+- `an/radiologia/` — `generar_semana.py` (core, no GUI), `analisis.py` (pure functions), `paginas.py` (`Planilla` area), `plantilla_semana.xlsx`.
+- `an/esterilizacion/` — pure core (`dominio`, `db`, `reglas`, `solver`, `demanda`, `dotacion`, `puestos`, `capacitacion`, `recargos`, `flujo`, `exportar`) + UI (`paginas.py` = `Turnos` area, `ui_puestos.py`). Imports inside the package are relative.
+- `an/__main__.py` — `AREAS` registry, user prompt, "Cambiar usuario" loop. `tests/<área>/`, `ejemplos/radiologia/`, `docs/`, `dist/` (ignored). Data next to the package: `turnos.db`, `usuarios.json`, `errores.log` (all ignored).
 
-## Agreed rules
+## Core contract
+An area is a class with `NOMBRE`, `CLAVE`, `__init__(ventana)` and `secciones` (list of `(título, QWidget)` = sidebar entries); optional `cabecera`, `vacia`, `TAMANO`, `iniciar()`, `seccion_activa(i)`, drag/drop events, `cerrar()`. Areas talk to the shell through `ventana.avisar/notificar/ir_a/contar/mostrar_vacia/atajo/cfg`. Settings keys are prefixed with the area `CLAVE` (`radiologia/ultimo_archivo`). Never create a `QSettings("…","…")` directly: use `ventana.cfg` (org/app are set in `preparar_app`, so tests can redirect the default format). One look for every area: add rules to `ESTILO`, not per-area stylesheets.
+
+## Radiología: roster requirements / agreed rules
+See `docs/RADIOLOGIA.md` for the architecture notes. Essentials:
+- Row 3 of `Cambios …` must hold full dates (format `d`); weeks are matched by exact date. Values are read with `data_only=True`, so the roster must have been saved by Excel.
+- Contingencia, vacaciones, asignación de estudios and free-text notes stay blank (manual); full names everywhere; densitometría includes Sunday; `Z` and hemodinamia are not published. Unknown shift codes are reported, not published.
+- Keep Spanish sheet names, headings and labels exactly as written. `~$…xlsx` are Excel lock files: ignore.
+
+## Esterilización: agreed rules
+- Pure core, Qt only calls it; the solver runs in a `QThread`. `asignacion` has two versions per month: `original` (published) and `cambios` (working copy; manual edits are `fijo`).
 - Coverage comes from posts' demand rules (default seed: 4 day posts + Guardia noche ×2 Mon–Sat; Autoclave and Lavado + guardia on Sun/holiday; Ropa desirable). Restricted person: no nights, only post 3. Refuerzo is outside the solver.
-- Hours: art. 165 CST average over N weeks (default 3) vs 42 h/week; unpaid pauses don't count. Legal figures are editable data — confirm with RR. HH./legal.
-- Keep Spanish labels. `turnos.db`, `errores.log` are git-ignored.
+- Hours: art. 165 CST average over N weeks (default 3) vs 42 h/week; unpaid pauses don't count. Legal figures are editable data — confirm with RR. HH./legal. Exports never overwrite (`v2`, `v3`…). Keep Spanish labels.

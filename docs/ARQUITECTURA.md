@@ -9,7 +9,7 @@ Principios: núcleo en Python puro y sin interfaz; reglas y tarifas como **datos
 ```mermaid
 flowchart TB
     subgraph UI[Interfaz]
-        app[app.py<br/>PySide6]
+        app[an/esterilizacion/paginas.py<br/>sobre an/nucleo · PySide6]
     end
     subgraph Nucleo[Núcleo sin interfaz]
         flujo[flujo.py]
@@ -46,7 +46,7 @@ flowchart TB
 | `recargos.py` | Horas por categoría y ventana del art. 165 |
 | `flujo.py` | Orquestación (`cero`, `respetar`, `semana`) y acumulado de equidad |
 | `exportar.py` | Tres libros Excel sin sobrescribir |
-| `app.py`, `ui_puestos.py`, `ui_base.py` | Ventana PySide6; pestañas de puestos y dotación; helpers compartidos de tablas. El solver y la verificación corren en `QThread` |
+| `paginas.py`, `ui_puestos.py` (en `an/esterilizacion/`) | Secciones PySide6 de esta área; puestos y dotación. Ventana, tema y helpers de tablas viven en `an/nucleo/` (ver `NUCLEO.md`). El solver y la verificación corren en `QThread` |
 
 ## Datos (SQLite)
 
@@ -102,7 +102,7 @@ Fuentes consultadas: [comparativa de librerías GUI de Python (Unite.ai)](https:
 
 ### Principios de diseño de la interfaz
 
-La hoja de estilo (`app.py`) parte de **tokens** (color, radio, ritmo de 8 px) y se aplica a todo por igual:
+La hoja de estilo (`an/nucleo/tema.py`, la misma para todas las áreas; ver `NUCLEO.md` por las diferencias con este diseño original) parte de **tokens** (color, radio, ritmo de 8 px) y se aplica a todo por igual:
 
 - **Contraste y foco:** el texto cumple 4.5:1 sobre sus fondos; todos los controles muestran un anillo de foco visible al navegar con teclado.
 - **Jerarquía de acciones:** una acción primaria por pantalla (relleno), secundarias con borde, destructivas en rojo y siempre con confirmación.
