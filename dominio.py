@@ -96,6 +96,28 @@ def festivos(a):
 
 
 @dataclass
+class Puesto:
+    id: int
+    numero: int
+    nombre: str
+    color: str = "FFFFFF"
+    activo: bool = True
+
+
+@dataclass
+class Demanda:
+    """Regla: `personas` en el puesto durante la ventana [inicio, fin) de los días de tipo `tipo_dia` (LS o DF).
+    Minutos desde las 00:00; si fin <= inicio la ventana cruza medianoche."""
+    puesto_id: int
+    tipo_dia: str
+    inicio: int
+    fin: int
+    personas: int
+    obligatorio: bool = True
+    id: int = None
+
+
+@dataclass
 class Colaborador:
     id: int
     nombre: str
@@ -136,6 +158,8 @@ class Contexto:
     max_noches: int = 2  # noches seguidas del tipo NC-L-NC-L… (separadas por el libre posterior); 0 = sin tope
     max_c: int = 2  # turnos corridos (de 12 h de día) en días consecutivos; 0 = sin tope
     max_igual: int = 3  # mismo turno de 6 h (M, T…) en días consecutivos; 0 = sin tope
+    puestos: dict = field(default_factory=dict)  # id -> Puesto
+    demandas: list = field(default_factory=list)  # reglas de demanda de los puestos activos
     _nov: dict = field(default_factory=dict, repr=False)
 
     def __post_init__(self):
