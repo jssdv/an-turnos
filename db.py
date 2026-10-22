@@ -417,17 +417,6 @@ class BD:
                 for r in self.c.execute(q, (colab_id,) if colab_id else ())]
 
     # --- puestos y capacitación -----------------------------------------------------------------
-    def guardar_puestos(self, mes, filas):
-        """filas: [(fecha, franja, puesto, colab_id, pausa)]"""
-        self.c.execute("DELETE FROM puesto_dia WHERE mes=?", (mes,))
-        self.c.executemany("INSERT INTO puesto_dia VALUES (?,?,?,?,?,?)",
-                           [(mes, f.isoformat(), fr, p, cid, pa) for f, fr, p, cid, pa in filas])
-        self.c.commit()
-
-    def puestos(self, mes):
-        return [(_dt(r["fecha"]), r["franja"], r["puesto"], r["colab_id"], r["pausa"])
-                for r in self.c.execute("SELECT * FROM puesto_dia WHERE mes=?", (mes,))]
-
     def guardar_asignacion_puesto(self, periodo, filas):
         """Reemplaza el reparto de puestos por tramos del periodo."""
         self.c.execute("DELETE FROM asignacion_puesto WHERE periodo=?", (periodo,))

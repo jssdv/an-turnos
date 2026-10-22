@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 import recargos
 import reglas
 from dominio import DIAS
-from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
+from puestos import etiqueta, leyenda, por_persona
 
 ABREV_NOVEDAD = {"Vacaciones": "VAC", "Incapacidad": "INC", "Licencia": "LIC", "Libre solicitado": "LIB"}
 ENCABEZADO = PatternFill("solid", fgColor="1F3864")
@@ -52,7 +52,7 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
             cod = cuadro.get((p.id, f), "L")
             nov = ctx.novedad(p.id, f)
             texto = ABREV_NOVEDAD[nov.tipo] if nov and cod == "L" else cod
-            if puestos is not None and cod in ctx.turnos and tiene_puesto(ctx.turnos[cod]) and (p.id, f) in puestos:
+            if puestos is not None and cod in ctx.turnos and (p.id, f) in puestos:
                 texto = etiqueta(cod, puestos[p.id, f])
             c = ws.cell(r, i, texto)
             c.alignment = CENTRO
@@ -79,15 +79,16 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
     ws.freeze_panes = "B2"
 
 
-def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias, filas_puestos=()):
+def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias, filas_puestos=(), catalogo=None):
     """Hojas: Cuadro (de `cambios`, celdas modificadas en amarillo), Cuadro con puestos, Original y Cambios (diferencias)."""
     wb = Workbook()
     _hoja_cuadro(wb.active, ctx, cuadro, fechas, comparar=original)
     wb.active.title = "Cuadro"
     if filas_puestos:
         con = wb.create_sheet("Cuadro con puestos")
-        _hoja_cuadro(con, ctx, cuadro, fechas, puestos=por_persona(filas_puestos))
-        con.cell(con.max_row + 2, 1, LEYENDA)
+        cat = catalogo or ctx.puestos
+        _hoja_cuadro(con, ctx, cuadro, fechas, puestos=por_persona(filas_puestos, {i: p.numero for i, p in cat.items()}))
+        con.cell(con.max_row + 2, 1, leyenda(cat))
     _hoja_cuadro(wb.create_sheet("Original"), ctx, original, fechas)
     ws = wb.create_sheet("Cambios")
     _encabezado(ws, 1, ["Colaborador", "Fecha", "Antes", "Después"])
@@ -101,26 +102,28 @@ def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias
     return ruta
 
 
-def exportar_puestos(carpeta, mes_txt, ctx, cuadro, fechas, filas, capacitacion):
-    """Una hoja por semana: por día, quién ocupa cada puesto en la mañana y la tarde, la noche y la capacitación."""
+def _hm(minutos):
+    return f"{minutos // 60 % 24:02d}:{minutos % 60:02d}"
+
+
+def exportar_puestos(carpeta, mes_txt, ctx, cuadro, fechas, filas, capacitacion, catalogo=None):
+    """Una hoja por semana: por día, quién ocupa cada puesto (con su horario y grupo de pausa), el apoyo y la capacitación."""
     wb = Workbook()
     wb.remove(wb.active)
     nombres = {p.id: p.nombre for p in ctx.colabs}
+    cat = catalogo or ctx.puestos
+    usados = sorted({f.puesto_id for f in filas if f.puesto_id and f.puesto_id in cat} | {i for i, p in cat.items() if p.activo},
+                    key=lambda i: cat[i].numero)
     cap = {}
     for f, cid in capacitacion:
         cap.setdefault(f, []).append(nombres[cid])
-    cel = {(f, fr, p): f"{nombres[c]} (P{g})" for f, fr, p, c, g in filas if p}
-    apoyo = {}
-    for f, fr, p, c, g in filas:
-        if not p:
-            apoyo.setdefault((f, fr), []).append(nombres[c])
-    puestos = [1, 2, 3, 4, 5]
+    celdas = {}
+    for a in filas:
+        txt = f"{nombres.get(a.colab_id, a.colab_id)} ({_hm(a.desde)}–{_hm(a.hasta % 1440 or 1440)}) (P{a.pausa})"
+        celdas.setdefault((a.fecha, a.puesto_id), []).append(txt)
     for lunes in sorted({f - timedelta(days=f.weekday()) for f in fechas}):
         ws = wb.create_sheet(f"Semana {lunes:%d-%m}")
-        ws.cell(1, 1, "Día").fill = ENCABEZADO
-        enc = ["Día"] + [f"M · {PUESTOS[p]}" for p in puestos] + ["M · Apoyo"] + [f"T · {PUESTOS[p]}" for p in puestos] \
-            + ["T · Apoyo", "Noche", "Capacitación"]
-        _encabezado(ws, 1, enc)
+        _encabezado(ws, 1, ["Día"] + [f"{cat[i].numero} · {cat[i].nombre}" for i in usados] + ["Apoyo", "Capacitación"])
         for r, f in enumerate((lunes + timedelta(days=i) for i in range(7)), 2):
             c = ws.cell(r, 1, f"{DIAS[f.weekday()]} {f:%d/%m}")
             c.font = Font(bold=True)
@@ -128,14 +131,11 @@ def exportar_puestos(carpeta, mes_txt, ctx, cuadro, fechas, filas, capacitacion)
                 c.fill = FESTIVO
             if f not in fechas:
                 continue
-            fila = [cel.get((f, "M", p), "") for p in puestos] + [", ".join(apoyo.get((f, "M"), []))] \
-                + [cel.get((f, "T", p), "") for p in puestos] + [", ".join(apoyo.get((f, "T"), []))]
-            noche = [nombres[cid] for (cid, d), cod in cuadro.items() if d == f and cod in ctx.turnos and "N" in ctx.turnos[cod].cubre]
-            fila += [", ".join(sorted(noche)), ", ".join(cap.get(f, []))]
+            fila = ["\n".join(celdas.get((f, i), [])) for i in usados] + ["\n".join(celdas.get((f, 0), []))] + [", ".join(cap.get(f, []))]
             for i, v in enumerate(fila, 2):
                 ws.cell(r, i, v).alignment = CENTRO
         ws.cell(10, 1, "(P1)/(P2): grupo de pausa — el grupo 1 sale primero y el 2 cubre; se alternan cada día.")
-        _ancho(ws, 14, 20)
+        _ancho(ws, 14, 26)
         ws.freeze_panes = "B2"
     ruta = ruta_libre(carpeta, f"PUESTOS {mes_txt.upper()}")
     wb.save(ruta)

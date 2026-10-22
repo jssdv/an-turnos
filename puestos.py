@@ -1,90 +1,37 @@
-"""Asignación diaria de puestos (1 lavado, 2 autoclave, 3 sterrad y esto, 4 cuarto estéril, 5 ropa) y relevos de pausa."""
+"""Reparto diario de personas en los puestos, por tramos horarios, y textos para mostrarlo."""
 from collections import defaultdict
 from datetime import timedelta
-from itertools import permutations
 
 from ortools.sat.python import cp_model
 
 import demanda as dem
 from dominio import AsignacionPuesto
 
-PUESTOS = {0: "Apoyo", 1: "Lavado", 2: "Autoclave", 3: "Sterrad y esto", 4: "Cuarto estéril", 5: "Ropa"}
-PRIORIDAD = [2, 1, 3, 4, 5]  # si falta gente, se cubren primero estos puestos
-
-
-LEYENDA = "Puestos: " + " · ".join(f"{n} {PUESTOS[n]}" for n in (1, 2, 3, 4, 5)) + " · A apoyo (sin puesto fijo ese día)"
-
-
-def por_persona(filas):
-    """{(colab_id, fecha): puesto} a partir de las filas de `asignar`; un corrido tiene el mismo puesto en M y T."""
+def por_persona(filas, numeros):
+    """{(colab_id, fecha): número del puesto principal} (donde pasa más tiempo; 0 = solo apoyo). `numeros` mapea el id
+    de puesto a su número."""
+    tiempo = defaultdict(lambda: defaultdict(int))
+    for f in filas:
+        tiempo[f.colab_id, f.fecha][f.puesto_id] += f.hasta - f.desde
     out = {}
-    for f, fr, p, c, g in sorted(filas, key=lambda x: x[1] != "M"):
-        out.setdefault((c, f), p)
+    for k, por_puesto in tiempo.items():
+        reales = {q: m for q, m in por_puesto.items() if q}
+        out[k] = numeros[max(reales, key=reales.get)] if reales else 0
     return out
 
 
-def tiene_puesto(turno):
-    """Solo los turnos de día (que cubren mañana o tarde) llevan puesto; la noche no."""
-    return bool({"M", "T"} & set(turno.cubre))
-
-
 def etiqueta(cod, puesto):
-    """Texto de celda con el puesto: «M·2» (autoclave), «T·A» (apoyo)."""
+    """Texto de celda con el puesto: «M·2» (número 2), «T·A» (apoyo); sin puesto, solo el código."""
     return cod if puesto is None else f"{cod}·{puesto or 'A'}"
 
 
-def _mejor(personas, opciones, costo):
-    """Reparte `opciones` (más ceros de apoyo) entre `personas` con el menor costo total."""
-    destino = (list(opciones) + [0] * len(personas))[:len(personas)]
-    mejor = min(set(permutations(destino)), key=lambda perm: sum(costo(c, p) for c, p in zip(personas, perm)))
-    return dict(zip(personas, mejor))
+def leyenda(puestos):
+    """«Puestos: 1 Lavado · 2 Autoclave · … · A apoyo (sin puesto ese día)» con los puestos activos."""
+    activos = sorted((p for p in puestos.values() if p.activo), key=lambda p: p.numero)
+    return "Puestos: " + " · ".join(f"{p.numero} {p.nombre}" for p in activos) + " · A apoyo (sin puesto ese día)"
 
 
-def asignar(ctx, cuadro, fechas):
-    """[(fecha, franja, puesto, colab_id, grupo_pausa)] para las franjas M y T. Orden de reparto cada día: personas con
-    puesto fijo, luego corridos (mismo puesto en M y T) y luego medias jornadas. Rota: castiga repetir el puesto del
-    día anterior y los que la persona ya ocupó en el mes. Puesto 0 = apoyo (sobra gente)."""
-    por_id = {p.id: p for p in ctx.colabs}
-    hist = defaultdict(lambda: defaultdict(int))
-    ayer = {}
-    filas = []
-    costo = lambda c, p: 10 * hist[c][p] + (100 if p and ayer.get(c) == p else 0)
-    for d in sorted(fechas):
-        franjas = {}  # persona -> franjas M/T que cubre su turno
-        for (cid, f), cod in cuadro.items():
-            if f == d and cod in ctx.turnos and cid in por_id:
-                fr = tuple(x for x in ("M", "T") if x in ctx.turnos[cod].cubre)
-                if fr:
-                    franjas[cid] = fr
-        libre = {"M": list(PRIORIDAD), "T": list(PRIORIDAD)}
-        asig = {}
-        for c, fr in franjas.items():  # 1) puesto fijo
-            if por_id[c].puesto_fijo:
-                asig[c] = por_id[c].puesto_fijo
-                for x in fr:
-                    if asig[c] in libre[x]:
-                        libre[x].remove(asig[c])
-        corridos = sorted(c for c, fr in franjas.items() if len(fr) == 2 and c not in asig)
-        comunes = [p for p in PRIORIDAD if p in libre["M"] and p in libre["T"]]  # 2) corridos: un puesto libre en ambas
-        asig.update(_mejor(corridos, comunes, costo))
-        for c in corridos:
-            for x in ("M", "T"):
-                if asig[c] in libre[x]:
-                    libre[x].remove(asig[c])
-        for x in ("M", "T"):  # 3) medias jornadas
-            solos = sorted(c for c, fr in franjas.items() if fr == (x,) and c not in asig)
-            asig.update(_mejor(solos, libre[x], costo))
-        for x in ("M", "T"):
-            gente = sorted((c for c, fr in franjas.items() if x in fr), key=lambda c: (asig[c] == 0, asig[c]))
-            for i, c in enumerate(gente):
-                filas.append((d, x, asig[c], c, (i + d.toordinal()) % 2 + 1))
-        for c, p in asig.items():
-            hist[c][p] += 1
-        ayer = asig
-    return filas
-
-
-# --- reparto por tramos horarios (reemplaza a `asignar` cuando la interfaz lo use) -------------------------------------
+# --- reparto por tramos horarios ----------------------------------------------------------------------------------------
 W_FALTA_P, W_DES_P, W_CAMBIO_P = 1000, 10, 60  # por persona y tramo; cambiar de puesto dentro del turno; rotación abajo
 
 
