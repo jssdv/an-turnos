@@ -371,6 +371,49 @@ def test_verificar_minimo_con_el_generador_real():
     assert 2 <= r["minimo"] <= 6 and r["pruebas"][-1][1] is True and r["con_margen"] == r["minimo"]
 
 
+def test_alerta_si_un_puesto_obligatorio_queda_vacio():
+    """Final review #1: hay gente de sobra por cabezas, pero nadie que pueda ocupar el puesto con demanda."""
+    bd, ids = _bd({"A": [("LS", 360, 720, 1)], "B": []}, 1)
+    p = bd.colaboradores()[0]
+    p.puestos_permitidos = (ids["B"],)
+    bd.guardar_colaborador(p)
+    ctx = bd.contexto(2026)
+    filas = puestos.asignar_tramos(ctx, {(p.id, LUN): "M"}, [LUN])
+    al = puestos.alertas_reparto(ctx, filas, [LUN], bd.catalogo_puestos())
+    assert [a.texto for a in al] == ["05/10: A sin cubrir 06:00–12:00 (falta 1)"]
+    p.puestos_permitidos = None
+    bd.guardar_colaborador(p)
+    ctx = bd.contexto(2026)
+    assert puestos.alertas_reparto(ctx, puestos.asignar_tramos(ctx, {(p.id, LUN): "M"}, [LUN]), [LUN], bd.catalogo_puestos()) == []
+
+
+def test_el_puesto_de_menor_numero_se_cubre_primero():
+    """Final review #2: si falta gente, queda vacío siempre el de mayor número, no uno distinto cada día."""
+    bd, ids = _bd({"A": [("LS", 360, 720, 1)], "B": [("LS", 360, 720, 1)]}, 1)
+    ctx = bd.contexto(2026)
+    c = ctx.colabs[0].id
+    filas = puestos.asignar_tramos(ctx, {(c, d): "M" for d in DIA}, DIA)
+    assert {x.puesto_id for x in filas if x.puesto_id} == {ids["A"]}
+
+
+def test_borrar_puesto_no_libera_a_quien_solo_podia_ese():
+    """Final review #4: borrar el único puesto permitido no debe dejar a la persona con permiso para todos."""
+    bd = db.BD()
+    pid = bd.guardar_puesto(Puesto(0, 7, "Solo"))
+    c = bd.guardar_colaborador(Colaborador(0, "A", puestos_permitidos=(pid,)))
+    assert bd.borrar_puesto(pid) == "desactivado"
+    assert next(x for x in bd.colaboradores() if x.id == c).puestos_permitidos == (pid,)
+
+
+def test_noche_y_corrido_segun_el_horario():
+    """Final review #5: noche = al menos 6 h entre las 18:00 y las 06:00; corrido = 10 h o más y no de noche."""
+    assert demanda.es_noche(Turno("NC", "", 1080, 360)) and demanda.es_noche(Turno("X", "", 1200, 120))  # 20:00–02:00
+    assert not demanda.es_noche(Turno("T2", "", 840, 1320))  # 14:00–22:00 solo tiene 4 h de noche
+    assert demanda.es_corrido(Turno("C", "", 360, 1080))
+    assert not demanda.es_corrido(Turno("M9", "", 540, 900)) and not demanda.es_corrido(Turno("NC", "", 1080, 360))
+    assert not demanda.es_corrido(Turno("T2", "", 840, 1320))
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):

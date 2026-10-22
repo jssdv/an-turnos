@@ -81,8 +81,8 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
                 for s2, v2 in por_pd[p.id, b]:
                     if (s1, s2) in mal:
                         m.Add(v1 + v2 <= 1)
-    es_noche = lambda s: s in ctx.turnos and "N" in ctx.turnos[s].cubre
-    es_c = lambda s: s in ctx.turnos and len(ctx.turnos[s].cubre) > 1
+    es_noche = lambda s: s in ctx.turnos and dem.es_noche(ctx.turnos[s])
+    es_c = lambda s: s in ctx.turnos and dem.es_corrido(ctx.turnos[s])
     libre_ok = lambda p, dias: all(fijos.get((p.id, d), "L") == "L" for d in dias)  # una edición manual en la ventana manda
     paso = ctx.libre_tras_noche + 1  # separación entre noches de una racha NC-L-NC-L…
     for p in P:
@@ -190,6 +190,8 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
             de, ex = m.NewIntVar(0, 100_000, ""), m.NewIntVar(0, 100_000, "")
             m.Add(de >= meta - hechas)
             m.Add(ex >= hechas - meta)
+            if estricto:  # calculadora de dotación: nadie pasa de sus horas contratadas en la ventana
+                m.Add(hechas <= meta)
             obj += [W_DEFICIT * de, W_EXCESO * ex]
 
     for p in P:  # estabilidad: no cambiar de turno cada día
@@ -224,7 +226,7 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
                 obj.append(W_LIBRE_FDS * (1 - t))
         for d in fechas:  # evitar noche justo antes de un bloque de estudio de mañana
             if any(dia == (d + timedelta(days=1)).weekday() and fr == "M" for dia, fr in p.estudio):
-                obj += [W_ESTUDIO * v for s, v in por_pd[p.id, d] if s in ctx.turnos and "N" in ctx.turnos[s].cubre]
+                obj += [W_ESTUDIO * v for s, v in por_pd[p.id, d] if es_noche(s)]
 
     def seguidas(peso, p, cond):  # rotación: no repetir lo pesado en semanas seguidas
         lunes_s = sorted(semanas)
@@ -242,7 +244,7 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
             obj.append(peso * c)
 
     for p in P:
-        seguidas(W_NOCHE_SEG, p, lambda d, s: s in ctx.turnos and "N" in ctx.turnos[s].cubre)
+        seguidas(W_NOCHE_SEG, p, lambda d, s: es_noche(s))
         seguidas(W_DF_SEG, p, lambda d, s: s in ctx.turnos and ctx.tipo_dia(d) == "DF")
 
     # equidad: M, T, C, NC (y cada turno nuevo) y domingos/festivos parejos entre quienes pueden hacerlos,

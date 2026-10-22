@@ -6,6 +6,7 @@ from ortools.sat.python import cp_model
 
 import demanda as dem
 from dominio import AsignacionPuesto
+from reglas import Alerta, texto_tramos
 
 def por_persona(filas, numeros):
     """{(colab_id, fecha): número del puesto principal} (donde pasa más tiempo; 0 = solo apoyo). `numeros` mapea el id
@@ -32,7 +33,7 @@ def leyenda(puestos):
 
 
 # --- reparto por tramos horarios ----------------------------------------------------------------------------------------
-W_FALTA_P, W_DES_P, W_CAMBIO_P = 1000, 10, 60  # por persona y tramo; cambiar de puesto dentro del turno; rotación abajo
+W_FALTA_P, W_DES_P, W_CAMBIO_P, W_PRIORIDAD_P = 1000, 10, 60, 500  # por persona y tramo; cambiar de puesto dentro del turno; rotación abajo
 
 
 def asignar_tramos(ctx, cuadro, fechas, tiempo=3):
@@ -84,7 +85,8 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3):
                 if o:
                     falta = m.NewIntVar(0, o, "")
                     m.Add(suma + falta >= o)
-                    obj.append(W_FALTA_P * largo * falta)
+                    numero = ctx.puestos[q].numero if q in ctx.puestos else 99
+                    obj.append((W_FALTA_P + (99 - numero) * W_PRIORIDAD_P) * largo * falta)  # si falta gente, queda vacío el de mayor número
                 if w and any((bi, c, q) in y for c in pres):
                     ok = m.NewBoolVar("")
                     m.Add(suma >= o + w).OnlyEnforceIf(ok)
@@ -134,4 +136,38 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3):
             principal = max((q for q in qs if q), key=lambda q: qs[q], default=0)
             hist[c][principal] += 1 if principal else 0
             ayer_p[c] = principal
+    return out
+
+
+def alertas_reparto(ctx, filas, fechas, catalogo):
+    """Alertas de los puestos obligatorios que quedan sin cubrir en el reparto aunque haya gente suficiente por cabezas
+    (por ejemplo, porque quien está presente no puede ocupar ese puesto). Si falta gente en total, ya lo avisa
+    `reglas.faltantes_dia`."""
+    por_dia = defaultdict(list)
+    for a in filas:
+        por_dia[a.fecha].append(a)
+    primero, out = min(fechas), []
+    for d in sorted(fechas):
+        nec = dem.demanda_por_puesto(ctx, d, con_ayer=d != primero)
+        presentes, ocupa = [0] * dem.TRAMOS_DIA, defaultdict(lambda: [0] * dem.TRAMOS_DIA)
+        for a in por_dia.get(d, []):
+            for t in range(a.desde // dem.TRAMO_MIN, a.hasta // dem.TRAMO_MIN):
+                presentes[t] += 1
+                if a.puesto_id:
+                    ocupa[a.puesto_id][t] += 1
+        total = [sum(o[t] for o, _ in nec.values()) for t in range(dem.TRAMOS_DIA)]
+        for q in sorted(nec, key=lambda q: catalogo[q].numero if q in catalogo else 99):
+            obl = nec[q][0]
+            faltas = [max(0, obl[t] - ocupa[q][t]) if presentes[t] >= total[t] else 0 for t in range(dem.TRAMOS_DIA)]
+            nombre = catalogo[q].nombre if q in catalogo else f"puesto {q}"
+            t = 0
+            while t < dem.TRAMOS_DIA:
+                if not faltas[t]:
+                    t += 1
+                    continue
+                u = t
+                while u + 1 < dem.TRAMOS_DIA and faltas[u + 1] == faltas[t]:
+                    u += 1
+                out.append(Alerta("error", d, None, f"{d:%d/%m}: {nombre} sin cubrir {texto_tramos(t, u + 1)} (falta {faltas[t]})"))
+                t = u + 1
     return out

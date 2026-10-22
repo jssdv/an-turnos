@@ -400,6 +400,31 @@ def test_faltantes_cruzan_medianoche_y_excel():
         assert ws.cell(fila, 4).value == "ok"
 
 
+def test_turno_de_tarde_hasta_las_22_no_es_noche_ni_corrido():
+    """Final review #5: las reglas de noche y de corridos usan el horario real, no el solape de 3 h con una franja."""
+    bd = db.BD()
+    bd.guardar_turno(Turno("T22", "Tarde larga", 840, 1320, "FFFFFF"))
+    bd.guardar_colaborador(Colaborador(0, "A"))
+    ctx = bd.contexto(2026)
+    a = ctx.colabs[0]
+    dias = [date(2026, 10, 5) + timedelta(days=i) for i in range(3)]
+    textos = [x.texto for x in reglas.validar(ctx, {(a.id, d): "T22" for d in dias}, dias)]
+    assert not any("después de la noche" in x or "corridos" in x for x in textos), textos
+
+
+def test_estricto_respeta_el_tope_de_horas():
+    """Final review #3: la calculadora no puede suponer más horas que las contratadas (11 × 42 h < la demanda de 480 h)."""
+    from dataclasses import replace
+    ctx = db.BD().contexto(2026)
+    dic = flujo.fechas(*flujo.periodo_mes(2026, 12))
+    once = replace(ctx, colabs=[Colaborador(-(i + 1), f"G{i}") for i in range(11)], novedades=[], _nov={})
+    try:
+        solver.generar(once, dic, tiempo=10, estricto=True)
+        assert False, "11 personas no pueden cubrir 480 h/semana sin pasar de 42 h"
+    except solver.ErrorSolver:
+        pass
+
+
 def test_versiones():
     bd = db.BD()
     pid = bd.guardar_colaborador(Colaborador(0, "A"))

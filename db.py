@@ -221,7 +221,10 @@ class BD:
     def borrar_puesto(self, id_):
         """Un puesto con reparto guardado se desactiva para no perder el historial. Devuelve «borrado» o «desactivado»."""
         numero = self.c.execute("SELECT numero FROM puesto WHERE id=?", (id_,)).fetchone()["numero"]
-        en_uso = (self.c.execute("SELECT 1 FROM puesto_dia WHERE puesto=? LIMIT 1", (numero,)).fetchone() is not None
+        # quien solo podía ocupar este puesto quedaría con «todos» (sin filas): en ese caso se desactiva en lugar de borrar
+        deja_sin_puesto = self.c.execute("SELECT 1 FROM persona_puesto p WHERE p.puesto_id=? AND NOT EXISTS (SELECT 1 FROM persona_puesto q "
+                                         "WHERE q.colab_id=p.colab_id AND q.puesto_id<>p.puesto_id) LIMIT 1", (id_,)).fetchone() is not None
+        en_uso = (deja_sin_puesto or self.c.execute("SELECT 1 FROM puesto_dia WHERE puesto=? LIMIT 1", (numero,)).fetchone() is not None
                   or self.c.execute("SELECT 1 FROM asignacion_puesto WHERE puesto_id=? LIMIT 1", (id_,)).fetchone() is not None)
         if en_uso:
             self.c.execute("UPDATE puesto SET activo=0 WHERE id=?", (id_,))
