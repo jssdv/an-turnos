@@ -100,7 +100,7 @@ Unitarias: demanda por tramo (incluido cruce de medianoche y `tipo_dia`), deriva
 ## 12. Fases (cada una se usa sola)
 
 1. **Puestos y demanda:** datos, migración, CRUD en Parámetros, puestos permitidos y estimación por horas. La cobertura que ve el generador se **deriva** de las reglas (máximo por franja), así el solver actual sigue funcionando.
-2. **Cobertura por tramos:** solver, validación y grilla pasan a tramos; deseables.
+2. **Cobertura por tramos:** solver, validación y grilla pasan a tramos; deseables; `Turno.cubre` pasa a calcularse y se quita de la pantalla de turnos.
 3. **Reparto por tramo** con puestos permitidos y cambios dentro del turno.
 4. **Verificación con el generador** en la calculadora.
 
