@@ -1,27 +1,21 @@
-"""Planilla Semanal: ventana para generar la planilla semanal desde el cuadro mensual."""
-import os
-import subprocess
-import sys
-import traceback
-from datetime import date, datetime, timedelta
+"""Radiología: planilla semanal a partir del cuadro mensual (secciones del área dentro de la ventana de An)."""
+from datetime import date, timedelta
 from pathlib import Path
 
 import openpyxl
-from PySide6.QtCore import QFileSystemWatcher, QRectF, QSettings, QSize, Qt, QTimer
-from PySide6.QtGui import (QAction, QColor, QFont, QGuiApplication, QIcon, QKeySequence, QPainter,
-                           QPen, QPixmap)
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFileDialog, QFrame,
-                               QGridLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
-                               QListWidget, QListWidgetItem, QMainWindow, QMessageBox,
-                               QPlainTextEdit, QPushButton, QSplitter, QStackedWidget, QTableWidget,
-                               QTableWidgetItem, QTabWidget, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtCore import QFileSystemWatcher, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QGuiApplication
+from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout,
+                               QHeaderView, QLabel, QLineEdit, QListWidget, QPlainTextEdit, QPushButton, QSplitter,
+                               QStackedWidget, QTableWidget, QTableWidgetItem, QTabWidget, QToolButton, QVBoxLayout,
+                               QWidget)
 
+from ..nucleo.tema import icono_app
+from ..nucleo.widgets import Tarjeta, abrir, llenar, ocupado, poner_nivel, tabla, titulo_pagina
 from . import analisis
 from . import generar_semana as gs
 
-LOG = Path(__file__).resolve().parents[2] / "errores.log"
 MESES = analisis.MESES_CORTOS
-ACENTO = "#0F6E8C"
 PESTANAS_PREVIA = {"Ecografía - ECO": "Ecografía", "Lectura - Neuro": "Neuro", "Lectura - MSK": "MSK",
                    "Lectura - Abdomen": "Abdomen", "Lectura - CARDIO-TORAX AMBULATO": "Tórax y Corazón",
                    "Lectura - Mamografia-Densitomet": "Mamografía y Densito", "Cambios": "Cambios"}
@@ -31,55 +25,6 @@ INICIO, PREVIA, ALERTAS, EQUIDAD, AGENDAS, CAMBIOS = range(len(SECCIONES))
 COBERTURA = ["URG", "ECO1", "ECO2", "ECO3", "ECO4", "ECO5", "PM", "CJ1", "CJ2",
              "NEURO", "MSK", "ABD", "TORAX", "CARDIO", "MAMA", "DENSITO"]
 
-ESTILO = f"""
-QMainWindow, QWidget#fondo {{ background: #F4F6F8; }}
-QLabel {{ color: #1F2933; }}
-QLabel#muted, QLabel#sub {{ color: #6B7280; }}
-QLabel#marca {{ font-size: 16px; font-weight: 700; }}
-QLabel#seccion {{ font-size: 18px; font-weight: 650; }}
-QLabel#campo {{ color: #6B7280; font-size: 11px; font-weight: 600; letter-spacing: .4px; }}
-QFrame#cabecera {{ background: white; border-bottom: 1px solid #E3E6EA; }}
-QListWidget#nav {{ background: transparent; border: none; outline: 0; font-size: 13px; }}
-QListWidget#nav::item {{ padding: 9px 12px; border-radius: 7px; color: #3E4C59; margin: 1px 0; }}
-QListWidget#nav::item:hover {{ background: #E9EDF1; }}
-QListWidget#nav::item:selected {{ background: #DCECF1; color: {ACENTO}; font-weight: 600; }}
-QFrame#tarjeta, QFrame#panel {{ background: white; border: 1px solid #E3E6EA; border-radius: 10px; }}
-QFrame#tarjeta:hover {{ border-color: #B7C9D3; }}
-QFrame#tarjeta[nivel="warn"] {{ border-left: 4px solid #E0A800; }}
-QFrame#tarjeta[nivel="error"] {{ border-left: 4px solid #C53030; }}
-QFrame#tarjeta[nivel="ok"] {{ border-left: 4px solid #2F855A; }}
-QFrame#tarjeta[nivel="info"] {{ border-left: 4px solid {ACENTO}; }}
-QLabel#cifra {{ font-size: 26px; font-weight: 700; }}
-QLabel#aviso {{ border-radius: 8px; padding: 10px 12px; }}
-QLabel#aviso[nivel="info"] {{ background: #E8F1F8; color: #12466B; }}
-QLabel#aviso[nivel="warn"] {{ background: #FFF4D6; color: #6B4E00; }}
-QLabel#aviso[nivel="error"] {{ background: #FDE8E8; color: #8E1B1B; }}
-QLabel#error {{ background: #FDE8E8; color: #8E1B1B; border-radius: 8px; padding: 10px 14px; }}
-QLabel#toast {{ background: #1F2933; color: white; border-radius: 8px; padding: 9px 14px; }}
-QFrame#soltar {{ background: white; border: 2px dashed #C5CED6; border-radius: 14px; }}
-QFrame#soltar[activo="true"] {{ border-color: {ACENTO}; background: #EEF6F9; }}
-QPushButton, QToolButton {{ background: white; border: 1px solid #CBD2D9; border-radius: 6px; padding: 7px 14px; color: #1F2933; }}
-QPushButton:hover, QToolButton:hover {{ background: #F0F3F6; }}
-QPushButton:disabled, QToolButton:disabled {{ color: #A0A7B0; background: #F5F6F8; }}
-QPushButton#primario {{ background: {ACENTO}; border: 1px solid {ACENTO}; color: white; font-weight: 600; padding: 8px 18px; }}
-QPushButton#primario:hover {{ background: #0C5C75; }}
-QPushButton#primario:disabled {{ background: #9DBFCB; border-color: #9DBFCB; }}
-QPushButton#archivo {{ text-align: left; padding: 7px 12px; max-width: 360px; }}
-QToolButton#flecha {{ padding: 6px 9px; font-weight: 700; }}
-QComboBox, QLineEdit {{ background: white; border: 1px solid #CBD2D9; border-radius: 6px; padding: 6px 10px; }}
-QComboBox {{ min-width: 190px; }}
-QComboBox::drop-down {{ border: none; width: 22px; }}
-QLineEdit:focus, QComboBox:focus {{ border-color: {ACENTO}; }}
-QTabWidget::pane {{ border: none; background: white; }}
-QTabBar::tab {{ padding: 8px 14px; color: #52606D; border: none; }}
-QTabBar::tab:selected {{ color: {ACENTO}; border-bottom: 2px solid {ACENTO}; font-weight: 600; }}
-QTableWidget {{ border: none; gridline-color: #EDF0F3; selection-background-color: #D6E9F0; selection-color: #1F2933; }}
-QHeaderView::section {{ background: #F7F8FA; border: none; border-bottom: 1px solid #E3E6EA; padding: 6px; color: #52606D; font-weight: 600; }}
-QListWidget#medicos, QPlainTextEdit {{ border: 1px solid #E3E6EA; border-radius: 6px; background: white; }}
-QListWidget#medicos::item {{ padding: 6px 8px; }}
-QListWidget#medicos::item:selected {{ background: #DCECF1; color: #1F2933; }}
-QSplitter::handle {{ background: transparent; }}
-"""
 
 
 # ---------------------------------------------------------------- utilidades
@@ -87,68 +32,6 @@ def semana_texto(lunes):
     dom = lunes + timedelta(6)
     ini = f"{lunes.day}" if lunes.month == dom.month else f"{lunes.day} {MESES[lunes.month - 1]}"
     return f"{ini} – {dom.day} {MESES[dom.month - 1]} {dom.year}"
-
-
-def abrir(ruta):
-    if sys.platform == "win32":
-        os.startfile(ruta)  # solo existe en Windows
-    else:
-        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(ruta)])
-
-
-def icono_app():
-    """Ícono dibujado (sin archivos): calendario blanco sobre el color de la app."""
-    pm = QPixmap(128, 128)
-    pm.fill(Qt.transparent)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.Antialiasing)
-    p.setBrush(QColor(ACENTO))
-    p.setPen(Qt.NoPen)
-    p.drawRoundedRect(QRectF(4, 4, 120, 120), 26, 26)
-    p.setBrush(QColor("white"))
-    p.drawRoundedRect(QRectF(26, 34, 76, 66), 9, 9)
-    p.setBrush(QColor(ACENTO))
-    p.drawRect(QRectF(26, 34, 76, 15))
-    p.setPen(QPen(QColor("white"), 6, Qt.SolidLine, Qt.RoundCap))
-    p.drawLine(44, 24, 44, 40)
-    p.drawLine(84, 24, 84, 40)
-    p.setPen(Qt.NoPen)
-    for i in range(3):
-        for j in range(2):
-            p.setBrush(QColor(ACENTO if (i, j) != (1, 1) else "#E0A800"))
-            p.drawRoundedRect(QRectF(36 + i * 20, 58 + j * 18, 13, 11), 3, 3)
-    p.end()
-    return QIcon(pm)
-
-
-def tabla(columnas, ayudas=None):
-    t = QTableWidget(0, len(columnas))
-    t.setHorizontalHeaderLabels(columnas)
-    t.setEditTriggers(QAbstractItemView.NoEditTriggers)
-    t.setSelectionBehavior(QAbstractItemView.SelectRows)
-    t.verticalHeader().setVisible(False)
-    t.horizontalHeader().setStretchLastSection(True)
-    t.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-    for c, ayuda in (ayudas or {}).items():
-        t.horizontalHeaderItem(c).setToolTip(ayuda)
-    return t
-
-
-def llenar(t, filas, colores=None, orden=None):
-    t.setSortingEnabled(False)
-    t.clearContents()
-    t.setRowCount(len(filas))
-    for r, fila in enumerate(filas):
-        for c, v in enumerate(fila):
-            it = QTableWidgetItem()
-            it.setData(Qt.DisplayRole, "—" if v is None else v)
-            if colores and (color := colores(r, c)):
-                it.setBackground(QColor(color))
-            t.setItem(r, c, it)
-    t.resizeColumnsToContents()
-    if orden is not None:
-        t.setSortingEnabled(True)
-        t.sortByColumn(orden, Qt.AscendingOrder)
 
 
 def color_qt(color, tema):
@@ -190,124 +73,51 @@ def tabla_hoja(ws, col_ini, tema):
     return t
 
 
-class ocupado:
-    def __enter__(self):
-        QApplication.setOverrideCursor(Qt.WaitCursor)
 
-    def __exit__(self, *exc):
-        QApplication.restoreOverrideCursor()
+# ---------------------------------------------------------------- área
+class Planilla:
+    NOMBRE = "Radiología"
+    CLAVE = "radiologia"
+    TAMANO = (1280, 840)
 
-
-class Tarjeta(QFrame):
-    """Cifra grande + etiqueta; al hacer clic lleva a una sección."""
-
-    def __init__(self, titulo, al_clic):
-        super().__init__(objectName="tarjeta")
-        self.setCursor(Qt.PointingHandCursor)
-        self.al_clic = al_clic
-        v = QVBoxLayout(self)
-        v.setContentsMargins(16, 12, 16, 12)
-        v.setSpacing(2)
-        self.cifra = QLabel("—", objectName="cifra")
-        self.titulo = QLabel(titulo, objectName="muted")
-        self.detalle = QLabel("", objectName="muted")
-        self.detalle.setWordWrap(True)
-        for w in (self.cifra, self.titulo, self.detalle):
-            v.addWidget(w)
-
-    def poner(self, cifra, nivel, detalle=""):
-        self.cifra.setText(str(cifra))
-        self.detalle.setText(detalle)
-        self.setProperty("nivel", nivel)
-        self.style().unpolish(self)
-        self.style().polish(self)
-
-    def mousePressEvent(self, e):
-        self.al_clic()
-
-
-# ---------------------------------------------------------------- ventana
-class Ventana(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Planilla Semanal · Radiología")
-        self.setWindowIcon(icono_app())
-        self.setAcceptDrops(True)
-        self.cfg = QSettings("Radiologia", "PlanillaSemanal")
+    def __init__(self, ventana):
+        self.v = ventana
         self.ws = self.ruta = self.wb = self.datos = self.lunes = None
         self.agendas = {}
         self._previa_pendiente = False
         self._cache_previa = {}  # ruta -> (mtime, workbook) de la versión anterior guardada
 
-        self.vigia = QFileSystemWatcher(self)
+        self.vigia = QFileSystemWatcher(ventana)
         self.vigia.fileChanged.connect(lambda _: self._recarga.start())
-        self._recarga = QTimer(self, singleShot=True, interval=800, timeout=self.recargar)
+        self._recarga = QTimer(ventana, singleShot=True, interval=800, timeout=self.recargar)
 
-        fondo = QWidget(objectName="fondo")
-        self.setCentralWidget(fondo)
-        raiz = QVBoxLayout(fondo)
-        raiz.setContentsMargins(0, 0, 0, 0)
-        raiz.setSpacing(0)
-        raiz.addWidget(self._cabecera())
-
-        cuerpo = QHBoxLayout()
-        cuerpo.setContentsMargins(16, 16, 20, 16)
-        cuerpo.setSpacing(16)
-        self.nav = QListWidget(objectName="nav")
-        self.nav.setFixedWidth(190)
-        self.nav.addItems(SECCIONES)
-        self.nav.currentRowChanged.connect(self._ir)
-        cuerpo.addWidget(self.nav)
-
-        der = QVBoxLayout()
-        der.setSpacing(12)
-        self.aviso = QLabel(objectName="aviso", wordWrap=True)
-        self.aviso.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.aviso.hide()
-        der.addWidget(self.aviso)
-        self.paginas = QStackedWidget()
-        for crear in (self._pag_resumen, self._pag_previa, self._pag_alertas, self._pag_equidad,
-                      self._pag_agendas, self._pag_cambios):
-            self.paginas.addWidget(crear())
-        der.addWidget(self.paginas, 1)
-        cuerpo.addLayout(der, 1)
-
-        self.principal = QWidget()
-        self.principal.setLayout(cuerpo)
-        self.pila = QStackedWidget()
-        self.pila.addWidget(self._pag_vacia())
-        self.pila.addWidget(self.principal)
-        raiz.addWidget(self.pila, 1)
-
-        self.toast = QLabel(self, objectName="toast")
-        self.toast.hide()
-        self._toast_timer = QTimer(self, singleShot=True, interval=4500, timeout=self.toast.hide)
-
-        self._atajos()
+        self.cabecera = self._cabecera()
+        self.vacia = self._pag_vacia()
+        self.secciones = list(zip(SECCIONES, (crear() for crear in (
+            self._pag_resumen, self._pag_previa, self._pag_alertas, self._pag_equidad, self._pag_agendas,
+            self._pag_cambios))))
+        for tecla, accion in (("Ctrl+O", self.elegir_archivo), ("Ctrl+G", self.generar),
+                              ("Ctrl+P", self.imprimir), ("Alt+Left", lambda: self._mover_semana(-1)),
+                              ("Alt+Right", lambda: self._mover_semana(1)), ("F5", self.recargar)):
+            ventana.atajo(tecla, lambda f=accion: f() if self._puede(f) else None)
         self._habilitar(False)
-        if geo := self.cfg.value("geometria"):
-            self.restoreGeometry(geo)
-        else:
-            self.resize(1280, 840)
-        ultimo = self.cfg.value("ultimo_archivo", "")
+
+    def iniciar(self):
+        self.v.mostrar_vacia(True)
+        ultimo = self.v.cfg.value("radiologia/ultimo_archivo", "")
         if ultimo and Path(ultimo).exists():
             self.cargar(ultimo)
 
+    def seccion_activa(self, i):
+        if i == PREVIA and self._previa_pendiente:
+            self._mostrar_previa()
+
     # ---------------------------------------------------------------- estructura
     def _cabecera(self):
-        cab = QFrame(objectName="cabecera")
+        cab = QWidget()
         h = QHBoxLayout(cab)
-        h.setContentsMargins(20, 12, 20, 12)
+        h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(10)
-        logo = QLabel()
-        logo.setPixmap(icono_app().pixmap(QSize(34, 34)))
-        h.addWidget(logo)
-        marca = QVBoxLayout()
-        marca.setSpacing(0)
-        marca.addWidget(QLabel("Planilla Semanal", objectName="marca"))
-        marca.addWidget(QLabel("Radiología", objectName="sub"))
-        h.addLayout(marca)
-        h.addSpacing(24)
 
         self.btn_archivo = QPushButton("Elegir cuadro mensual…", objectName="archivo")
         self.btn_archivo.setToolTip("Cuadro mensual de turnos (Ctrl+O). También puedes arrastrarlo a la ventana.")
@@ -316,7 +126,7 @@ class Ventana(QMainWindow):
 
         self.btn_ant = QToolButton(objectName="flecha", text="‹", toolTip="Semana anterior (Alt+←)")
         self.btn_sig = QToolButton(objectName="flecha", text="›", toolTip="Semana siguiente (Alt+→)")
-        self.combo = QComboBox()
+        self.combo = QComboBox(objectName="semana")
         self.combo.currentIndexChanged.connect(self.cambiar_semana)
         self.btn_ant.clicked.connect(lambda: self._mover_semana(-1))
         self.btn_sig.clicked.connect(lambda: self._mover_semana(1))
@@ -336,6 +146,7 @@ class Ventana(QMainWindow):
         for b in (self.btn_carpeta, self.btn_imprimir, self.btn_agendas, self.btn_generar):
             h.addWidget(b)
         return cab
+
 
     def _pag_vacia(self):
         caja = QWidget()
@@ -384,12 +195,12 @@ class Ventana(QMainWindow):
 
         grid = QGridLayout()
         grid.setSpacing(12)
-        self.t_pend = Tarjeta("Franjas sin médico", lambda: self._ir_a(ALERTAS))
-        self.t_desc = Tarjeta("Alertas de descanso", lambda: self._ir_a(ALERTAS))
-        self.t_rev = Tarjeta("Problemas en el cuadro", lambda: self._ir_a(ALERTAS))
-        self.t_camb = Tarjeta("Cambios desde la última versión", lambda: self._ir_a(CAMBIOS))
-        self.t_med = Tarjeta("Médicos con turnos", lambda: self._ir_a(AGENDAS))
-        self.t_fest = Tarjeta("Festivos", lambda: self._ir_a(PREVIA))
+        self.t_pend = Tarjeta("Franjas sin médico", lambda: self.v.ir_a(ALERTAS))
+        self.t_desc = Tarjeta("Alertas de descanso", lambda: self.v.ir_a(ALERTAS))
+        self.t_rev = Tarjeta("Problemas en el cuadro", lambda: self.v.ir_a(ALERTAS))
+        self.t_camb = Tarjeta("Cambios desde la última versión", lambda: self.v.ir_a(CAMBIOS))
+        self.t_med = Tarjeta("Médicos con turnos", lambda: self.v.ir_a(AGENDAS))
+        self.t_fest = Tarjeta("Festivos", lambda: self.v.ir_a(PREVIA))
         for i, t in enumerate((self.t_pend, self.t_desc, self.t_rev, self.t_camb, self.t_med, self.t_fest)):
             grid.addWidget(t, i // 3, i % 3)
         v.addLayout(grid)
@@ -421,7 +232,7 @@ class Ventana(QMainWindow):
         pag = QWidget()
         v = QVBoxLayout(pag)
         v.setContentsMargins(0, 0, 0, 0)
-        v.addLayout(self._titulo("Alertas", "Revisa esto antes de publicar. Los problemas se corrigen en el "
+        v.addLayout(titulo_pagina("Alertas", "Revisa esto antes de publicar. Los problemas se corrigen en el "
                                  "cuadro mensual de Excel; al guardarlo, la app se actualiza sola."))
         self.t_revision = tabla(["Fecha", "Médico", "Problema"])
         self.t_alertas = tabla(["Fecha", "Médico", "Regla"])
@@ -441,7 +252,7 @@ class Ventana(QMainWindow):
         pag = QWidget()
         v = QVBoxLayout(pag)
         v.setContentsMargins(0, 0, 0, 0)
-        v.addLayout(self._titulo("Equidad y horas", "Carga de cada radiólogo. Haz clic en un encabezado para "
+        v.addLayout(titulo_pagina("Equidad y horas", "Carga de cada radiólogo. Haz clic en un encabezado para "
                                  "ordenar; pasa el mouse sobre él para ver qué significa."))
         barra = QHBoxLayout()
         self.modo_eq = QComboBox()
@@ -474,7 +285,7 @@ class Ventana(QMainWindow):
         pag = QWidget()
         v = QVBoxLayout(pag)
         v.setContentsMargins(0, 0, 0, 0)
-        v.addLayout(self._titulo("Agendas", "Turnos de cada médico para enviar por WhatsApp o correo. "
+        v.addLayout(titulo_pagina("Agendas", "Turnos de cada médico para enviar por WhatsApp o correo. "
                                  "«Exportar agendas» crea además un .ics por médico para Outlook."))
         sp = QSplitter()
         izq = QWidget()
@@ -510,7 +321,7 @@ class Ventana(QMainWindow):
         pag = QWidget()
         v = QVBoxLayout(pag)
         v.setContentsMargins(0, 0, 0, 0)
-        v.addLayout(self._titulo("Cambios", "Diferencias con la última planilla guardada de esta semana. "
+        v.addLayout(titulo_pagina("Cambios", "Diferencias con la última planilla guardada de esta semana. "
                                  "Al generar, quedan marcadas en amarillo y en la hoja «Cambios»."))
         self.lbl_cambios = QLabel(objectName="muted")
         self.txt_cambios = QPlainTextEdit(readOnly=True)
@@ -521,30 +332,10 @@ class Ventana(QMainWindow):
         v.addWidget(btn, 0, Qt.AlignRight)
         return pag
 
-    def _atajos(self):
-        for tecla, accion in ((QKeySequence.Open, self.elegir_archivo), ("Ctrl+G", self.generar),
-                              (QKeySequence.Print, self.imprimir), ("Alt+Left", lambda: self._mover_semana(-1)),
-                              ("Alt+Right", lambda: self._mover_semana(1)), (QKeySequence.Refresh, self.recargar)):
-            a = QAction(self, shortcut=QKeySequence(tecla))
-            a.triggered.connect(lambda _=False, f=accion: f() if self._puede(f) else None)
-            self.addAction(a)
-        for i in range(len(SECCIONES)):
-            a = QAction(self, shortcut=QKeySequence(f"Ctrl+{i + 1}"))
-            a.triggered.connect(lambda _=False, i=i: self._ir_a(i))
-            self.addAction(a)
-
     def _puede(self, f):
         return f == self.elegir_archivo or self.wb is not None
 
     # ---------------------------------------------------------------- navegación
-    def _ir_a(self, i):
-        self.nav.setCurrentRow(i)
-
-    def _ir(self, i):
-        self.paginas.setCurrentIndex(i)
-        if i == PREVIA and self._previa_pendiente:
-            self._mostrar_previa()
-
     def _mover_semana(self, paso):
         i = self.combo.currentIndex() + paso
         if 0 <= i < self.combo.count():
@@ -565,9 +356,7 @@ class Ventana(QMainWindow):
         return next((u.toLocalFile() for u in urls if u.toLocalFile().lower().endswith(".xlsx")), None)
 
     def _resaltar(self, si):
-        self.soltar.setProperty("activo", si)
-        self.soltar.style().unpolish(self.soltar)
-        self.soltar.style().polish(self.soltar)
+        poner_nivel(self.soltar, si, "activo")
 
     def dragEnterEvent(self, e):
         if self._xlsx(e):
@@ -582,18 +371,10 @@ class Ventana(QMainWindow):
         if ruta := self._xlsx(e):
             self.cargar(ruta)
 
-    def closeEvent(self, e):
-        self.cfg.setValue("geometria", self.saveGeometry())
-        super().closeEvent(e)
-
-    def resizeEvent(self, e):
-        super().resizeEvent(e)
-        self._ubicar_toast()
-
     # ---------------------------------------------------------------- acciones
     def elegir_archivo(self):
         inicio = str(Path(self.ruta).parent) if self.ruta else str(Path.home())
-        ruta, _ = QFileDialog.getOpenFileName(self, "Elegir cuadro mensual", inicio, "Excel (*.xlsx)")
+        ruta, _ = QFileDialog.getOpenFileName(self.v, "Elegir cuadro mensual", inicio, "Excel (*.xlsx)")
         if ruta:
             self.cargar(ruta)
 
@@ -603,7 +384,7 @@ class Ventana(QMainWindow):
         self.ruta, self.ws, self.wb = ruta, None, None
         self.btn_archivo.setText(Path(ruta).name)
         self.btn_archivo.setToolTip(ruta)
-        self.avisar("")
+        self.v.avisar("")
         self._habilitar(False)
         try:
             with ocupado():
@@ -614,7 +395,7 @@ class Ventana(QMainWindow):
         except gs.ErrorPlanilla as e:
             return self._sin_cuadro(f"«{Path(ruta).name}»: {e}")
         self.vigia.addPath(ruta)
-        self.cfg.setValue("ultimo_archivo", ruta)
+        self.v.cfg.setValue("radiologia/ultimo_archivo", ruta)
         self.error_carga.hide()
         hoy = date.today()
         esta = hoy - timedelta(days=hoy.weekday())
@@ -626,9 +407,7 @@ class Ventana(QMainWindow):
             self.combo.addItem(semana_texto(l), l.isoformat())  # Qt convertiría date a QDate
         self.combo.setCurrentIndex(defecto)
         self.combo.blockSignals(False)
-        self.pila.setCurrentIndex(1)
-        if self.nav.currentRow() < 0:
-            self._ir_a(INICIO)
+        self.v.mostrar_vacia(False)
         self.cambiar_semana()
 
     def _sin_cuadro(self, error):
@@ -640,7 +419,7 @@ class Ventana(QMainWindow):
         self._habilitar(False)
         self.error_carga.setText(error)
         self.error_carga.show()
-        self.pila.setCurrentIndex(0)
+        self.v.mostrar_vacia(True)
 
     def recargar(self):
         """El Excel cambió en disco (o F5): se vuelve a leer manteniendo la semana."""
@@ -648,7 +427,7 @@ class Ventana(QMainWindow):
             return
         self.cargar(self.ruta, self.lunes)
         if self.ws is not None:
-            self.notificar("Cuadro mensual actualizado.")
+            self.v.notificar("Cuadro mensual actualizado.")
 
     def cambiar_semana(self, *_):
         iso = self.combo.currentData()
@@ -665,10 +444,10 @@ class Ventana(QMainWindow):
                 equidad = analisis.equidad(self.ws, self.lunes)
         except gs.ErrorPlanilla as e:
             self._habilitar(False)
-            return self.avisar(str(e), "error")
+            return self.v.avisar(str(e), "error")
         self._habilitar(True)
         self._previa_pendiente = True
-        if self.paginas.currentIndex() == PREVIA:
+        if self.v.paginas.currentIndex() == PREVIA:
             self._mostrar_previa()
         self._mostrar_alertas(alertas, resumen["pendientes"], revision)
         self._mostrar_equidad(equidad)
@@ -690,58 +469,38 @@ class Ventana(QMainWindow):
         try:
             self.wb.save(destino)
         except PermissionError:
-            return self.avisar(f"No se pudo guardar «{destino.name}». ¿Está abierto en Excel?", "error")
+            return self.v.avisar(f"No se pudo guardar «{destino.name}». ¿Está abierto en Excel?", "error")
         abrir(destino)
         self.cambiar_semana()  # la versión guardada pasa a ser la anterior
-        self.notificar(f"Guardado: {destino.name}")
+        self.v.notificar(f"Guardado: {destino.name}")
 
     def imprimir(self):
         hojas = [(h, t, 1 if h == "Cambios" else 3) for h, t in PESTANAS_PREVIA.items()]
         destino = Path(self.ruta).parent / f"{gs.nombre_semana(self.lunes)} (para imprimir).html"
         destino.write_text(analisis.html_planilla(self.wb, self.lunes, hojas), encoding="utf-8")
         abrir(destino)
-        self.notificar("Se abrió en el navegador: usa Imprimir o Guardar como PDF.")
+        self.v.notificar("Se abrió en el navegador: usa Imprimir o Guardar como PDF.")
 
     def exportar_agendas(self):
         destino = analisis.exportar_agendas(self.datos, Path(self.ruta).parent, self.lunes)
         abrir(destino)
-        self.notificar(f"Agendas guardadas en «{destino.name}».")
+        self.v.notificar(f"Agendas guardadas en «{destino.name}».")
 
     def elegir_meses(self):
         inicio = str(Path(self.ruta).parent) if self.ruta else str(Path.home())
-        rutas, _ = QFileDialog.getOpenFileNames(self, "Cuadros de otros meses", inicio, "Excel (*.xlsx)")
+        rutas, _ = QFileDialog.getOpenFileNames(self.v, "Cuadros de otros meses", inicio, "Excel (*.xlsx)")
         if rutas:
-            self.cfg.setValue("otros_meses", rutas)
+            self.v.cfg.setValue("radiologia/otros_meses", rutas)
             self.modo_eq.setCurrentIndex(1)
             self._mostrar_meses()
 
     def copiar(self, texto, msg):
         QGuiApplication.clipboard().setText(texto)
-        self.notificar(msg)
+        self.v.notificar(msg)
 
     def copiar_todas(self):
         textos = [analisis.texto_agenda(n, ev, self.lunes) for n, ev in self.agendas.items()]
         self.copiar("\n\n".join(textos), f"{len(textos)} agendas copiadas.")
-
-    def avisar(self, texto, nivel="info"):
-        if not texto:
-            return self.aviso.hide()
-        self.aviso.setText(texto)
-        self.aviso.setProperty("nivel", nivel)
-        self.aviso.style().unpolish(self.aviso)
-        self.aviso.style().polish(self.aviso)
-        self.aviso.show()
-
-    def notificar(self, texto):
-        self.toast.setText(texto)
-        self.toast.adjustSize()
-        self._ubicar_toast()
-        self.toast.show()
-        self.toast.raise_()
-        self._toast_timer.start()
-
-    def _ubicar_toast(self):
-        self.toast.move(self.width() - self.toast.width() - 24, self.height() - self.toast.height() - 20)
 
     # ---------------------------------------------------------------- vistas
     def _mostrar_resumen(self, resumen, alertas, revision, previa, cambios):
@@ -792,16 +551,16 @@ class Ventana(QMainWindow):
 
         n_alertas = len(alertas) + len(revision)
         for i, n in ((ALERTAS, n_alertas), (CAMBIOS, len(cambios or []))):
-            self.nav.item(i).setText(f"{SECCIONES[i]}   ·  {n}" if n else SECCIONES[i])
+            self.v.contar(i, n)
         if cruces or resumen["desconocidos"]:
             partes = []
             if cruces:
                 partes.append(f"{len(cruces)} turno(s) que se cruzan en el cuadro")
             if resumen["desconocidos"]:
                 partes.append("códigos no reconocidos (no se publican): " + ", ".join(resumen["desconocidos"]))
-            self.avisar("Revisa antes de publicar: " + "; ".join(partes) + ".", "warn")
+            self.v.avisar("Revisa antes de publicar: " + "; ".join(partes) + ".", "warn")
         else:
-            self.avisar("")
+            self.v.avisar("")
 
     def _mostrar_previa(self):
         self._previa_pendiente = False
@@ -838,7 +597,7 @@ class Ventana(QMainWindow):
         self.pila_eq.setCurrentIndex(self.modo_eq.currentIndex())
         if self.modo_eq.currentIndex() == 0 or self.ws is None:
             return
-        otros = [r for r in (self.cfg.value("otros_meses", []) or []) if Path(r) != Path(self.ruta)]
+        otros = [r for r in (self.v.cfg.value("radiologia/otros_meses", []) or []) if Path(r) != Path(self.ruta)]
         hojas, fallidos = [(self.ws.title.replace("Cambios ", ""), self.ws)], []
         with ocupado():
             for r in otros:
@@ -889,38 +648,3 @@ class Ventana(QMainWindow):
             self.txt_cambios.setPlainText("\n".join(cambios))
 
 
-def error_inesperado(tipo, valor, tb):
-    texto = "".join(traceback.format_exception(tipo, valor, tb))
-    try:
-        with open(LOG, "a", encoding="utf-8") as f:
-            f.write(f"\n--- {datetime.now():%Y-%m-%d %H:%M}\n{texto}")
-    except OSError:
-        pass
-    QMessageBox.critical(None, "Algo salió mal",
-                         f"Ocurrió un error inesperado:\n\n{valor}\n\nSe guardó el detalle en {LOG.name}.")
-
-
-def preparar_app(argv):
-    app = QApplication(argv)
-    app.setApplicationName("Planilla Semanal")
-    app.setWindowIcon(icono_app())
-    app.setStyle("Fusion")
-    # Siempre modo claro: con el sistema en oscuro, Qt pondría texto claro sobre nuestros fondos blancos
-    app.styleHints().setColorScheme(Qt.ColorScheme.Light)
-    app.setPalette(app.style().standardPalette())
-    if sys.platform == "win32":
-        app.setFont(QFont("Segoe UI", 10))
-    app.setStyleSheet(ESTILO)
-    return app
-
-
-def main():
-    app = preparar_app(sys.argv)
-    sys.excepthook = error_inesperado
-    v = Ventana()
-    v.show()
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()
