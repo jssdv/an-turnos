@@ -17,17 +17,26 @@ def tramos_ventana(inicio, fin):
     return [divmod(i, TRAMOS_DIA) for i in range(primero, ultimo)]
 
 
-def franjas_de(turno):
-    """Franjas (M, T, N) en que un turno cuenta: se solapa con ellas al menos 3 h."""
+def minutos_en_franja(turno, fr):
+    """Minutos del turno que caen dentro de la franja M (06–12), T (12–18) o N (18–06)."""
     ini, dur = turno.inicio, turno.duracion
-    out = []
-    for fr, (a, b) in _MIN_FRANJA.items():
-        solape = 0
-        for desp in (-1440, 0, 1440):
-            solape += max(0, min(ini + dur, b + desp) - max(ini, a + desp))
-        if solape >= 180:
-            out.append(fr)
-    return tuple(out)
+    a, b = _MIN_FRANJA[fr]
+    return sum(max(0, min(ini + dur, b + desp) - max(ini, a + desp)) for desp in (-1440, 0, 1440))
+
+
+def franjas_de(turno):
+    """Franjas (M, T, N) en que un turno cuenta para la cobertura: se solapa con ellas al menos 3 h."""
+    return tuple(fr for fr in _MIN_FRANJA if minutos_en_franja(turno, fr) >= 180)
+
+
+def es_noche(turno):
+    """Turno de noche (para el libre posterior, las rachas y el estudio): al menos 6 h entre las 18:00 y las 06:00."""
+    return minutos_en_franja(turno, "N") >= 360
+
+
+def es_corrido(turno):
+    """Turno corrido: 10 h o más y que no es de noche (C 06:00–18:00)."""
+    return turno.duracion >= 600 and not es_noche(turno)
 
 
 def turno_tramos(turno):

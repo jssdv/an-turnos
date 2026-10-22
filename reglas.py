@@ -83,14 +83,14 @@ def validar(ctx, cuadro, fechas, fijos=()):
                     out.append(Alerta("error", b, p.id, f"{nombres[p.id]}: menos de 12 h entre {ta} ({a:%d/%m}) y {tb} ({b:%d/%m})"))
         for a in fechas:  # libre después de una noche
             t = ctx.turnos.get(cuadro.get((p.id, a), "L"))
-            if t and "N" in t.cubre:
+            if t and dem.es_noche(t):
                 for k in range(1, ctx.libre_tras_noche + 1):
                     b = a + timedelta(days=k)
                     if b in dias and cuadro.get((p.id, b), "L") in ctx.turnos and (p.id, b) not in fijos:
                         out.append(Alerta("aviso", b, p.id, f"{nombres[p.id]}: sin día libre después de la noche del {a:%d/%m}"))
                         break
-        noche = lambda d: (t := ctx.turnos.get(cuadro.get((p.id, d), "L"))) is not None and "N" in t.cubre
-        corrido = lambda d: (t := ctx.turnos.get(cuadro.get((p.id, d), "L"))) is not None and len(t.cubre) > 1
+        noche = lambda d: (t := ctx.turnos.get(cuadro.get((p.id, d), "L"))) is not None and dem.es_noche(t)
+        corrido = lambda d: (t := ctx.turnos.get(cuadro.get((p.id, d), "L"))) is not None and dem.es_corrido(t)
         paso = ctx.libre_tras_noche + 1
         for a in fechas:  # rachas demasiado largas (si alguna celda es edición manual, es decisión de quien coordina)
             if ctx.max_noches and noche(a) and not noche(a - timedelta(days=paso)):
@@ -102,7 +102,7 @@ def validar(ctx, cuadro, fechas, fijos=()):
             if ctx.max_igual:
                 cod = cuadro.get((p.id, a), "L")
                 t = ctx.turnos.get(cod)
-                if t and "N" not in t.cubre and len(t.cubre) == 1 and cuadro.get((p.id, a - timedelta(days=1)), "L") != cod:
+                if t and not dem.es_noche(t) and not dem.es_corrido(t) and cuadro.get((p.id, a - timedelta(days=1)), "L") != cod:
                     n = 0
                     while cuadro.get((p.id, a + timedelta(days=n)), "L") == cod:
                         n += 1

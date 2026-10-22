@@ -25,6 +25,7 @@ from demanda import franjas_de
 from ui_base import con_vacio, hhmm, llenar, signo, sin_seleccion, tabla
 from ui_puestos import TabDotacion, TabPuestos
 from dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
+import puestos as puestos_mod
 from puestos import etiqueta, leyenda, por_persona
 
 AQUI = Path(__file__).parent
@@ -431,6 +432,8 @@ class Ventana(QMainWindow):
         self.alertas.clear()
         self.lista_cambios.clear()
         alertas = [a.texto for a in reglas.validar(self.ctx, self.bd.asignaciones(k), fechas, self.bd.fijos(k))] if hay_cuadro else []
+        if hay_cuadro:
+            alertas += [a.texto for a in puestos_mod.alertas_reparto(self.ctx, self.bd.asignacion_puesto(k), fechas, cat)]
         alertas += ["Aviso: " + a.texto for a in reglas.validar_catalogo(self.ctx.turnos)]
         cambios = [f"{self.nombres.get(cid, cid)} · {f:%d/%m}: {antes} → {ahora}"
                    for cid, f, antes, ahora in self.bd.diferencias(k)] if hay_cuadro else []
@@ -577,7 +580,7 @@ class Ventana(QMainWindow):
         if QMessageBox.question(self, "Restaurar", "Se devolverán todas las celdas al original. ¿Continuar?") == QMessageBox.Yes:
             self.bd.restaurar(self.clave)
             self._deshacer.clear()
-            flujo.recalcular(self.bd, self.año.value(), self.mes.currentIndex() + 1)
+            flujo.recalcular(self.bd, *self.periodo())
             self.refrescar()
 
     def exportar(self):

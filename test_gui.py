@@ -231,4 +231,12 @@ try:
     assert "Ninguna cantidad de personas" in td.l_resultado.text()
 finally:
     _dot.verificar_minimo = _original
+# --- Restaurar desde original no falla, y el reparto sin cubrir se avisa en el panel de alertas
+v.bd.set_celda(K, a, d1, "L"); assert v.bd.diferencias(K)
+v.restaurar(); assert v.bd.diferencias(K) == []
+ana = v4.bd.colaboradores()[0]
+ana.puestos_permitidos = (next(i for i, q in v4.bd.catalogo_puestos().items() if q.numero == 1),)  # sin demanda
+v4.bd.guardar_colaborador(ana)
+flujo.recalcular(v4.bd, *flujo.periodo_mes(2026, 10)); v4.refrescar()
+assert any("sin cubrir" in v4.alertas.item(i).text() for i in range(v4.alertas.count()))
 print("OK")
