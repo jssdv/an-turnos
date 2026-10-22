@@ -530,7 +530,7 @@ class Ventana(QMainWindow):
         self.b_generar.setEnabled(True)
         flujo.terminar(self.bd, *self.periodo(), ctx, fechas, cuadro, modo)
         if info["faltan"]:
-            dias = ", ".join(f"{d:%d/%m} ({fr}: faltan {n})" for d, fr, n in info["faltan"][:6])
+            dias = ", ".join(f"{d:%d/%m} {hhmm(t * 30)} (faltan {n})" for d, t, n in info["faltan"][:6])
             self.avisar("No se pudo cubrir todo: " + dias + ". Revisa novedades y personal disponible.", "warn")
         else:
             comp = info.get("ajuste") or {}

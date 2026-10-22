@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 import capacitacion
+import demanda as demanda_mod
 import db
 import exportar
 import flujo
@@ -10,7 +11,7 @@ import puestos
 import recargos
 import reglas
 import solver
-from dominio import Colaborador, Novedad, Turno, festivos
+from dominio import Demanda, Puesto, Colaborador, Novedad, Turno, festivos
 
 
 P = flujo.periodo_mes(2026, 10)
@@ -193,8 +194,8 @@ def test_esquema_por_semanas():
         bd.guardar_colaborador(Colaborador(0, f"P{i}"))
     lunes = date(2026, 10, 5)
     ini, fin = flujo.periodo_semanas(lunes, 4)
-    # el periodo anterior terminó el domingo con una noche de la persona 1: el lunes 5 debe quedar libre
-    bd.guardar_cuadro(flujo.clave(lunes - timedelta(days=28), ini - timedelta(days=1)), {(1, ini - timedelta(days=1)): "NC"})
+    # el periodo anterior terminó el domingo con dos noches (la guardia pide 2): la persona 1 queda libre el lunes 5
+    bd.guardar_cuadro(flujo.clave(lunes - timedelta(days=28), ini - timedelta(days=1)), {(1, ini - timedelta(days=1)): "NC", (2, ini - timedelta(days=1)): "NC"})  # la guardia de noche pide 2
     info = flujo.generar(bd, ini, fin, tiempo=10)
     k = flujo.clave(ini, fin)
     cuadro, dias = bd.asignaciones(k), flujo.fechas(ini, fin)
@@ -285,6 +286,82 @@ def test_cubre_se_calcula_de_los_horarios():
     t.inicio, t.fin = 360, 1080
     bd.guardar_turno(t)
     assert bd.turnos()["M7"].cubre == ("M", "T")
+
+
+def _bd_demanda(reglas, activos=None, extra_turnos=(), n=3):
+    """BD con una sola demanda de prueba (reglas: tuplas (tipo_dia, inicio, fin, personas[, obligatorio])), n personas y,
+    si se indica, solo esos códigos de turno activos."""
+    bd = db.BD()
+    for pid in list(bd.catalogo_puestos()):
+        bd.reemplazar_demandas(pid, [])
+    pid = bd.guardar_puesto(Puesto(0, 20, "Prueba"))
+    bd.reemplazar_demandas(pid, [Demanda(pid, *r) for r in reglas])
+    for x in extra_turnos:
+        bd.guardar_turno(x)
+    if activos is not None:
+        for cod, tt in bd.turnos(False).items():
+            tt.activo = cod in activos
+            bd.guardar_turno(tt)
+    for i in range(n):
+        bd.guardar_colaborador(Colaborador(0, f"P{i}"))
+    return bd
+
+
+SEMANAS2 = [date(2026, 10, 5) + timedelta(days=i) for i in range(14)]  # dos semanas desde un lunes
+
+
+def test_cobertura_por_tramos_con_turno_parcial():
+    bd = _bd_demanda([("LS", 420, 780, 1)], activos={"M7", "NC"}, extra_turnos=[Turno("M7", "Mañana 7", 420, 780, "CCE5FF")])
+    ctx = bd.contexto(2026)
+    cuadro, info = solver.generar(ctx, SEMANAS2, tiempo=5)
+    assert info["faltan"] == []
+    for d in SEMANAS2:
+        if ctx.tipo_dia(d) == "LS":  # el festivo 12-oct es tipo DF y no tiene esta demanda
+            assert any(cuadro.get((p.id, d)) == "M7" for p in ctx.colabs), d
+
+
+def test_primer_dia_cuenta_la_noche_previa():
+    """Review Focus 2: la demanda de madrugada del primer día viene de la noche del periodo anterior."""
+    bd = _bd_demanda([("LS", 1080, 360, 1), ("DF", 1080, 360, 1)], activos={"NC"})  # guardia de noche
+    ctx = bd.contexto(2026)
+    ayer = SEMANAS2[0] - timedelta(days=1)
+    con_noche = {(ctx.colabs[0].id, ayer): "NC"}
+    _, info = solver.generar(ctx, SEMANAS2, previo=con_noche, tiempo=5)
+    assert not [f for f in info["faltan"] if f[0] == SEMANAS2[0]]
+    sin_noche = {(ctx.colabs[0].id, ayer): "L"}  # se sabe lo que pasó ayer y nadie hizo noche
+    _, info = solver.generar(ctx, SEMANAS2, previo=sin_noche, tiempo=5)
+    assert [f for f in info["faltan"] if f[0] == SEMANAS2[0] and f[1] < 12]
+    _, info = solver.generar(ctx, SEMANAS2, previo={}, tiempo=5)  # sin datos del día anterior no se exige
+    assert not [f for f in info["faltan"] if f[0] == SEMANAS2[0]]
+
+
+def test_deseable_se_busca_sin_romper_reglas():
+    bd = _bd_demanda([("LS", 360, 1080, 1), ("LS", 360, 1080, 1, False)], n=8)
+    ctx = bd.contexto(2026)
+    semana = SEMANAS2  # dos fines de semana: con uno solo todos tendrían que librarlo (regla de fin de semana libre)
+    cuadro, info = solver.generar(ctx, semana, tiempo=10)
+    assert info["faltan"] == []
+    tramos = [(d, t) for d in semana if ctx.tipo_dia(d) == "LS" for t in range(12, 36)]
+    con_dos = 0
+    for d, t in tramos:
+        hay = sum(1 for p in ctx.colabs if (c := cuadro.get((p.id, d))) in ctx.turnos
+                  and (0, t) in demanda_mod.turno_tramos(ctx.turnos[c]))
+        con_dos += hay >= 2
+    assert con_dos / len(tramos) >= 0.8, con_dos / len(tramos)
+    assert not [a for a in reglas.validar(ctx, cuadro, semana) if a.nivel == "error"]
+
+
+def test_demanda_mayor_que_el_personal():
+    """Review Focus 5: demanda imposible → faltantes, no error; en modo estricto sí falla."""
+    bd = _bd_demanda([("LS", 360, 1080, 6)], n=2)
+    ctx = bd.contexto(2026)
+    _, info = solver.generar(ctx, SEMANAS2[:7], tiempo=5)
+    assert info["faltan"] and all(len(f) == 3 for f in info["faltan"])
+    try:
+        solver.generar(ctx, SEMANAS2[:7], tiempo=5, estricto=True)
+        assert False
+    except solver.ErrorSolver:
+        pass
 
 
 def test_versiones():

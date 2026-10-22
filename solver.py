@@ -4,10 +4,12 @@ from datetime import timedelta
 
 from ortools.sat.python import cp_model
 
+import demanda as dem
+
 from dominio import DESCANSO_MIN
 
 # Pesos del objetivo (minutos de desviación = 1 punto). La cobertura faltante domina todo lo demás.
-W_FALTA, W_SOBRA, W_DEFICIT, W_EXCESO = 100_000, 20, 1, 2
+W_FALTA, W_DEFICIT, W_EXCESO, W_DESEABLE = 10_000, 1, 2, 10  # W_FALTA es por persona y tramo de 30 min
 W_CAMBIO, W_NOCHE_SEG, W_DF_SEG, W_ESTUDIO, W_EQUIDAD = 15, 200, 100, 300, 200
 W_C_PAR, W_LIBRE_FDS, W_IGUAL = 250, 120, 60  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
 
@@ -32,21 +34,23 @@ def carga(ctx, cuadro, fechas):
     return {k: dict(v) for k, v in out.items()}
 
 
-def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0, ajuste=None):
+def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0, ajuste=None, estricto=False):
     """Devuelve (cuadro {(colab_id, fecha): código}, info). Los días libres no aparecen en el cuadro.
-    `ajuste`: {colab_id: horas} que se suman a la meta de horas del periodo (negativo: se le deben horas, trabaja menos)."""
+    `ajuste`: {colab_id: horas} que se suman a la meta de horas del periodo (negativo: se le deben horas, trabaja menos).
+    `estricto`: la demanda obligatoria es restricción dura (sin faltantes); si no cabe se lanza ErrorSolver.
+    `info["faltan"]` = [(fecha, tramo 0–47, personas que faltan)]."""
     fechas, fijos, previo, acum = sorted(fechas), fijos or {}, previo or {}, acum or {}
     try:
-        return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste or {})
+        return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste or {}, estricto)
     except ErrorSolver:
         if not fijos:
             raise
-        _resolver(ctx, fechas, {}, previo, acum, ventana_sem, min(tiempo, 10), semilla, ajuste or {})  # sin fijos tampoco → sale ese error
+        _resolver(ctx, fechas, {}, previo, acum, ventana_sem, min(tiempo, 10), semilla, ajuste or {}, estricto)  # sin fijos tampoco → sale ese error
         raise ErrorSolver("Las celdas fijas (ediciones manuales) hacen imposible cumplir el descanso de 12 h "
                           "o el día libre semanal. Quita algunas con «Restaurar» y vuelve a generar.")
 
 
-def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste):
+def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste, estricto):
     P = [p for p in ctx.colabs if p.en_solver]
     S = [c for c, t in ctx.turnos.items() if t.solver]
     mal = incompatibles(ctx.turnos)
@@ -142,14 +146,39 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
             if len(dias) == 7:
                 m.Add(sum(v for d in dias for s, v in por_pd[p.id, d] if s == "L") >= ctx.libres_semana)
 
-    for d in fechas:  # cobertura: faltante muy caro, sobrante barato
-        for fr, req in ctx.cobertura[ctx.tipo_dia(d)].items():
-            n = sum(v for p in P for s, v in por_pd[p.id, d] if s in ctx.turnos and fr in ctx.turnos[s].cubre)
-            falta, sobra = m.NewIntVar(0, req, ""), m.NewIntVar(0, len(P), "")
-            m.Add(n + falta >= req)
-            m.Add(sobra >= n - req)
-            obj += [W_FALTA * falta, W_SOBRA * sobra]
-            faltas[d, fr] = falta
+    # cobertura por tramos de 30 min: la demanda obligatoria de los puestos, tramo a tramo; los deseables dan un premio
+    tr = {c: ([t for o, t in dem.turno_tramos(tu) if o == 0], [t for o, t in dem.turno_tramos(tu) if o == 1])
+          for c, tu in ctx.turnos.items()}
+    dias_set = set(fechas)
+    previo_ayer = {k: c for k, c in previo.items() if k[1] == fechas[0] - timedelta(days=1)}
+    for d in fechas:
+        ayer = d - timedelta(days=1)
+        obl, des = dem.demanda_fecha(ctx, d, con_ayer=d != fechas[0] or bool(previo_ayer))  # sin datos de ayer no se exige su madrugada
+        for t in range(dem.TRAMOS_DIA):
+            if not (obl[t] or des[t]):
+                continue
+            terms = [v for p in P for s, v in por_pd[p.id, d] if s in tr and t in tr[s][0]]
+            const = 0
+            if ayer in dias_set:
+                terms += [v for p in P for s, v in por_pd[p.id, ayer] if s in tr and t in tr[s][1]]
+            else:
+                const = sum(1 for p in P if (c := previo.get((p.id, ayer))) in tr and t in tr[c][1])
+            presente = sum(terms) + const
+            if obl[t]:
+                if estricto:
+                    if not terms and const < obl[t]:
+                        raise ErrorSolver("La demanda obligatoria no se puede cubrir con los turnos disponibles.")
+                    if terms:
+                        m.Add(presente >= obl[t])
+                else:
+                    falta = m.NewIntVar(0, obl[t], "")
+                    m.Add(presente + falta >= obl[t])
+                    obj.append(W_FALTA * falta)
+                    faltas[d, t] = falta
+            if des[t] and terms:
+                ok = m.NewBoolVar("")
+                m.Add(presente >= obl[t] + des[t]).OnlyEnforceIf(ok)
+                obj.append(-W_DESEABLE * des[t] * ok)
 
     dias_vent = 7 * ventana_sem  # horas: objetivo suave por ventana (art. 165)
     for p in P:
@@ -247,6 +276,6 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
     if estado not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise ErrorSolver("No existe un cuadro que cumpla el descanso de 12 h y el día libre semanal con estos datos.")
     cuadro = {(p.id, d): s for p in P for d in fechas for s, v in por_pd[p.id, d] if s != "L" and sol.Value(v)}
-    faltan = [(d, fr, sol.Value(v)) for (d, fr), v in faltas.items() if sol.Value(v)]
+    faltan = [(d, t, sol.Value(v)) for (d, t), v in faltas.items() if sol.Value(v)]
     return cuadro, {"estado": sol.StatusName(estado), "objetivo": sol.ObjectiveValue(), "faltan": sorted(faltan),
                     "ajuste": {c: h for c, h in ajuste.items() if h}}
