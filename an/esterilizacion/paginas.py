@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComb
                                QToolButton, QVBoxLayout, QWidget)
 
 from ..nucleo import RAIZ
-from ..nucleo.widgets import abrir, con_vacio, hhmm, llenar, ocupado, signo, sin_seleccion, tabla
+from ..nucleo.widgets import abrir, con_vacio, hhmm, llenar, ocupado, signo, sin_seleccion, tabla, texto_sobre
 from . import db
 from . import exportar
 from . import flujo
@@ -292,7 +292,7 @@ class Turnos:
         chip = lambda txt, bg, extra="": f'<span style="background-color:{bg}; color:#1B2733; {extra}">&nbsp;{txt}&nbsp;</span>'
         partes = [chip(c, "#" + t.color) + f" {t.nombre}" for c, t in self.ctx.turnos.items()]
         partes += [chip("L", "#FFFFFF") + " Libre", chip("VAC", "#D9D9D9") + " Novedad", chip("//", "#E3E6FA", "color:#4357A8;") + " Estudia",
-                   chip("M", AMARILLO) + " Cambiado", chip("−1", "#FF9EA1") + " Falta cobertura"]
+                   chip("M", AMARILLO, "font-weight:bold; font-style:italic;") + " Cambiado", chip("−1", "#FF9EA1") + " Falta cobertura"]
         ayuda = "Arrastra una celda sobre otra para intercambiarlas · clic derecho: asignar a varias · Ctrl+Z: deshacer"
         if self.ver_puesto.isChecked():
             ayuda = leyenda(self.bd.catalogo_puestos()) + "<br>" + ayuda
@@ -335,6 +335,7 @@ class Turnos:
                 it.setData(Qt.UserRole, cod)
                 if cod in self.ctx.turnos:
                     it.setBackground(QColor("#" + self.ctx.turnos[cod].color))
+                    it.setForeground(texto_sobre("#" + self.ctx.turnos[cod].color))
                     horas += self.ctx.turnos[cod].horas
                 elif nov:
                     it.setBackground(QColor("#D9D9D9"))
@@ -347,6 +348,12 @@ class Turnos:
                         it.setBackground(QBrush(QColor("#9AA8E0"), Qt.BDiagPattern))  # trama: no se confunde con la noche
                 if not ver_orig and orig.get((p.id, f), "L") != cod:
                     it.setBackground(QColor(AMARILLO))
+                    it.setForeground(QColor("#1B2733"))
+                    fu = it.font()
+                    fu.setBold(True)
+                    fu.setItalic(True)  # no depender solo del color: cursiva + negrita
+                    it.setFont(fu)
+                    it.setToolTip((it.toolTip() + "\n" if it.toolTip() else "") + f"Cambiado (original: {orig.get((p.id, f), 'L')})")
                 if ver_orig or cerrado or nov and cod == "L":
                     it.setFlags(it.flags() & ~Qt.ItemIsEditable)
                 g.setItem(r, c, it)
@@ -367,6 +374,7 @@ class Turnos:
         for c, f in enumerate(fechas):
             if self.ctx.tipo_dia(f) == "DF":
                 g.horizontalHeaderItem(c).setBackground(QColor("#F8CBAD"))
+                g.horizontalHeaderItem(c).setForeground(QColor("#1B2733"))
         g.horizontalHeader().setDefaultSectionSize(40)
         g.setColumnWidth(len(fechas), 56)
         g.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)

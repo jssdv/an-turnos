@@ -44,6 +44,16 @@ def tabla(columnas, ayudas=None):
     return t
 
 
+def texto_sobre(fondo):
+    """Texto oscuro o blanco, el que dé más contraste (WCAG) sobre `fondo`; sirve para colores que elige el usuario."""
+    def lum(c):
+        v = [x / 255 for x in (c.red(), c.green(), c.blue())]
+        v = [x / 12.92 if x <= .03928 else ((x + .055) / 1.055) ** 2.4 for x in v]
+        return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]
+    f = lum(QColor(fondo))
+    return QColor("#1B2733") if (f + .05) / (lum(QColor("#1B2733")) + .05) >= 1.05 / (f + .05) else QColor("white")
+
+
 def llenar(t, filas, colores=None, orden=None):
     """Llena la tabla sin disparar sus señales. Si se envolvió con `con_vacio`, alterna el mensaje de «sin datos»."""
     t.blockSignals(True)
@@ -56,6 +66,7 @@ def llenar(t, filas, colores=None, orden=None):
             it.setData(Qt.DisplayRole, "—" if v is None else v)
             if colores and (color := colores(r, c)):
                 it.setBackground(QColor(color))
+                it.setForeground(texto_sobre(color))
             t.setItem(r, c, it)
     t.resizeColumnsToContents()
     if orden is not None:
