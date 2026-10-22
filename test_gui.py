@@ -197,4 +197,38 @@ v4.bd.guardar_cuadro(flujo.clave(*flujo.periodo_mes(2026, 10)), {(cid, date(2026
 g4 = v4.grilla
 assert g4.verticalHeaderItem(1).text() == "Cobertura mañana"
 assert g4.item(1, 4).text() == "ok" and g4.item(1, 5).text() == "−1" and "06:00–12:00" in g4.item(1, 5).toolTip()
+# --- verificación con el generador en la pestaña Dotación (resolutor simulado)
+import time as _time
+import dotacion as _dot
+_original = _dot.verificar_minimo
+try:
+    def _resultado(ctx, fechas, margen, activos, tiempo=8, progreso=None, cancelar=None):
+        progreso(1, 8)
+        return {"minimo": 12, "con_margen": 14, "activos": activos, "diferencia": activos - 14, "pruebas": [(12, True)],
+                "motivo": None, "cancelado": False}
+    _dot.verificar_minimo = _resultado
+    td.verificar()
+    assert not td.b_verificar.isEnabled() and td.b_cancelar.isEnabled()  # mientras corre
+    td.hilo.wait(); qa.processEvents()
+    assert td.b_verificar.isEnabled() and not td.b_cancelar.isEnabled()
+    txt = td.l_resultado.text()
+    assert "Mínimo con tus reglas: 12" in txt and "Con margen (0 %): 14" in txt and "Personal activo: 13" in txt and "Faltan 1" in txt, txt
+
+    def _lento(ctx, fechas, margen, activos, tiempo=8, progreso=None, cancelar=None):
+        while not cancelar():
+            _time.sleep(0.01)
+        return {"minimo": None, "con_margen": None, "activos": activos, "diferencia": None, "pruebas": [], "motivo": None,
+                "cancelado": True}
+    _dot.verificar_minimo = _lento
+    td.verificar(); td.cancelar(); td.hilo.wait(); qa.processEvents()
+    assert "Verificación cancelada" in v2.aviso.text() and td.b_verificar.isEnabled()
+
+    def _imposible(ctx, fechas, margen, activos, tiempo=8, progreso=None, cancelar=None):
+        return {"minimo": None, "con_margen": None, "activos": activos, "diferencia": None, "pruebas": [(60, False)],
+                "motivo": "Ninguna cantidad de personas (hasta 60) cumple las reglas.", "cancelado": False}
+    _dot.verificar_minimo = _imposible
+    td.verificar(); td.hilo.wait(); qa.processEvents()
+    assert "Ninguna cantidad de personas" in td.l_resultado.text()
+finally:
+    _dot.verificar_minimo = _original
 print("OK")
