@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import Qt, QTime
 import app
 import flujo
+from datetime import date
 P = flujo.periodo_mes(2026, 10)
 K = flujo.clave(*P)
 qa = QApplication([]); qa.setStyleSheet(app.ESTILO)
@@ -181,4 +182,16 @@ td.c_deseables.setChecked(True)
 assert td.t_puesto.rowCount() == 6 and td.l_horas.text() == "552"
 td.s_margen.setValue(0); td.c_deseables.setChecked(False)
 assert td.l_personas.text() == "12" and td.l_diferencia.text() == "Sobran 1"
+# --- cobertura por tramos en la grilla
+v4 = app.Ventana(_tf.mkdtemp() + "/c.db")
+for pid in list(v4.bd.catalogo_puestos()):
+    v4.bd.reemplazar_demandas(pid, [])
+pz = v4.bd.guardar_puesto(__import__("dominio").Puesto(0, 30, "Solo mañana"))
+v4.bd.reemplazar_demandas(pz, [__import__("dominio").Demanda(pz, "LS", 360, 720, 1)])
+cid = v4.bd.guardar_colaborador(Colaborador(0, "Ana"))
+v4.año.setValue(2026); v4.mes.setCurrentIndex(9)
+v4.bd.guardar_cuadro(flujo.clave(*flujo.periodo_mes(2026, 10)), {(cid, date(2026, 10, 5)): "M"}); v4.refrescar()
+g4 = v4.grilla
+assert g4.verticalHeaderItem(1).text() == "Cobertura mañana"
+assert g4.item(1, 4).text() == "ok" and g4.item(1, 5).text() == "−1" and "06:00–12:00" in g4.item(1, 5).toolTip()
 print("OK")

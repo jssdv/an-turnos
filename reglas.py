@@ -2,6 +2,7 @@
 from collections import namedtuple
 from datetime import timedelta
 
+import demanda as dem
 from dominio import DESCANSO_MIN, intervalo
 
 Alerta = namedtuple("Alerta", "nivel fecha colab_id texto")
@@ -12,15 +13,49 @@ def validar_catalogo(turnos):
             for t in turnos.values() if t.duracion > 360 and not t.pausas]
 
 
-def cobertura_dia(ctx, cuadro, f):
-    """{franja: personas} del día `f` (un turno suma a cada franja que cubre)."""
-    cuenta = {"M": 0, "T": 0, "N": 0}
-    solver = {p.id for p in ctx.colabs if p.en_solver}
-    for (cid, d), cod in cuadro.items():
-        if d == f and cid in solver and cod in ctx.turnos:
-            for fr in ctx.turnos[cod].cubre:
-                cuenta[fr] += 1
-    return cuenta
+FRANJA_NOMBRE = {"M": "mañana", "T": "tarde", "N": "noche"}
+
+
+def texto_tramos(ini, fin):
+    """«08:00–12:00» a partir de tramos de 30 min (el fin es exclusivo y puede ser el inicio del día siguiente)."""
+    hm = lambda t: f"{t * 30 // 60 % 24:02d}:{t * 30 % 60:02d}"
+    return f"{hm(ini)}–{hm(fin)}"
+
+
+def faltantes_dia(ctx, cuadro, fecha, con_ayer=True):
+    """{franja: (faltante_máximo, [(tramo_ini, tramo_fin, falta), ...])} del día `fecha` frente a la demanda obligatoria
+    de los puestos. Cuenta a quienes empiezan hoy y, si `con_ayer`, la madrugada de las noches de ayer."""
+    obl, _ = dem.demanda_fecha(ctx, fecha, con_ayer)
+    hay = [0] * dem.TRAMOS_DIA
+    activos = {p.id for p in ctx.colabs if p.en_solver}
+    ayer = fecha - timedelta(days=1)
+    for (cid, f), cod in cuadro.items():
+        if cid in activos and cod in ctx.turnos and (f == fecha or (f == ayer and con_ayer)):
+            for off, t in dem.turno_tramos(ctx.turnos[cod]):
+                if off == (0 if f == fecha else 1):
+                    hay[t] += 1
+    out = {}
+    for fr, tramos in dem.FRANJAS.items():
+        tramos = list(tramos)
+        faltas = [max(0, obl[t] - hay[t]) for t in tramos]
+        rangos, i = [], 0
+        while i < len(tramos):
+            if not faltas[i]:
+                i += 1
+                continue
+            j = i
+            while j + 1 < len(tramos) and faltas[j + 1] == faltas[i] and tramos[j + 1] % dem.TRAMOS_DIA == (tramos[j] + 1) % dem.TRAMOS_DIA:
+                j += 1
+            rangos.append((tramos[i], (tramos[j] + 1) % dem.TRAMOS_DIA, faltas[i]))
+            i = j + 1
+        out[fr] = (max(faltas, default=0), rangos)
+    return out
+
+
+def faltantes_periodo(ctx, cuadro, fechas):
+    """{fecha: faltantes_dia(...)}; del primer día no se exige la madrugada que viene de la noche anterior (se desconoce)."""
+    fechas = sorted(fechas)
+    return {f: faltantes_dia(ctx, cuadro, f, con_ayer=f != fechas[0]) for f in fechas}
 
 
 def validar(ctx, cuadro, fechas, fijos=()):
@@ -90,9 +125,9 @@ def validar(ctx, cuadro, fechas, fijos=()):
             manual = sum(not (libre(s) and libre(d)) and ((p.id, s) in fijos or (p.id, d) in fijos) for s, d in fines)
             if hay + manual < min(ctx.fines_libres, len(fines)):
                 out.append(Alerta("aviso", None, p.id, f"{nombres[p.id]}: sin fin de semana libre (sábado y domingo) en este periodo"))
-    for f in fechas:
-        req, hay = ctx.cobertura[ctx.tipo_dia(f)], cobertura_dia(ctx, cuadro, f)
-        for fr, n in req.items():
-            if hay[fr] < n:
-                out.append(Alerta("error", f, None, f"{f:%d/%m}: faltan {n - hay[fr]} en {fr} (hay {hay[fr]}, se requieren {n})"))
+    for f, por_franja in faltantes_periodo(ctx, cuadro, fechas).items():
+        for fr, (peor, rangos) in por_franja.items():
+            if peor:
+                tramos = ", ".join(texto_tramos(a, b) for a, b, _ in rangos)
+                out.append(Alerta("error", f, None, f"{f:%d/%m}: faltan {peor} en {FRANJA_NOMBRE[fr]} ({tramos})"))
     return out
