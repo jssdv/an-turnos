@@ -128,6 +128,7 @@ class Colaborador:
     puesto_fijo: int = None
     estudio: tuple = ()  # ((día 0-6, "M"|"T"), ...) bloques en que no está disponible
     activo: bool = True
+    puestos_permitidos: tuple = None  # ids de puesto que puede ocupar; None = todos
 
     @property
     def en_solver(self):

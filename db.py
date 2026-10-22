@@ -3,7 +3,8 @@ import json
 import sqlite3
 from datetime import date
 
-from dominio import COBERTURA_BASE, Colaborador, Contexto, Novedad, Turno, festivos, turnos_base
+from demanda import cobertura_derivada
+from dominio import COBERTURA_BASE, Colaborador, Contexto, Demanda, Novedad, Puesto, Turno, festivos, turnos_base
 
 ESQUEMA = """
 CREATE TABLE turno (codigo TEXT PRIMARY KEY, nombre TEXT, inicio INT, fin INT, color TEXT, cubre TEXT,
@@ -22,7 +23,15 @@ CREATE TABLE parametro (clave TEXT PRIMARY KEY, valor TEXT);
 CREATE TABLE periodo_estado (clave TEXT PRIMARY KEY, cerrado_en TEXT);
 CREATE TABLE cierre (periodo TEXT, colab_id INT, contratadas REAL, trabajadas REAL, PRIMARY KEY (periodo, colab_id));
 CREATE TABLE banco_mov (id INTEGER PRIMARY KEY, colab_id INT, fecha TEXT, horas REAL, concepto TEXT, nota TEXT);
+""" + """
+CREATE TABLE puesto (id INTEGER PRIMARY KEY, numero INT UNIQUE, nombre TEXT, color TEXT, activo INT);
+CREATE TABLE demanda (id INTEGER PRIMARY KEY, puesto_id INT, tipo_dia TEXT, inicio INT, fin INT, personas INT, obligatorio INT);
+CREATE TABLE persona_puesto (colab_id INT, puesto_id INT, PRIMARY KEY (colab_id, puesto_id));
 """
+
+PUESTOS_BASE = [(1, "Lavado", "DDEBF7"), (2, "Autoclave", "E2EFDA"), (3, "Sterrad y esto", "FFF2CC"),
+                (4, "Cuarto estéril", "FCE4D6"), (5, "Ropa", "EDEDED"), (6, "Guardia noche", "D9D2E9")]
+PRIORIDAD_BASE = [2, 1, 3, 4]  # orden en que la cobertura antigua se reparte entre los puestos de día
 
 TARIFAS_BASE = [  # valores en %; noche_inicio en minutos desde 00:00
     ("dominical", 75, "2000-01-01"), ("dominical", 80, "2025-07-01"), ("dominical", 90, "2026-07-01"),
@@ -45,16 +54,62 @@ class BD:
             for t in turnos_base():
                 self.guardar_turno(t)
             self.guardar_cobertura(COBERTURA_BASE)
+            self._sembrar_puestos(COBERTURA_BASE)
             self.c.executemany("INSERT INTO tarifa VALUES (?,?,?)", TARIFAS_BASE)
             for k, v in PARAMETROS_BASE.items():
                 self.set_param(k, v)
-            self.c.execute("PRAGMA user_version = 3")
+            self.c.execute("PRAGMA user_version = 4")
             self.c.commit()
         else:
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
                 self._migrar_a_2()
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 2:
                 self._migrar_a_3()
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 3:
+                self._migrar_a_4()
+
+    def _migrar_a_4(self):
+        """v4 agrega los puestos con reglas de demanda; la cobertura antigua se convierte en demanda."""
+        self.c.executescript("CREATE TABLE IF NOT EXISTS puesto (id INTEGER PRIMARY KEY, numero INT UNIQUE, nombre TEXT, color TEXT, activo INT);"
+                             "CREATE TABLE IF NOT EXISTS demanda (id INTEGER PRIMARY KEY, puesto_id INT, tipo_dia TEXT, inicio INT, fin INT, "
+                             "personas INT, obligatorio INT);"
+                             "CREATE TABLE IF NOT EXISTS persona_puesto (colab_id INT, puesto_id INT, PRIMARY KEY (colab_id, puesto_id));")
+        if not self.c.execute("SELECT 1 FROM puesto LIMIT 1").fetchone():  # idempotente
+            self._sembrar_puestos(self.cobertura())
+        ids = {r["numero"]: r["id"] for r in self.c.execute("SELECT id, numero FROM puesto")}
+        for r in self.c.execute("SELECT id, puesto_fijo FROM colaborador WHERE puesto_fijo IS NOT NULL").fetchall():
+            if r["puesto_fijo"] in ids:
+                self.c.execute("INSERT OR IGNORE INTO persona_puesto VALUES (?,?)", (r["id"], ids[r["puesto_fijo"]]))
+        self.c.execute("PRAGMA user_version = 4")
+        self.c.commit()
+
+    def _sembrar_puestos(self, cobertura):
+        """Crea los puestos base y convierte la cobertura {tipo_dia: {franja: n}} en demanda, conservando los totales:
+        las primeras personas de cada franja de día se reparten de a una por puesto (orden Autoclave, Lavado, Sterrad,
+        Cuarto estéril), el excedente va al primero, y la noche pasa a «Guardia noche». Ropa queda como deseable."""
+        ids = {}
+        for numero, nombre, color in PUESTOS_BASE:
+            ids[numero] = self.c.execute("INSERT INTO puesto (numero, nombre, color, activo) VALUES (?,?,?,1)",
+                                         (numero, nombre, color)).lastrowid
+        filas = []
+        for td in ("LS", "DF"):
+            cob = cobertura.get(td, {})
+            pers = {}
+            for fr in ("M", "T"):
+                n = cob.get(fr, 0)
+                for i, numero in enumerate(PRIORIDAD_BASE[:min(n, len(PRIORIDAD_BASE))]):
+                    pers[numero, fr] = 1 + (n - len(PRIORIDAD_BASE) if i == 0 and n > len(PRIORIDAD_BASE) else 0)
+            for numero in PRIORIDAD_BASE:
+                m, t = pers.get((numero, "M"), 0), pers.get((numero, "T"), 0)
+                if m and m == t:
+                    filas.append((ids[numero], td, 360, 1080, m, 1))
+                else:
+                    filas += [(ids[numero], td, a, b, n, 1) for a, b, n in ((360, 720, m), (720, 1080, t)) if n]
+            if td == "LS":
+                filas.append((ids[5], "LS", 360, 1080, 1, 0))
+            if cob.get("N", 0):
+                filas.append((ids[6], td, 1080, 360, cob["N"], 1))
+        self.c.executemany("INSERT INTO demanda (puesto_id, tipo_dia, inicio, fin, personas, obligatorio) VALUES (?,?,?,?,?,?)", filas)
 
     def _migrar_a_3(self):
         """v3 agrega el cierre de periodos y el banco de horas."""
@@ -125,8 +180,51 @@ class BD:
         self.c.execute("INSERT OR REPLACE INTO parametro VALUES (?,?)", (clave, str(valor)))
         self.c.commit()
 
+    # --- puestos y su demanda --------------------------------------------------------------------
+    def catalogo_puestos(self, solo_activos=False):
+        q = "SELECT * FROM puesto" + (" WHERE activo=1" if solo_activos else "") + " ORDER BY numero"
+        return {r["id"]: Puesto(r["id"], r["numero"], r["nombre"], r["color"], bool(r["activo"])) for r in self.c.execute(q)}
+
+    def guardar_puesto(self, p):
+        if self.c.execute("SELECT 1 FROM puesto WHERE numero=? AND id<>?", (p.numero, p.id or 0)).fetchone():
+            raise ValueError(f"Ya existe el puesto número {p.numero}.")
+        if p.id:
+            self.c.execute("UPDATE puesto SET numero=?, nombre=?, color=?, activo=? WHERE id=?",
+                           (p.numero, p.nombre, p.color, p.activo, p.id))
+        else:
+            p.id = self.c.execute("INSERT INTO puesto (numero, nombre, color, activo) VALUES (?,?,?,?)",
+                                  (p.numero, p.nombre, p.color, p.activo)).lastrowid
+        self.c.commit()
+        return p.id
+
+    def borrar_puesto(self, id_):
+        """Un puesto con reparto guardado se desactiva para no perder el historial. Devuelve «borrado» o «desactivado»."""
+        numero = self.c.execute("SELECT numero FROM puesto WHERE id=?", (id_,)).fetchone()["numero"]
+        en_uso = self.c.execute("SELECT 1 FROM puesto_dia WHERE puesto=? LIMIT 1", (numero,)).fetchone() is not None
+        if en_uso:
+            self.c.execute("UPDATE puesto SET activo=0 WHERE id=?", (id_,))
+        else:
+            self.c.execute("DELETE FROM demanda WHERE puesto_id=?", (id_,))
+            self.c.execute("DELETE FROM persona_puesto WHERE puesto_id=?", (id_,))
+            self.c.execute("DELETE FROM puesto WHERE id=?", (id_,))
+        self.c.commit()
+        return "desactivado" if en_uso else "borrado"
+
+    def demandas(self, puesto_id=None):
+        q = "SELECT * FROM demanda" + (" WHERE puesto_id=?" if puesto_id else "") + " ORDER BY puesto_id, id"
+        return [Demanda(r["puesto_id"], r["tipo_dia"], r["inicio"], r["fin"], r["personas"], bool(r["obligatorio"]), r["id"])
+                for r in self.c.execute(q, (puesto_id,) if puesto_id else ())]
+
+    def reemplazar_demandas(self, puesto_id, demandas):
+        self.c.execute("DELETE FROM demanda WHERE puesto_id=?", (puesto_id,))
+        self.c.executemany("INSERT INTO demanda (puesto_id, tipo_dia, inicio, fin, personas, obligatorio) VALUES (?,?,?,?,?,?)",
+                           [(puesto_id, d.tipo_dia, d.inicio, d.fin, d.personas, d.obligatorio) for d in demandas])
+        self.c.commit()
+
     # --- personal y novedades -------------------------------------------------------------------
     def guardar_colaborador(self, p):
+        if p.puestos_permitidos is not None and not p.puestos_permitidos:
+            raise ValueError("Marca al menos un puesto que pueda ocupar.")
         permitidos = None if p.permitidos is None else json.dumps(list(p.permitidos))
         vals = (p.nombre, p.tipo, p.horas_sem, p.pct, permitidos, p.puesto_fijo, json.dumps(p.estudio), p.activo)
         if p.id:
@@ -135,14 +233,20 @@ class BD:
         else:
             p.id = self.c.execute("INSERT INTO colaborador (nombre,tipo,horas_sem,pct,permitidos,puesto_fijo,estudio,"
                                   "activo) VALUES (?,?,?,?,?,?,?,?)", vals).lastrowid
+        self.c.execute("DELETE FROM persona_puesto WHERE colab_id=?", (p.id,))
+        self.c.executemany("INSERT INTO persona_puesto VALUES (?,?)", [(p.id, q) for q in p.puestos_permitidos or ()])
         self.c.commit()
         return p.id
 
     def colaboradores(self, solo_activos=True):
         q = "SELECT * FROM colaborador" + (" WHERE activo=1" if solo_activos else "") + " ORDER BY id"
+        permitidos = {}
+        for r in self.c.execute("SELECT * FROM persona_puesto ORDER BY puesto_id"):
+            permitidos.setdefault(r["colab_id"], []).append(r["puesto_id"])
         return [Colaborador(r["id"], r["nombre"], r["tipo"], r["horas_sem"], r["pct"],
                             None if r["permitidos"] is None else tuple(json.loads(r["permitidos"])),
-                            r["puesto_fijo"], tuple(tuple(e) for e in json.loads(r["estudio"])), bool(r["activo"]))
+                            r["puesto_fijo"], tuple(tuple(e) for e in json.loads(r["estudio"])), bool(r["activo"]),
+                            tuple(permitidos[r["id"]]) if r["id"] in permitidos else None)
                 for r in self.c.execute(q)]
 
     def borrar_colaborador(self, id_):
@@ -175,10 +279,12 @@ class BD:
         fest = {}
         for a in años | {a + 1 for a in años} | {a - 1 for a in años}:
             fest.update(festivos(a))
-        return Contexto(self.turnos(), self.colaboradores(), self.novedades(), self.cobertura(), fest,
+        puestos = self.catalogo_puestos(solo_activos=True)
+        demandas = [d for d in self.demandas() if d.puesto_id in puestos]
+        return Contexto(self.turnos(), self.colaboradores(), self.novedades(), cobertura_derivada(demandas), fest,
                         int(self.param("libre_tras_noche", 1)), int(self.param("libres_por_semana", 1)),
                         int(self.param("fines_semana_libres", 1)), int(self.param("max_noches_seguidas", 2)),
-                        int(self.param("max_c_seguidos", 2)), int(self.param("max_igual_seguidos", 3)))
+                        int(self.param("max_c_seguidos", 2)), int(self.param("max_igual_seguidos", 3)), puestos, demandas)
 
     # --- cuadro: versiones original / cambios ---------------------------------------------------
     def asignaciones(self, mes, version="cambios"):
