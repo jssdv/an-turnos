@@ -1,4 +1,5 @@
 """Modelo del servicio: turnos (catálogo editable), personal, novedades, festivos y contexto de reglas."""
+from collections import namedtuple
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
@@ -93,6 +94,10 @@ def festivos(a):
     for dias, n in [(39, "Ascensión"), (60, "Corpus Christi"), (68, "Sagrado Corazón")]:
         r[sig_lunes(p + timedelta(days=dias))] = n
     return r
+
+
+AsignacionPuesto = namedtuple("AsignacionPuesto", "fecha colab_id puesto_id desde hasta pausa")
+"""Una persona en un puesto durante [desde, hasta) minutos del día `fecha`; puesto_id 0 = apoyo (sin puesto)."""
 
 
 @dataclass

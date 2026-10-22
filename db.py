@@ -4,7 +4,8 @@ import sqlite3
 from datetime import date
 
 from demanda import cobertura_derivada, franjas_de
-from dominio import COBERTURA_BASE, Colaborador, Contexto, Demanda, Novedad, Puesto, Turno, festivos, turnos_base
+from dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Turno, festivos,
+                     turnos_base)
 
 ESQUEMA = """
 CREATE TABLE turno (codigo TEXT PRIMARY KEY, nombre TEXT, inicio INT, fin INT, color TEXT, cubre TEXT,
@@ -27,6 +28,8 @@ CREATE TABLE banco_mov (id INTEGER PRIMARY KEY, colab_id INT, fecha TEXT, horas 
 CREATE TABLE puesto (id INTEGER PRIMARY KEY, numero INT UNIQUE, nombre TEXT, color TEXT, activo INT);
 CREATE TABLE demanda (id INTEGER PRIMARY KEY, puesto_id INT, tipo_dia TEXT, inicio INT, fin INT, personas INT, obligatorio INT);
 CREATE TABLE persona_puesto (colab_id INT, puesto_id INT, PRIMARY KEY (colab_id, puesto_id));
+""" + """
+CREATE TABLE asignacion_puesto (periodo TEXT, fecha TEXT, colab_id INT, puesto_id INT, desde INT, hasta INT, pausa INT);
 """
 
 PUESTOS_BASE = [(1, "Lavado", "DDEBF7"), (2, "Autoclave", "E2EFDA"), (3, "Sterrad y esto", "FFF2CC"),
@@ -58,7 +61,7 @@ class BD:
             self.c.executemany("INSERT INTO tarifa VALUES (?,?,?)", TARIFAS_BASE)
             for k, v in PARAMETROS_BASE.items():
                 self.set_param(k, v)
-            self.c.execute("PRAGMA user_version = 4")
+            self.c.execute("PRAGMA user_version = 5")
             self.c.commit()
         else:
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
@@ -67,6 +70,21 @@ class BD:
                 self._migrar_a_3()
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 3:
                 self._migrar_a_4()
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 4:
+                self._migrar_a_5()
+
+    def _migrar_a_5(self):
+        """v5 guarda el reparto de puestos por tramos horarios; las filas antiguas (franja M o T) se convierten."""
+        self.c.execute("CREATE TABLE IF NOT EXISTS asignacion_puesto (periodo TEXT, fecha TEXT, colab_id INT, puesto_id INT, "
+                       "desde INT, hasta INT, pausa INT)")
+        ids = {r["numero"]: r["id"] for r in self.c.execute("SELECT id, numero FROM puesto")}
+        horas = {"M": (360, 720), "T": (720, 1080)}
+        for r in self.c.execute("SELECT * FROM puesto_dia").fetchall():
+            if r["franja"] in horas:
+                self.c.execute("INSERT INTO asignacion_puesto VALUES (?,?,?,?,?,?,?)",
+                               (r["mes"], r["fecha"], r["colab_id"], ids.get(r["puesto"], 0), *horas[r["franja"]], r["pausa"]))
+        self.c.execute("PRAGMA user_version = 5")
+        self.c.commit()
 
     def _migrar_a_4(self):
         """v4 agrega los puestos con reglas de demanda; la cobertura antigua se convierte en demanda."""
@@ -203,7 +221,8 @@ class BD:
     def borrar_puesto(self, id_):
         """Un puesto con reparto guardado se desactiva para no perder el historial. Devuelve «borrado» o «desactivado»."""
         numero = self.c.execute("SELECT numero FROM puesto WHERE id=?", (id_,)).fetchone()["numero"]
-        en_uso = self.c.execute("SELECT 1 FROM puesto_dia WHERE puesto=? LIMIT 1", (numero,)).fetchone() is not None
+        en_uso = (self.c.execute("SELECT 1 FROM puesto_dia WHERE puesto=? LIMIT 1", (numero,)).fetchone() is not None
+                  or self.c.execute("SELECT 1 FROM asignacion_puesto WHERE puesto_id=? LIMIT 1", (id_,)).fetchone() is not None)
         if en_uso:
             self.c.execute("UPDATE puesto SET activo=0 WHERE id=?", (id_,))
         else:
@@ -408,6 +427,17 @@ class BD:
     def puestos(self, mes):
         return [(_dt(r["fecha"]), r["franja"], r["puesto"], r["colab_id"], r["pausa"])
                 for r in self.c.execute("SELECT * FROM puesto_dia WHERE mes=?", (mes,))]
+
+    def guardar_asignacion_puesto(self, periodo, filas):
+        """Reemplaza el reparto de puestos por tramos del periodo."""
+        self.c.execute("DELETE FROM asignacion_puesto WHERE periodo=?", (periodo,))
+        self.c.executemany("INSERT INTO asignacion_puesto VALUES (?,?,?,?,?,?,?)",
+                           [(periodo, f.fecha.isoformat(), f.colab_id, f.puesto_id, f.desde, f.hasta, f.pausa) for f in filas])
+        self.c.commit()
+
+    def asignacion_puesto(self, periodo):
+        return [AsignacionPuesto(_dt(r["fecha"]), r["colab_id"], r["puesto_id"], r["desde"], r["hasta"], r["pausa"])
+                for r in self.c.execute("SELECT * FROM asignacion_puesto WHERE periodo=? ORDER BY fecha, colab_id, desde", (periodo,))]
 
     def guardar_capacitacion(self, mes, filas):
         self.c.execute("DELETE FROM capacitacion WHERE mes=?", (mes,))

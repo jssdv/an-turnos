@@ -1,12 +1,13 @@
 """Pruebas del núcleo de puestos, demanda por tramos y dotación. Imprime OK."""
-from datetime import date
+from datetime import date, timedelta
 
 import tempfile
 
 import db
 import demanda
 import dotacion
-from dominio import Colaborador, Contexto, Demanda, Puesto, Turno
+import puestos
+from dominio import AsignacionPuesto, Colaborador, Contexto, Demanda, Puesto, Turno
 
 
 def ctx_con(demandas):
@@ -101,7 +102,7 @@ def test_migracion_v3_a_v4():
         assert bd.contexto(2026).cobertura["LS"] == {"M": 5, "T": 4, "N": 2}
         sterrad = next(i for i, p in pu.items() if p.numero == 3)
         assert bd.colaboradores()[0].puestos_permitidos == (sterrad,)
-        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 5  # la cadena termina en la versión vigente
 
 
 def test_borrar_puesto_en_uso():
@@ -176,6 +177,134 @@ def test_estimar_ignora_puestos_inactivos_y_refuerzo():
     bd.guardar_puesto(p)
     e = dotacion.estimar(bd)
     assert e["horas_semana"] == 288 + 24 and e["activos"] == 1
+
+
+def _bd(puestos_demandas, n):
+    """BD con solo estos puestos con demanda: {nombre: [(tipo, ini, fin, personas[, obligatorio])]} y n personas."""
+    bd = db.BD()
+    for pid in list(bd.catalogo_puestos()):
+        bd.reemplazar_demandas(pid, [])
+    ids = {}
+    for k, (nombre, reglas) in enumerate(puestos_demandas.items(), start=20):
+        pid = bd.guardar_puesto(Puesto(0, k, nombre))
+        ids[nombre] = pid
+        bd.reemplazar_demandas(pid, [Demanda(pid, *r) for r in reglas])
+    for i in range(n):
+        bd.guardar_colaborador(Colaborador(0, f"P{i}"))
+    return bd, ids
+
+
+LUN = date(2026, 10, 5)
+DIA = [date(2026, 10, 5 + i) for i in range(4)]  # lunes a jueves
+
+
+def _ocupacion(filas):
+    occ = {}
+    for a in filas:
+        if a.puesto_id:
+            for t in range(a.desde // 30, a.hasta // 30):
+                occ[(a.fecha, a.puesto_id, t)] = occ.get((a.fecha, a.puesto_id, t), 0) + 1
+    return occ
+
+
+def _sin_solape(filas):
+    vistos = set()
+    for a in filas:
+        for t in range(a.desde // 30, a.hasta // 30):
+            k = (a.fecha, a.colab_id, t)
+            assert k not in vistos, k
+            vistos.add(k)
+
+
+def test_asignar_cubre_la_demanda_por_tramo():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)], "B": [("LS", 720, 1080, 1)]}, 3)
+    ctx = bd.contexto(2026)
+    p0, p1, p2 = [c.id for c in ctx.colabs]
+    cuadro = {(p0, LUN): "C", (p1, LUN): "M", (p2, LUN): "T"}
+    filas = puestos.asignar_tramos(ctx, cuadro, [LUN])
+    _sin_solape(filas)
+    occ = _ocupacion(filas)
+    assert all(occ.get((LUN, ids["A"], t), 0) >= 1 for t in range(12, 36))
+    assert all(occ.get((LUN, ids["B"], t), 0) >= 1 for t in range(24, 36))
+
+
+def test_respeta_puestos_permitidos():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)], "B": [("LS", 360, 1080, 1)]}, 2)
+    a, b = bd.colaboradores()
+    a.puestos_permitidos = (ids["B"],)
+    bd.guardar_colaborador(a)
+    ctx = bd.contexto(2026)
+    filas = puestos.asignar_tramos(ctx, {(a.id, LUN): "C", (b.id, LUN): "C"}, [LUN])
+    assert {x.puesto_id for x in filas if x.colab_id == a.id} == {ids["B"]}
+    assert {x.puesto_id for x in filas if x.colab_id == b.id} == {ids["A"]}
+
+
+def test_varias_personas_en_un_puesto():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 2)]}, 2)
+    ctx = bd.contexto(2026)
+    c0, c1 = [c.id for c in ctx.colabs]
+    filas = puestos.asignar_tramos(ctx, {(c0, LUN): "C", (c1, LUN): "C"}, [LUN])
+    occ = _ocupacion(filas)
+    assert all(occ[(LUN, ids["A"], t)] == 2 for t in range(12, 36))
+
+
+def test_corrido_conserva_el_puesto_si_puede():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)], "B": [("LS", 360, 1080, 1)]}, 2)
+    ctx = bd.contexto(2026)
+    c0, c1 = [c.id for c in ctx.colabs]
+    filas = puestos.asignar_tramos(ctx, {(c0, LUN): "C", (c1, LUN): "C"}, [LUN])
+    for cid in (c0, c1):
+        propias = [x for x in filas if x.colab_id == cid]
+        assert len(propias) == 1 and (propias[0].desde, propias[0].hasta) == (360, 1080)
+
+
+def test_apoyo_cuando_sobra_gente():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)]}, 2)
+    ctx = bd.contexto(2026)
+    c0, c1 = [c.id for c in ctx.colabs]
+    filas = puestos.asignar_tramos(ctx, {(c0, LUN): "C", (c1, LUN): "C"}, [LUN])
+    assert sorted(x.puesto_id for x in filas) == sorted([0, ids["A"]])
+
+
+def test_rota_entre_dias():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)], "B": [("LS", 360, 1080, 1)]}, 2)
+    ctx = bd.contexto(2026)
+    c0, c1 = [c.id for c in ctx.colabs]
+    cuadro = {(c, d): "C" for c in (c0, c1) for d in DIA}
+    filas = puestos.asignar_tramos(ctx, cuadro, DIA)
+    puesto = {(x.colab_id, x.fecha): x.puesto_id for x in filas}
+    assert all(puesto[(c0, d)] != puesto[(c0, d + timedelta(days=1))] for d in DIA[:-1])
+
+
+def test_noche_cuenta_en_su_dia_y_en_la_madrugada():
+    bd, ids = _bd({"G": [("LS", 1080, 360, 1), ("DF", 1080, 360, 1)]}, 1)
+    ctx = bd.contexto(2026)
+    c0 = ctx.colabs[0].id
+    filas = puestos.asignar_tramos(ctx, {(c0, LUN): "NC"}, [LUN, LUN + timedelta(days=1)])
+    assert (LUN, 1080, 1440) in {(x.fecha, x.desde, x.hasta) for x in filas if x.puesto_id == ids["G"]}
+    assert (LUN + timedelta(days=1), 0, 360) in {(x.fecha, x.desde, x.hasta) for x in filas if x.puesto_id == ids["G"]}
+
+
+def test_asignacion_puesto_roundtrip_y_migracion_v5():
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = tmp + "/v4.db"
+        bd = db.BD(ruta)
+        aut = next(i for i, p in bd.catalogo_puestos().items() if p.numero == 2)
+        fila = AsignacionPuesto(LUN, 1, aut, 360, 720, 1)
+        bd.guardar_asignacion_puesto("p", [fila])
+        assert bd.asignacion_puesto("p") == [fila]
+        bd.guardar_asignacion_puesto("p", [])
+        assert bd.asignacion_puesto("p") == []
+        bd.c.execute("INSERT INTO puesto_dia VALUES ('p','2026-10-05','M',2,1,1)")
+        bd.c.execute("INSERT INTO puesto_dia VALUES ('p','2026-10-05','T',0,2,2)")
+        bd.c.executescript("DROP TABLE asignacion_puesto;")
+        bd.c.execute("PRAGMA user_version = 4")
+        bd.c.commit()
+        bd.c.close()
+        bd = db.BD(ruta)
+        assert sorted(bd.asignacion_puesto("p")) == sorted([AsignacionPuesto(LUN, 1, aut, 360, 720, 1),
+                                                           AsignacionPuesto(LUN, 2, 0, 720, 1080, 2)])
+        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 5
 
 
 if __name__ == "__main__":
