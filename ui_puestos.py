@@ -2,10 +2,11 @@
 from PySide6.QtCore import Qt, QTime
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QFormLayout, QGroupBox, QHBoxLayout,
-                               QHeaderView, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTimeEdit,
+                               QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTimeEdit,
                                QVBoxLayout, QWidget)
 
 import demanda
+import dotacion
 from dominio import Demanda, Puesto
 from ui_base import con_vacio, hhmm, llenar, sin_seleccion, tabla
 
@@ -80,7 +81,6 @@ class TabPuestos(QWidget):
 
     @staticmethod
     def _etiqueta(texto):
-        from PySide6.QtWidgets import QLabel
         e = QLabel(texto, objectName="muted")
         e.setWordWrap(True)
         return e
@@ -220,3 +220,75 @@ class TabPuestos(QWidget):
             self.v.avisar(f"«{nombre}» ya tiene reparto guardado, así que quedó inactivo en lugar de borrarse.", "warn")
         self.nuevo()
         self.v.refrescar()
+
+
+class TabDotacion(QWidget):
+    """Pestaña Dotación: cuántas personas piden los puestos (estimación por horas) frente al personal activo."""
+
+    def __init__(self, ventana):
+        super().__init__()
+        self.v = ventana
+        lv = QVBoxLayout(self)
+        lv.setContentsMargins(16, 14, 16, 16)
+        lv.setSpacing(12)
+        lv.addWidget(self._texto("Horas-persona que exigen los puestos en una semana tipo (6 días de lunes a sábado + 1 de "
+                                 "domingo/festivo), divididas entre la jornada media, con un margen por vacaciones e incapacidades."))
+        ctl = QHBoxLayout()
+        self.s_margen = QSpinBox()
+        self.s_margen.setRange(0, 50)
+        self.s_margen.setSuffix(" %")
+        self.s_margen.setFixedWidth(90)
+        self.s_margen.lineEdit().setTextMargins(6, 0, 0, 0)
+        self.s_margen.valueChanged.connect(self._margen)
+        self.c_deseables = QCheckBox("Incluir puestos deseables")
+        self.c_deseables.toggled.connect(lambda _: self.refrescar())
+        ctl.addWidget(QLabel("Margen de ausentismo"))
+        ctl.addWidget(self.s_margen)
+        ctl.addSpacing(16)
+        ctl.addWidget(self.c_deseables)
+        ctl.addStretch()
+        lv.addLayout(ctl)
+        tarjetas = QHBoxLayout()
+        tarjetas.setSpacing(12)
+        self.l_horas, self.l_personas, self.l_activos, self.l_diferencia = (QLabel("") for _ in range(4))
+        for titulo, lab in (("Horas por semana", self.l_horas), ("Personas necesarias", self.l_personas),
+                            ("Personal activo", self.l_activos), ("Diferencia", self.l_diferencia)):
+            caja = QGroupBox(titulo)
+            lab.setObjectName("cifra")
+            QVBoxLayout(caja).addWidget(lab)
+            tarjetas.addWidget(caja)
+        lv.addLayout(tarjetas)
+        tablas = QHBoxLayout()
+        tablas.setSpacing(16)
+        self.t_puesto = tabla(["Puesto", "Horas por semana"])
+        self.t_franja = tabla(["Franja", "Horas por semana"])
+        for t, titulo in ((self.t_puesto, "Por puesto"), (self.t_franja, "Por franja")):
+            caja = QGroupBox(titulo)
+            QVBoxLayout(caja).addWidget(t)
+            tablas.addWidget(caja)
+        lv.addLayout(tablas, 1)
+
+    @staticmethod
+    def _texto(t):
+        e = QLabel(t, objectName="muted")
+        e.setWordWrap(True)
+        return e
+
+    def _margen(self, valor):
+        self.v.bd.set_param("dotacion_margen_pct", valor)
+        self.refrescar()
+
+    def refrescar(self):
+        bd = self.v.bd
+        self.s_margen.blockSignals(True)
+        self.s_margen.setValue(int(float(bd.param("dotacion_margen_pct", 10))))
+        self.s_margen.blockSignals(False)
+        e = dotacion.estimar(bd, self.c_deseables.isChecked())
+        self.l_horas.setText(f"{e['horas_semana']:g}")
+        self.l_personas.setText(str(e["personas"]))
+        self.l_activos.setText(str(e["activos"]))
+        d = e["diferencia"]
+        self.l_diferencia.setText("Al día" if d == 0 else (f"Sobran {d}" if d > 0 else f"Faltan {-d}"))
+        nombres = {i: f"{p.numero} · {p.nombre}" for i, p in bd.catalogo_puestos().items()}
+        llenar(self.t_puesto, [(nombres.get(i, "?"), h) for i, h in sorted(e["por_puesto"].items())])
+        llenar(self.t_franja, [(n, e["por_franja"][k]) for k, n in (("M", "Mañana"), ("T", "Tarde"), ("N", "Noche"))])

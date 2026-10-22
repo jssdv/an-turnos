@@ -161,4 +161,22 @@ for cb in v.p_puestos_cbs.values():
     cb.setChecked(False)
 n = len(v.bd.colaboradores(solo_activos=False)); v._guardar_persona()
 assert "Marca al menos un puesto que pueda ocupar" in v.aviso.text() and len(v.bd.colaboradores(solo_activos=False)) == n
+# --- pestaña Dotación (estimación por horas)
+import tempfile as _tf
+from dominio import Colaborador
+v2 = app.Ventana(_tf.mkdtemp() + "/d.db")
+for i in range(13):
+    v2.bd.guardar_colaborador(Colaborador(0, f"P{i}"))
+v2.refrescar()
+td = v2.tab_dotacion
+assert td.l_horas.text() == "480" and td.l_personas.text() == "13" and td.l_activos.text() == "13" and td.l_diferencia.text() == "Al día"
+assert td.t_puesto.rowCount() == 5 and td.t_franja.rowCount() == 3  # Ropa es deseable: no entra sin la casilla
+suma = sum(float(td.t_franja.item(r, 1).text()) for r in range(3))
+assert suma == 480
+td.s_margen.setValue(20)
+assert td.l_personas.text() == "15" and td.l_diferencia.text() == "Faltan 2" and v2.bd.param("dotacion_margen_pct") == "20"
+td.c_deseables.setChecked(True)
+assert td.t_puesto.rowCount() == 6 and td.l_horas.text() == "552"
+td.s_margen.setValue(0); td.c_deseables.setChecked(False)
+assert td.l_personas.text() == "12" and td.l_diferencia.text() == "Sobran 1"
 print("OK")

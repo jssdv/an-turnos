@@ -22,7 +22,7 @@ import recargos
 import reglas
 import solver
 from ui_base import con_vacio, hhmm, llenar, signo, sin_seleccion, tabla
-from ui_puestos import TabPuestos
+from ui_puestos import TabDotacion, TabPuestos
 from dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
 from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
 
@@ -71,6 +71,7 @@ QHeaderView::section { background: #F7F8FA; border: none; border-bottom: 1px sol
 QGroupBox { background: $superficie; border: 1px solid $borde; border-radius: 10px; margin-top: 14px; padding: 16px 12px 12px 12px; font-weight: 600; }
 QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 6px; color: $primario; }
 QCheckBox { spacing: 8px; color: $texto; }
+QLabel#cifra { font-size: 26px; font-weight: 700; color: $primario; }
 QListWidget { border: 1px solid $borde; border-radius: 8px; background: $superficie; padding: 4px; }
 QSplitter::handle { background: transparent; }
 QToolTip { background: #1B2733; color: white; border: none; padding: 6px 8px; }
@@ -170,6 +171,8 @@ class Ventana(QMainWindow):
         self._pestana_puestos()
         self._pestana_horas()
         self._pestana_banco()
+        self.tab_dotacion = TabDotacion(self)
+        self.pestanas.addTab(self.tab_dotacion, "Dotación")
         self._pestana_parametros()
         for señal in (self.mes.currentIndexChanged, self.año.valueChanged, self.pestanas.currentChanged):
             señal.connect(lambda _: self._cambio_vista())
@@ -247,7 +250,7 @@ class Ventana(QMainWindow):
         self.ctx = self.bd.contexto(self.periodo()[0].year)
         self.nombres = {p.id: p.nombre for p in self.ctx.colabs}
         for f in (self._ver_cuadro, self._ver_personal, self._ver_novedades, self._ver_puestos, self._ver_horas,
-                  self._ver_banco, self._ver_parametros):
+                  self._ver_banco, self.tab_dotacion.refrescar, self._ver_parametros):
             f()
 
     # --- cuadro ---------------------------------------------------------------------------------
