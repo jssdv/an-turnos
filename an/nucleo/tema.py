@@ -10,11 +10,11 @@ ACENTO = "#0F6E8C"
 ESTILO = f"""
 QMainWindow, QWidget#fondo {{ background: #F4F6F8; }}
 QLabel {{ color: #1F2933; }}
-QLabel#muted, QLabel#sub {{ color: #6B7280; }}
+QLabel#muted, QLabel#sub {{ color: #5B6472; }}
 QLabel#marca {{ font-size: 16px; font-weight: 700; }}
 QLabel#seccion {{ font-size: 18px; font-weight: 650; }}
 QLabel#vacio_t {{ font-size: 17px; font-weight: 600; }}
-QLabel#campo {{ color: #6B7280; font-size: 11px; font-weight: 600; letter-spacing: .4px; }}
+QLabel#campo {{ color: #5B6472; font-size: 11px; font-weight: 600; letter-spacing: .4px; }}
 QFrame#cabecera {{ background: white; border-bottom: 1px solid #E3E6EA; }}
 QListWidget#nav {{ background: transparent; border: none; outline: 0; font-size: 13px; }}
 QListWidget#nav::item {{ padding: 9px 12px; border-radius: 7px; color: #3E4C59; margin: 1px 0; }}
@@ -38,20 +38,21 @@ QFrame#soltar[activo="true"] {{ border-color: {ACENTO}; background: #EEF6F9; }}
 QPushButton, QToolButton {{ background: white; border: 1px solid #CBD2D9; border-radius: 6px; padding: 7px 14px; color: #1F2933; }}
 QPushButton:hover, QToolButton:hover {{ background: #F0F3F6; }}
 QPushButton:focus, QToolButton:focus {{ border-color: {ACENTO}; }}
-QPushButton:disabled, QToolButton:disabled {{ color: #A0A7B0; background: #F5F6F8; }}
+QPushButton:disabled, QToolButton:disabled {{ color: #7A828C; background: #F5F6F8; }}
 QPushButton#primario {{ background: {ACENTO}; border: 1px solid {ACENTO}; color: white; font-weight: 600; padding: 8px 18px; }}
 QPushButton#primario:hover {{ background: #0C5C75; }}
-QPushButton#primario:disabled {{ background: #9DBFCB; border-color: #9DBFCB; }}
+QPushButton#primario:disabled {{ background: #9DBFCB; border-color: #9DBFCB; color: #0B3F52; }}
 QPushButton#peligro {{ color: #B42318; border-color: #E8B8B3; }}
 QPushButton#peligro:hover {{ background: #FDE8E8; }}
-QPushButton#peligro:disabled {{ color: #C9A6A2; background: #F5F6F8; border-color: #E3E6EA; }}
+QPushButton#peligro:disabled {{ color: #A8645D; background: #F5F6F8; border-color: #E3E6EA; }}
 QPushButton#archivo {{ text-align: left; padding: 7px 12px; max-width: 360px; }}
 QToolButton#flecha {{ padding: 6px 9px; font-weight: 700; }}
-QComboBox, QLineEdit, QDateEdit, QTimeEdit, QSpinBox, QDoubleSpinBox {{ background: white; border: 1px solid #CBD2D9; border-radius: 6px; padding: 6px 10px; }}
+QComboBox, QLineEdit, QDateEdit, QTimeEdit, QSpinBox, QDoubleSpinBox {{ background: white; color: #1F2933; border: 1px solid #8A94A0; border-radius: 6px; padding: 6px 10px; }}
 QComboBox#semana {{ min-width: 190px; }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
+QComboBox QAbstractItemView {{ background: white; color: #1F2933; border: 1px solid #8A94A0; selection-background-color: {ACENTO}; selection-color: white; outline: 0; }}
 QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QTimeEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border-color: {ACENTO}; }}
-QLineEdit:disabled, QComboBox:disabled {{ background: #F5F6F8; color: #A0A7B0; }}
+QLineEdit:disabled, QComboBox:disabled {{ background: #F5F6F8; color: #7A828C; }}
 QCheckBox {{ spacing: 8px; color: #1F2933; }}
 QGroupBox {{ background: white; border: 1px solid #E3E6EA; border-radius: 10px; margin-top: 14px; padding: 16px 12px 12px 12px; font-weight: 600; }}
 QGroupBox::title {{ subcontrol-origin: margin; left: 14px; padding: 0 6px; color: {ACENTO}; }}
