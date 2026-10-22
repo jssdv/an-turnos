@@ -1,11 +1,11 @@
 # Prueba de la ventana sin pantalla: crear, editar y eliminar colaboradores y turnos.
 import sys, os, tempfile
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import Qt, QTime
-import app
-import flujo
+from an.esterilizacion import app
+from an.esterilizacion import flujo
 from datetime import date
 P = flujo.periodo_mes(2026, 10)
 K = flujo.clave(*P)
@@ -22,7 +22,7 @@ assert v.t_personal.item(0, 0).text() == "Ana María"
 v._eliminar_persona(); assert v.t_personal.rowCount() == 0 and not v.bd.colaboradores(solo_activos=False), v.aviso.text()
 # --- con historial: se desactiva y se ve con «Mostrar inactivos»
 v._nueva_persona(); v.p_nombre.setText("Luis"); v._guardar_persona()
-from datetime import date; from dominio import Novedad
+from datetime import date; from an.esterilizacion.dominio import Novedad
 v.bd.guardar_novedad(Novedad(v.persona_id, "Vacaciones", date(2026,10,1), date(2026,10,2))); v.refrescar()
 v._eliminar_persona(); assert v.t_personal.rowCount() == 0 and "inactivo" in v.aviso.text(), v.aviso.text()
 v.p_inactivos.setChecked(True); assert v.t_personal.rowCount() == 1 and v.t_personal.item(0, 6).text() == "Inactivo"
@@ -65,7 +65,7 @@ v._mover_celda(ra, c1, len(gente), c1); assert "no se puede" in v.aviso.text()
 v._aplicar([(v._gente()[ra], d1, "L"), (v._gente()[rb], d1, "L")], "lote"); assert (a, d1) not in {k for k, x in ver().items() if x != "L"}
 v.deshacer(); assert ver()[(a, d1)] == "M"
 # puesto visible: con «Mostrar puesto» la celda dice M·n, y editarla sigue leyendo solo el código
-import flujo
+from an.esterilizacion import flujo
 flujo.recalcular(v.bd, *P); v.refrescar()
 assert v.grilla.item(ra, c1).text() == "M" and v.grilla.item(ra, c1).toolTip().startswith("Puesto: ")
 v.ver_puesto.setChecked(True)
@@ -169,7 +169,7 @@ n = len(v.bd.colaboradores(solo_activos=False)); v._guardar_persona()
 assert "Marca al menos un puesto que pueda ocupar" in v.aviso.text() and len(v.bd.colaboradores(solo_activos=False)) == n
 # --- pestaña Dotación (estimación por horas)
 import tempfile as _tf
-from dominio import Colaborador
+from an.esterilizacion.dominio import Colaborador
 v2 = app.Ventana(_tf.mkdtemp() + "/d.db")
 for i in range(13):
     v2.bd.guardar_colaborador(Colaborador(0, f"P{i}"))
@@ -189,8 +189,8 @@ assert td.l_personas.text() == "12" and td.l_diferencia.text() == "Sobran 1"
 v4 = app.Ventana(_tf.mkdtemp() + "/c.db")
 for pid in list(v4.bd.catalogo_puestos()):
     v4.bd.reemplazar_demandas(pid, [])
-pz = v4.bd.guardar_puesto(__import__("dominio").Puesto(0, 30, "Solo mañana"))
-v4.bd.reemplazar_demandas(pz, [__import__("dominio").Demanda(pz, "LS", 360, 720, 1)])
+pz = v4.bd.guardar_puesto(__import__("an.esterilizacion.dominio", fromlist=["x"]).Puesto(0, 30, "Solo mañana"))
+v4.bd.reemplazar_demandas(pz, [__import__("an.esterilizacion.dominio", fromlist=["x"]).Demanda(pz, "LS", 360, 720, 1)])
 cid = v4.bd.guardar_colaborador(Colaborador(0, "Ana"))
 v4.año.setValue(2026); v4.mes.setCurrentIndex(9)
 v4.bd.guardar_cuadro(flujo.clave(*flujo.periodo_mes(2026, 10)), {(cid, date(2026, 10, 5)): "M"}); v4.refrescar()
@@ -199,7 +199,7 @@ assert g4.verticalHeaderItem(1).text() == "Cobertura mañana"
 assert g4.item(1, 4).text() == "ok" and g4.item(1, 5).text() == "−1" and "06:00–12:00" in g4.item(1, 5).toolTip()
 # --- verificación con el generador en la pestaña Dotación (resolutor simulado)
 import time as _time
-import dotacion as _dot
+from an.esterilizacion import dotacion as _dot
 _original = _dot.verificar_minimo
 try:
     def _resultado(ctx, fechas, margen, activos, tiempo=8, progreso=None, cancelar=None):

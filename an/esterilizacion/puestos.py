@@ -4,9 +4,9 @@ from datetime import timedelta
 
 from ortools.sat.python import cp_model
 
-import demanda as dem
-from dominio import AsignacionPuesto
-from reglas import Alerta, texto_tramos
+from . import demanda as dem
+from .dominio import AsignacionPuesto
+from .reglas import Alerta, texto_tramos
 
 def por_persona(filas, numeros):
     """{(colab_id, fecha): número del puesto principal} (donde pasa más tiempo; 0 = solo apoyo). `numeros` mapea el id

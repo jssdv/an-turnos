@@ -15,20 +15,20 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QColo
                                QGridLayout, QListWidget, QMainWindow, QMenu, QMessageBox, QPushButton, QSpinBox, QSplitter, QStackedWidget, QTableWidget,
                                QTableWidgetItem, QTabWidget, QTimeEdit, QVBoxLayout, QWidget)
 
-import db
-import exportar
-import flujo
-import recargos
-import reglas
-import solver
-from demanda import franjas_de
-from ui_base import con_vacio, hhmm, llenar, signo, sin_seleccion, tabla
-from ui_puestos import TabDotacion, TabPuestos
-from dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
-import puestos as puestos_mod
-from puestos import etiqueta, leyenda, por_persona
+from . import db
+from . import exportar
+from . import flujo
+from . import recargos
+from . import reglas
+from . import solver
+from .demanda import franjas_de
+from .ui_base import con_vacio, hhmm, llenar, signo, sin_seleccion, tabla
+from .ui_puestos import TabDotacion, TabPuestos
+from .dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
+from . import puestos as puestos_mod
+from .puestos import etiqueta, leyenda, por_persona
 
-AQUI = Path(__file__).parent
+AQUI = Path(__file__).resolve().parents[2]  # carpeta que contiene el paquete an (turnos.db y errores.log viven aquí)
 LOG = AQUI / "errores.log"
 BD_RUTA = AQUI / "turnos.db"
 MESES = flujo.MESES

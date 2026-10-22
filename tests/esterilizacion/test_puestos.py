@@ -1,14 +1,15 @@
+import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 """Pruebas del núcleo de puestos, demanda por tramos y dotación. Imprime OK."""
 from datetime import date, timedelta
 
 import tempfile
 
-import db
-import demanda
-import dotacion
-import puestos
-import solver
-from dominio import AsignacionPuesto, Colaborador, Contexto, Demanda, Puesto, Turno
+from an.esterilizacion import db
+from an.esterilizacion import demanda
+from an.esterilizacion import dotacion
+from an.esterilizacion import puestos
+from an.esterilizacion import solver
+from an.esterilizacion.dominio import AsignacionPuesto, Colaborador, Contexto, Demanda, Puesto, Turno
 
 
 def ctx_con(demandas):

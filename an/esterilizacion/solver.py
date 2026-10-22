@@ -4,9 +4,9 @@ from datetime import timedelta
 
 from ortools.sat.python import cp_model
 
-import demanda as dem
+from . import demanda as dem
 
-from dominio import DESCANSO_MIN
+from .dominio import DESCANSO_MIN
 
 # Pesos del objetivo (minutos de desviación = 1 punto). La cobertura faltante domina todo lo demás.
 W_FALTA, W_DEFICIT, W_EXCESO, W_DESEABLE = 10_000, 1, 2, 10  # W_FALTA es por persona y tramo de 30 min

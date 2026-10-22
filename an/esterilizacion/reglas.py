@@ -2,8 +2,8 @@
 from collections import namedtuple
 from datetime import timedelta
 
-import demanda as dem
-from dominio import DESCANSO_MIN, intervalo
+from . import demanda as dem
+from .dominio import DESCANSO_MIN, intervalo
 
 Alerta = namedtuple("Alerta", "nivel fecha colab_id texto")
 
