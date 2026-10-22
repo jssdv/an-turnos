@@ -35,13 +35,15 @@ def turno_tramos(turno):
     return tramos_ventana(turno.inicio, turno.fin)
 
 
-def demanda_fecha(ctx, fecha):
+def demanda_fecha(ctx, fecha, con_ayer=True):
     """(obligatoria, deseable): 48 enteros cada una con las personas pedidas en cada tramo de `fecha`. Incluye la
-    parte que cae hoy de las ventanas que empezaron ayer, con el tipo de día de ayer."""
+    parte que cae hoy de las ventanas que empezaron ayer, con el tipo de día de ayer (salvo `con_ayer=False`)."""
     obl, des = [0] * TRAMOS_DIA, [0] * TRAMOS_DIA
     ayer = fecha - timedelta(days=1)
     for d in ctx.demandas:
         for dia, tipo in ((0, ctx.tipo_dia(fecha)), (1, ctx.tipo_dia(ayer))):
+            if dia == 1 and not con_ayer:
+                continue
             if d.tipo_dia != tipo:
                 continue
             for off, t in tramos_ventana(d.inicio, d.fin):
