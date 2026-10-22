@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComb
 from . import demanda
 from . import dotacion
 from .dominio import Demanda, Puesto
-from .ui_base import con_vacio, hhmm, llenar, sin_seleccion, tabla
+from ..nucleo.widgets import con_vacio, hhmm, llenar, sin_seleccion, tabla
 
 TIPOS_DIA = (("Lunes a sábado", "LS"), ("Domingo y festivo", "DF"))
 

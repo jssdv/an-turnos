@@ -1,20 +1,18 @@
-"""An~: personal, novedades, cuadro mensual, puestos, horas y recargos."""
-import os
-import re
-import subprocess
-import sys
+"""Esterilización: personal, novedades, cuadro mensual, puestos, horas y recargos (secciones del área dentro de An)."""
 import traceback
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
-from string import Template
 
-from PySide6.QtCore import QDate, QSettings, Qt, QThread, QTime, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QKeySequence, QShortcut
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QColorDialog, QComboBox, QDateEdit,
-                               QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
-                               QGridLayout, QListWidget, QMainWindow, QMenu, QMessageBox, QPushButton, QSpinBox, QSplitter, QStackedWidget, QTableWidget,
-                               QTableWidgetItem, QTabWidget, QTimeEdit, QVBoxLayout, QWidget)
+from PySide6.QtCore import QDate, Qt, QThread, QTime, Signal
+from PySide6.QtGui import QBrush, QColor, QKeySequence
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDoubleSpinBox,
+                               QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
+                               QInputDialog, QLabel, QLineEdit, QListWidget, QMenu, QMessageBox, QPushButton, QSpinBox,
+                               QSplitter, QStackedWidget, QTableWidget, QTableWidgetItem, QTabWidget, QTimeEdit,
+                               QToolButton, QVBoxLayout, QWidget)
 
+from ..nucleo import RAIZ
+from ..nucleo.widgets import abrir, con_vacio, hhmm, llenar, ocupado, signo, sin_seleccion, tabla
 from . import db
 from . import exportar
 from . import flujo
@@ -22,69 +20,16 @@ from . import recargos
 from . import reglas
 from . import solver
 from .demanda import franjas_de
-from .ui_base import con_vacio, hhmm, llenar, signo, sin_seleccion, tabla
 from .ui_puestos import TabDotacion, TabPuestos
 from .dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
 from . import puestos as puestos_mod
 from .puestos import etiqueta, leyenda, por_persona
 
-AQUI = Path(__file__).resolve().parents[2]  # carpeta que contiene el paquete an (turnos.db y errores.log viven aquí)
-LOG = AQUI / "errores.log"
-BD_RUTA = AQUI / "turnos.db"
+BD_RUTA = RAIZ / "turnos.db"
 MESES = flujo.MESES
 AMARILLO = "#FFFF00"
 ABREV = exportar.ABREV_NOVEDAD
 
-TOKENS = {  # diseño: color, 8 px de ritmo, radio 8 px; contraste de texto ≥ 4.5:1 sobre blanco
-    "fondo": "#F4F6F8", "superficie": "#FFFFFF", "borde": "#DDE2E8", "borde_suave": "#EAEDF1", "texto": "#1B2733",
-    "suave": "#5B6673", "primario": "#0F6E8C", "primario_h": "#0B566E", "peligro": "#B42318", "foco": "#0B566E",
-}
-ESTILO = Template("""
-QMainWindow, QWidget#fondo { background: $fondo; }
-QLabel { color: $texto; }
-QLabel#titulo { font-size: 22px; font-weight: 700; }
-QLabel#muted { color: $suave; }
-QLabel#vacio_t { font-size: 17px; font-weight: 600; color: $texto; }
-QLabel#aviso { border-radius: 8px; border-left: 4px solid #2F7FA6; padding: 10px 14px; background: #E8F1F8; color: #0F3B57; }
-QLabel#aviso[nivel="warn"] { background: #FFF4D6; color: #5C4300; border-left-color: #D99A00; }
-QLabel#aviso[nivel="error"] { background: #FDE8E8; color: #8E1B1B; border-left-color: $peligro; }
-QPushButton { background: $superficie; border: 1px solid #C5CCD5; border-radius: 8px; padding: 7px 14px; color: $texto; }
-QPushButton:hover { background: #EEF2F6; }
-QPushButton:pressed { background: #E2E8EE; }
-QPushButton:focus { border: 2px solid $foco; padding: 6px 13px; }
-QPushButton:disabled { color: #8A94A0; background: $fondo; border-color: $borde; }
-QPushButton#primario { background: $primario; border-color: $primario; color: white; font-weight: 600; }
-QPushButton#primario:hover { background: $primario_h; }
-QPushButton#primario:pressed { background: #08485D; }
-QPushButton#primario:focus { border: 2px solid #072F3F; }
-QPushButton#primario:disabled { background: #9DBFCB; border-color: #9DBFCB; color: white; }
-QPushButton#peligro { color: $peligro; border-color: #E8B8B3; }
-QPushButton#peligro:hover { background: #FDE8E8; }
-QPushButton#peligro:disabled { color: #C9A6A2; background: $fondo; border-color: $borde; }
-QComboBox, QLineEdit, QDateEdit, QTimeEdit, QSpinBox, QDoubleSpinBox { background: $superficie; border: 1px solid #C5CCD5; border-radius: 8px; padding: 5px 8px; }
-QComboBox:focus, QLineEdit:focus, QDateEdit:focus, QTimeEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus { border: 2px solid $foco; padding: 4px 7px; }
-QComboBox:disabled, QLineEdit:disabled { background: $fondo; color: #8A94A0; }
-QTabWidget::pane { border: 1px solid $borde; border-radius: 10px; background: $superficie; top: -1px; }
-QTabBar::tab { padding: 9px 16px; color: $suave; border: none; border-bottom: 2px solid transparent; }
-QTabBar::tab:hover { color: $texto; }
-QTabBar::tab:selected { color: $primario; border-bottom: 2px solid $primario; font-weight: 600; }
-QTableWidget { outline: 0; border: none; gridline-color: $borde_suave; selection-background-color: #D6E9F0; selection-color: $texto; background: $superficie; alternate-background-color: #FAFBFC; }
-QHeaderView::section { background: #F7F8FA; border: none; border-bottom: 1px solid $borde; padding: 7px 8px; color: $suave; font-weight: 600; }
-QGroupBox { background: $superficie; border: 1px solid $borde; border-radius: 10px; margin-top: 14px; padding: 16px 12px 12px 12px; font-weight: 600; }
-QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 6px; color: $primario; }
-QCheckBox { spacing: 8px; color: $texto; }
-QLabel#cifra { font-size: 26px; font-weight: 700; color: $primario; }
-QListWidget { border: 1px solid $borde; border-radius: 8px; background: $superficie; padding: 4px; }
-QSplitter::handle { background: transparent; }
-QToolTip { background: #1B2733; color: white; border: none; padding: 6px 8px; }
-""").substitute(TOKENS)
-
-
-def abrir(ruta):
-    if sys.platform == "win32":
-        os.startfile(ruta)  # noqa: E1101 (solo existe en Windows)
-    else:
-        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(ruta)])
 
 
 class Grilla(QTableWidget):
@@ -120,26 +65,53 @@ class Trabajo(QThread):
             self.fallo.emit("Error inesperado al generar:\n" + traceback.format_exc())
 
 
-class Ventana(QMainWindow):
-    def __init__(self, ruta_bd=BD_RUTA):
-        super().__init__()
-        self.setWindowTitle("An~ · Esterilización")
-        self.resize(1360, 860)
-        self.cfg = QSettings("An", "An")
+
+
+class Turnos:
+    NOMBRE = "Esterilización"
+    CLAVE = "esterilizacion"
+    TAMANO = (1360, 860)
+
+    def __init__(self, ventana, ruta_bd=BD_RUTA):
+        self.v = ventana
+        self.cfg = ventana.cfg
+        self.aviso = ventana.aviso
         self.bd = db.BD(str(ruta_bd))
         self.trabajo = None
         self._deshacer = []
-        QShortcut(QKeySequence.Undo, self, activated=self.deshacer)
+        self._listo = False
+        self.secciones = []  # (título, página) en el orden del menú lateral
+        self.cabecera = self._cabecera()
+        self._pestana_cuadro()
+        self._pestana_personal()
+        self._pestana_novedades()
+        self._pestana_puestos()
+        self._pestana_horas()
+        self._pestana_banco()
+        self.tab_dotacion = TabDotacion(self)
+        self.secciones.append(("Dotación", self.tab_dotacion))
+        self._pestana_parametros()
+        self.mes.currentIndexChanged.connect(lambda _: self._cambio_vista())
+        self.año.valueChanged.connect(lambda _: self._cambio_vista())
+        self.f_inicio.dateChanged.connect(self._cambio_inicio)
+        ventana.atajo(QKeySequence.Undo, self.deshacer)
+
+    def iniciar(self):
+        for sp in self.v.findChildren(QSpinBox) + self.v.findChildren(QDoubleSpinBox):
+            sp.lineEdit().setTextMargins(6, 0, 0, 0)
+        self._listo = True
+        self.refrescar()
+
+    def seccion_activa(self, i):
+        if self._listo:
+            self._cambio_vista()
+
+    def _cabecera(self):
         hoy = date.today()
-        raiz = QWidget(objectName="fondo")
-        self.setCentralWidget(raiz)
-        v = QVBoxLayout(raiz)
-        v.setContentsMargins(16, 12, 16, 16)
-        v.setSpacing(10)
-        cab = QHBoxLayout()
-        cab.addWidget(QLabel("An~", objectName="titulo"))
-        cab.addWidget(QLabel("Gestión de turnos · Central de Esterilización", objectName="muted"))
-        cab.addStretch()
+        cab = QWidget()
+        h = QHBoxLayout(cab)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(10)
         self.mes = QComboBox()
         self.mes.addItems(MESES)
         self.mes.setCurrentIndex(hoy.month - 1)
@@ -151,41 +123,20 @@ class Ventana(QMainWindow):
         self.f_inicio.setCalendarPopup(True)
         self.f_inicio.setDisplayFormat("dd/MM/yyyy")
         self.l_periodo = QLabel("", objectName="muted")
-        self.b_ant, self.b_sig = QPushButton("◀"), QPushButton("▶")
+        self.b_ant = QToolButton(objectName="flecha", text="‹", toolTip="Periodo anterior")
+        self.b_sig = QToolButton(objectName="flecha", text="›", toolTip="Periodo siguiente")
         for b, d in ((self.b_ant, -1), (self.b_sig, 1)):
-            b.setFixedWidth(36)
             b.clicked.connect(lambda _=False, d=d: self._mover_periodo(d))
         self.e_mes, self.e_semanas = QLabel("Mes:"), QLabel("Desde el lunes:")
-        cab.addWidget(self.b_ant)
+        h.addWidget(self.b_ant)
         for x in (self.e_mes, self.mes, self.año, self.e_semanas, self.f_inicio, self.l_periodo):
-            cab.addWidget(x)
-        cab.addWidget(self.b_sig)
-        v.addLayout(cab)
-        self.aviso = QLabel("", objectName="aviso")
-        self.aviso.setWordWrap(True)
-        self.aviso.hide()
-        v.addWidget(self.aviso)
-        self.pestanas = QTabWidget()
-        v.addWidget(self.pestanas, 1)
-        self._pestana_cuadro()
-        self._pestana_personal()
-        self._pestana_novedades()
-        self._pestana_puestos()
-        self._pestana_horas()
-        self._pestana_banco()
-        self.tab_dotacion = TabDotacion(self)
-        self.pestanas.addTab(self.tab_dotacion, "Dotación")
-        self._pestana_parametros()
-        for señal in (self.mes.currentIndexChanged, self.año.valueChanged, self.pestanas.currentChanged):
-            señal.connect(lambda _: self._cambio_vista())
-        self.f_inicio.dateChanged.connect(self._cambio_inicio)
-        for sp in self.findChildren(QSpinBox) + self.findChildren(QDoubleSpinBox):
-            sp.lineEdit().setTextMargins(6, 0, 0, 0)
-        for b in self.findChildren(QPushButton):
-            b.setCursor(Qt.PointingHandCursor)
-        self.pestanas.tabBar().setCursor(Qt.PointingHandCursor)
-        self.pestanas.setFocus()  # el primer foco no cae sobre un botón de navegación
-        self.refrescar()
+            h.addWidget(x)
+        h.addWidget(self.b_sig)
+        h.addStretch(1)
+        return cab
+
+    def avisar(self, texto, nivel="info"):
+        self.v.avisar(texto, nivel)
 
     # --- utilidades -----------------------------------------------------------------------------
     @property
@@ -234,13 +185,6 @@ class Ventana(QMainWindow):
             self.avisar("El esquema por semanas arranca en lunes; ajusté la fecha al lunes anterior.", "warn")
             return
         self._cambio_vista()
-
-    def avisar(self, texto, nivel="info"):
-        self.aviso.setProperty("nivel", nivel)
-        self.aviso.style().unpolish(self.aviso)
-        self.aviso.style().polish(self.aviso)
-        self.aviso.setText(texto)
-        self.aviso.setVisible(bool(texto))
 
     def _cambio_vista(self):
         self._deshacer.clear()
@@ -342,7 +286,7 @@ class Ventana(QMainWindow):
         lv.addStretch()
         self.pila_cuadro.addWidget(vacio)
         v.addWidget(self.pila_cuadro, 1)
-        self.pestanas.addTab(w, "Cuadro")
+        self.secciones.append(("Cuadro", w))
 
     def _leyenda_html(self):
         chip = lambda txt, bg, extra="": f'<span style="background-color:{bg}; color:#1B2733; {extra}">&nbsp;{txt}&nbsp;</span>'
@@ -495,7 +439,7 @@ class Ventana(QMainWindow):
         celdas = [c for i in self.grilla.selectedIndexes() if (c := self._editable(i.row(), i.column()))]
         if not celdas:
             return
-        m = QMenu(self)
+        m = QMenu(self.v)
         m.addSection(f"Asignar a {len(celdas)} celda(s)")
         for cod in [*self.ctx.turnos, "L"]:
             m.addAction(cod if cod != "L" else "L · libre", lambda cod=cod: self._aplicar(
@@ -522,7 +466,7 @@ class Ventana(QMainWindow):
             return self.avisar("Este periodo está cerrado. Reábrelo para volver a generar o editar.", "warn")
         k = self.clave
         if modo == "cero" and self.bd.diferencias(k):
-            if QMessageBox.question(self, "Generar desde cero", "Hay cambios manuales sobre el original. "
+            if QMessageBox.question(self.v, "Generar desde cero", "Hay cambios manuales sobre el original. "
                                     "¿Descartarlos y generar de nuevo?") != QMessageBox.Yes:
                 return
         if not any(p.en_solver for p in self.ctx.colabs):
@@ -556,7 +500,7 @@ class Ventana(QMainWindow):
     def generar_semana(self):
         lunes = sorted({f - timedelta(days=f.weekday()) for f in self.fechas})
         opciones = [f"Semana del {l:%d/%m}" for l in lunes]
-        sel, ok = QInputDialog.getItem(self, "Regenerar una semana", "Semana:", opciones, 0, False)
+        sel, ok = QInputDialog.getItem(self.v, "Regenerar una semana", "Semana:", opciones, 0, False)
         if ok:
             self.generar("semana", lunes[opciones.index(sel)])
 
@@ -568,7 +512,7 @@ class Ventana(QMainWindow):
     def publicar(self):
         if self._cerrado_aviso():
             return
-        if QMessageBox.question(self, "Publicar", "El cuadro actual pasará a ser el «original». ¿Continuar?") == QMessageBox.Yes:
+        if QMessageBox.question(self.v, "Publicar", "El cuadro actual pasará a ser el «original». ¿Continuar?") == QMessageBox.Yes:
             self.bd.publicar(self.clave)
             self._deshacer.clear()
             self.avisar("Cuadro publicado como original.")
@@ -577,7 +521,7 @@ class Ventana(QMainWindow):
     def restaurar(self):
         if self._cerrado_aviso():
             return
-        if QMessageBox.question(self, "Restaurar", "Se devolverán todas las celdas al original. ¿Continuar?") == QMessageBox.Yes:
+        if QMessageBox.question(self.v, "Restaurar", "Se devolverán todas las celdas al original. ¿Continuar?") == QMessageBox.Yes:
             self.bd.restaurar(self.clave)
             self._deshacer.clear()
             flujo.recalcular(self.bd, *self.periodo())
@@ -588,10 +532,10 @@ class Ventana(QMainWindow):
         cuadro = self.bd.asignaciones(k)
         if not cuadro:
             return self.avisar("No hay cuadro para exportar.", "warn")
-        carpeta = QFileDialog.getExistingDirectory(self, "Carpeta de destino", self.cfg.value("carpeta", str(Path.home())))
+        carpeta = QFileDialog.getExistingDirectory(self.v, "Carpeta de destino", self.cfg.value("esterilizacion/carpeta", str(Path.home())))
         if not carpeta:
             return
-        self.cfg.setValue("carpeta", carpeta)
+        self.cfg.setValue("esterilizacion/carpeta", carpeta)
         txt = flujo.etiqueta(*self.periodo())
         tar, ventana = self.bd.tarifas(), int(self.bd.param("ventana_semanas", 3))
         with ocupado():
@@ -668,7 +612,7 @@ class Ventana(QMainWindow):
         f.addRow(botones)
         h.addWidget(caja, 0, Qt.AlignTop)
         self.persona_id = None
-        self.pestanas.addTab(w, "Personal")
+        self.secciones.append(("Personal", w))
 
     def _armar_puestos_permitidos(self):
         """Una casilla por puesto activo; conserva lo marcado."""
@@ -781,7 +725,7 @@ class Ventana(QMainWindow):
         if self.persona_id is None:
             return self.avisar("Selecciona un colaborador de la lista.", "warn")
         nombre = self.p_nombre.text()
-        if QMessageBox.question(self, "Eliminar colaborador", f"¿Eliminar a «{nombre}»?") != QMessageBox.Yes:
+        if QMessageBox.question(self.v, "Eliminar colaborador", f"¿Eliminar a «{nombre}»?") != QMessageBox.Yes:
             return
         if self.bd.borrar_colaborador(self.persona_id) == "borrado":
             self.avisar(f"«{nombre}» eliminado.")
@@ -825,7 +769,7 @@ class Ventana(QMainWindow):
         bs.addStretch()
         f.addRow(bs)
         h.addWidget(caja, 0, Qt.AlignTop)
-        self.pestanas.addTab(w, "Novedades")
+        self.secciones.append(("Novedades", w))
 
     def _ver_novedades(self):
         self.n_colab.clear()
@@ -861,7 +805,7 @@ class Ventana(QMainWindow):
         v.addWidget(QLabel("Capacitación del mes", objectName="muted"))
         self.l_cap = QListWidget()
         v.addWidget(self.l_cap, 1)
-        self.pestanas.addTab(w, "Puestos y capacitación")
+        self.secciones.append(("Puestos y capacitación", w))
 
     def _ver_puestos(self):
         k = self.clave
@@ -897,7 +841,7 @@ class Ventana(QMainWindow):
         self.l_regimen = QLabel("", objectName="muted")
         self.l_regimen.setWordWrap(True)
         v.addWidget(self.l_regimen)
-        self.pestanas.addTab(w, "Horas y recargos")
+        self.secciones.append(("Horas y recargos", w))
 
     def _ver_horas(self):
         k, fechas = self.clave, self.fechas
@@ -989,7 +933,7 @@ class Ventana(QMainWindow):
         v.addWidget(QLabel("«Saldo del periodo» = horas trabajadas − contratadas de todo el personal; solo existe al cerrar. "
                            "Doble clic abre el periodo en el cuadro.", objectName="muted"))
         self.sub_banco.addTab(w, "Historial de esquemas")
-        self.pestanas.addTab(self.sub_banco, "Historial y banco de horas")
+        self.secciones.append(("Historial y banco de horas", self.sub_banco))
         self.persona_banco = None
 
     @staticmethod
@@ -1075,20 +1019,20 @@ class Ventana(QMainWindow):
             self.f_inicio.setDate(QDate(ini.year, ini.month, ini.day))
         else:
             return self.avisar("Ese periodo no se puede abrir con los esquemas disponibles.", "warn")
-        self.pestanas.setCurrentIndex(0)
+        self.v.ir_a(0)
         self.refrescar()
 
     # --- cierre del periodo ---------------------------------------------------------------------
     def _alternar_cierre(self):
         ini, fin = self.periodo()
         if self.bd.periodo_cerrado(self.clave):
-            if QMessageBox.question(self, "Reabrir periodo", "El cuadro volverá a ser editable y se borrará el cierre "
+            if QMessageBox.question(self.v, "Reabrir periodo", "El cuadro volverá a ser editable y se borrará el cierre "
                                     "de este periodo del banco de horas. ¿Continuar?") != QMessageBox.Yes:
                 return
             self.bd.reabrir_periodo(self.clave)
             self.avisar("Periodo reabierto. Su cierre salió del banco de horas.")
         else:
-            if QMessageBox.question(self, "Cerrar periodo", "Se guardarán las horas trabajadas y contratadas de cada "
+            if QMessageBox.question(self.v, "Cerrar periodo", "Se guardarán las horas trabajadas y contratadas de cada "
                                     "persona en el banco de horas y el cuadro quedará en solo lectura. ¿Continuar?") != QMessageBox.Yes:
                 return
             try:
@@ -1247,7 +1191,7 @@ class Ventana(QMainWindow):
 
         self.l_fest = QListWidget()
         self.sub.addTab(self.l_fest, "Festivos")
-        self.pestanas.addTab(self.sub, "Parámetros")
+        self.secciones.append(("Parámetros", self.sub))
 
     def _ver_parametros(self):
         self._turnos = list(self.bd.turnos(solo_activos=False).values())
@@ -1322,7 +1266,7 @@ class Ventana(QMainWindow):
         self.t_color.setText(f"#{color}")
 
     def _elegir_color(self):
-        c = QColorDialog.getColor(QColor("#" + self._color), self, "Color del turno")
+        c = QColorDialog.getColor(QColor("#" + self._color), self.v, "Color del turno")
         if c.isValid():
             self._poner_color(c.name()[1:].upper())
 
@@ -1369,7 +1313,7 @@ class Ventana(QMainWindow):
         if self.turno_cod is None:
             return self.avisar("Selecciona un turno de la lista.", "warn")
         cod = self.turno_cod
-        if QMessageBox.question(self, "Eliminar turno", f"¿Eliminar el turno «{cod}»?") != QMessageBox.Yes:
+        if QMessageBox.question(self.v, "Eliminar turno", f"¿Eliminar el turno «{cod}»?") != QMessageBox.Yes:
             return
         if self.bd.borrar_turno(cod) == "borrado":
             self.avisar(f"Turno «{cod}» eliminado.")
@@ -1396,41 +1340,3 @@ class Ventana(QMainWindow):
     def _agregar_tarifa(self):
         self.bd.agregar_tarifa(self.tar_c.currentText(), self.tar_v.value(), self.tar_d.date().toPython())
         self.refrescar()
-
-
-class ocupado:
-    def __enter__(self):
-        QApplication.setOverrideCursor(Qt.WaitCursor)
-
-    def __exit__(self, *exc):
-        QApplication.restoreOverrideCursor()
-
-
-def error_inesperado(tipo, valor, tb):
-    texto = "".join(traceback.format_exception(tipo, valor, tb))
-    try:
-        with open(LOG, "a", encoding="utf-8") as f:
-            f.write(f"\n--- {datetime.now():%Y-%m-%d %H:%M}\n{texto}")
-    except OSError:
-        pass
-    QMessageBox.critical(None, "Algo salió mal",
-                         f"Ocurrió un error inesperado:\n\n{valor}\n\nSe guardó el detalle en {LOG.name}.")
-
-
-def main():
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    # Siempre modo claro: con el sistema en oscuro, Qt pondría texto claro sobre nuestros fondos blancos
-    app.styleHints().setColorScheme(Qt.ColorScheme.Light)
-    app.setPalette(app.style().standardPalette())
-    if sys.platform == "win32":
-        app.setFont(QFont("Segoe UI", 10))
-    app.setStyleSheet(ESTILO)
-    sys.excepthook = error_inesperado
-    v = Ventana()
-    v.show()
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()
