@@ -16,10 +16,10 @@ Hoy el cuadro mensual de turnos se arma a mano en Excel y de ahí sale, también
 
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| Núcleo | `app/generar_semana.py` | Lee la hoja `Cambios …` del cuadro mensual, interpreta los códigos y arma la planilla semanal con el formato de `plantilla_semana.xlsx`. |
-| Análisis | `app/analisis.py` | Reglas de descanso, revisión del cuadro (cruces, nombres, códigos), equidad del mes y de varios meses, agendas `.ics` y texto, comparación entre versiones, versión imprimible. |
+| Núcleo | `an/radiologia/generar_semana.py` | Lee la hoja `Cambios …` del cuadro mensual, interpreta los códigos y arma la planilla semanal con el formato de `plantilla_semana.xlsx`. |
+| Análisis | `an/radiologia/analisis.py` | Reglas de descanso, revisión del cuadro (cruces, nombres, códigos), equidad del mes y de varios meses, agendas `.ics` y texto, comparación entre versiones, versión imprimible. |
 | App | `an/radiologia/paginas.py` (sobre `an/nucleo/`) | Ventana PySide6 con panel de resumen (indicadores y cobertura de la semana), vista previa con los colores del Excel, alertas, equidad, agendas y cambios. Recarga sola al guardar el Excel; arrastrar y soltar; atajos de teclado. Guarda `SEMANA … .xlsx` sin sobrescribir. |
-| Distribución | `empaquetar.sh` | Carpeta portátil para Windows (Python embeddable + librerías), sin instalar nada. En Mac: `Planilla Semanal.command`. |
+| Distribución | `empaquetar.sh` | Carpeta portátil para Windows (Python embeddable + librerías), sin instalar nada. En Mac: `An.command`. |
 
 **Limitaciones que condicionan lo que sigue:**
 - Las reglas del negocio están **escritas dentro del código**: `CODIGOS`, `FILAS_ECO`, `SLOTS` e `IGNORAR`. Para editar el cuadro o extender la herramienta a otros servicios, deben pasar a ser **datos**.
@@ -156,7 +156,7 @@ Hoy el cuadro mensual de turnos se arma a mano en Excel y de ahí sale, también
 
 ## 8. Decisiones ya tomadas
 
-- Interfaz en Qt (PySide6), distribuida como carpeta portátil sin `.exe` (Python embeddable). En Mac se usa `Planilla Semanal.command`.
+- Interfaz en Qt (PySide6), distribuida como carpeta portátil sin `.exe` (Python embeddable). En Mac se usa `An.command`.
 - La fila 3 del cuadro mensual lleva fechas completas; las semanas se ubican por fecha exacta.
 - En la planilla semanal:
   - contingencia, vacaciones, asignación de estudios y notas libres se llenan a mano;
@@ -186,7 +186,7 @@ Marca `[x]` al terminar cada paso. Cada etapa empieza con su diseño (`docs/etap
 - [x] 0.3 App de escritorio: vista previa, alertas, equidad, agendas y cambios (`an/radiologia/paginas.py`)
 - [x] 0.4 Revisión del cuadro, equidad de varios meses y versión para imprimir
 - [x] 0.5 Paquete portátil para Windows (`empaquetar.sh`) y lanzador para Mac
-- [x] 0.5b Interfaz renovada, carpeta ordenada (`app/`, `tests/`, `ejemplos/`) y recarga automática
+- [x] 0.5b Interfaz renovada, carpeta ordenada (hoy `an/`, `tests/`, `ejemplos/`) y recarga automática
 - [ ] 0.6 Probar `dist/PruebaPC.zip` en el PC corporativo (abrir la ventana y el diálogo de archivos) — **bloqueante**
 - [ ] 0.7 Probar `dist/PlanillaSemanal.zip` en el PC corporativo con un cuadro real
 - [ ] 0.8 Poner fechas completas en la fila 3 del cuadro mensual real y adoptarlo como plantilla para los meses siguientes

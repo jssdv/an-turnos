@@ -27,7 +27,7 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación y e
 | Día de inicio por servicio | Esquemas que arranquen en otro día distinto del lunes | Hoy: mes calendario o semanas desde un lunes |
 | Salario y costo | Ingresar salario para ver el costo de recargos en pesos | Opcional; el dato es sensible |
 | Agendas y PDF | Calendario `.ics` por persona y versión imprimible | Existen en la app de Radiología |
-| Otros servicios | Reutilizar el modelo para áreas con la misma estructura | Hoy el proyecto es solo Esterilización; requeriría servicios configurables |
+| Otros servicios | Reutilizar el modelo para áreas con la misma estructura | Ya hay dos áreas (Radiología, Esterilización) sobre un núcleo común; falta que un área nueva sea configurable sin código |
 | Servidor y accesos | Cada colaborador consulta su horario | Implica base compartida y autenticación; fuera de alcance por ahora |
 
 ## Hecho recientemente

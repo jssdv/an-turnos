@@ -4,7 +4,7 @@
 
 **An~** nace para programar los turnos de la Central de Esterilización. La intención es que sea la base de una herramienta general de **gestión de turnos**, a la que se puedan sumar otros servicios y los procesos administrativos que dependen de ellos.
 
-> Estado: la v1 cubre **solo Esterilización**. Este documento describe la dirección; no promete nada que ya exista. Lo construido está en la [arquitectura](ARQUITECTURA.md) y lo pendiente en la [hoja de ruta](HOJA_DE_RUTA.md).
+> Estado: hoy hay dos áreas, **Radiología** y **Esterilización**, sobre un [núcleo común](NUCLEO.md). Este documento describe la dirección; no promete nada que ya exista. Lo construido está en la [arquitectura](ARQUITECTURA.md) y lo pendiente en la [hoja de ruta](HOJA_DE_RUTA.md).
 
 ## Qué problema resuelve
 
