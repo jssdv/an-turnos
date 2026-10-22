@@ -364,6 +364,38 @@ def test_demanda_mayor_que_el_personal():
         pass
 
 
+def test_faltantes_dia_y_validar():
+    bd = _bd_demanda([("LS", 480, 720, 2)], n=1)
+    ctx = bd.contexto(2026)
+    p = ctx.colabs[0]
+    lunes = date(2026, 10, 5)
+    cuadro = {(p.id, lunes): "M"}  # M cubre 06:00–12:00: en 08:00–12:00 hay 1 y se piden 2
+    f = reglas.faltantes_dia(ctx, cuadro, lunes)
+    assert f["M"] == (1, [(16, 24, 1)]) and f["T"] == (0, []) and f["N"] == (0, [])
+    assert [a.texto for a in reglas.validar(ctx, cuadro, [lunes]) if "faltan" in a.texto] == ["05/10: faltan 1 en mañana (08:00–12:00)"]
+    assert reglas.faltantes_dia(ctx, {}, lunes)["M"] == (2, [(16, 24, 2)])
+    sin_ayer = reglas.faltantes_dia(ctx, {}, lunes, con_ayer=False)  # lo que viene de ayer no se exige sin datos
+    assert sin_ayer["M"] == (2, [(16, 24, 2)])
+
+
+def test_faltantes_cruzan_medianoche_y_excel():
+    bd = _bd_demanda([("LS", 1080, 360, 1)], n=2, activos={"NC"})
+    ctx = bd.contexto(2026)
+    a, b = ctx.colabs
+    sab, dom = date(2026, 10, 10), date(2026, 10, 11)
+    cuadro = {(a.id, sab): "NC"}  # la noche del sábado cubre su madrugada del domingo
+    assert reglas.faltantes_dia(ctx, cuadro, dom)["N"] == (0, [])
+    f = reglas.faltantes_dia(ctx, {}, dom)  # el domingo no hay nadie: falta la madrugada que viene del sábado (LS)
+    assert f["N"] == (1, [(0, 12, 1)])
+    with tempfile.TemporaryDirectory() as tmp:
+        lunes12 = date(2026, 10, 12)  # festivo: sin demanda
+        ruta = exportar.exportar_cuadro(tmp, "Prueba", ctx, {(a.id, dom): "NC"}, {}, [sab, dom, lunes12], [])
+        ws = openpyxl.load_workbook(ruta)["Cuadro"]
+        fila = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Cobertura noche")
+        assert ws.cell(fila, 2).value == "−1" and ws.cell(fila, 2).fill.fgColor.rgb.endswith("FF7C80")  # sábado: nadie en la guardia
+        assert ws.cell(fila, 4).value == "ok"
+
+
 def test_versiones():
     bd = db.BD()
     pid = bd.guardar_colaborador(Colaborador(0, "A"))

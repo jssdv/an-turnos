@@ -347,7 +347,7 @@ class Ventana(QMainWindow):
         chip = lambda txt, bg, extra="": f'<span style="background-color:{bg}; color:#1B2733; {extra}">&nbsp;{txt}&nbsp;</span>'
         partes = [chip(c, "#" + t.color) + f" {t.nombre}" for c, t in self.ctx.turnos.items()]
         partes += [chip("L", "#FFFFFF") + " Libre", chip("VAC", "#D9D9D9") + " Novedad", chip("//", "#E3E6FA", "color:#4357A8;") + " Estudia",
-                   chip("M", AMARILLO) + " Cambiado", chip("1/4", "#FF9EA1") + " Falta cobertura"]
+                   chip("M", AMARILLO) + " Cambiado", chip("−1", "#FF9EA1") + " Falta cobertura"]
         ayuda = "Arrastra una celda sobre otra para intercambiarlas · clic derecho: asignar a varias · Ctrl+Z: deshacer"
         if self.ver_puesto.isChecked():
             ayuda = LEYENDA + "<br>" + ayuda
@@ -369,7 +369,7 @@ class Ventana(QMainWindow):
         g.setRowCount(len(gente) + 3)
         g.setColumnCount(len(fechas) + 1)
         g.setHorizontalHeaderLabels([f"{DIAS[f.weekday()]}\n{f.day}" for f in fechas] + ["Horas"])
-        g.setVerticalHeaderLabels([p.nombre for p in gente] + ["Cubiertos mañana", "Cubiertos tarde", "Cubiertos noche"])
+        g.setVerticalHeaderLabels([p.nombre for p in gente] + ["Cobertura mañana", "Cobertura tarde", "Cobertura noche"])
         for r, p in enumerate(gente):
             horas = 0
             for c, f in enumerate(fechas):
@@ -402,15 +402,16 @@ class Ventana(QMainWindow):
             h = QTableWidgetItem(f"{horas:g}")
             h.setFlags(Qt.ItemIsEnabled)
             g.setItem(r, len(fechas), h)
+        faltantes = reglas.faltantes_periodo(self.ctx, cuadro, fechas)
         for i, fr in enumerate(("M", "T", "N")):
             for c, f in enumerate(fechas):
-                hay = reglas.cobertura_dia(self.ctx, cuadro, f)[fr]
-                req = self.ctx.cobertura[self.ctx.tipo_dia(f)][fr]
-                it = QTableWidgetItem(f"{hay}/{req}")
+                peor, rangos = faltantes[f][fr]
+                it = QTableWidgetItem("ok" if not peor else f"−{peor}")
                 it.setTextAlignment(Qt.AlignCenter)
                 it.setFlags(Qt.ItemIsEnabled)
-                if hay < req:
+                if peor:
                     it.setBackground(QColor("#FF9EA1"))
+                    it.setToolTip("Faltan personas: " + "; ".join(f"{reglas.texto_tramos(a, b)} (−{n})" for a, b, n in rangos))
                 g.setItem(len(gente) + i, c, it)
         for c, f in enumerate(fechas):
             if self.ctx.tipo_dia(f) == "DF":

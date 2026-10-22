@@ -7,6 +7,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 import recargos
+import reglas
 from dominio import DIAS
 from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
 
@@ -64,14 +65,14 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
                 c.fill = AMARILLO
         ws.cell(r, len(fechas) + 2, horas)
     base = len(cols) + 3
+    faltantes = reglas.faltantes_periodo(ctx, cuadro, fechas)
     for k, (fr, nombre) in enumerate((("M", "Mañana"), ("T", "Tarde"), ("N", "Noche"))):
-        ws.cell(base + k, 1, f"Cubiertos {nombre}").font = Font(bold=True)
+        ws.cell(base + k, 1, f"Cobertura {nombre.lower()}").font = Font(bold=True)
         for i, f in enumerate(fechas, 2):
-            n = sum(1 for p in cols if p.en_solver and (t := ctx.turnos.get(cuadro.get((p.id, f)))) and fr in t.cubre)
-            req = ctx.cobertura[ctx.tipo_dia(f)][fr]
-            c = ws.cell(base + k, i, n)
+            peor, rangos = faltantes[f][fr]
+            c = ws.cell(base + k, i, "ok" if not peor else f"−{peor}")
             c.alignment = CENTRO
-            if n < req:
+            if peor:
                 c.fill = PatternFill("solid", fgColor="FF7C80")
     _ancho(ws, 22, 5)
     ws.column_dimensions[get_column_letter(len(fechas) + 2)].width = 8
