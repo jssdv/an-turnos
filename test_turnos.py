@@ -276,6 +276,17 @@ def test_compensar_banco():
     assert info["ajuste"] == {1: -24, 2: 24} and horas(2) - horas(1) >= 24, (horas(1), horas(2))
 
 
+def test_cubre_se_calcula_de_los_horarios():
+    bd = db.BD()
+    assert bd.turnos()["C"].cubre == ("M", "T") and bd.turnos()["NC"].cubre == ("N",)
+    bd.guardar_turno(Turno("M7", "Mañana 7", 420, 780, "CCE5FF", ("N",)))  # el valor guardado se ignora
+    assert bd.turnos()["M7"].cubre == ("M",)
+    t = bd.turnos()["M7"]
+    t.inicio, t.fin = 360, 1080
+    bd.guardar_turno(t)
+    assert bd.turnos()["M7"].cubre == ("M", "T")
+
+
 def test_versiones():
     bd = db.BD()
     pid = bd.guardar_colaborador(Colaborador(0, "A"))
