@@ -69,7 +69,10 @@ import flujo
 flujo.recalcular(v.bd, *P); v.refrescar()
 assert v.grilla.item(ra, c1).text() == "M" and v.grilla.item(ra, c1).toolTip().startswith("Puesto: ")
 v.ver_puesto.setChecked(True)
-txt = v.grilla.item(ra, c1).text(); assert txt.startswith("M·") and txt[2] in "12345A", txt
+txt = v.grilla.item(ra, c1).text(); assert txt.startswith("M·") and txt[2] in "123456A", txt
+assert "–" in v.grilla.item(ra, c1).toolTip()  # el aviso trae la ventana horaria del puesto
+cols = [v.t_puestos.horizontalHeaderItem(c).text() for c in range(v.t_puestos.columnCount())]
+assert cols[0] == "Día" and "1 · Lavado" in cols and cols[-1] == "Apoyo"
 v.grilla.item(ra, c1).setText("T·2"); assert v.bd.asignaciones(K)[(a, d1)] == "T"
 v.deshacer(); v.ver_puesto.setChecked(False)
 # esquema por semanas: el selector cambia a «desde el lunes» y avanza de N en N semanas

@@ -135,11 +135,15 @@ def test_fin_de_semana_y_libres():
     assert any("día(s) libre(s)" in x.texto for x in reglas.validar(ctx, todo, semana))
 
 
-def test_etiqueta_de_puesto():
+def test_etiqueta_y_puesto_principal():
     import puestos
+    from dominio import AsignacionPuesto
     assert puestos.etiqueta("M", 2) == "M·2" and puestos.etiqueta("T", 0) == "T·A" and puestos.etiqueta("NC", None) == "NC"
-    filas = [(date(2026, 10, 5), "M", 3, 7, 1), (date(2026, 10, 5), "T", 3, 7, 1), (date(2026, 10, 5), "T", 1, 8, 2)]
-    assert puestos.por_persona(filas) == {(7, date(2026, 10, 5)): 3, (8, date(2026, 10, 5)): 1}
+    d = date(2026, 10, 5)
+    filas = [AsignacionPuesto(d, 7, 31, 360, 720, 1), AsignacionPuesto(d, 7, 39, 720, 780, 1), AsignacionPuesto(d, 8, 0, 360, 1080, 2)]
+    # persona 7: pasa 6 h en el puesto de número 3 y 1 h en el 9 → principal 3; persona 8 solo en apoyo → 0
+    assert puestos.por_persona(filas, {31: 3, 39: 9}) == {(7, d): 3, (8, d): 0}
+    assert puestos.leyenda({1: type("P", (), {"numero": 1, "nombre": "Lavado", "activo": True})()}) == "Puestos: 1 Lavado · A apoyo (sin puesto ese día)"
 
 
 def test_rachas():
@@ -183,7 +187,7 @@ def test_migracion_v1():
         bd.c.close()
         bd = db.BD(ruta)
         k = "2026-02-01/2026-02-28"
-        assert bd.periodos() == [k] and bd.asignaciones(k) == {(1, date(2026, 2, 3)): "M"} and len(bd.puestos(k)) == 1
+        assert bd.periodos() == [k] and bd.asignaciones(k) == {(1, date(2026, 2, 3)): "M"} and len(bd.asignacion_puesto(k)) == 1
         assert bd.param("periodo_modo") == "mes" and bd.c.execute("PRAGMA user_version").fetchone()[0] == 5
 
 
@@ -203,7 +207,7 @@ def test_esquema_por_semanas():
     assert (1, ini) not in cuadro  # libre tras la noche del periodo anterior
     ctx = bd.contexto(2026)
     assert not [a for a in reglas.validar(ctx, cuadro, dias) if a.nivel == "error"]
-    assert bd.puestos(k) and bd.capacitacion(k) and k in bd.periodos()
+    assert bd.asignacion_puesto(k) and bd.capacitacion(k) and k in bd.periodos()
 
 
 def test_banco_de_horas():
@@ -430,10 +434,11 @@ def test_versiones():
 def test_mes_completo():
     """Octubre 2026: 13 personas (1 restringida, 2 estudiantes), novedades; el solver cumple todas las reglas."""
     bd = db.BD()
+    id3 = next(i for i, q in bd.catalogo_puestos().items() if q.numero == 3)
     for i in range(1, 14):
         p = Colaborador(0, f"P{i}")
         if i == 11:
-            p.tipo, p.permitidos, p.puesto_fijo = "restringido", ("M", "T"), 3
+            p.tipo, p.permitidos, p.puestos_permitidos = "restringido", ("M", "T"), (id3,)
         if i == 12:
             p.tipo, p.estudio = "estudiante", ((0, "M"), (3, "M"), (4, "M"), (1, "T"))
         if i == 13:
@@ -471,10 +476,14 @@ def test_mes_completo():
     # el mes anterior terminó en noche: el día 1 queda libre
     c4, _ = solver.generar(ctx, fechas, previo={(2, date(2026, 9, 30)): "NC"}, tiempo=10)
     assert (2, fechas[0]) not in c4
-    # puestos: la restringida siempre en el 3; sin repetir puesto en una misma franja
-    filas = puestos.asignar(ctx, cuadro, fechas)
-    assert all(p == 3 for f, fr, p, c, g in filas if c == 11)
-    assert len({(f, fr, p) for f, fr, p, c, g in filas if p}) == len([1 for f, fr, p, c, g in filas if p])
+    # puestos por tramo: la restringida solo en el 3 (o apoyo); nadie ocupa dos puestos a la vez
+    filas = puestos.asignar_tramos(ctx, cuadro, fechas)
+    assert all(x.puesto_id in (id3, 0) for x in filas if x.colab_id == 11)
+    vistos = set()
+    for x in filas:
+        for tr in range(x.desde // 30, x.hasta // 30):
+            assert (x.fecha, x.colab_id, tr) not in vistos
+            vistos.add((x.fecha, x.colab_id, tr))
     # capacitación: lunes, máx. 1 por semana, festivo corre al siguiente hábil (12-oct-2026 es festivo)
     ses, sin = capacitacion.programar(ctx, cuadro, fechas)
     dias = {f for f, _ in ses}
@@ -489,7 +498,11 @@ def test_mes_completo():
         r1 = exportar.exportar_cuadro(tmp, "Octubre 2026", ctx, cam, bd.asignaciones(K, "original"), fechas,
                                       bd.diferencias(K))
         assert exportar.exportar_cuadro(tmp, "Octubre 2026", ctx, cam, cam, fechas, []).name.endswith("v2.xlsx")
-        exportar.exportar_puestos(tmp, "Octubre 2026", ctx, cam, fechas, filas, ses)
+        rp = exportar.exportar_puestos(tmp, "Octubre 2026", ctx, cam, fechas, filas, ses)
+        hoja = openpyxl.load_workbook(rp).worksheets[0]
+        enc = [c.value for c in hoja[1]]
+        assert enc[0] == "Día" and "1 · Lavado" in enc and "Apoyo" in enc and enc[-1] == "Capacitación"
+        assert any("–" in str(c.value) and "(P" in str(c.value) for fila in hoja.iter_rows(min_row=2) for c in fila)
         r3 = exportar.exportar_horas(tmp, "Octubre 2026", ctx, bd.tarifas(), cam, fechas, 3)
         wb = openpyxl.load_workbook(r1)
         assert wb.sheetnames == ["Cuadro", "Original", "Cambios"]  # sin puestos calculados no hay hoja de puestos
@@ -497,7 +510,7 @@ def test_mes_completo():
         wb2 = openpyxl.load_workbook(r2)
         assert wb2.sheetnames[:2] == ["Cuadro", "Cuadro con puestos"]
         ejemplo = next(c.value for fila in wb2["Cuadro con puestos"].iter_rows(min_row=2, min_col=2) for c in fila if c.value and "·" in str(c.value))
-        assert ejemplo.split("·")[0] in ("M", "T", "C") and ejemplo.split("·")[1] in "12345A"
+        assert ejemplo.split("·")[0] in ("M", "T", "C", "NC") and ejemplo.split("·")[1] in "123456A"
         assert wb["Cuadro"].cell(2, 2).fill.fgColor.rgb.endswith("FFFF00") or bd.asignaciones(K, "original").get((1, fechas[0])) == "NC"
         assert openpyxl.load_workbook(r3)["Horas y recargos"].max_row == 14
 
@@ -509,7 +522,7 @@ def test_flujo_y_estudio():
     for i in range(13):
         bd.guardar_colaborador(Colaborador(0, f"P{i}"))
     info = flujo.generar(bd, *P, tiempo=8)
-    assert not info["faltan"] and bd.diferencias(K) == [] and bd.puestos(K) and bd.capacitacion(K)
+    assert not info["faltan"] and bd.diferencias(K) == [] and bd.asignacion_puesto(K) and bd.capacitacion(K)
     # edición manual → aparece como diferencia; «respetar» la conserva y no toca original
     cambios = bd.asignaciones(K)
     f = date(2026, 10, 7)

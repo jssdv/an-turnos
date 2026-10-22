@@ -25,7 +25,7 @@ from demanda import franjas_de
 from ui_base import con_vacio, hhmm, llenar, signo, sin_seleccion, tabla
 from ui_puestos import TabDotacion, TabPuestos
 from dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
-from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
+from puestos import etiqueta, leyenda, por_persona
 
 AQUI = Path(__file__).parent
 LOG = AQUI / "errores.log"
@@ -350,7 +350,7 @@ class Ventana(QMainWindow):
                    chip("M", AMARILLO) + " Cambiado", chip("−1", "#FF9EA1") + " Falta cobertura"]
         ayuda = "Arrastra una celda sobre otra para intercambiarlas · clic derecho: asignar a varias · Ctrl+Z: deshacer"
         if self.ver_puesto.isChecked():
-            ayuda = LEYENDA + "<br>" + ayuda
+            ayuda = leyenda(self.bd.catalogo_puestos()) + "<br>" + ayuda
         return "&nbsp;&nbsp;&nbsp;".join(partes) + "<br>" + ayuda
 
     def _ver_cuadro(self):
@@ -361,7 +361,13 @@ class Ventana(QMainWindow):
         self.b_cierre.setText("Reabrir periodo" if cerrado else "Cerrar periodo")
         self.leyenda.setText(self._leyenda_html())
         cuadro = orig if ver_orig else self.bd.asignaciones(k)
-        puesto = {} if ver_orig else por_persona(self.bd.puestos(k))  # los puestos se calculan sobre «Cambios»
+        cat = self.bd.catalogo_puestos()
+        filas_pu = [] if ver_orig else self.bd.asignacion_puesto(k)  # el reparto se calcula sobre «Cambios»
+        puesto = por_persona(filas_pu, {i: q.numero for i, q in cat.items()})
+        detalle = {}
+        for a in filas_pu:
+            nombre = cat[a.puesto_id].nombre if a.puesto_id in cat else "Apoyo"
+            detalle.setdefault((a.colab_id, a.fecha), []).append(f"{nombre} {hhmm(a.desde)}–{hhmm(a.hasta % 1440 or 1440)}")
         gente = [p for p in self.ctx.colabs if p.en_solver]
         g = self.grilla
         g.blockSignals(True)
@@ -377,7 +383,7 @@ class Ventana(QMainWindow):
                 nov = self.ctx.novedad(p.id, f)
                 pu = puesto.get((p.id, f))
                 texto = ABREV[nov.tipo] if nov and cod == "L" else cod
-                if pu is not None and cod in self.ctx.turnos and tiene_puesto(self.ctx.turnos[cod]):
+                if pu is not None and cod in self.ctx.turnos:
                     texto = etiqueta(cod, pu) if self.ver_puesto.isChecked() else cod
                 it = QTableWidgetItem(texto)
                 it.setTextAlignment(Qt.AlignCenter)
@@ -387,8 +393,8 @@ class Ventana(QMainWindow):
                     horas += self.ctx.turnos[cod].horas
                 elif nov:
                     it.setBackground(QColor("#D9D9D9"))
-                if pu is not None and cod in self.ctx.turnos and tiene_puesto(self.ctx.turnos[cod]):
-                    it.setToolTip("Puesto: " + (PUESTOS[pu] if pu else "apoyo"))
+                if pu is not None and cod in self.ctx.turnos:
+                    it.setToolTip("Puesto: " + "; ".join(detalle[p.id, f]))
                 estudia = [("Mañana", "Tarde")["MT".index(fr)] for dia, fr in p.estudio if dia == f.weekday()]
                 if estudia:
                     it.setToolTip((it.toolTip() + "\n" if it.toolTip() else "") + "Estudia: " + " y ".join(x.lower() for x in estudia))
@@ -587,9 +593,9 @@ class Ventana(QMainWindow):
         tar, ventana = self.bd.tarifas(), int(self.bd.param("ventana_semanas", 3))
         with ocupado():
             a = exportar.exportar_cuadro(carpeta, txt, self.ctx, cuadro, self.bd.asignaciones(k, "original"), fechas,
-                                         self.bd.diferencias(k), self.bd.puestos(k))
-            b = exportar.exportar_puestos(carpeta, txt, self.ctx, cuadro, fechas, self.bd.puestos(k),
-                                          self.bd.capacitacion(k))
+                                         self.bd.diferencias(k), self.bd.asignacion_puesto(k), self.bd.catalogo_puestos())
+            b = exportar.exportar_puestos(carpeta, txt, self.ctx, cuadro, fechas, self.bd.asignacion_puesto(k),
+                                          self.bd.capacitacion(k), self.bd.catalogo_puestos())
             c = exportar.exportar_horas(carpeta, txt, self.ctx, tar, cuadro, fechas, ventana)
         self.avisar("Guardado: " + ", ".join(r.name for r in (a, b, c)))
         abrir(carpeta)
@@ -847,7 +853,7 @@ class Ventana(QMainWindow):
     def _pestana_puestos(self):
         w = QWidget()
         v = QVBoxLayout(w)
-        self.t_puestos = tabla(["Día", "Franja"] + [PUESTOS[p] for p in (1, 2, 3, 4, 5)] + ["Apoyo"])
+        self.t_puestos = tabla(["Día", "Apoyo"])  # las columnas por puesto se arman al mostrar
         v.addWidget(con_vacio(self.t_puestos, "Sin puestos asignados", "Se calculan al generar el cuadro del periodo."), 3)
         v.addWidget(QLabel("Capacitación del mes", objectName="muted"))
         self.l_cap = QListWidget()
@@ -856,16 +862,21 @@ class Ventana(QMainWindow):
 
     def _ver_puestos(self):
         k = self.clave
-        celdas, apoyo = {}, {}
-        for f, fr, p, cid, g in self.bd.puestos(k):
-            nombre = f"{self.nombres.get(cid, cid)} (P{g})"
-            if p:
-                celdas[f, fr, p] = nombre
-            else:
-                apoyo.setdefault((f, fr), []).append(nombre)
-        filas = [(f"{DIAS[f.weekday()]} {f:%d/%m}", fr, *[celdas.get((f, fr, p), "") for p in (1, 2, 3, 4, 5)],
-                  ", ".join(apoyo.get((f, fr), []))) for f in self.fechas for fr in ("M", "T")]
-        llenar(self.t_puestos, filas, lambda r, c: "#F8CBAD" if c == 0 and self.ctx.tipo_dia(self.fechas[r // 2]) == "DF" else None)
+        cat = self.bd.catalogo_puestos()
+        filas_pu = self.bd.asignacion_puesto(k)
+        usados = sorted({a.puesto_id for a in filas_pu if a.puesto_id in cat} | {i for i, q in cat.items() if q.activo},
+                        key=lambda i: cat[i].numero)
+        t = self.t_puestos
+        t.setColumnCount(len(usados) + 2)
+        t.setHorizontalHeaderLabels(["Día"] + [f"{cat[i].numero} · {cat[i].nombre}" for i in usados] + ["Apoyo"])
+        celdas = {}
+        for a in filas_pu:
+            celdas.setdefault((a.fecha, a.puesto_id), []).append(
+                f"{self.nombres.get(a.colab_id, a.colab_id)} {hhmm(a.desde)}–{hhmm(a.hasta % 1440 or 1440)} (P{a.pausa})")
+        filas = [(f"{DIAS[f.weekday()]} {f:%d/%m}", *["\n".join(celdas.get((f, i), [])) for i in usados],
+                  "\n".join(celdas.get((f, 0), []))) for f in self.fechas] if filas_pu else []
+        llenar(t, filas, lambda r, c: "#F8CBAD" if c == 0 and self.ctx.tipo_dia(self.fechas[r]) == "DF" else None)
+        t.resizeRowsToContents()
         self.l_cap.clear()
         por_dia = {}
         for f, cid in self.bd.capacitacion(k):
