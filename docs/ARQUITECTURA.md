@@ -35,24 +35,28 @@ flowchart TB
 
 | Archivo | Responsabilidad |
 |---|---|
-| `dominio.py` | `Turno` (catálogo editable, pausas, `cubre` M/T/N), `Colaborador`, `Novedad`, `Contexto` (`bloqueo()` explica por qué alguien no puede hacer un turno), festivos de Colombia (Ley Emiliani) |
+| `dominio.py` | `Turno` (catálogo editable, pausas; `cubre` se calcula del horario), `Puesto`, `Demanda`, `AsignacionPuesto`, `Colaborador`, `Novedad`, `Contexto` (`bloqueo()` explica por qué alguien no puede hacer un turno), festivos de Colombia (Ley Emiliani) |
 | `db.py` | SQLite con migraciones por `PRAGMA user_version`. Cuadro en dos versiones por mes (`original`, `cambios`) |
 | `reglas.py` | Validación pura de un cuadro `{(colab_id, fecha): código}` |
-| `solver.py` | Modelo CP-SAT del mes |
-| `puestos.py` | Reparto de puestos: fijos, luego corridos, luego medias jornadas |
+| `demanda.py` | Modelo puro de la demanda por tramos de 30 min: ventanas, `demanda_fecha`, franjas de un turno, huecos sin turno, estimación por horas |
+| `solver.py` | Modelo CP-SAT del periodo; cobertura por tramos |
+| `puestos.py` | Reparto por tramo: un CP-SAT por día (puestos permitidos, continuidad, rotación) y textos de «Mostrar puesto» |
+| `dotacion.py` | Calculadora: estimación por horas y búsqueda del mínimo de personas con el solver |
 | `capacitacion.py` | Sesiones semanales |
 | `recargos.py` | Horas por categoría y ventana del art. 165 |
 | `flujo.py` | Orquestación (`cero`, `respetar`, `semana`) y acumulado de equidad |
 | `exportar.py` | Tres libros Excel sin sobrescribir |
-| `app.py` | Ventana PySide6; el solver corre en un `QThread` |
+| `app.py`, `ui_puestos.py`, `ui_base.py` | Ventana PySide6; pestañas de puestos y dotación; helpers compartidos de tablas. El solver y la verificación corren en `QThread` |
 
 ## Datos (SQLite)
 
-`turno`, `cobertura`, `colaborador`, `novedad`, `asignacion` (periodo, versión, colaborador, fecha, turno, origen, `fijo`), `puesto_dia`, `capacitacion`, `tarifa`, `parametro`, y desde la versión 3 `periodo_estado` (periodos cerrados), `cierre` (foto de horas contratadas y trabajadas por persona) y `banco_mov` (movimientos manuales del banco de horas). La base se crea sola en `turnos.db` junto a la app.
+`turno`, `cobertura` (en desuso desde la versión 4), `colaborador`, `novedad`, `asignacion` (periodo, versión, colaborador, fecha, turno, origen, `fijo`), `puesto_dia`, `capacitacion`, `tarifa`, `parametro`, y desde la versión 3 `periodo_estado` (periodos cerrados), `cierre` (foto de horas contratadas y trabajadas por persona) y `banco_mov` (movimientos manuales del banco de horas). Desde la versión 4: `puesto`, `demanda` (reglas por puesto: tipo de día, inicio, fin, personas, obligatorio) y `persona_puesto` (puestos que puede ocupar cada persona). Desde la versión 5: `asignacion_puesto` (periodo, fecha, persona, puesto, desde, hasta, pausa); `puesto_dia` queda solo para saber si un puesto tiene historial. La base se crea sola en `turnos.db` junto a la app y migra sola.
 
 ## Solver
 
 Variable `x[persona, día, turno]` con L más los turnos del catálogo marcados para el solver.
+
+**Cobertura por tramos:** la demanda obligatoria de los puestos se exige tramo a tramo (48 por día). Un turno aporta a los tramos que cubre su horario real; una noche aporta a la madrugada del día siguiente, y en el primer día del periodo cuentan las noches del anterior si hay datos (`previo`). Cada persona faltante pesa `W_FALTA` por tramo; con `estricto=True` (calculadora) es restricción dura. Los puestos deseables dan un premio suave (`W_DESEABLE`).
 
 **Duras:** una opción por persona y día; descanso de 12 h (transiciones prohibidas calculadas con los horarios reales); día libre después de una noche (también cuando la noche cae al final del mes anterior); mínimo de días libres por semana completa; al menos un fin de semana completo libre al mes por persona; novedades, estudio y turnos permitidos; tope de noches seguidas; celdas fijas por edición manual (si una edición manual ocupa el día libre o el fin de semana, esa regla no se exige para ese caso); continuidad con el mes anterior.
 
@@ -60,9 +64,15 @@ Variable `x[persona, día, turno]` con L más los turnos del catálogo marcados 
 
 **Meta de horas:** la meta de cada ventana se ajusta con `ajuste` (`flujo.ajustes_banco`, a partir del saldo del banco y de los topes `banco_tope_favor_h` y `banco_tope_deuda_h`); es solo un cambio en el objetivo suave de horas, no una regla dura.
 
-**Objetivo:** faltante de cobertura (peso muy alto) y sobrante; desviación de horas por ventana del art. 165; cambios de turno día a día; noche antes de estudio de mañana; noches y domingos/festivos en semanas seguidas; dos corridos seguidos; semanas sin libre en sábado o domingo; equidad de cada turno (M, T, C, NC…) y de domingos/festivos entre quienes tienen las mismas restricciones, incluyendo meses anteriores.
+**Objetivo:** faltante de cobertura (peso muy alto) y premio por deseables; desviación de horas por ventana del art. 165; cambios de turno día a día; noche antes de estudio de mañana; noches y domingos/festivos en semanas seguidas; dos corridos seguidos; semanas sin libre en sábado o domingo; equidad de cada turno (M, T, C, NC…) y de domingos/festivos entre quienes tienen las mismas restricciones, incluyendo meses anteriores.
 
 Si hay celdas fijas imposibles, el error lo indica y sugiere «Restaurar».
+
+## Puestos, demanda y dotación
+
+Un puesto es un catálogo más **reglas de demanda** (tipo de día `LS`/`DF` del día en que empieza la ventana, inicio y fin en minutos, personas, obligatoria o deseable). `demanda.py` convierte esas reglas en demanda por tramo y por fecha, incluida la parte de madrugada de las ventanas nocturnas del día anterior. La cobertura que ve la interfaz y las alertas sale de esa demanda, no de números aparte.
+
+El reparto por persona (`puestos.asignar_tramos`) agrupa los tramos con la misma presencia y demanda en **bloques** para que cada día sea un modelo pequeño (un mes completo se reparte en una fracción de segundo). `dotacion.verificar_minimo` parte de la cota por horas, duplica hasta encontrar una cantidad factible y bisecta, con personas genéricas de jornada completa y `solver.generar(..., estricto=True)`; supone que si N personas alcanzan, N+1 también.
 
 ## Periodos
 

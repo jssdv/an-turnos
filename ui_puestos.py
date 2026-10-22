@@ -294,6 +294,7 @@ class TabDotacion(QWidget):
         ver.addWidget(self.b_verificar)
         ver.addWidget(self.b_cancelar)
         ver.addWidget(self.barra, 1)
+        ver.addStretch(1)
         lv.addLayout(ver)
         self.l_resultado = QLabel("", objectName="muted")
         self.l_resultado.setWordWrap(True)

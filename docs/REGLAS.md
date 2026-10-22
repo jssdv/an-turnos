@@ -33,6 +33,13 @@ Estado: v1. Todo lo marcado **[confirmar]** lo debe validar la coordinación, RR
 - Trabajo en día de descanso: ocasional hasta 2 al mes, habitual desde 3 (afecta el compensatorio). La app reporta el conteo.
 - Datos personales (Ley 1581 de 2012): la base `turnos.db` es local y no se versiona.
 
+## Puestos y dotación
+
+- La **cobertura sale de los puestos**: cada regla de demanda pide un número de personas durante una ventana (múltiplos de 30 min) en lunes a sábado o en domingo/festivo. La ventana de una noche cuenta en el tipo de día en que **empieza**.
+- **Obligatoria** significa que el generador la exige (un faltante se marca en la grilla); **deseable** se busca si alcanza, sin sacrificar descansos ni reparto.
+- Un turno cuenta en mañana, tarde o noche si se solapa al menos 3 h con esa franja (M 06–12, T 12–18, N 18–06).
+- **Dotación:** margen de ausentismo por defecto **10 %** **[confirmar]**; la verificación con el generador usa personas genéricas de jornada completa y sin restricciones.
+
 ## Banco de horas
 
 El banco lleva, por persona, **horas trabajadas − horas contratadas** de cada periodo cerrado, más los movimientos manuales (saldo inicial, compensaciones, pagos, ajustes). Positivo significa que la institución le debe horas a la persona; negativo, que la persona debe horas. Al cerrar se guarda una foto de las horas contratadas y trabajadas, así que cambios posteriores de jornada o de tarifas no reescriben el historial. Las horas contratadas descuentan las novedades del periodo. Al generar un periodo, el saldo anterior mueve la meta de horas: se baja a quien se le deben horas y se sube a quien las debe, con un tope por periodo en cada dirección (12 h por defecto, 0 = apagado). Pedir más horas a quien las debe puede tener implicaciones laborales, así que cada dirección se puede apagar por separado **[confirmar]**. Qué se hace con un saldo (compensarlo, pagarlo, trasladarlo) es una decisión de la coordinación y de RR. HH.; An~ lo registra y lo usa solo como preferencia del generador.

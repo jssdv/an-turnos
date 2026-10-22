@@ -30,6 +30,19 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación y e
 | Otros servicios | Reutilizar el modelo para áreas con la misma estructura | Hoy el proyecto es solo Esterilización; requeriría servicios configurables |
 | Servidor y accesos | Cada colaborador consulta su horario | Implica base compartida y autenticación; fuera de alcance por ahora |
 
+## Hecho recientemente
+
+Puestos editables con demanda por tramos, cobertura derivada, reparto por tramo con puestos permitidos y calculadora de dotación (diseño: [spec](superpowers/specs/2026-10-21-puestos-dotacion-design.md), plan: [plan](superpowers/plans/2026-10-21-puestos-dotacion.md)).
+
+## Siguientes (en orden de valor)
+
+1. **Probar en el PC corporativo y en Windows** (Qt, OR-Tools y la interfaz).
+2. **Copia de seguridad y restauración** de `turnos.db`.
+3. **Registro de cambios** (quién, cuándo y por qué) en ediciones y cierres.
+4. **Excel del banco de horas** para RR. HH.
+5. **Sugerir turnos** para ventanas que ningún turno del catálogo cubre.
+6. Solicitudes y permutas con aprobación; importar el Excel actual.
+
 ## Convenciones del proyecto
 
 - Interfaz y mensajes en español; no cambiar nombres de hojas ni etiquetas de los Excel sin avisar.

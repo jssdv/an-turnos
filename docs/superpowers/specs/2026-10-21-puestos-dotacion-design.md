@@ -2,7 +2,7 @@
 
 [← Volver al inicio](../../../README.md) · [Visión](../../VISION.md) · [Arquitectura](../../ARQUITECTURA.md) · [Hoja de ruta](../../HOJA_DE_RUTA.md)
 
-Estado: **borrador para revisión** (21/10/2026). Aún no hay código.
+Estado: **implementado** (21/10/2026), según el [plan](../plans/2026-10-21-puestos-dotacion.md). Diferencias respecto a este documento: el selector de turnos ya no pide «cubre» y el margen de la verificación se aplica al mínimo entero.
 
 ## 1. Qué se quiere lograr
 

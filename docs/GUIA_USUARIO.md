@@ -9,7 +9,7 @@ Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta to
 1. **Personal.** Pestaña **Personal** → *+ Nuevo colaborador*. A la derecha se llena la ficha:
    - **Jornada semanal** y **% de jornada**.
    - **Puede hacer**: desmarca los turnos que no puede cubrir (por ejemplo, quita NC y C a quien no hace noches).
-   - **Puesto fijo**: por ejemplo el 3 (sterrad y esto).
+   - **Puestos que puede ocupar**: marca solo los que corresponden (por ejemplo, solo el 3, sterrad y esto). Si marcas todos, puede ocupar cualquiera; debe quedar al menos uno.
    - **No disponible por estudio**: marca los bloques de mañana o tarde de cada día en que estudia.
    - **Activo**: desmárcalo para que no entre en los cuadros nuevos sin perder su historial.
 
@@ -17,19 +17,26 @@ Esta guía recorre un mes completo. Todo se hace dentro de An~; no hace falta to
 2. **Turnos.** Pestaña **Parámetros → Turnos**. Selecciona un turno para editarlo o usa *+ Nuevo turno*:
    - **Empieza / Termina** (formato 24 h; si termina antes de empezar, cruza la medianoche).
    - **Pausa de almuerzo**: minutos y hora; marca *cuenta como trabajada* si es pagada. Abajo ves cuántas horas se cuentan.
-   - **Cubre**: qué franjas (mañana, tarde, noche) cuenta para la cobertura.
+   - **Cuenta en**: la app calcula sola si el turno cuenta en mañana, tarde o noche (se solapa al menos 3 h con esa franja) y lo muestra abajo.
    - Si se puede usar en domingo o festivo, si el generador puede asignarlo, el color y si está activo.
 
    *Eliminar* borra el turno si nunca se usó; si ya está en cuadros guardados queda inactivo. Mientras un turno de más de 6 h no tenga pausa, la app lo avisa.
-3. **Cobertura y reglas.** En **Parámetros → Cobertura y reglas** confirma cuántas personas se necesitan por franja, las semanas de la ventana legal y las reglas de descanso, que vienen activas por defecto:
+3. **Puestos y su demanda.** Pestaña **Parámetros → Puestos**. Cada puesto dice **cuántas personas necesita y en qué horario**; de ahí sale la cobertura que exige el generador. Usa *+ Nuevo puesto* o selecciona uno para editarlo:
+   - **Número, nombre, color y activo.**
+   - **Reglas de demanda**, las que quieras por puesto: días (*lunes a sábado* o *domingo y festivo*), **desde** y **hasta** (múltiplos de 30 min; si «hasta» es menor que «desde», cruza la medianoche), **personas** y si es **obligatoria** o **deseable**.
+   - Una regla **obligatoria** se exige al generar el cuadro; una **deseable** (por ejemplo, Ropa «si se puede») se busca si alcanza la gente, sin romper descansos ni el reparto parejo.
+   - Un puesto puede pedir **varias personas** a la vez, con ventanas a mitad de franja (por ejemplo, 08:00–14:00) o de noche (18:00–06:00).
+
+   Al guardar, la app avisa si **ningún turno del catálogo cubre** esa ventana («Ningún turno cubre 08:00–14:00») o si hay reglas solapadas (se suman). Un puesto sin reglas no exige nada. *Eliminar* borra el puesto si nunca se usó; si ya tiene reparto guardado queda inactivo.
+4. **Reglas y esquema.** En **Parámetros → Cobertura y reglas** confirma las semanas de la ventana legal y las reglas de descanso, que vienen activas por defecto:
    - **Libre después de una noche**: 1 día.
    - **Días libres por semana**: mínimo 1.
-   - **Fines de semana libres al mes** (sábado y domingo): mínimo 1 por persona; el libre posterior a una noche cuenta.
+   - **Fines de semana libres por esquema** (sábado y domingo): mínimo 1 por persona; el libre posterior a una noche cuenta.
    - **Máximo de noches en racha** (NC, L, NC, L…): 2 por defecto.
    - **Máximo de corridos (C) seguidos**: 2 por defecto; además el generador intenta evitar incluso los pares.
    - **Máximo del mismo turno (M, T…) seguido**: 3 por defecto (nunca 4 M seguidas).
 
-   La pantalla agrupa estos valores en tarjetas: cobertura, esquema y horas, descansos y límites de repetición.
+   La pantalla agrupa estos valores en tarjetas: esquema y horas, descansos, límites de repetición y banco de horas.
 
    Además, el generador reparte parejo M, T, C y NC entre el personal y prefiere poner los libres en sábado o domingo.
 
@@ -77,12 +84,12 @@ Los días de estudio aparecen en **morado** sobre las celdas libres, y al pasar 
 
 Cada celda del cuadro muestra el turno. Para ver **en qué puesto** está cada persona:
 
-- Marca **Mostrar puesto** junto al selector *Ver*: las celdas pasan de `M` a `M·2`. El número es el puesto (1 lavado, 2 autoclave, 3 sterrad y esto, 4 cuarto estéril, 5 ropa) y `A` significa **apoyo**, sin puesto fijo ese día. La leyenda está bajo la grilla.
-- Pasa el cursor sobre una celda de día: el aviso dice «Puesto: Autoclave».
-- La pestaña **Puestos y capacitación** muestra lo mismo por día, con el grupo de pausa (P1/P2).
+- Marca **Mostrar puesto** junto al selector *Ver*: las celdas pasan de `M` a `M·2`. El número es el del **puesto donde la persona pasa más tiempo** ese día y `A` significa **apoyo**, sin puesto ese día. La leyenda con los puestos activos está bajo la grilla.
+- Pasa el cursor sobre una celda: el aviso lista los puestos con su horario («Autoclave 06:00–12:00; Lavado 12:00–18:00»), porque una persona puede cambiar de puesto dentro de su turno.
+- La pestaña **Puestos y capacitación** muestra, por día, una columna por puesto con quién lo ocupa y en qué horario, más el apoyo y el grupo de pausa (P1/P2).
 - En Excel, el archivo del cuadro trae la hoja **Cuadro con puestos** y el archivo de puestos, una hoja por semana.
 
-Las noches no llevan puesto. Si escribes en una celda con el puesto visible, basta el código (`T`, o `T·2`, ambos valen). Los puestos se recalculan solos con cada cambio.
+Las noches también tienen puesto si defines uno de noche (por ejemplo, «Guardia noche»). El reparto respeta los **puestos permitidos** de cada persona y evita cambiar de puesto dentro del turno salvo que la demanda lo exija. Si escribes en una celda con el puesto visible, basta el código (`T`, o `T·2`, ambos valen). Los puestos se recalculan solos con cada cambio.
 
 ### 4. Cuando llega una novedad tarde
 
@@ -133,14 +140,23 @@ Los cierres no se borran desde el banco; se deshacen reabriendo el periodo. Los 
 
 **Historial y banco de horas → Historial de esquemas** lista todos los periodos con cuadro: días, estado (abierto o cerrado), personas, horas trabajadas, saldo del periodo al cerrarlo, cambios frente al original y alertas. Doble clic en uno lo abre en el cuadro, cambiando solo el selector de periodo.
 
-### 9. Exportar
+### 9. Calcular cuántas personas se necesitan (Dotación)
+
+La pestaña **Dotación** responde cuántas personas piden los puestos:
+
+- **Estimación inmediata:** horas-persona de una semana tipo (6 días de lunes a sábado + 1 de domingo/festivo) ÷ la jornada media, con un **margen de ausentismo** (10 % por defecto) por vacaciones e incapacidades. Muestra las cifras por puesto y por franja, el personal activo y si **sobran o faltan** personas. La casilla *Incluir puestos deseables* suma esos puestos.
+- **Verificar con el generador:** busca el **mínimo de personas** con el que existe un cuadro que cumple los puestos obligatorios **y** todas las reglas de descanso (libre tras noche, fines de semana libres, rachas) del periodo seleccionado. Corre en segundo plano, con barra de avance y botón *Cancelar*, y puede tardar un minuto. Si ninguna cantidad cumple, explica por qué (por ejemplo, que ningún turno cubre una ventana).
+
+La verificación aplica el margen sobre el mínimo entero, así que puede dar una persona más que la estimación por horas.
+
+### 10. Exportar
 
 **Exportar Excel** pide una carpeta y guarda tres archivos:
 
 | Archivo | Contenido |
 |---|---|
 | `CUADRO <MES AÑO>.xlsx` | Hojas *Cuadro* (con lo cambiado en amarillo), *Original* y *Cambios* |
-| `PUESTOS <MES AÑO>.xlsx` | Una hoja por semana con puestos, noche y capacitación |
+| `PUESTOS <MES AÑO>.xlsx` | Una hoja por semana: una columna por puesto con quién lo ocupa y su horario, el apoyo y la capacitación |
 | `HORAS Y RECARGOS <MES AÑO>.xlsx` | Horas por persona y categoría, horas por semana y el régimen aplicado |
 
 Si el archivo ya existe, guarda `v2`, `v3`… y no sobrescribe nada.
@@ -149,7 +165,7 @@ Si el archivo ya existe, guarda `v2`, `v3`… y no sobrescribe nada.
 
 **¿Por qué una celda no deja cambiar?** Los días de novedad (VAC, INC…), las filas de totales y la vista *Original* son de solo lectura; arrastrar sobre ellas avisa.
 
-**La app dice que faltan personas en un día.** Hay demasiadas novedades o restricciones ese día. Revisa **Novedades**, o baja la cobertura requerida si es una decisión del servicio.
+**La app dice que faltan personas en un día.** Las filas «Cobertura mañana/tarde/noche» de la grilla marcan `−n` y, al pasar el cursor, el horario exacto. Hay demasiadas novedades o restricciones, o la demanda de los puestos es mayor que el personal. Revisa **Novedades**, la pestaña **Dotación** o baja la demanda del puesto si es una decisión del servicio.
 
 **¿Dónde quedan mis datos?** En `turnos.db`, junto a la app. Para respaldarlos, copia ese archivo.
 
