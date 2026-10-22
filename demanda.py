@@ -52,6 +52,21 @@ def demanda_fecha(ctx, fecha, con_ayer=True):
     return obl, des
 
 
+def demanda_por_puesto(ctx, fecha, con_ayer=True):
+    """{puesto_id: (obligatoria, deseable)} con 48 enteros cada una, como `demanda_fecha` pero separada por puesto."""
+    out = {}
+    ayer = fecha - timedelta(days=1)
+    for d in ctx.demandas:
+        obl, des = out.setdefault(d.puesto_id, ([0] * TRAMOS_DIA, [0] * TRAMOS_DIA))
+        for dia, tipo in ((0, ctx.tipo_dia(fecha)), (1, ctx.tipo_dia(ayer))):
+            if d.tipo_dia != tipo or (dia == 1 and not con_ayer):
+                continue
+            for off, t in tramos_ventana(d.inicio, d.fin):
+                if off == dia:
+                    (obl if d.obligatorio else des)[t] += d.personas
+    return out
+
+
 def _plano(demandas, tipo_dia, obligatorio=True):
     """Demanda de un tipo de día plegada a 48 tramos (la madrugada de una ventana nocturna suma a los tramos 0–11)."""
     out = [0] * TRAMOS_DIA
