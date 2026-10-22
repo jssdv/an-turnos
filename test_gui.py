@@ -140,4 +140,25 @@ tp.nuevo(); tp.f_numero.setValue(10); tp.f_nombre.setText("Vacío"); tp.guardar(
 assert por_nombre("Vacío") and tp.t_lista.item([p.id for p in tp._puestos].index(por_nombre("Vacío")), 2).text() == "Sin demanda"
 tp.t_lista.selectRow([p.id for p in tp._puestos].index(por_nombre("Vacío"))); tp.agregar_regla(); tp.agregar_regla()
 tp.guardar(); assert "Las reglas solapadas se suman" in v.aviso.text()
+# --- puestos permitidos en la ficha de personal
+v.pestanas.setCurrentIndex(1)
+ids_p = {p.numero: i for i, p in v.bd.catalogo_puestos().items()}
+n_antes = len(v.bd.colaboradores(solo_activos=False))
+v._nueva_persona(); v.p_nombre.setText("Solo tres")
+for i, cb in v.p_puestos_cbs.items():
+    cb.setChecked(i == ids_p[3])
+v._guardar_persona()
+sol = next(c for c in v.bd.colaboradores() if c.nombre == "Solo tres")
+assert sol.puestos_permitidos == (ids_p[3],) and sol.puesto_fijo == 3
+v.t_personal.selectRow([c.nombre for c in v._personal].index("Solo tres")); v._cargar_persona()
+assert [i for i, cb in v.p_puestos_cbs.items() if cb.isChecked()] == [ids_p[3]]
+for cb in v.p_puestos_cbs.values():
+    cb.setChecked(True)
+v._guardar_persona()
+sol = next(c for c in v.bd.colaboradores() if c.nombre == "Solo tres")
+assert sol.puestos_permitidos is None and sol.puesto_fijo is None
+for cb in v.p_puestos_cbs.values():
+    cb.setChecked(False)
+n = len(v.bd.colaboradores(solo_activos=False)); v._guardar_persona()
+assert "Marca al menos un puesto que pueda ocupar" in v.aviso.text() and len(v.bd.colaboradores(solo_activos=False)) == n
 print("OK")
