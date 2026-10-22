@@ -603,7 +603,7 @@ class Ventana(QMainWindow):
             barra.addWidget(x)
         barra.addStretch()
         izq.addLayout(barra)
-        self.t_personal = tabla(["Nombre", "Tipo", "Horas/sem", "Turnos", "Puesto fijo", "Estudio", "Estado"])
+        self.t_personal = tabla(["Nombre", "Tipo", "Horas/sem", "Turnos", "Puestos", "Estudio", "Estado"])
         self.t_personal.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.t_personal.setSelectionMode(QAbstractItemView.SingleSelection)
         self.t_personal.itemSelectionChanged.connect(self._cargar_persona)
@@ -622,11 +622,9 @@ class Ventana(QMainWindow):
         self.p_pct.setSuffix(" %")
         self.p_perm_caja = QHBoxLayout()
         self.p_perm_cbs = {}
-        self.p_puesto = QComboBox()
-        self.p_puesto.addItem("Ninguno", None)
-        for n, nombre in PUESTOS.items():
-            if n:
-                self.p_puesto.addItem(f"{n} · {nombre}", n)
+        self.p_puestos_caja = QGridLayout()
+        self.p_puestos_caja.setHorizontalSpacing(16)
+        self.p_puestos_cbs = {}  # id de puesto -> casilla
         self.p_est = QTableWidget(2, 7)
         self.p_est.setHorizontalHeaderLabels(DIAS)
         self.p_est.setVerticalHeaderLabels(["Mañana", "Tarde"])
@@ -642,7 +640,7 @@ class Ventana(QMainWindow):
                 self.p_est.setItem(r, c, it)
         self.p_activo = QCheckBox("Activo (entra en los cuadros nuevos)")
         for et, wd in (("Nombre", self.p_nombre), ("Tipo", self.p_tipo), ("Jornada semanal", self.p_horas),
-                       ("% de jornada", self.p_pct), ("Puede hacer", self.p_perm_caja), ("Puesto fijo", self.p_puesto),
+                       ("% de jornada", self.p_pct), ("Puede hacer", self.p_perm_caja), ("Puestos que puede ocupar", self.p_puestos_caja),
                        ("No disponible por estudio", self.p_est), ("", self.p_activo)):
             f.addRow(et, wd)
         botones = QHBoxLayout()
@@ -657,6 +655,23 @@ class Ventana(QMainWindow):
         h.addWidget(caja, 0, Qt.AlignTop)
         self.persona_id = None
         self.pestanas.addTab(w, "Personal")
+
+    def _armar_puestos_permitidos(self):
+        """Una casilla por puesto activo; conserva lo marcado."""
+        activos = self.bd.catalogo_puestos(solo_activos=True)
+        if list(self.p_puestos_cbs) == list(activos):
+            return
+        marcado = {i: cb.isChecked() for i, cb in self.p_puestos_cbs.items()}
+        while self.p_puestos_caja.count():
+            cb = self.p_puestos_caja.takeAt(0).widget()
+            cb.setParent(None)
+            cb.deleteLater()
+        self.p_puestos_cbs = {}
+        for k, (i, p) in enumerate(activos.items()):
+            cb = QCheckBox(f"{p.numero} · {p.nombre}")
+            cb.setChecked(marcado.get(i, True))
+            self.p_puestos_cbs[i] = cb
+            self.p_puestos_caja.addWidget(cb, k // 2, k % 2)
 
     def _armar_permitidos(self):
         """Una casilla por turno activo del catálogo; conserva lo marcado."""
@@ -677,9 +692,12 @@ class Ventana(QMainWindow):
     def _ver_personal(self):
         self._personal = [p for p in self.bd.colaboradores(solo_activos=False) if p.activo or self.p_inactivos.isChecked()]
         self._armar_permitidos()
+        self._armar_puestos_permitidos()
+        numeros = {i: p.numero for i, p in self.bd.catalogo_puestos().items()}
         llenar(self.t_personal,
                [(p.nombre, p.tipo, f"{p.horas_sem:g} h ({p.pct * 100:g} %)",
-                 "todos" if p.permitidos is None else ", ".join(p.permitidos), p.puesto_fijo or "",
+                 "todos" if p.permitidos is None else ", ".join(p.permitidos),
+                 "todos" if p.puestos_permitidos is None else ", ".join(str(numeros.get(i, "?")) for i in p.puestos_permitidos),
                  texto_estudio(p.estudio), "Activo" if p.activo else "Inactivo") for p in self._personal],
                lambda r, c: None if self._personal[r].activo else "#EEF0F2")
         for r, p in enumerate(self._personal):
@@ -698,7 +716,8 @@ class Ventana(QMainWindow):
         self.p_pct.setValue(p.pct * 100)
         for cod, cb in self.p_perm_cbs.items():
             cb.setChecked(p.permitidos is None or cod in p.permitidos)
-        self.p_puesto.setCurrentIndex(max(0, self.p_puesto.findData(p.puesto_fijo)))
+        for i, cb in self.p_puestos_cbs.items():
+            cb.setChecked(p.puestos_permitidos is None or i in p.puestos_permitidos)
         for rr in range(2):
             for c in range(7):
                 self.p_est.item(rr, c).setCheckState(Qt.Checked if (c, "MT"[rr]) in p.estudio else Qt.Unchecked)
@@ -714,7 +733,8 @@ class Ventana(QMainWindow):
         self.p_pct.setValue(100)
         for cb in self.p_perm_cbs.values():
             cb.setChecked(True)
-        self.p_puesto.setCurrentIndex(0)
+        for cb in self.p_puestos_cbs.values():
+            cb.setChecked(True)
         for rr in range(2):
             for c in range(7):
                 self.p_est.item(rr, c).setCheckState(Qt.Unchecked)
@@ -732,8 +752,13 @@ class Ventana(QMainWindow):
         estudio = tuple(sorted((c, "MT"[r]) for r in range(2) for c in range(7)
                                if self.p_est.item(r, c).checkState() == Qt.Checked))
         perm = None if len(marcados) == len(self.p_perm_cbs) else marcados
+        puestos = tuple(i for i, cb in self.p_puestos_cbs.items() if cb.isChecked())
+        if not puestos:
+            return self.avisar("Marca al menos un puesto que pueda ocupar.", "error")
+        perm_puestos = None if len(puestos) == len(self.p_puestos_cbs) else puestos
+        fijo = self.bd.catalogo_puestos()[puestos[0]].numero if perm_puestos and len(puestos) == 1 else None
         p = Colaborador(self.persona_id or 0, nombre, self.p_tipo.currentText(), self.p_horas.value(),
-                        self.p_pct.value() / 100, perm, self.p_puesto.currentData(), estudio, self.p_activo.isChecked())
+                        self.p_pct.value() / 100, perm, fijo, estudio, self.p_activo.isChecked(), perm_puestos)
         self.persona_id = self.bd.guardar_colaborador(p)
         self.avisar(f"«{nombre}» guardado. Regenera el cuadro para que lo tome en cuenta.")
         self.refrescar()
