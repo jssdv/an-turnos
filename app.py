@@ -21,6 +21,8 @@ import flujo
 import recargos
 import reglas
 import solver
+from ui_base import con_vacio, hhmm, llenar, signo, sin_seleccion, tabla
+from ui_puestos import TabPuestos
 from dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
 from puestos import LEYENDA, PUESTOS, etiqueta, por_persona, tiene_puesto
 
@@ -80,74 +82,6 @@ def abrir(ruta):
         os.startfile(ruta)  # noqa: E1101 (solo existe en Windows)
     else:
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(ruta)])
-
-
-NUMERO = re.compile(r"[+\-−]?\d+([.,]\d+)?( \(proy\.\))?")
-
-
-def tabla(columnas, editable=False):
-    t = QTableWidget(0, len(columnas))
-    t.setHorizontalHeaderLabels(columnas)
-    if not editable:
-        t.setEditTriggers(QAbstractItemView.NoEditTriggers)
-    t.verticalHeader().setVisible(False)
-    t.setAlternatingRowColors(True)
-    t.setShowGrid(False)
-    t.verticalHeader().setDefaultSectionSize(34)
-    return t
-
-
-def con_vacio(t, titulo, texto=""):
-    """Envuelve la tabla `t`: si no tiene filas, muestra un mensaje que guía en lugar de un espacio en blanco."""
-    pila = QStackedWidget()
-    pila.addWidget(t)
-    p = QWidget()
-    l = QVBoxLayout(p)
-    l.addStretch()
-    for txt, nombre in ((titulo, "vacio_t"), (texto, "muted")):
-        e = QLabel(txt, objectName=nombre, alignment=Qt.AlignCenter)
-        e.setWordWrap(True)
-        l.addWidget(e)
-    l.addStretch()
-    pila.addWidget(p)
-    t._pila = pila
-    return pila
-
-
-def llenar(t, filas, colores=None):
-    t.blockSignals(True)
-    t.setRowCount(len(filas))
-    n = t.columnCount()
-    numericas = [bool(filas)] * n
-    for r, fila in enumerate(filas):
-        for c, v in enumerate(fila):
-            txt = "" if v is None else (f"{v:g}" if isinstance(v, float) else str(v))
-            it = QTableWidgetItem(txt)
-            if NUMERO.fullmatch(txt):
-                it.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            else:
-                numericas[c] = False
-            if colores and (col := colores(r, c)):
-                it.setBackground(QColor(col))
-            t.setItem(r, c, it)
-    h = t.horizontalHeader()
-    estirar = n - 1 if not numericas[n - 1] else 0
-    for c in range(n):
-        h.setSectionResizeMode(c, QHeaderView.Stretch if c == estirar else QHeaderView.ResizeToContents)
-        if t.horizontalHeaderItem(c):
-            t.horizontalHeaderItem(c).setTextAlignment((Qt.AlignRight if numericas[c] else Qt.AlignLeft) | Qt.AlignVCenter)
-    if hasattr(t, "_pila"):
-        t._pila.setCurrentIndex(0 if filas else 1)
-    t.blockSignals(False)
-
-
-def signo(h):
-    """Horas con signo explícito; el cero se escribe sin signo."""
-    return "0" if abs(h) < 0.05 else f"{h:+g}"
-
-
-def hhmm(minutos):
-    return f"{minutos // 60 % 24:02d}:{minutos % 60:02d}"
 
 
 class Grilla(QTableWidget):
@@ -724,13 +658,6 @@ class Ventana(QMainWindow):
         self.persona_id = None
         self.pestanas.addTab(w, "Personal")
 
-    @staticmethod
-    def _sin_seleccion(t):
-        t.blockSignals(True)  # sin señal: no debe recargar el registro anterior en el formulario
-        t.clearSelection()
-        t.setCurrentCell(-1, -1)
-        t.blockSignals(False)
-
     def _armar_permitidos(self):
         """Una casilla por turno activo del catálogo; conserva lo marcado."""
         if list(self.p_perm_cbs) == list(self.ctx.turnos):
@@ -780,7 +707,7 @@ class Ventana(QMainWindow):
 
     def _nueva_persona(self):
         self.persona_id = None
-        self._sin_seleccion(self.t_personal)
+        sin_seleccion(self.t_personal)
         self.p_nombre.clear()
         self.p_tipo.setCurrentIndex(0)
         self.p_horas.setValue(42)
@@ -1189,6 +1116,8 @@ class Ventana(QMainWindow):
         self.turno_cod = None
         self._nuevo_turno()
         self.sub.addTab(w, "Turnos")
+        self.tab_puestos = TabPuestos(self)
+        self.sub.addTab(self.tab_puestos, "Puestos")
 
         w = QWidget()
         g = QGridLayout(w)
@@ -1217,19 +1146,6 @@ class Ventana(QMainWindow):
             f.addRow(a)
             return caja, f
 
-        self.s_cob = {}
-        caja1, f = tarjeta("Cobertura requerida", "Personas que deben estar cubiertas en cada franja.")
-        for td, nombre in (("LS", "Lunes a sábado"), ("DF", "Domingo y festivo")):
-            fila = QHBoxLayout()
-            for fr, et in (("M", "Mañana"), ("T", "Tarde"), ("N", "Noche")):
-                s_ = spin(0, 30)
-                s_.setFixedWidth(64)
-                self.s_cob[td, fr] = s_
-                fila.addWidget(QLabel(et))
-                fila.addWidget(s_)
-                fila.addSpacing(10)
-            fila.addStretch()
-            f.addRow(nombre, fila)
         caja2, f = tarjeta("Esquema y horas", "Cada cuánto se programa y cómo se promedian las horas (art. 165 CST).")
         self.s_modo = QComboBox()
         self.s_modo.addItem("Mes calendario", "mes")
@@ -1259,15 +1175,14 @@ class Ventana(QMainWindow):
         self.s_deuda = spin(0, 48, " h", "No compensar", "Máximo de horas que se suman por periodo a quien las debe")
         for et, wd in (("Descontar a quien se le deben (máx.)", self.s_favor), ("Sumar a quien las debe (máx.)", self.s_deuda)):
             f.addRow(et, wd)
-        g.addWidget(caja1, 0, 0)
-        g.addWidget(caja2, 0, 1)
-        g.addWidget(caja3, 1, 0)
-        g.addWidget(caja4, 1, 1)
-        g.addWidget(caja5, 2, 0, 1, 2)
+        g.addWidget(caja2, 0, 0)
+        g.addWidget(caja3, 0, 1)
+        g.addWidget(caja4, 1, 0)
+        g.addWidget(caja5, 1, 1)
         b = QPushButton("Guardar cambios", objectName="primario")
         b.clicked.connect(self._guardar_reglas)
-        g.addWidget(b, 3, 0, 1, 2, Qt.AlignLeft)
-        g.setRowStretch(4, 1)
+        g.addWidget(b, 2, 0, 1, 2, Qt.AlignLeft)
+        g.setRowStretch(3, 1)
         g.setColumnStretch(0, 1)
         g.setColumnStretch(1, 1)
         self.sub.addTab(w, "Cobertura y reglas")
@@ -1304,8 +1219,7 @@ class Ventana(QMainWindow):
             if x.codigo == self.turno_cod:
                 self.t_tabla.selectRow(r)
         self._resumen_turno()
-        for (td, fr), s in self.s_cob.items():
-            s.setValue(self.ctx.cobertura.get(td, {}).get(fr, 0))
+        self.tab_puestos.refrescar()
         self.s_vent.setValue(int(self.bd.param("ventana_semanas", 3)))
         self.s_favor.setValue(int(self.bd.param("banco_tope_favor_h", 12)))
         self.s_deuda.setValue(int(self.bd.param("banco_tope_deuda_h", 12)))
@@ -1325,7 +1239,7 @@ class Ventana(QMainWindow):
 
     def _nuevo_turno(self):
         self.turno_cod = None
-        self._sin_seleccion(self.t_tabla)
+        sin_seleccion(self.t_tabla)
         self.t_cod.setReadOnly(False)
         self.t_cod.clear()
         self.t_nom.clear()
@@ -1431,7 +1345,6 @@ class Ventana(QMainWindow):
         self.refrescar()
 
     def _guardar_reglas(self):
-        self.bd.guardar_cobertura({td: {fr: self.s_cob[td, fr].value() for fr in "MTN"} for td in ("LS", "DF")})
         self.bd.set_param("ventana_semanas", self.s_vent.value())
         self.bd.set_param("banco_tope_favor_h", self.s_favor.value())
         self.bd.set_param("banco_tope_deuda_h", self.s_deuda.value())
