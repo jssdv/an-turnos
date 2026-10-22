@@ -1,6 +1,6 @@
 # Diseño v1 (aprobado)
 
-> Documento de diseño con el que se construyó la v1. Para el estado actual, ver el [README](../README.md), la [arquitectura](ARQUITECTURA.md) y las [reglas](REGLAS.md).
+> Documento histórico: diseño de la v1 de Esterilización, previo a unirla con Radiología en una sola app ([NUCLEO.md](NUCLEO.md)). Para el estado actual, ver el [README](../README.md), la [arquitectura](ARQUITECTURA.md) y las [reglas](REGLAS.md).
 
 ## Contexto
 
