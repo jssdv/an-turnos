@@ -7,6 +7,7 @@ import db
 import demanda
 import dotacion
 import puestos
+import solver
 from dominio import AsignacionPuesto, Colaborador, Contexto, Demanda, Puesto, Turno
 
 
@@ -305,6 +306,69 @@ def test_asignacion_puesto_roundtrip_y_migracion_v5():
         assert sorted(bd.asignacion_puesto("p")) == sorted([AsignacionPuesto(LUN, 1, aut, 360, 720, 1),
                                                            AsignacionPuesto(LUN, 2, 0, 720, 1080, 2)])
         assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 5
+
+
+class _Simulado:
+    """Reemplaza solver.generar: factible solo con al menos `minimo` personas."""
+
+    def __init__(self, minimo):
+        self.minimo, self.llamadas = minimo, []
+
+    def __enter__(self):
+        self.original = solver.generar
+        solver.generar = self
+        return self
+
+    def __exit__(self, *exc):
+        solver.generar = self.original
+
+    def __call__(self, ctx, fechas, **kw):
+        self.llamadas.append((len(ctx.colabs), kw))
+        if self.minimo is None or len(ctx.colabs) < self.minimo:
+            raise solver.ErrorSolver("no cabe")
+        return {}, {"faltan": []}
+
+
+def _ctx_pequeno():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)]}, 0)  # 72 h por semana → cota por horas de 2 personas
+    return bd, bd.contexto(2026)
+
+
+SEMANAS = [date(2026, 10, 5) + timedelta(days=i) for i in range(14)]
+
+
+def test_biseccion_con_resolutor_simulado():
+    bd, ctx = _ctx_pequeno()
+    with _Simulado(7) as sim:
+        r = dotacion.verificar_minimo(ctx, SEMANAS, 0.10, activos=5)
+    assert r["minimo"] == 7 and len(r["pruebas"]) <= 6 and r["motivo"] is None and not r["cancelado"]
+    assert all(kw.get("estricto") for _, kw in sim.llamadas)
+    assert r["pruebas"][-1] == (7, True) and (6, False) in r["pruebas"]
+    assert r["con_margen"] == 8 and r["diferencia"] == 5 - 8  # ceil(7 / 0,9) = 8
+
+
+def test_cancelar_devuelve_lo_hecho():
+    bd, ctx = _ctx_pequeno()
+    vistos = []
+    with _Simulado(7):
+        r = dotacion.verificar_minimo(ctx, SEMANAS, 0.10, activos=5, cancelar=lambda: len(vistos) >= 2,
+                                      progreso=lambda n, total: vistos.append(n))
+    assert r["cancelado"] and r["minimo"] is None and len(r["pruebas"]) == 2
+
+
+def test_sin_solucion_explica():
+    """Review Focus 5: si ninguna cantidad de personas cumple, se explica en lugar de fallar."""
+    bd, ctx = _ctx_pequeno()
+    with _Simulado(None):
+        r = dotacion.verificar_minimo(ctx, SEMANAS, 0.10, activos=5)
+    assert r["minimo"] is None and r["con_margen"] is None and r["diferencia"] is None
+    assert "Ninguna cantidad de personas" in r["motivo"]
+
+
+def test_verificar_minimo_con_el_generador_real():
+    bd, ctx = _ctx_pequeno()
+    r = dotacion.verificar_minimo(ctx, SEMANAS, 0.0, activos=0, tiempo=4)
+    assert 2 <= r["minimo"] <= 6 and r["pruebas"][-1][1] is True and r["con_margen"] == r["minimo"]
 
 
 if __name__ == "__main__":
