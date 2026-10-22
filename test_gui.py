@@ -31,9 +31,11 @@ v._guardar_turno(); assert "M7" in v.bd.turnos(), v.aviso.text()
 v.t_tabla.selectRow([x.codigo for x in v._turnos].index("M7")); v._cargar_turno()
 v.t_fin.setTime(QTime(14, 0)); v.t_pmin.setValue(30); v.t_pini.setTime(QTime(10, 0)); v._guardar_turno()
 t = v.bd.turnos()["M7"]; assert t.duracion == 420 and t.horas == 6.5 and t.pausas[0]["ini"] == 180, t
-assert v.t_resumen.text() == "Dura 7 h · se cuentan 6.5 h trabajadas"
+assert v.t_resumen.text() == "Dura 7 h · se cuentan 6.5 h trabajadas · cuenta en: mañana"
 v._nuevo_turno(); v.t_cod.setText("M"); v._guardar_turno(); assert "Ya existe" in v.aviso.text()
-v._nuevo_turno(); v.t_cod.setText("ZZ"); [cb.setChecked(False) for cb in v.t_cubre.values()]; v._guardar_turno(); assert "franjas" in v.aviso.text()
+assert not hasattr(v, "t_cubre")  # la franja se calcula del horario
+v._nuevo_turno(); v.t_cod.setText("ZZ"); v.t_ini.setTime(QTime(6, 0)); v.t_fin.setTime(QTime(18, 0))
+assert "mañana, tarde" in v.t_resumen.text()
 v.t_tabla.selectRow([x.codigo for x in v._turnos].index("M7")); v._cargar_turno(); v._eliminar_turno()
 assert "M7" not in v.bd.turnos(solo_activos=False)
 # --- cuadro: intercambio por arrastre, lote y deshacer

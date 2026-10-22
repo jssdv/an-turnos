@@ -3,7 +3,7 @@ import json
 import sqlite3
 from datetime import date
 
-from demanda import cobertura_derivada
+from demanda import cobertura_derivada, franjas_de
 from dominio import COBERTURA_BASE, Colaborador, Contexto, Demanda, Novedad, Puesto, Turno, festivos, turnos_base
 
 ESQUEMA = """
@@ -142,10 +142,13 @@ class BD:
 
     def turnos(self, solo_activos=True):
         q = "SELECT * FROM turno" + (" WHERE activo=1" if solo_activos else "")
-        return {r["codigo"]: Turno(r["codigo"], r["nombre"], r["inicio"], r["fin"], r["color"],
-                                   tuple(json.loads(r["cubre"])), tuple(json.loads(r["pausas"])),
-                                   bool(r["dom_fest"]), bool(r["solver"]), bool(r["activo"]))
-                for r in self.c.execute(q)}
+        out = {}
+        for r in self.c.execute(q):
+            t = Turno(r["codigo"], r["nombre"], r["inicio"], r["fin"], r["color"], (), tuple(json.loads(r["pausas"])),
+                      bool(r["dom_fest"]), bool(r["solver"]), bool(r["activo"]))
+            t.cubre = franjas_de(t)  # la franja se calcula del horario; la columna guardada ya no se usa
+            out[t.codigo] = t
+        return out
 
     def turno_en_uso(self, codigo):
         return self.c.execute("SELECT 1 FROM asignacion WHERE turno=? LIMIT 1", (codigo,)).fetchone() is not None

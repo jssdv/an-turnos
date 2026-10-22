@@ -21,6 +21,7 @@ import flujo
 import recargos
 import reglas
 import solver
+from demanda import franjas_de
 from ui_base import con_vacio, hhmm, llenar, signo, sin_seleccion, tabla
 from ui_puestos import TabDotacion, TabPuestos
 from dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
@@ -1114,11 +1115,6 @@ class Ventana(QMainWindow):
         self.t_pmin.valueChanged.connect(lambda _: self._resumen_turno())
         self.t_ppag = QCheckBox("La pausa cuenta como trabajada")
         self.t_ppag.toggled.connect(lambda _: self._resumen_turno())
-        cubre = QHBoxLayout()
-        self.t_cubre = {}
-        for fr, et in (("M", "Mañana"), ("T", "Tarde"), ("N", "Noche")):
-            self.t_cubre[fr] = QCheckBox(et)
-            cubre.addWidget(self.t_cubre[fr])
         self.t_dom = QCheckBox("Se puede usar en domingo y festivo")
         self.t_sol = QCheckBox("El generador puede asignarlo")
         self.t_act = QCheckBox("Activo")
@@ -1128,7 +1124,7 @@ class Ventana(QMainWindow):
         self.t_resumen.setWordWrap(True)
         for et, wd in (("Código", self.t_cod), ("Nombre", self.t_nom), ("Empieza", self.t_ini), ("Termina", self.t_fin),
                        ("Pausa de almuerzo", self.t_pmin), ("Pausa a las", self.t_pini), ("", self.t_ppag),
-                       ("Cubre", cubre), ("", self.t_dom), ("", self.t_sol), ("", self.t_act), ("Color", self.t_color),
+                       ("", self.t_dom), ("", self.t_sol), ("", self.t_act), ("Color", self.t_color),
                        ("", self.t_resumen)):
             f.addRow(et, wd)
         botones = QHBoxLayout()
@@ -1276,8 +1272,6 @@ class Ventana(QMainWindow):
         self.t_pmin.setValue(0)
         self.t_pini.setTime(QTime(12, 0))
         self.t_ppag.setChecked(False)
-        for fr, cb in self.t_cubre.items():
-            cb.setChecked(fr == "M")
         self.t_dom.setChecked(True)
         self.t_sol.setChecked(True)
         self.t_act.setChecked(True)
@@ -1301,8 +1295,6 @@ class Ventana(QMainWindow):
         pa = t.inicio + (p["ini"] if p else 360)
         self.t_pini.setTime(QTime(pa // 60 % 24, pa % 60))
         self.t_ppag.setChecked(bool(p and p["pagada"]))
-        for fr, cb in self.t_cubre.items():
-            cb.setChecked(fr in t.cubre)
         self.t_dom.setChecked(t.dom_fest)
         self.t_sol.setChecked(t.solver)
         self.t_act.setChecked(t.activo)
@@ -1327,14 +1319,11 @@ class Ventana(QMainWindow):
         ini, fin = minutos(self.t_ini.time()), minutos(self.t_fin.time())
         if ini == fin:
             raise ValueError("El turno no puede empezar y terminar a la misma hora.")
-        cubre = tuple(fr for fr, cb in self.t_cubre.items() if cb.isChecked())
-        if not cubre:
-            raise ValueError("Marca qué franjas cubre (mañana, tarde, noche).")
         pausas = ()
         if self.t_pmin.value() > 0:
             pausas = ({"ini": (minutos(self.t_pini.time()) - ini) % 1440, "min": self.t_pmin.value(),
                        "pagada": self.t_ppag.isChecked()},)
-        t = Turno(cod, self.t_nom.text().strip() or cod, ini, fin, self._color, cubre, pausas, self.t_dom.isChecked(),
+        t = Turno(cod, self.t_nom.text().strip() or cod, ini, fin, self._color, (), pausas, self.t_dom.isChecked(),
                   self.t_sol.isChecked(), self.t_act.isChecked())
         if pausas and pausas[0]["ini"] + pausas[0]["min"] > t.duracion:
             raise ValueError("La pausa debe quedar dentro del turno.")
@@ -1343,7 +1332,9 @@ class Ventana(QMainWindow):
     def _resumen_turno(self):
         try:
             t = self._turno_desde_form()
-            self.t_resumen.setText(f"Dura {t.duracion / 60:g} h · se cuentan {t.horas:g} h trabajadas")
+            nombres = {"M": "mañana", "T": "tarde", "N": "noche"}
+            fr = ", ".join(nombres[x] for x in franjas_de(t)) or "ninguna franja"
+            self.t_resumen.setText(f"Dura {t.duracion / 60:g} h · se cuentan {t.horas:g} h trabajadas · cuenta en: {fr}")
         except ValueError as e:
             self.t_resumen.setText(str(e))
 
