@@ -1,8 +1,9 @@
 """Pestañas de puestos y dotación (se montan dentro de la ventana principal)."""
-from PySide6.QtCore import Qt, QTime
+from PySide6.QtCore import Qt, QThread, QTime, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QFormLayout, QGroupBox, QHBoxLayout,
-                               QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTimeEdit,
+                               QHeaderView, QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton, QSpinBox, QTableWidget,
+                               QTimeEdit,
                                QVBoxLayout, QWidget)
 
 import demanda
@@ -222,6 +223,26 @@ class TabPuestos(QWidget):
         self.v.refrescar()
 
 
+class TrabajoDotacion(QThread):
+    """Corre `dotacion.verificar_minimo` fuera del hilo de la interfaz."""
+    progreso = Signal(int, int)
+    listo = Signal(object)
+
+    def __init__(self, ctx, fechas, margen, activos):
+        super().__init__()
+        self.args, self.cancelado = (ctx, fechas, margen, activos), False
+
+    def run(self):
+        ctx, fechas, margen, activos = self.args
+        try:
+            r = dotacion.verificar_minimo(ctx, fechas, margen, activos, progreso=lambda n, t: self.progreso.emit(n, t),
+                                          cancelar=lambda: self.cancelado)
+        except Exception as e:  # el generador no debería fallar; si pasa, se muestra en lugar de colgar la interfaz
+            r = {"minimo": None, "con_margen": None, "activos": activos, "diferencia": None, "pruebas": [],
+                 "motivo": f"Error inesperado: {e}", "cancelado": False}
+        self.listo.emit(r)
+
+
 class TabDotacion(QWidget):
     """Pestaña Dotación: cuántas personas piden los puestos (estimación por horas) frente al personal activo."""
 
@@ -258,6 +279,27 @@ class TabDotacion(QWidget):
             QVBoxLayout(caja).addWidget(lab)
             tarjetas.addWidget(caja)
         lv.addLayout(tarjetas)
+        ver = QHBoxLayout()
+        self.b_verificar = QPushButton("Verificar con el generador", objectName="primario")
+        self.b_verificar.setToolTip("Busca el mínimo de personas con el que existe un cuadro que cumple los puestos "
+                                    "obligatorios y todas las reglas de descanso del periodo seleccionado")
+        self.b_cancelar = QPushButton("Cancelar")
+        self.b_cancelar.setEnabled(False)
+        self.b_verificar.clicked.connect(self.verificar)
+        self.b_cancelar.clicked.connect(self.cancelar)
+        self.barra = QProgressBar()
+        self.barra.setTextVisible(False)
+        self.barra.setFixedHeight(8)
+        self.barra.hide()
+        ver.addWidget(self.b_verificar)
+        ver.addWidget(self.b_cancelar)
+        ver.addWidget(self.barra, 1)
+        lv.addLayout(ver)
+        self.l_resultado = QLabel("", objectName="muted")
+        self.l_resultado.setWordWrap(True)
+        self.l_resultado.setTextFormat(Qt.RichText)
+        lv.addWidget(self.l_resultado)
+        self.hilo = None
         tablas = QHBoxLayout()
         tablas.setSpacing(16)
         self.t_puesto = tabla(["Puesto", "Horas por semana"])
@@ -273,6 +315,44 @@ class TabDotacion(QWidget):
         e = QLabel(t, objectName="muted")
         e.setWordWrap(True)
         return e
+
+    def verificar(self):
+        if self.hilo and self.hilo.isRunning():
+            return
+        ini, fin = self.v.periodo()
+        ctx = self.v.bd.contexto(ini.year)
+        margen = float(self.v.bd.param("dotacion_margen_pct", 10)) / 100
+        activos = sum(1 for p in ctx.colabs if p.en_solver)
+        self.b_verificar.setEnabled(False)
+        self.b_cancelar.setEnabled(True)
+        self.barra.setRange(0, 0)
+        self.barra.show()
+        self.l_resultado.setText("Buscando el mínimo de personas… puede tardar un minuto.")
+        self.hilo = TrabajoDotacion(ctx, self.v.fechas, margen, activos)
+        self.hilo.progreso.connect(lambda n, t: (self.barra.setRange(0, t), self.barra.setValue(n)))
+        self.hilo.listo.connect(self._listo)
+        self.hilo.start()
+
+    def cancelar(self):
+        if self.hilo:
+            self.hilo.cancelado = True
+
+    def _listo(self, r):
+        self.b_verificar.setEnabled(True)
+        self.b_cancelar.setEnabled(False)
+        self.barra.hide()
+        if r["cancelado"]:
+            self.l_resultado.setText("")
+            return self.v.avisar("Verificación cancelada.", "warn")
+        if r["minimo"] is None:
+            self.l_resultado.setText(r["motivo"] or "No se pudo calcular el mínimo.")
+            return
+        d = r["diferencia"]
+        veredicto = "Al día" if d == 0 else (f"Sobran {d}" if d > 0 else f"Faltan {-d}")
+        margen = int(float(self.v.bd.param("dotacion_margen_pct", 10)))
+        self.l_resultado.setText(
+            f"<b>Mínimo con tus reglas: {r['minimo']}</b> · Con margen ({margen} %): {r['con_margen']} · "
+            f"Personal activo: {r['activos']} · <b>{veredicto}</b> ({len(r['pruebas'])} pruebas del generador)")
 
     def _margen(self, valor):
         self.v.bd.set_param("dotacion_margen_pct", valor)
