@@ -5,3 +5,4 @@ __pycache__/
 errores.log
 turnos.db
 ~$*
+.superpowers/
