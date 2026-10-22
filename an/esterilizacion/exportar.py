@@ -6,10 +6,10 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-import recargos
-import reglas
-from dominio import DIAS
-from puestos import etiqueta, leyenda, por_persona
+from . import recargos
+from . import reglas
+from .dominio import DIAS
+from .puestos import etiqueta, leyenda, por_persona
 
 ABREV_NOVEDAD = {"Vacaciones": "VAC", "Incapacidad": "INC", "Licencia": "LIC", "Libre solicitado": "LIB"}
 ENCABEZADO = PatternFill("solid", fgColor="1F3864")

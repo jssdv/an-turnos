@@ -3,8 +3,8 @@ import json
 import sqlite3
 from datetime import date
 
-from demanda import cobertura_derivada, franjas_de
-from dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Turno, festivos,
+from .demanda import cobertura_derivada, franjas_de
+from .dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Turno, festivos,
                      turnos_base)
 
 ESQUEMA = """

@@ -1,17 +1,18 @@
+import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 from datetime import date, timedelta
 
-import capacitacion
-import demanda as demanda_mod
-import db
-import exportar
-import flujo
+from an.esterilizacion import capacitacion
+from an.esterilizacion import demanda as demanda_mod
+from an.esterilizacion import db
+from an.esterilizacion import exportar
+from an.esterilizacion import flujo
 import tempfile
 import openpyxl
-import puestos
-import recargos
-import reglas
-import solver
-from dominio import Demanda, Puesto, Colaborador, Novedad, Turno, festivos
+from an.esterilizacion import puestos
+from an.esterilizacion import recargos
+from an.esterilizacion import reglas
+from an.esterilizacion import solver
+from an.esterilizacion.dominio import Demanda, Puesto, Colaborador, Novedad, Turno, festivos
 
 
 P = flujo.periodo_mes(2026, 10)
@@ -136,8 +137,8 @@ def test_fin_de_semana_y_libres():
 
 
 def test_etiqueta_y_puesto_principal():
-    import puestos
-    from dominio import AsignacionPuesto
+    from an.esterilizacion import puestos
+    from an.esterilizacion.dominio import AsignacionPuesto
     assert puestos.etiqueta("M", 2) == "M·2" and puestos.etiqueta("T", 0) == "T·A" and puestos.etiqueta("NC", None) == "NC"
     d = date(2026, 10, 5)
     filas = [AsignacionPuesto(d, 7, 31, 360, 720, 1), AsignacionPuesto(d, 7, 39, 720, 780, 1), AsignacionPuesto(d, 8, 0, 360, 1080, 2)]
@@ -541,7 +542,7 @@ def test_mes_completo():
 
 
 def test_flujo_y_estudio():
-    from dominio import texto_estudio
+    from an.esterilizacion.dominio import texto_estudio
     assert texto_estudio(((0, "M"), (1, "T"), (3, "M"), (4, "M"), (4, "T"))) == "Lun M, Mar T, Jue M, Vie"
     bd = db.BD()
     for i in range(13):

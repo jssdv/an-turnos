@@ -4,11 +4,11 @@ import calendar
 from collections import defaultdict
 from datetime import date, timedelta
 
-import capacitacion
-import puestos
-import recargos
-import reglas
-import solver
+from . import capacitacion
+from . import puestos
+from . import recargos
+from . import reglas
+from . import solver
 
 MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre",
          "Noviembre", "Diciembre"]

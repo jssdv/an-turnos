@@ -2,9 +2,9 @@
 import math
 from dataclasses import replace
 
-import demanda
-import solver
-from dominio import Colaborador
+from . import demanda
+from . import solver
+from .dominio import Colaborador
 
 TOPE_PERSONAS = 60
 
