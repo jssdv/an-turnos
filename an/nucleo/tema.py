@@ -75,6 +75,10 @@ QPushButton#primario:disabled { background: #A9CFCC; border-color: #A9CFCC; colo
 QPushButton#primario::menu-indicator { subcontrol-position: right center; right: 8px; }
 QPushButton#fantasma { background: transparent; border-color: transparent; color: #3C4A59; }
 QPushButton#fantasma:hover { background: #E9EDF2; }
+QFrame#segmentado { background: #E9EDF2; border-radius: 8px; }
+QPushButton#segmento { background: transparent; border: none; border-radius: 6px; padding: 5px 12px; color: $atenuado; }
+QPushButton#segmento:hover { color: $texto; }
+QPushButton#segmento:checked { background: $superficie; color: $titulo; font-weight: 600; }
 QPushButton#peligro { color: $error; border-color: #E8B8B3; }
 QPushButton#peligro:hover { background: $error_fondo; }
 QPushButton#peligro:disabled { color: #A8645D; background: #F5F6F8; border-color: $borde; }

@@ -77,6 +77,10 @@ assert v.bd.diferencias(K), "el intercambio debe verse como cambio frente al ori
 v.deshacer(); assert ver()[(a, d1)] == "M" and ver()[(b, d1)] == "T" and v.bd.diferencias(K) == []
 # no se pisa una celda de totales ni se cambia en la vista Original
 v._mover_celda(ra, c1, len(gente), c1); assert "no se puede" in v.aviso.text()
+assert v.l_titulo.text() == "Cuadro de octubre" and v.l_estado.text().startswith("Copia de trabajo · 0 cambios")
+v.b_original.click(); assert not g.item(ra, c1).flags() & Qt.ItemIsEditable and v.l_estado.text().startswith("Versión original")
+v._mover_celda(ra, c1, rb, c1); assert ver()[(a, d1)] == "M"  # en la vista Original no se mueve nada
+v.b_cambios.click(); assert g.item(ra, c1).flags() & Qt.ItemIsEditable
 # lote: seleccionar dos celdas y asignar L
 v._aplicar([(v._gente()[ra], d1, "L"), (v._gente()[rb], d1, "L")], "lote"); assert (a, d1) not in {k for k, x in ver().items() if x != "L"}
 v.deshacer(); assert ver()[(a, d1)] == "M"
