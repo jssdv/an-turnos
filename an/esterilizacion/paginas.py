@@ -8,7 +8,7 @@ from PySide6.QtGui import QBrush, QColor, QKeySequence, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDoubleSpinBox,
                                QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
                                QInputDialog, QLabel, QLineEdit, QListWidget, QMenu, QMessageBox, QPushButton, QSpinBox,
-                               QSplitter, QStackedWidget, QStyle, QStyledItemDelegate, QTableWidget, QTableWidgetItem, QTabWidget, QTimeEdit,
+                               QSplitter, QStackedWidget, QStyle, QButtonGroup, QFrame, QStyledItemDelegate, QTableWidget, QTableWidgetItem, QTabWidget, QTimeEdit,
                                QToolButton, QVBoxLayout, QWidget)
 
 from ..nucleo import RAIZ
@@ -167,6 +167,13 @@ class Turnos:
             h.addWidget(x)
         h.addWidget(self.b_sig)
         h.addStretch(1)
+        self.b_cierre = QPushButton("Cerrar periodo", objectName="fantasma")
+        self.b_cierre.setToolTip("Congela las horas del periodo en el banco de horas y deja el cuadro en solo lectura")
+        self.b_cierre.clicked.connect(self._alternar_cierre)
+        b = QPushButton("Exportar Excel", toolTip="Cuadro, planilla de puestos y reporte de horas del periodo")
+        b.clicked.connect(self.exportar)
+        h.addWidget(self.b_cierre)
+        h.addWidget(b)
         return cab
 
     def avisar(self, texto, nivel="info"):
@@ -240,37 +247,42 @@ class Turnos:
         v.setContentsMargins(16, 14, 16, 16)
         v.setSpacing(10)
         barra = QHBoxLayout()
-        barra.setSpacing(8)
-        self.version = QComboBox()
-        self.version.addItems(["Cambios", "Original"])
-        self.version.setToolTip("Cambios es la copia de trabajo; Original es la versión publicada")
-        self.version.currentIndexChanged.connect(lambda _: self._ver_cuadro())
-        barra.addWidget(QLabel("Ver"))
-        barra.addWidget(self.version)
+        barra.setSpacing(10)
+        titulo = QVBoxLayout()
+        titulo.setSpacing(2)
+        self.l_titulo = QLabel(objectName="seccion")
+        self.l_estado = QLabel(objectName="muted")
+        titulo.addWidget(self.l_titulo)
+        titulo.addWidget(self.l_estado)
+        barra.addLayout(titulo, 1)
+        version = QFrame(objectName="segmentado")
+        vh = QHBoxLayout(version)
+        vh.setContentsMargins(3, 3, 3, 3)
+        vh.setSpacing(2)
+        grupo = QButtonGroup(version)
+        for texto, ayuda in (("Cambios", "Copia de trabajo: aquí se edita"), ("Original", "La versión publicada")):
+            b = QPushButton(texto, objectName="segmento", checkable=True, toolTip=ayuda)
+            grupo.addButton(b)
+            vh.addWidget(b)
+        self.b_cambios, self.b_original = grupo.buttons()
+        self.b_cambios.setChecked(True)
+        grupo.buttonToggled.connect(lambda _, si: si and self._ver_cuadro())
+        barra.addWidget(version, 0, Qt.AlignBottom)
         self.ver_puesto = QCheckBox("Mostrar puesto")
         self.ver_puesto.toggled.connect(lambda _: self._ver_cuadro())
-        barra.addWidget(self.ver_puesto)
-        barra.addSpacing(16)
+        barra.addWidget(self.ver_puesto, 0, Qt.AlignBottom)
         self.b_generar = QPushButton("Generar…", objectName="primario")
         m = QMenu(self.b_generar)
         m.addAction("Generar desde cero (descarta mis cambios)", lambda: self.generar("cero"))
         m.addAction("Regenerar respetando mis cambios", lambda: self.generar("respetar"))
         m.addAction("Regenerar solo una semana…", self.generar_semana)
         self.b_generar.setMenu(m)
-        barra.addWidget(self.b_generar)
-        for texto, f, nombre in (("Publicar como original", self.publicar, ""),
-                                 ("Restaurar desde original…", self.restaurar, "fantasma")):
+        for texto, f, nombre in (("Restaurar desde original…", self.restaurar, "fantasma"),
+                                 ("Publicar como original", self.publicar, "")):
             b = QPushButton(texto, objectName=nombre)
             b.clicked.connect(f)
-            barra.addWidget(b)
-        barra.addStretch()
-        b = QPushButton("Exportar Excel")
-        b.clicked.connect(self.exportar)
-        barra.addWidget(b)
-        self.b_cierre = QPushButton("Cerrar periodo", objectName="fantasma")
-        self.b_cierre.setToolTip("Congela las horas del periodo en el banco de horas y deja el cuadro en solo lectura")
-        self.b_cierre.clicked.connect(self._alternar_cierre)
-        barra.addWidget(self.b_cierre)
+            barra.addWidget(b, 0, Qt.AlignBottom)
+        barra.addWidget(self.b_generar, 0, Qt.AlignBottom)
         v.addLayout(barra)
 
         self.pila_cuadro = QStackedWidget()
@@ -338,7 +350,7 @@ class Turnos:
     def _ver_cuadro(self):
         fechas, k = self.fechas, self.clave
         orig = self.bd.asignaciones(k, "original")
-        ver_orig = self.version.currentText() == "Original"
+        ver_orig = self.b_original.isChecked()
         cerrado = self.bd.periodo_cerrado(k)
         self.b_cierre.setText("Reabrir periodo" if cerrado else "Cerrar periodo")
         self.leyenda.setText(self._leyenda_html())
@@ -429,6 +441,12 @@ class Turnos:
         self.lista_cambios.addItems(cambios or ["Sin cambios respecto al original."])
         self.panel_inf.setTabText(0, f"Alertas ({len(alertas)})")
         self.panel_inf.setTabText(1, f"Cambios respecto al original ({len(cambios)})")
+        ini, fin = self.periodo()
+        self.l_titulo.setText(f"Cuadro de {MESES[ini.month - 1].lower()}" if self.modo_periodo == "mes"
+                              else f"Cuadro del {ini:%d/%m} al {fin:%d/%m}")
+        estado = ("Versión original publicada" if self.b_original.isChecked()
+                  else f"Copia de trabajo · {len(cambios)} cambio{'s' * (len(cambios) != 1)} respecto al original")
+        self.l_estado.setText(estado + (" · periodo cerrado, solo lectura." if self.bd.periodo_cerrado(k) else "."))
 
     def _gente(self):
         return [p for p in self.ctx.colabs if p.en_solver]
@@ -436,7 +454,7 @@ class Turnos:
     def _editable(self, r, c):
         """Persona y fecha de la celda (r, c) si se puede cambiar; None si es de totales, novedad u original."""
         gente = self._gente()
-        if r >= len(gente) or c >= len(self.fechas) or self.version.currentText() == "Original" or self.bd.periodo_cerrado(self.clave):
+        if r >= len(gente) or c >= len(self.fechas) or self.b_original.isChecked() or self.bd.periodo_cerrado(self.clave):
             return None
         p, f = gente[r], self.fechas[c]
         nov = self.ctx.novedad(p.id, f)
@@ -491,7 +509,7 @@ class Turnos:
         m.exec(self.grilla.viewport().mapToGlobal(pos))
 
     def deshacer(self):
-        if not self._deshacer or self.version.currentText() == "Original" or self.bd.periodo_cerrado(self.clave):
+        if not self._deshacer or self.b_original.isChecked() or self.bd.periodo_cerrado(self.clave):
             return
         k, orig = self.clave, self.bd.asignaciones(self.clave, "original")
         for cid, f, antes in self._deshacer.pop():
