@@ -37,6 +37,7 @@ def tabla(columnas, ayudas=None):
     t.setEditTriggers(QAbstractItemView.NoEditTriggers)
     t.setSelectionBehavior(QAbstractItemView.SelectRows)
     t.verticalHeader().setVisible(False)
+    t.setShowGrid(False)  # solo la línea bajo cada fila (hoja de estilos)
     t.horizontalHeader().setStretchLastSection(True)
     t.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
     for c, ayuda in (ayudas or {}).items():
@@ -127,19 +128,20 @@ class Tarjeta(QFrame):
         self.setCursor(Qt.PointingHandCursor)
         self.al_clic = al_clic
         v = QVBoxLayout(self)
-        v.setContentsMargins(16, 12, 16, 12)
-        v.setSpacing(2)
-        self.cifra = QLabel("—", objectName="cifra")
+        v.setContentsMargins(16, 14, 16, 14)
+        v.setSpacing(4)
         self.titulo = QLabel(titulo, objectName="muted")
-        self.detalle = QLabel("", objectName="muted")
+        self.cifra = QLabel("—", objectName="cifra")
+        self.detalle = QLabel("", objectName="detalle")
         self.detalle.setWordWrap(True)
-        for w in (self.cifra, self.titulo, self.detalle):
+        for w in (self.titulo, self.cifra, self.detalle):
             v.addWidget(w)
 
     def poner(self, cifra, nivel, detalle=""):
         self.cifra.setText(str(cifra))
-        self.detalle.setText(detalle)
+        self.detalle.setText(("● " if detalle and nivel in ("warn", "error", "ok") else "") + detalle)
         poner_nivel(self, nivel)
+        poner_nivel(self.detalle, nivel)  # el color del detalle depende del nivel de la tarjeta
 
     def mousePressEvent(self, e):
         self.al_clic()

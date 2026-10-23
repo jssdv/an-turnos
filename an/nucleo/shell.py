@@ -1,9 +1,9 @@
-"""Ventana base de An: cabecera, menú lateral de secciones, aviso y toast. Cada área aporta sus secciones.
+"""Ventana base de An: menú lateral oscuro (marca, secciones, usuario), barra del área, aviso y toast.
 
 Una área es una clase con `NOMBRE`, `CLAVE` (prefijo de sus ajustes) y `__init__(self, ventana)`, que expone:
     secciones         lista de (título, QWidget): una entrada del menú lateral cada una (obligatorio)
-    cabecera          QWidget con los controles propios del área, junto a la marca (opcional)
-    vacia             QWidget que reemplaza el cuerpo mientras el área no tiene datos; ver `mostrar_vacia` (opcional)
+    cabecera          QWidget con los controles propios del área, en una barra sobre las secciones (opcional)
+    vacia             QWidget que reemplaza barra y secciones mientras el área no tiene datos; ver `mostrar_vacia` (opcional)
     TAMANO            (ancho, alto) inicial de la ventana (opcional)
     iniciar()         se llama cuando la ventana ya está armada, para cargar el último estado (opcional)
     seccion_activa(i) se llama al cambiar de sección (opcional)
@@ -14,16 +14,44 @@ Atajos de teclado: el área los registra con `ventana.atajo(tecla, función)`.
 import traceback
 from datetime import datetime
 
-from PySide6.QtCore import QSettings, QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtCore import QRectF, QSettings, QSize, Qt, QTimer
+from PySide6.QtGui import QAction, QColor, QKeySequence, QPainter
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QMainWindow, QMessageBox, QPushButton,
-                               QStackedWidget, QVBoxLayout, QWidget)
+                               QStackedWidget, QStyledItemDelegate, QVBoxLayout, QWidget)
 
 from . import RAIZ
-from .tema import icono_app
+from .tema import C, icono_app
 from .widgets import poner_nivel
 
 LOG = RAIZ / "errores.log"
+
+
+class _ItemNav(QStyledItemDelegate):
+    """Entrada del menú lateral: barra de color en la seleccionada e insignia con el contador de `contar`."""
+
+    def paint(self, p, opt, idx):
+        super().paint(p, opt, idx)
+        r = opt.rect.adjusted(0, 1, 0, -1)  # el margen de 1 px de la hoja de estilos
+        p.save()
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        if idx.row() == self.parent().currentRow() and self.parent().isEnabled():
+            p.setBrush(QColor(C["marca"]))
+            p.drawRoundedRect(QRectF(r.left() + 12, r.center().y() - 7, 3, 16), 1.5, 1.5)
+        if marca := idx.data(Qt.UserRole):
+            n, nivel = marca
+            texto = str(n)
+            f = p.font()
+            f.setPixelSize(11)
+            f.setBold(True)
+            p.setFont(f)
+            ancho = max(20, p.fontMetrics().horizontalAdvance(texto) + 12)
+            caja = QRectF(r.right() - 10 - ancho, r.center().y() - 8, ancho, 18)
+            p.setBrush(QColor(C["warn_insignia"] if nivel == "warn" else "#2A4459"))
+            p.drawRoundedRect(caja, 9, 9)
+            p.setPen(QColor("#2B1D00" if nivel == "warn" else "#DCE6EF"))
+            p.drawText(caja, Qt.AlignCenter, texto)
+        p.restore()
 
 
 class Ventana(QMainWindow):
@@ -32,18 +60,19 @@ class Ventana(QMainWindow):
         self.setWindowTitle(f"An · {Area.NOMBRE}")
         self.setWindowIcon(icono_app())
         self.cfg = QSettings()  # organización y nombre de la app los fija preparar_app
-        self.cambiar_usuario = False  # lo pone en True el botón de la cabecera; `main` vuelve a pedir usuario
+        self.cambiar_usuario = False  # lo pone en True el botón del menú lateral; `main` vuelve a pedir usuario
         self._clave_geometria = f"{Area.CLAVE}/geometria"
 
         fondo = QWidget(objectName="fondo")
         self.setCentralWidget(fondo)
-        raiz = QVBoxLayout(fondo)
+        raiz = QHBoxLayout(fondo)
         raiz.setContentsMargins(0, 0, 0, 0)
         raiz.setSpacing(0)
 
         self.nav = QListWidget(objectName="nav")
-        self.nav.setFixedWidth(200)
+        self.nav.setItemDelegate(_ItemNav(self.nav))
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.nav.setCursor(Qt.PointingHandCursor)
         self.aviso = QLabel(objectName="aviso", wordWrap=True)
         self.aviso.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.aviso.hide()
@@ -56,19 +85,17 @@ class Ventana(QMainWindow):
         for _, pagina in self.area.secciones:
             self.paginas.addWidget(pagina)
         self.nav.currentRowChanged.connect(self._ir)
-        raiz.addWidget(self._cabecera(Area, usuario))
+        raiz.addWidget(self._lateral(Area, usuario))
 
-        cuerpo = QHBoxLayout()
-        cuerpo.setContentsMargins(16, 16, 20, 16)
-        cuerpo.setSpacing(16)
-        cuerpo.addWidget(self.nav)
         der = QVBoxLayout()
-        der.setSpacing(12)
+        der.setContentsMargins(28, 18, 28, 24)
+        der.setSpacing(16)
+        if hasattr(self.area, "cabecera"):
+            der.addWidget(self.area.cabecera)
         der.addWidget(self.aviso)
         der.addWidget(self.paginas, 1)
-        cuerpo.addLayout(der, 1)
         self.principal = QWidget()
-        self.principal.setLayout(cuerpo)
+        self.principal.setLayout(der)
         self.pila = QStackedWidget()
         self.pila.addWidget(self.principal)
         if hasattr(self.area, "vacia"):
@@ -90,10 +117,15 @@ class Ventana(QMainWindow):
             self.area.iniciar()
         self.nav.setFocus()  # el primer foco no cae sobre un botón de la cabecera
 
-    def _cabecera(self, Area, usuario):
-        cab = QFrame(objectName="cabecera")
-        h = QHBoxLayout(cab)
-        h.setContentsMargins(20, 12, 20, 12)
+    def _lateral(self, Area, usuario):
+        """Columna oscura: marca y área, menú de secciones y, abajo, el usuario."""
+        lat = QFrame(objectName="lateral")
+        lat.setFixedWidth(232)
+        v = QVBoxLayout(lat)
+        v.setContentsMargins(14, 20, 14, 16)
+        v.setSpacing(4)
+        h = QHBoxLayout()
+        h.setContentsMargins(6, 0, 0, 18)
         h.setSpacing(10)
         logo = QLabel()
         logo.setPixmap(icono_app().pixmap(QSize(34, 34)))
@@ -101,18 +133,23 @@ class Ventana(QMainWindow):
         marca = QVBoxLayout()
         marca.setSpacing(0)
         marca.addWidget(QLabel("An", objectName="marca"))
-        marca.addWidget(QLabel(f"{Area.NOMBRE} · {usuario}" if usuario else Area.NOMBRE, objectName="sub"))
-        h.addLayout(marca)
-        h.addSpacing(24)
-        if hasattr(self.area, "cabecera"):
-            h.addWidget(self.area.cabecera, 1)
-        else:
-            h.addStretch(1)
+        marca.addWidget(QLabel(Area.NOMBRE, objectName="area"))
+        h.addLayout(marca, 1)
+        v.addLayout(h)
+        v.addWidget(QLabel("SECCIONES", objectName="lateral_campo"))
+        v.addWidget(self.nav, 1)
         if usuario:
-            b = QPushButton("Cambiar usuario", toolTip="Volver a elegir usuario (y con él, el área)")
+            caja = QFrame(objectName="usuario")
+            u = QVBoxLayout(caja)
+            u.setContentsMargins(12, 12, 12, 12)
+            u.setSpacing(8)
+            u.addWidget(QLabel(usuario, objectName="usuario_n"))
+            b = QPushButton("Cambiar usuario", objectName="lateral_boton",
+                            toolTip="Volver a elegir usuario (y con él, el área)")
             b.clicked.connect(self._cambiar_usuario)
-            h.addWidget(b)
-        return cab
+            u.addWidget(b)
+            v.addWidget(caja)
+        return lat
 
     def _cambiar_usuario(self):
         self.cambiar_usuario = True
@@ -132,12 +169,13 @@ class Ventana(QMainWindow):
         if hasattr(self.area, "seccion_activa"):
             self.area.seccion_activa(i)
 
-    def contar(self, i, n):
-        """Anota un contador junto al título de la sección (se quita si n es 0)."""
-        self.nav.item(i).setText(f"{self._titulos[i]}   ·  {n}" if n else self._titulos[i])
+    def contar(self, i, n, nivel=""):
+        """Insignia con un contador junto al título de la sección (se quita si n es 0); nivel «warn» la resalta."""
+        self.nav.item(i).setData(Qt.UserRole, (n, nivel) if n else None)
 
     def mostrar_vacia(self, si):
         self.pila.setCurrentWidget(self.area.vacia if si else self.principal)
+        self.nav.setEnabled(not si)
 
     def avisar(self, texto, nivel="info"):
         if not texto:

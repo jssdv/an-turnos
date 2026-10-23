@@ -3,15 +3,16 @@ import traceback
 from datetime import date, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import QDate, Qt, QThread, QTime, Signal
-from PySide6.QtGui import QBrush, QColor, QKeySequence
+from PySide6.QtCore import QDate, QPointF, QRectF, Qt, QThread, QTime, Signal
+from PySide6.QtGui import QBrush, QColor, QKeySequence, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDoubleSpinBox,
                                QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
                                QInputDialog, QLabel, QLineEdit, QListWidget, QMenu, QMessageBox, QPushButton, QSpinBox,
-                               QSplitter, QStackedWidget, QTableWidget, QTableWidgetItem, QTabWidget, QTimeEdit,
+                               QSplitter, QStackedWidget, QStyle, QStyledItemDelegate, QTableWidget, QTableWidgetItem, QTabWidget, QTimeEdit,
                                QToolButton, QVBoxLayout, QWidget)
 
 from ..nucleo import RAIZ
+from ..nucleo.tema import C
 from ..nucleo.widgets import abrir, con_vacio, hhmm, llenar, ocupado, signo, sin_seleccion, tabla, texto_sobre
 from . import db
 from . import exportar
@@ -27,9 +28,42 @@ from .puestos import etiqueta, leyenda, por_persona
 
 BD_RUTA = RAIZ / "turnos.db"
 MESES = flujo.MESES
-AMARILLO = "#FFFF00"
+CAMBIADA = Qt.UserRole + 1  # la celda difiere del original
 ABREV = exportar.ABREV_NOVEDAD
 
+
+
+class Chip(QStyledItemDelegate):
+    """Celda del cuadro como ficha redondeada de su color; una esquina oscura marca lo cambiado (no depende del color)."""
+
+    def paint(self, p, opt, idx):
+        fondo = idx.data(Qt.BackgroundRole)
+        if not (isinstance(fondo, QBrush) and fondo.style() == Qt.SolidPattern):
+            super().paint(p, opt, idx)  # libre, tramas (estudia) y celdas sin color: dibujo normal
+        else:
+            r = QRectF(opt.rect).adjusted(2.5, 3.5, -2.5, -3.5)
+            p.save()
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setPen(Qt.NoPen)
+            p.setBrush(fondo)
+            p.drawRoundedRect(r, 5, 5)
+            if fuente := idx.data(Qt.FontRole):
+                p.setFont(fuente)
+            p.setPen(idx.data(Qt.ForegroundRole).color() if idx.data(Qt.ForegroundRole) else QColor(C["texto"]))
+            p.drawText(r, Qt.AlignCenter, idx.data(Qt.DisplayRole) or "")
+            if opt.state & QStyle.State_Selected:
+                p.setPen(QPen(QColor(C["acento"]), 2))
+                p.setBrush(Qt.NoBrush)
+                p.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 6, 6)
+            p.restore()
+        if idx.data(CAMBIADA):
+            r = QRectF(opt.rect).adjusted(2.5, 3.5, -2.5, -3.5)
+            p.save()
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(C["titulo"]))
+            p.drawPolygon(QPolygonF([r.topRight() + QPointF(-9, 0), r.topRight(), r.topRight() + QPointF(0, 9)]))
+            p.restore()
 
 
 class Grilla(QTableWidget):
@@ -224,15 +258,16 @@ class Turnos:
         m.addAction("Regenerar solo una semana…", self.generar_semana)
         self.b_generar.setMenu(m)
         barra.addWidget(self.b_generar)
-        for texto, f in (("Publicar como original", self.publicar), ("Restaurar desde original…", self.restaurar)):
-            b = QPushButton(texto)
+        for texto, f, nombre in (("Publicar como original", self.publicar, ""),
+                                 ("Restaurar desde original…", self.restaurar, "fantasma")):
+            b = QPushButton(texto, objectName=nombre)
             b.clicked.connect(f)
             barra.addWidget(b)
         barra.addStretch()
         b = QPushButton("Exportar Excel")
         b.clicked.connect(self.exportar)
         barra.addWidget(b)
-        self.b_cierre = QPushButton("Cerrar periodo")
+        self.b_cierre = QPushButton("Cerrar periodo", objectName="fantasma")
         self.b_cierre.setToolTip("Congela las horas del periodo en el banco de horas y deja el cuadro en solo lectura")
         self.b_cierre.clicked.connect(self._alternar_cierre)
         barra.addWidget(self.b_cierre)
@@ -245,6 +280,8 @@ class Turnos:
         va.setContentsMargins(0, 0, 0, 0)
         va.setSpacing(8)
         self.grilla = Grilla()
+        self.grilla.setItemDelegate(Chip(self.grilla))
+        self.grilla.setShowGrid(False)
         self.grilla.itemChanged.connect(self._celda_editada)
         self.grilla.soltada.connect(self._mover_celda)
         self.grilla.setDragEnabled(True)
@@ -292,7 +329,7 @@ class Turnos:
         chip = lambda txt, bg, extra="": f'<span style="background-color:{bg}; color:#1B2733; {extra}">&nbsp;{txt}&nbsp;</span>'
         partes = [chip(c, "#" + t.color) + f" {t.nombre}" for c, t in self.ctx.turnos.items()]
         partes += [chip("L", "#FFFFFF") + " Libre", chip("VAC", "#D9D9D9") + " Novedad", chip("//", "#E3E6FA", "color:#4357A8;") + " Estudia",
-                   chip("M", AMARILLO, "font-weight:bold; font-style:italic;") + " Cambiado", chip("−1", "#FF9EA1") + " Falta cobertura"]
+                   chip("◥", "#FFFFFF", "font-weight:bold;") + " Cambiado", chip("−1", C["error_fondo"]) + " Falta cobertura"]
         ayuda = "Arrastra una celda sobre otra para intercambiarlas · clic derecho: asignar a varias · Ctrl+Z: deshacer"
         if self.ver_puesto.isChecked():
             ayuda = leyenda(self.bd.catalogo_puestos()) + "<br>" + ayuda
@@ -347,8 +384,7 @@ class Turnos:
                     if cod == "L" and not nov:
                         it.setBackground(QBrush(QColor("#9AA8E0"), Qt.BDiagPattern))  # trama: no se confunde con la noche
                 if not ver_orig and orig.get((p.id, f), "L") != cod:
-                    it.setBackground(QColor(AMARILLO))
-                    it.setForeground(QColor("#1B2733"))
+                    it.setData(CAMBIADA, True)
                     fu = it.font()
                     fu.setBold(True)
                     fu.setItalic(True)  # no depender solo del color: cursiva + negrita
@@ -368,13 +404,13 @@ class Turnos:
                 it.setTextAlignment(Qt.AlignCenter)
                 it.setFlags(Qt.ItemIsEnabled)
                 if peor:
-                    it.setBackground(QColor("#FF9EA1"))
+                    it.setBackground(QColor(C["error_fondo"]))
                     it.setToolTip("Faltan personas: " + "; ".join(f"{reglas.texto_tramos(a, b)} (−{n})" for a, b, n in rangos))
                 g.setItem(len(gente) + i, c, it)
         for c, f in enumerate(fechas):
             if self.ctx.tipo_dia(f) == "DF":
-                g.horizontalHeaderItem(c).setBackground(QColor("#F8CBAD"))
-                g.horizontalHeaderItem(c).setForeground(QColor("#1B2733"))
+                g.horizontalHeaderItem(c).setBackground(QColor(C["error_fondo"]))
+                g.horizontalHeaderItem(c).setForeground(QColor(C["error"]))
         g.horizontalHeader().setDefaultSectionSize(40)
         g.setColumnWidth(len(fechas), 56)
         g.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QFileDialog, QFrame
                                QStackedWidget, QTableWidget, QTableWidgetItem, QTabWidget, QToolButton, QVBoxLayout,
                                QWidget)
 
-from ..nucleo.tema import icono_app
+from ..nucleo.tema import C, icono_app
 from ..nucleo.widgets import Tarjeta, abrir, llenar, ocupado, poner_nivel, tabla, titulo_pagina
 from . import analisis
 from . import generar_semana as gs
@@ -138,7 +138,8 @@ class Planilla:
         self.btn_imprimir.clicked.connect(self.imprimir)
         self.btn_agendas = QPushButton("Exportar agendas", toolTip="Un .ics (Outlook) y un .txt por médico")
         self.btn_agendas.clicked.connect(self.exportar_agendas)
-        self.btn_carpeta = QPushButton("Abrir carpeta", toolTip="Carpeta donde se guardan las planillas")
+        self.btn_carpeta = QPushButton("Abrir carpeta", objectName="fantasma",
+                                       toolTip="Carpeta donde se guardan las planillas")
         self.btn_carpeta.clicked.connect(lambda: abrir(Path(self.ruta).parent))
         self.btn_generar = QPushButton("Generar Excel", objectName="primario",
                                        toolTip="Guarda la planilla junto al cuadro y la abre (Ctrl+G)")
@@ -151,14 +152,14 @@ class Planilla:
     def _pag_vacia(self):
         caja = QWidget()
         v = QVBoxLayout(caja)
-        v.setContentsMargins(60, 40, 60, 60)
+        v.setContentsMargins(28, 28, 28, 28)
         self.soltar = QFrame(objectName="soltar")
         s = QVBoxLayout(self.soltar)
         s.setAlignment(Qt.AlignCenter)
         s.setSpacing(10)
         ic = QLabel(alignment=Qt.AlignCenter)
-        ic.setPixmap(icono_app().pixmap(QSize(72, 72)))
-        titulo = QLabel("Arrastra aquí el cuadro mensual", objectName="seccion", alignment=Qt.AlignCenter)
+        ic.setPixmap(icono_app().pixmap(QSize(64, 64)))
+        titulo = QLabel("Arrastra aquí el cuadro mensual", objectName="vacio_t", alignment=Qt.AlignCenter)
         sub = QLabel("Archivo de Excel con la hoja «Cambios …» y fechas completas en la fila 3.",
                      objectName="muted", alignment=Qt.AlignCenter)
         btn = QPushButton("Elegir archivo…", objectName="primario")
@@ -170,6 +171,7 @@ class Planilla:
             s.addWidget(w)
         s.addWidget(self.error_carga, 0, Qt.AlignCenter)
         s.addWidget(btn, 0, Qt.AlignCenter)
+        s.addWidget(QLabel("Ctrl+O también abre el selector", objectName="muted", alignment=Qt.AlignCenter))
         v.addWidget(self.soltar, 1)
         return caja
 
@@ -207,8 +209,9 @@ class Planilla:
 
         panel = QFrame(objectName="panel")
         pv = QVBoxLayout(panel)
-        pv.setContentsMargins(14, 12, 14, 12)
-        pv.addWidget(QLabel("COBERTURA DE LA SEMANA", objectName="campo"))
+        pv.setContentsMargins(16, 16, 16, 10)
+        pv.setSpacing(2)
+        pv.addWidget(QLabel("Cobertura de la semana", objectName="panel_t"))
         pv.addWidget(QLabel("Médicos asignados por servicio y día. En amarillo, los días con franjas sin médico "
                             "(pasa el mouse para ver cuáles).", objectName="muted", wordWrap=True))
         self.t_cob = tabla(["Servicio"] + analisis.DIAS)
@@ -538,7 +541,7 @@ class Planilla:
                 faltan = [fr for f, fr, s, _ in pend if s == srv and f == dia]
                 fila.append(n or "")
                 if faltan:
-                    colores[(r, k + 1)] = "#FFF4D6"
+                    colores[(r, k + 1)] = C["warn_celda"]
                     ayudas[(r, k + 1)] = "Sin médico: " + ", ".join(faltan)
             filas.append(fila)
         llenar(self.t_cob, filas, lambda r, c: colores.get((r, c)))
@@ -550,8 +553,8 @@ class Planilla:
         self.t_cob.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
 
         n_alertas = len(alertas) + len(revision)
-        for i, n in ((ALERTAS, n_alertas), (CAMBIOS, len(cambios or []))):
-            self.v.contar(i, n)
+        self.v.contar(ALERTAS, n_alertas, "warn")
+        self.v.contar(CAMBIOS, len(cambios or []))
         if cruces or resumen["desconocidos"]:
             partes = []
             if cruces:
@@ -588,9 +591,9 @@ class Planilla:
         def color(r, c):
             e = equidad[r]
             if c == 1 and e["jornada"] and e["semana"] > e["jornada"]:
-                return "#FDE8E8"
+                return C["error_fondo"]
             if c == 5 and e["pendiente"]:
-                return "#FFF4D6" if e["pendiente"] > 0 else "#E8F1F8"
+                return C["warn_celda"] if e["pendiente"] > 0 else C["info_fondo"]
         llenar(self.t_equidad, [[e[k] for k in claves] for e in equidad], color, orden=0)
 
     def _mostrar_meses(self, *_):
@@ -608,7 +611,7 @@ class Planilla:
                     fallidos.append(Path(r).name)
         filas = analisis.equidad_meses(hojas)
         llenar(self.t_meses, [[f["medico"], len(f["meses"])] + [f[k] for k in analisis.METRICAS_MES] for f in filas],
-               lambda r, c: ("#FFF4D6" if filas[r]["pendiente"] > 0 else "#E8F1F8")
+               lambda r, c: (C["warn_celda"] if filas[r]["pendiente"] > 0 else C["info_fondo"])
                if c == 4 and filas[r]["pendiente"] else None, orden=0)
         texto = "Meses: " + ", ".join(e for e, _ in hojas)
         if len(hojas) == 1:
