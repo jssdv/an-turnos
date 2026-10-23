@@ -385,7 +385,7 @@ class Planilla:
         if self.vigia.files():
             self.vigia.removePaths(self.vigia.files())
         self.ruta, self.ws, self.wb = ruta, None, None
-        self.btn_archivo.setText(Path(ruta).name)
+        self.btn_archivo.setText(self.btn_archivo.fontMetrics().elidedText(Path(ruta).name, Qt.ElideMiddle, 220))
         self.btn_archivo.setToolTip(ruta)
         self.v.avisar("")
         self._habilitar(False)

@@ -49,6 +49,10 @@ azul noche, acento verde azulado, Sora para títulos y cifras e Inter para el re
 variables «Color» del archivo. En el cuadro de Esterilización cada turno es una ficha redondeada (`Chip`) y lo cambiado
 respecto al original lleva una esquina oscura (antes fondo amarillo; el Excel exportado sigue en amarillo).
 
+La ventana se encaja en la pantalla al abrirse (o al restaurar una geometría guardada en otro monitor) y queda centrada.
+Cada sección y la pantalla vacía van dentro de un área desplazable, así que su contenido no agranda la ventana; el ancho
+mínimo lo fija la barra del área (~1300 px en Radiología con un archivo cargado; el nombre del archivo se recorta con «…»).
+
 ## Pendiente
 - Unificar el tratamiento de tablas con números (alineación, orden) en ambas áreas.
 - Extraer a `nucleo/` más patrones repetidos (panel con título, barra de acciones) cuando haya una tercera área.
