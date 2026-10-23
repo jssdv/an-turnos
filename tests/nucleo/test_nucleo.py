@@ -38,7 +38,8 @@ app = preparar_app([])
 for clave, Area in AREAS.items():
     v = Ventana(Area, "Ana")
     assert v.windowTitle() == f"An · {Area.NOMBRE}" and not v.cambiar_usuario
-    assert any(l.text() == f"{Area.NOMBRE} · Ana" for l in v.findChildren(QLabel))
+    textos = {l.text() for l in v.findChildren(QLabel)}
+    assert {Area.NOMBRE, "Ana"} <= textos, textos
     next(b for b in v.findChildren(QPushButton) if b.text() == "Cambiar usuario").click()
     assert v.cambiar_usuario
 print("OK")
