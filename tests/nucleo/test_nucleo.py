@@ -38,6 +38,11 @@ app = preparar_app([])
 for clave, Area in AREAS.items():
     v = Ventana(Area, "Ana")
     assert v.windowTitle() == f"An · {Area.NOMBRE}" and not v.cambiar_usuario
+    # se encaja en la pantalla (la de offscreen mide 800×800) hasta donde lo permite su mínimo, que cabe en un portátil de 1366
+    v.show()
+    zona, marco = v.screen().availableGeometry(), v.frameGeometry()
+    assert marco.height() <= zona.height() and marco.width() <= max(zona.width(), v.minimumSizeHint().width() + 4), marco
+    assert v.minimumSizeHint().width() <= 1340 and v.minimumSizeHint().height() <= 700, v.minimumSizeHint()
     textos = {l.text() for l in v.findChildren(QLabel)}
     assert {Area.NOMBRE, "Ana"} <= textos, textos
     next(b for b in v.findChildren(QPushButton) if b.text() == "Cambiar usuario").click()

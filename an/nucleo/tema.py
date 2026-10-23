@@ -104,6 +104,7 @@ QListWidget#medicos, QPlainTextEdit { border: 1px solid $borde; border-radius: 8
 QListWidget#medicos::item { padding: 6px 8px; }
 QListWidget#medicos::item:selected { background: $acento_suave; color: $texto; }
 QSplitter::handle { background: transparent; }
+QScrollArea#desplazable, QScrollArea#desplazable > QWidget#qt_scrollarea_viewport { background: transparent; }
 QToolTip { background: $titulo; color: white; border: none; padding: 6px 8px; }
 """
 for _k in sorted(C, key=len, reverse=True):  # los nombres largos primero: «$warn_fondo» antes que «$warn»

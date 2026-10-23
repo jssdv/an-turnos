@@ -19,11 +19,12 @@ app = preparar_app([])
 v = Ventana(Planilla)
 assert v.windowTitle() == "An · Radiología"
 assert v.nav.count() == len(SECCIONES) and v.paginas.count() == len(SECCIONES)
-assert v.pila.currentWidget() is v.area.vacia  # sin cuadro cargado se ve la pantalla de arrastrar
+assert v.pila.currentWidget().widget() is v.area.vacia  # sin cuadro cargado se ve la pantalla de arrastrar
 
 ruta = RAIZ / "ejemplos" / "radiologia" / "Cuadro Octubre 2026 (prueba con fechas).xlsx"
 v.area.cargar(str(ruta))
 assert v.area.ws is not None and v.area.combo.count() > 0
+v.show(); assert v.minimumSizeHint().width() <= 1340, v.minimumSizeHint()  # con archivo cargado cabe en un portátil de 1366
 assert v.pila.currentWidget() is v.principal
 assert v.cfg.value("radiologia/ultimo_archivo") == str(ruta)
 for i in range(len(SECCIONES)):  # recorrer todas las secciones, incluida la vista previa perezosa

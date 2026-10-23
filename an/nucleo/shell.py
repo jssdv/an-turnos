@@ -17,13 +17,21 @@ from datetime import datetime
 from PySide6.QtCore import QRectF, QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QKeySequence, QPainter
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QListWidget, QMainWindow, QMessageBox, QPushButton,
-                               QStackedWidget, QStyledItemDelegate, QVBoxLayout, QWidget)
+                               QScrollArea, QStackedWidget, QStyledItemDelegate, QVBoxLayout, QWidget)
 
 from . import RAIZ
 from .tema import C, icono_app
 from .widgets import poner_nivel
 
 LOG = RAIZ / "errores.log"
+
+
+def _desplazable(w):
+    """Envuelve `w` para que su tamaño mínimo no agrande la ventana: si no cabe, aparece una barra de desplazamiento."""
+    sa = QScrollArea(objectName="desplazable", widgetResizable=True, frameShape=QFrame.NoFrame)
+    sa.setWidget(w)
+    w.setAutoFillBackground(False)  # setWidget lo activa y pintaría el gris de la paleta sobre el fondo de la app
+    return sa
 
 
 class _ItemNav(QStyledItemDelegate):
@@ -83,7 +91,7 @@ class Ventana(QMainWindow):
         self._titulos = [t for t, _ in self.area.secciones]
         self.nav.addItems(self._titulos)
         for _, pagina in self.area.secciones:
-            self.paginas.addWidget(pagina)
+            self.paginas.addWidget(_desplazable(pagina))
         self.nav.currentRowChanged.connect(self._ir)
         raiz.addWidget(self._lateral(Area, usuario))
 
@@ -91,7 +99,7 @@ class Ventana(QMainWindow):
         der.setContentsMargins(28, 18, 28, 24)
         der.setSpacing(16)
         if hasattr(self.area, "cabecera"):
-            der.addWidget(self.area.cabecera)
+            der.addWidget(self.area.cabecera)  # ponytail: fija el ancho mínimo (~1280 px en Radiología); partirla en dos filas si hay pantallas más chicas
         der.addWidget(self.aviso)
         der.addWidget(self.paginas, 1)
         self.principal = QWidget()
@@ -99,7 +107,8 @@ class Ventana(QMainWindow):
         self.pila = QStackedWidget()
         self.pila.addWidget(self.principal)
         if hasattr(self.area, "vacia"):
-            self.pila.addWidget(self.area.vacia)
+            self._vacia = _desplazable(self.area.vacia)
+            self.pila.addWidget(self._vacia)
         raiz.addWidget(self.pila, 1)
 
         self.toast = QLabel(self, objectName="toast")
@@ -112,6 +121,7 @@ class Ventana(QMainWindow):
             self.restoreGeometry(geo)
         else:
             self.resize(*getattr(Area, "TAMANO", (1280, 840)))
+        self._restaurada = bool(geo)  # se encaja en la pantalla al mostrarse, cuando ya se conocen los bordes
         self.nav.setCurrentRow(0)
         if hasattr(self.area, "iniciar"):
             self.area.iniciar()
@@ -151,6 +161,24 @@ class Ventana(QMainWindow):
             v.addWidget(caja)
         return lat
 
+    def showEvent(self, e):
+        super().showEvent(e)
+        if self._restaurada is not None:
+            self._encajar(self._restaurada)
+            self._restaurada = None
+
+    def _encajar(self, restaurada):
+        """Que la ventana quepa en la pantalla (portátil pequeño, otro monitor) y, si es nueva, quede centrada."""
+        if self.isMaximized():
+            return
+        zona = self.screen().availableGeometry()
+        borde = self.frameGeometry().size() - self.size()  # barra de título y bordes de la ventana
+        self.resize(min(self.width(), zona.width() - borde.width()), min(self.height(), zona.height() - borde.height()))
+        marco = self.frameGeometry()
+        if not restaurada or not zona.contains(marco):
+            centro = zona.center() - marco.center() + marco.topLeft()
+            self.move(max(zona.left(), centro.x()), max(zona.top(), centro.y()))  # la barra de título siempre visible
+
     def _cambiar_usuario(self):
         self.cambiar_usuario = True
         self.close()
@@ -174,7 +202,7 @@ class Ventana(QMainWindow):
         self.nav.item(i).setData(Qt.UserRole, (n, nivel) if n else None)
 
     def mostrar_vacia(self, si):
-        self.pila.setCurrentWidget(self.area.vacia if si else self.principal)
+        self.pila.setCurrentWidget(self._vacia if si else self.principal)
         self.nav.setEnabled(not si)
 
     def avisar(self, texto, nivel="info"):
