@@ -37,6 +37,24 @@ def test_conexion_con_base():
     c.close()
 
 
+def test_bd_en_postgres_siembra_y_aisla():
+    if _sin_pg():
+        return
+    os.environ["AN_BD"] = "postgres"
+    try:
+        from an.turnos import db
+        a, b = db.BD(), db.BD()
+        try:
+            assert a.dialecto == "postgres" and len(a.turnos(False)) == 4 and len(a.catalogo_puestos()) == 6
+            a.guardar_colaborador(__import__("an.turnos.dominio", fromlist=["x"]).Colaborador(0, "Ana"))
+            assert [c.id for c in a.colaboradores()] == [1] and b.colaboradores() == []
+        finally:
+            a.cerrar()
+            b.cerrar()
+    finally:
+        del os.environ["AN_BD"]
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):
