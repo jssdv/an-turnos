@@ -75,16 +75,23 @@ export interface Analiticas {
   cobertura: CoberturaPeriodo[];
 }
 
-/** Contrato de la Fase 3 (PLAN_WEB §4, «Trabajador»). */
+/** Contrato de la Fase 3 (an/web/rutas_trabajos.py, trabajador.py). */
 export type EstadoTrabajo = "en_cola" | "corriendo" | "listo" | "fallido" | "cancelado" | "conflicto";
+export interface Resultado {
+  estado: string;
+  objetivo: number | null;
+  solicitudes: { id: number; estado: string; motivo: string }[]; // parciales y no cumplidas
+  faltan: [string, number, number][]; // [fecha, tramo 0–47, personas que faltan]
+}
 export interface Trabajo {
   id: number;
   estado: EstadoTrabajo;
-  progreso: { segundos: number; limite: number; soluciones: number; objetivo: number | null } | null;
-  resultado: unknown;
+  progreso: { segundos: number; limite: number; soluciones: number; objetivo: number | null; cota?: number | null } | null;
+  resultado: Resultado | null;
   error: string | null;
 }
 export interface PedidoGenerar {
-  modo: "mes" | "semana";
+  modo: "cero" | "respetar" | "semana";
   lunes?: string;
+  tiempo?: number; // segundos del solver (1–300)
 }
