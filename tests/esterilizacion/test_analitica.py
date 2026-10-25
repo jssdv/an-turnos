@@ -56,6 +56,50 @@ def test_simultaneos_maximo_y_riesgo():
     assert d5 in r["dias_riesgo"] and d6 not in r["dias_riesgo"], r["dias_riesgo"]  # d6: déficit pero sin ausentes
     assert analitica.simultaneos(db.BD(), I, F)["fecha_maximo"] is None
 
+K2 = "2026-10-05/2026-10-11"
+
+
+def test_cobertura_deficit_y_exceso():
+    bd, i = nuevo()
+    d5 = date(2026, 10, 5)
+    bd.guardar_cuadro(K2, {(i["A"], d5): "M"})  # casi nadie: déficit
+    r = analitica.cobertura(bd, I, F)
+    assert len(r) == 1 and r[0]["periodo"] == K2 and r[0]["dias_deficit"] >= 1, r
+    assert analitica.cobertura(bd, date(2026, 11, 1), date(2026, 11, 30)) == []  # fuera del rango
+
+
+def test_cobertura_exceso():
+    bd, i = nuevo()
+    d = date(2026, 10, 6)
+    for dm in bd.demandas():  # sin demanda alguna, cualquier turno es exceso
+        bd.c.execute("DELETE FROM demanda WHERE id=?", (dm.id,))
+    bd.guardar_cuadro(K2, {(i["A"], d): "M"})
+    r = analitica.cobertura(bd, I, F)[0]
+    assert r["dias_exceso"] == 1 and r["dias_deficit"] == 0, r
+
+
+def test_cobertura_sin_cuadro():
+    assert analitica.cobertura(nuevo()[0], I, F) == []
+
+
+def test_cambios_resumen_excluye_anulados():
+    bd, i = nuevo()
+    d5, d6 = date(2026, 10, 5), date(2026, 10, 6)
+    bd.guardar_cuadro(K2, {(i["A"], d5): "M", (i["B"], d5): "T", (i["A"], d6): "L"})
+    cambios.permuta(bd, K2, i["A"], d5, i["B"], d5, "pedido", "u")
+    [aj] = cambios.ajuste(bd, K2, [(i["A"], d6, "M")], "x", "u")
+    cambios.anular(bd, aj, "u")
+    r = analitica.cambios_resumen(bd, I, F)
+    assert r == {K2: {"permuta": 1, "servicio": 0, "ajuste": 0, "excepciones": 0}}, r
+    cambios.permuta(bd, K2, i["A"], d5, i["B"], d5, "otra", "u")
+    cambios.permuta(bd, K2, i["A"], d5, i["B"], d5, "tercera", "u", excepcion=True)
+    r = analitica.cambios_resumen(bd, I, F)[K2]
+    assert r["permuta"] == 3 and r["excepciones"] == 1, r
+
+
+def test_cambios_sin_filas():
+    assert analitica.cambios_resumen(nuevo()[0], I, F) == {}
+
 
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
     t()
