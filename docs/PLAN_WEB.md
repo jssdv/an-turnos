@@ -9,7 +9,7 @@
 > Retomar en otra sesión: leer esta lista, abrir el plan detallado de la primera fase sin cerrar y seguir desde su primer `- [ ]`. Marcar `- [x]` aquí solo al cumplir la **aceptación** de la fase (§6). El avance fino vive en el plan de cada fase (`docs/superpowers/plans/`).
 
 - [x] **Fase 0** — Decisiones y cimientos · [plan](superpowers/plans/2026-10-25-web-fase-0.md)
-- [ ] **Fase 1** — API sobre el núcleo + pruebas · [plan](superpowers/plans/2026-10-26-web-fase-1.md)
+- [x] **Fase 1** — API sobre el núcleo + pruebas · [plan](superpowers/plans/2026-10-26-web-fase-1.md)
 - [ ] **Fase 2** — Migración de `turnos.db` · plan pendiente
 - [ ] **Fase 3** — Trabajador del solver · plan pendiente
 - [ ] **Fase 4** — Planilla piloto en React · plan pendiente
@@ -168,19 +168,19 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 - **Objetivo:** el núcleo corre igual sobre PostgreSQL y se expone por HTTP con sesión y aislamiento.
 - **Plan detallado:** [2026-10-26-web-fase-1.md](superpowers/plans/2026-10-26-web-fase-1.md)
 - **Entregable:**
-  - [ ] Paquete `an/esterilizacion/` renombrado a `an/turnos/` (imports, `AREAS`, tests, `CLAUDE.md`, `NUCLEO.md`)
-  - [ ] `BD` portada al subconjunto común SQLite/PostgreSQL (§2)
-  - [ ] `an/web/`: `app.py` (cadena de seguridad), `auth.py`, `conexion.py` (pool + alcance RLS)
-  - [ ] Migraciones SQL en `an/web/migraciones/` con aplicador y tabla `esquema_version`
-  - [ ] Rutas de catálogos y de lectura de periodos, alertas y analíticas
-  - [ ] `python -m an.web.admin` (crear clínica, área, usuario)
-  - [ ] Trabajo de CI con PostgreSQL (`AN_BD=postgres`) y `checks/rls.py`, `checks/reglas.py`
+  - [x] Paquete `an/esterilizacion/` renombrado a `an/turnos/` (imports, `AREAS`, tests, `CLAUDE.md`, `NUCLEO.md`)
+  - [x] `BD` portada al subconjunto común SQLite/PostgreSQL (§2)
+  - [x] `an/web/`: `app.py` (cadena de seguridad), `auth.py`, `conexion.py` (pool + alcance RLS)
+  - [x] Migraciones SQL en `an/web/migraciones/` con aplicador y tabla `esquema_version`
+  - [x] Rutas de catálogos y de lectura de periodos, alertas y analíticas
+  - [x] `python -m an.web.admin` (crear clínica, área, usuario)
+  - [x] Trabajo de CI con PostgreSQL (`AN_BD=postgres`) y `checks/rls.py`, `checks/reglas.py`
 - **Aceptación:**
-  - [ ] `test_puestos`, `test_cambios`, `test_solicitudes`, `test_analitica`, `test_turnos` pasan con `AN_BD=sqlite` y con `AN_BD=postgres`
-  - [ ] `tests/web/test_aislamiento.py`: con la sesión de la clínica A, cada ruta con un id de la clínica B responde 404 y cada tabla devuelve 0 filas de B
-  - [ ] Login con bloqueo tras 5 fallos
-  - [ ] `checks/rls.py` en verde
-  - [ ] Solicitud sin `servicio` fijo (lo da `area_id`)
+  - [x] `test_puestos`, `test_cambios`, `test_solicitudes`, `test_analitica`, `test_turnos` pasan con `AN_BD=sqlite` y con `AN_BD=postgres`
+  - [x] `tests/web/test_aislamiento.py`: con la sesión de la clínica A, cada ruta con un id de la clínica B responde 404 y cada tabla devuelve 0 filas de B
+  - [x] Login con bloqueo tras 5 fallos
+  - [x] `checks/rls.py` en verde
+  - [x] Solicitud sin `servicio` fijo (lo da `area_id`)
 - **Riesgo:** SQL de SQLite difícil de llevar al subconjunto común → se resuelve método a método; si un caso no tiene equivalente, el método se bifurca por dialecto en `BD` y se anota.
 
 ### Fase 2 — Migración de `turnos.db` con verificación de cifras

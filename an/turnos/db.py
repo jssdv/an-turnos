@@ -224,7 +224,7 @@ class BD:
         """v1 identificaba el mes como «AAAA-MM»; v2 usa la clave de periodo «inicio/fin»."""
         import calendar
         for tabla in ("asignacion", "puesto_dia", "capacitacion"):
-            for (m,) in self.c.execute(f"SELECT DISTINCT mes FROM {tabla} WHERE length(mes)=7").fetchall():
+            for (m,) in self.c.execute(f"SELECT DISTINCT mes FROM {tabla} WHERE length(mes)=7").fetchall():  # sql-ok: tabla de una lista constante
                 año, mes = int(m[:4]), int(m[5:])
                 nueva = f"{m}-01/{m}-{calendar.monthrange(año, mes)[1]:02d}"
                 self.c.execute(f"UPDATE {tabla} SET mes=? WHERE mes=?", (nueva, m))
