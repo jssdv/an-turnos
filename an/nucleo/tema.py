@@ -16,6 +16,7 @@ C = dict(
     warn_insignia="#F2B43C",
     error="#B42318", error_texto="#7A1A12", error_fondo="#FDECEA", error_borde="#F2C1BC",
     ok="#1E7A47", ok_texto="#14512F", ok_fondo="#E7F5EC", ok_borde="#B8E0C6",
+    turno_M="#FFF1C2", turno_T="#DCEBFF", turno_NC="#E6E0F7", turno_C="#DDF3E4",
 )
 ACENTO = C["acento"]
 TITULOS = "Sora"  # títulos, cifras y marca; el resto en Inter
