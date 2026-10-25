@@ -10,6 +10,7 @@ from . import deps
 from .deps import Contexto, contexto_area, usuario_actual
 
 router = APIRouter(prefix="/api")
+MAX_DIAS_ANALITICAS = 3660
 
 
 @router.get("/areas")
@@ -92,5 +93,7 @@ def horas(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
 
 @router.get("/areas/{area}/analiticas")
 def analiticas(desde: date, hasta: date, ctx: Contexto = Depends(contexto_area, scope="function")):
+    if hasta < desde or (hasta - desde).days > MAX_DIAS_ANALITICAS:
+        raise HTTPException(422, f"El rango debe ir de «desde» a «hasta» y no pasar de {MAX_DIAS_ANALITICAS} días")
     return {"ausentismo": analitica.ausentismo(ctx.bd, desde, hasta), "cobertura": analitica.cobertura(ctx.bd, desde, hasta),
             "recargos": analitica.recargos_resumen(ctx.bd, desde, hasta)}

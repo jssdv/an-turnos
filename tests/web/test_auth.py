@@ -211,6 +211,23 @@ def test_cambiar_clave_cierra_las_otras_sesiones_y_limita_intentos():
             assert "bloqueado" in str(e)
 
 
+def test_ingresar_purga_sesiones_vencidas_e_intentos_viejos():
+    with con_usuario() as c:
+        if c is None:
+            return
+        c.conn.execute("RESET ROLE")
+        uid = c.execute("SELECT id FROM usuario").fetchone()[0]
+        c.execute("INSERT INTO sesion (hash_token, usuario_id, creada, ultima) VALUES ('vieja', ?, now() - interval '2 days', now() - interval '2 days')", (uid,))
+        c.execute("INSERT INTO intento_login (correo, ip, fecha) VALUES ('x@y.co', '1.1.1.1', now() - interval '2 days')")
+        c.conn.commit()
+        c.conn.execute("SET ROLE an_app")
+        auth.iniciar_sesion(c, "a@x.co", CLAVE, "3.3.3.3")
+        c.conn.execute("RESET ROLE")
+        assert c.execute("SELECT count(*) FROM sesion WHERE hash_token = 'vieja'").fetchone()[0] == 0
+        assert c.execute("SELECT count(*) FROM intento_login WHERE correo = 'x@y.co'").fetchone()[0] == 0
+        c.conn.execute("SET ROLE an_app")
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):
