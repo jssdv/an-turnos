@@ -18,7 +18,8 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
-      - run: pip install -r requirements.txt -r requirements-dev.txt
+            requirements-web.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt -r requirements-web.txt
       - run: python checks/tokens.py --verificar
       - run: python checks/reglas.py
       - run: python -m pytest tests -q
