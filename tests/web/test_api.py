@@ -126,6 +126,21 @@ def test_la_conexion_de_la_peticion_se_libera_antes_de_auditar():
         assert [f[0] for f in filas] == [f"/api/areas/{e.ar['A']}/periodos"]
 
 
+def test_origen_configurado_detras_de_un_proxy():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = e.cliente()
+        e.entrar(cli, "editor@a.co")
+        ruta = f"/api/areas/{e.ar['A']}/ping"
+        os.environ["AN_ORIGEN"] = "https://app.clinica.co"
+        try:
+            assert cli.post(ruta, headers={"Origin": "https://app.clinica.co"}).status_code == 200
+            assert cli.post(ruta, headers={"Origin": ORIGEN}).status_code == 403
+        finally:
+            del os.environ["AN_ORIGEN"]
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):

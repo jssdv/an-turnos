@@ -105,6 +105,33 @@ def test_checks_rls():
         assert "sin_rls" in err.getvalue()
 
 
+def test_el_pool_se_niega_a_abrir_con_un_rol_que_se_salta_rls():
+    if not URL:
+        try:
+            import pytest
+            pytest.skip("sin AN_PG_URL")
+        except ImportError:
+            return
+    try:
+        conexion.abrir_pool(URL)  # AN_PG_URL entra como superusuario y no se pidió rol: FORCE RLS no aplicaría
+    except RuntimeError as e:
+        assert "RLS" in str(e)
+        return
+    raise AssertionError("abrió un pool que se salta RLS")
+
+
+def test_el_pool_limpia_el_alcance_al_devolver_la_conexion():
+    with dos_clinicas() as d:
+        if d is None:
+            return
+        _, pool, _, _ = d
+        with pool.connection() as c:
+            c.execute("select set_config('app.clinica', '1', false)")  # alcance de sesión: solo un error de programación lo dejaría
+        with pool.connection() as c1, pool.connection() as c2:
+            for c in (c1, c2):
+                assert c.execute("select current_setting('app.clinica', true)").fetchone()[0] in (None, "")
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):
