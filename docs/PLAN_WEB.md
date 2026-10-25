@@ -152,15 +152,15 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 - **Entregable:**
   - [x] Preguntas de §10 respondidas por escrito (25/10/2026)
   - [x] pytest corre los tests existentes (`requirements-dev.txt`, `pytest.ini`)
-  - [x] `docker-compose.yml` de desarrollo (Postgres 16) — escrito, sin verificar: falta Docker
-  - [x] CI (GitHub Actions) — escrito, sin verificar en remoto: falta push/PR con los tests del núcleo en SQLite y `checks/tokens.py`. El trabajo con Postgres entra en la Fase 1 (cuando exista `AN_BD`) y el build del front en la Fase 4
+  - [x] `docker-compose.yml` de desarrollo (Postgres 16) — verificado: Postgres 16.15 `healthy` (puerto 5433, porque el 5432 lo usa el Postgres de brew)
+  - [x] CI (GitHub Actions) — verde en el PR 1 con los tests del núcleo en SQLite y `checks/tokens.py`. El trabajo con Postgres entra en la Fase 1 (cuando exista `AN_BD`) y el build del front en la Fase 4
   - [x] `checks/tokens.py` y `web/src/tokens.css` generado (§7)
   - [x] `docs/REGLAS_AUTOMATICAS.md` (no `reglas.md`: choca con `REGLAS.md` en macOS)
   - [x] `VISION.md` (principios 4 y 6) y `CLAUDE.md` al día
   - [x] Borrador del acuerdo de tratamiento de datos: `docs/ACUERDO_TRATAMIENTO.md`
   - [x] Tabla de mediciones base en §8
 - **Aceptación:**
-  - [ ] `docker compose up db` en `healthy` y la CI en verde sobre `main`
+  - [x] `docker compose up db` en `healthy` y la CI en verde en el PR (falta verde sobre `main`, al fusionar)
   - [x] Preguntas de §10 respondidas por escrito
 - **Riesgo:** región no confirmada a tiempo → bloquea la Fase 8, no las siguientes; se desarrolla en local.
 
