@@ -16,8 +16,9 @@
 - [ ] **Fase 5** — Edición con revisiones y auditoría · plan pendiente
 - [ ] **Fase 6** — Exportes · plan pendiente
 - [ ] **Fase 7a** — Servicios tradicionales · plan pendiente
+- [ ] **Fase 7b** — Radiología en la web, con lo que hace hoy (importando el cuadro mensual) · plan pendiente
 - [ ] **Fase 8** — Seguridad y despliegue en la clínica piloto · plan pendiente
-- [ ] **Fase 7b** — Servicios con particularidades (Radiología) · plan pendiente (después de la Fase 8, salvo que el piloto la incluya)
+- [ ] **Fase 7c** — Radiología automática (se genera sola con el motor) · plan pendiente (después de la Fase 8)
 
 Cada plan detallado se escribe al empezar su fase (no antes: depende de lo que enseñe la anterior).
 
@@ -95,16 +96,16 @@ Nada más del núcleo cambia. El aislamiento por clínica no entra al núcleo: l
 | Tabla | Origen | Columnas clave | Notas |
 |---|---|---|---|
 | `clinica` | nueva | id, nombre, creada | La crea el operador por línea de comandos (`python -m an.web.admin crear-clinica`) |
-| `area` | nueva | id, clinica_id, tipo (`turnos`), nombre | Es el «servicio». Todas las áreas usan el motor de turnos; las diferencias (puestos, demandas, parámetros, reglas) son datos del área. Radiología será una más (Fase 7b); mientras no lo sea, el puente de la Fase 7 usa `tipo = radiologia` de forma transitoria |
+| `area` | nueva | id, clinica_id, tipo (`turnos`), nombre | Es el «servicio». Todas las áreas usan el motor de turnos; las diferencias (puestos, demandas, parámetros, reglas) son datos del área. Radiología (Fase 7b) usa `tipo = radiologia` mientras importa el cuadro mensual; en la Fase 7c pasa a `turnos` |
 | `usuario` | nueva (reemplaza `usuarios.json`) | id, clinica_id, correo único, nombre, hash_clave, es_admin, activo, debe_cambiar | Sin registro público |
-| `usuario_area` | nueva | usuario_id, area_id, permiso (`ver` \| `editar`) | Permiso por área, comprobado en servidor |
+| `usuario_area` | nueva | usuario_id, area_id, permiso (`ver` \| `editar`) | Permiso por área, comprobado en servidor. Índice único parcial `(area_id) WHERE permiso = 'editar'`: **un solo usuario edita por área**; los demás solo ven |
 | `sesion` | nueva | hash_token, usuario_id, creada, ultima | Token 32 bytes; solo se guarda su SHA-256 |
 | `intento_login` | nueva | correo, ip, fecha | Bloqueo 5 fallos/15 min por correo+IP; en tabla para que sobreviva reinicios |
 | `auditoria` | nueva (como `app_audit_log`) | fecha, usuario_id, correo, método, ruta sin parámetros, código, ip, evento | Solo crece; nunca guarda el cuerpo |
 | `periodo` | nueva (absorbe `periodo_estado`) | id, area_id, clave `AAAA-MM-DD/AAAA-MM-DD`, revision, publicado_en, cerrado_en | Una fila por cuadro; la URL usa `id` |
 | `trabajo` | nueva | id, clinica_id, area_id, periodo_id, tipo (`generar` \| `dotacion`), params JSON, revision_base, estado (`en_cola`, `corriendo`, `listo`, `fallido`, `cancelado`, `conflicto`), progreso JSON, cancelar, latido, resultado JSON, error, creado_por, creado, terminado | Cola y registro a la vez |
 | `exporte` | nueva | id, area_id, periodo_id, tipo (`cuadro`, `puestos`, `horas`, `semana`), numero, nombre_archivo, contenido `bytea`, creado_por, creado | `numero` = máximo + 1 por (área, periodo, tipo): `v2`, `v3`…; nunca se reemplaza |
-| `archivo` | nueva, **transitoria** (puente de Radiología; se omite si no hay puente) | id, area_id, nombre, contenido `bytea`, subido_por, subido | Cuadro mensual subido |
+| `archivo` | nueva (Radiología 7b; deja de usarse en 7c) | id, area_id, nombre, contenido `bytea`, subido_por, subido | Cuadro mensual subido |
 | `colaborador` (= persona) | núcleo | + clinica_id, area_id | Se conserva el nombre del núcleo |
 | `turno`, `puesto`, `demanda`, `persona_puesto`, `novedad`, `tarifa`, `parametro` | núcleo | + clinica_id, area_id; claves primarias con `area_id` | Catálogos editables por área |
 | `asignacion`, `asignacion_puesto`, `capacitacion` | núcleo | + clinica_id, area_id; `mes`/`periodo` sigue siendo la clave de texto | Índice `(area_id, mes, version, fecha)` |
@@ -149,7 +150,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 - **Objetivo:** responder §10, dejar el repo listo para servidor y fijar cómo se mide.
 - **Plan detallado:** [2026-10-25-web-fase-0.md](superpowers/plans/2026-10-25-web-fase-0.md)
 - **Entregable:**
-  - [ ] Preguntas de §10 respondidas por escrito
+  - [x] Preguntas de §10 respondidas por escrito (25/10/2026)
   - [x] pytest corre los tests existentes (`requirements-dev.txt`, `pytest.ini`)
   - [x] `docker-compose.yml` de desarrollo (Postgres 16) — escrito, sin verificar: falta Docker
   - [x] CI (GitHub Actions) — escrito, sin verificar en remoto: falta push/PR con los tests del núcleo en SQLite y `checks/tokens.py`. El trabajo con Postgres entra en la Fase 1 (cuando exista `AN_BD`) y el build del front en la Fase 4
@@ -160,7 +161,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
   - [x] Tabla de mediciones base en §8
 - **Aceptación:**
   - [ ] `docker compose up db` en `healthy` y la CI en verde sobre `main`
-  - [ ] Preguntas de §10 respondidas por escrito (o «Pendiente» justificado)
+  - [x] Preguntas de §10 respondidas por escrito
 - **Riesgo:** región no confirmada a tiempo → bloquea la Fase 8, no las siguientes; se desarrolla en local.
 
 ### Fase 1 — API sobre el núcleo + pruebas
@@ -246,6 +247,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
   - [ ] Cupo de permutas y `EditadoDespues` responden igual que en `test_cambios.py`
   - [ ] Cada escritura deja fila en `auditoria` y, si es celda, en `cambio_turno`
   - [ ] Usuario con permiso `ver` recibe 403 en toda escritura
+  - [ ] Un segundo usuario con permiso `editar` en la misma área se rechaza (un solo editor por área)
   - [ ] Sesión vencida a mitad de una edición: 401, la interfaz pide ingresar y conserva el cambio pendiente
 - **Riesgo:** paridad con Qt incompleta → se revisa la lista de funciones al cerrar la fase.
 
@@ -263,7 +265,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 - **Riesgo:** exportes grandes en `bytea` inflan la base → medir tamaño por mes; si molesta, volumen en disco con la misma tabla como índice.
 
 ### Fase 7 — Resto de áreas
-Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterilización) y **con particularidades** (reglas propias, revisión casi manual). Lista de cuáles son cuáles: pregunta 6 de §10.
+Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterilización) y **con particularidades** (reglas propias, revisión casi manual). No hay lista fija: cada clínica define sus servicios al incorporarse (pregunta 6 de §10).
 
 **7a — Servicios tradicionales**
 - **Objetivo:** una segunda área `turnos` en la misma clínica.
@@ -274,20 +276,32 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
   - [ ] Una segunda área genera su cuadro sin tocar los datos de la primera
   - [ ] Un usuario de una área no ve la otra (403/404)
 
-**7b — Servicios con particularidades (Radiología primero)**
-- **Objetivo:** Radiología se genera sola con el motor, sin importar el cuadro mensual.
+**7b — Radiología en la web, con lo que hace hoy**
+- **Objetivo:** hacer en el navegador todo lo que hace hoy la app Qt de Radiología, importando el cuadro mensual.
+- **Plan detallado:** pendiente
+- **Entregable:**
+  - [ ] Subir el cuadro mensual (`.xlsx`, ≤ 10 MB, `data_only=True`) a `archivo`
+  - [ ] Elegir semana; Resumen, Vista previa, Alertas, Equidad, Agendas (`.ics`) y Cambios
+  - [ ] Descargar `SEMANA … .xlsx` vía `exporte`
+  - [ ] Paridad con `an/radiologia/paginas.py`: lista de funciones con su equivalente web, revisada
+- **Aceptación:**
+  - [ ] El libro de la semana del 19 al 25 de octubre sale igual (celdas) que el de la app Qt
+  - [ ] `tests/radiologia/test_generar_semana.py` sigue pasando
+  - [ ] Archivo que no es `.xlsx` o pasa de 10 MB se rechaza con mensaje en español
+  - [ ] Un usuario de Radiología no ve otras áreas (403/404)
+- **Riesgo:** el cuadro guardado sin Excel trae fórmulas sin valor → se muestra el mensaje de `ErrorPlanilla` tal cual.
+
+**7c — Radiología automática (después de la Fase 8)**
+- **Objetivo:** Radiología se genera sola con el motor, sin importar el cuadro mensual. Es el primer servicio con particularidades; cada clínica trae los suyos (pregunta 6 de §10).
 - **Plan detallado:** pendiente
 - **Entregable:**
   - [ ] Doc de diseño `docs/superpowers/specs/…` antes de programar: qué reglas de Radiología (contingencia, vacaciones, densitometría con domingo, hemodinamia no publicada, `Z`) son datos de `puesto`/`demanda`/`parametro` y cuáles piden ganchos mínimos en `reglas.py`/`solver.py`
   - [ ] Libro semanal `SEMANA … .xlsx` generado desde el cuadro generado, vía `exporte`
   - [ ] Asignación de estudios y notas libres siguen manuales; la revisión usa ediciones `fijo`, avisos que no bloquean y auditoría (sin marca nueva en el esquema)
-  - [ ] *Puente transitorio, solo si la clínica necesita Radiología antes de 7b:* subir el cuadro mensual (`.xlsx`, ≤ 10 MB, `data_only=True`) a `archivo`; Resumen, Vista previa, Alertas, Equidad, Agendas (`.ics`), Cambios y descarga vía `exporte`. Se retira al cerrar 7b
+  - [ ] Importar el cuadro mensual se retira; `archivo` deja de usarse
 - **Aceptación:**
-  - [ ] El libro de la semana del 19 al 25 de octubre sale igual (celdas) que el de la app Qt con las mismas entradas, o las diferencias quedan listadas y aceptadas por escrito
-  - [ ] `tests/radiologia/test_generar_semana.py` sigue pasando como regresión
-  - [ ] (Puente) archivo que no es `.xlsx` o pasa de 10 MB se rechaza con mensaje en español
-- **Riesgo:** las particularidades no caben en datos → se anotan los ganchos mínimos en el doc de diseño; no se abre un tipo de área nuevo. Si el cuadro se guardó sin Excel (puente), se muestra el mensaje de `ErrorPlanilla` tal cual.
-- **Fuera del piloto:** 7b va después de la Fase 8, salvo que el piloto la incluya.
+  - [ ] El libro de la semana sale igual (celdas) que el de 7b con las mismas entradas, o las diferencias quedan listadas y aceptadas por escrito
+- **Riesgo:** las particularidades no caben en datos → se anotan los ganchos mínimos en el doc de diseño; no se abre un tipo de área nuevo.
 
 ### Fase 8 — Seguridad y despliegue en la clínica piloto
 - **Objetivo:** operar con datos reales de una clínica.
@@ -334,8 +348,8 @@ Candidatos, solo si una medida pasa su umbral: pista al solver con la solución 
 - Sin SSO ni segundo factor; sin registro público.
 - Sin app móvil ni vista para cada colaborador (Etapa 5 de `PROYECTO.md`, fuera de este plan).
 - Sin reescribir el solver (ni en Rust ni en TS); solo los ganchos de §2.
-- Sin abstracciones para áreas que no existen: un solo tipo de área (`turnos`); las particularidades de un servicio son datos o ganchos mínimos del motor, no un tipo nuevo. Sin marca "revisión manual" en el esquema.
-- Sin reimportar Excel editado como fuente (el puente de Radiología es la única excepción, transitoria); sin modo offline.
+- Sin abstracciones para áreas que no existen: dos tipos de área (`turnos`, y `radiologia` hasta la Fase 7c); las particularidades de un servicio son datos o ganchos mínimos del motor, no un tipo nuevo. Sin marca "revisión manual" en el esquema.
+- Sin reimportar Excel editado como fuente (Radiología 7b es la única excepción, hasta la Fase 7c); sin modo offline.
 - Sin Redis, Celery, ORM ni Kubernetes.
 - Sin panel de superadministración: clínicas y áreas por línea de comandos.
 
@@ -343,10 +357,10 @@ Candidatos, solo si una medida pasa su umbral: pista al solver con la solución 
 
 | # | Pregunta | Recomendación | Respuesta |
 |---|---|---|---|
-| 1 | ¿Región del servidor? | Colombia si el cliente lo exige; si no, la región más cercana de un proveedor en un país que la SIC reconozca con nivel adecuado de protección (verificar la lista vigente), con la transferencia escrita en el acuerdo de tratamiento. Respaldos en la misma región. | Pendiente: no bloquea hasta la Fase 8 |
-| 2 | ¿Una clínica o varias desde el inicio? | Esquema multiclínica desde la Fase 1 (RLS cuesta lo mismo ahora y es caro después), pero operar una sola clínica hasta cerrar la Fase 8. | Pendiente (recomendación: esquema multiclínica, operar una) |
-| 3 | ¿Qt se mantiene en paralelo o se reemplaza? | Se reemplaza. Hoy no está en uso (falta probarlo en el PC corporativo, paso 0.6 de `PROYECTO.md`). Se congela en una etiqueta `qt-final`, solo correcciones hasta la Fase 5, y se retira al cerrar la Fase 8. `BD` seguirá aceptando SQLite por los tests rápidos y la migración. | Pendiente (recomendación: se reemplaza) |
-| 4 | ¿FigCraft o Figma es la fuente de diseño? | FigCraft: ya tiene los tokens con los nombres de `tema.C`, se lee con stdlib y está en el repo. Figma queda para explorar; lo que se adopte se pasa a FigCraft antes de programarlo. | Pendiente (recomendación: FigCraft) |
-| 5 | ¿Quién crea los usuarios en la clínica? | Un administrador de la clínica (`es_admin`) gestiona usuarios y permisos de su clínica desde la web (Fase 5); el operador crea solo el primero. | Pendiente (recomendación: administrador de la clínica) |
-| 6 | ¿Qué servicios son tradicionales y cuáles tienen particularidades? | Lista escrita antes de la Fase 7: dimensiona 7a y cuántos diseños de 7b hacen falta. Radiología es el primero de 7b. | Pendiente: bloquea el diseño de la Fase 7a |
-| 7 | ¿Radiología necesita la web antes de poder generarse sola? | Si no, sin puente (se omite `archivo` y la subida). Si sí, puente transitorio. | Pendiente: define si hay puente de Radiología |
+| 1 | ¿Región del servidor? | Colombia si el cliente lo exige; si no, la región más cercana de un proveedor en un país que la SIC reconozca con nivel adecuado de protección (verificar la lista vigente), con la transferencia escrita en el acuerdo de tratamiento. Respaldos en la misma región. | No hay restricción (25/10/2026). Se elige la región más cercana y económica; la transferencia y los respaldos se escriben en el acuerdo. |
+| 2 | ¿Una clínica o varias desde el inicio? | Esquema multiclínica desde la Fase 1 (RLS cuesta lo mismo ahora y es caro después), pero operar una sola clínica hasta cerrar la Fase 8. | Varias clínicas, operadas desde el inicio (25/10/2026). Cada clínica crea sus servicios. |
+| 3 | ¿Qt se mantiene en paralelo o se reemplaza? | Se reemplaza. Hoy no está en uso (falta probarlo en el PC corporativo, paso 0.6 de `PROYECTO.md`). Se congela en una etiqueta `qt-final`, solo correcciones hasta la Fase 5, y se retira al cerrar la Fase 8. `BD` seguirá aceptando SQLite por los tests rápidos y la migración. | Se reemplaza (25/10/2026). |
+| 4 | ¿FigCraft o Figma es la fuente de diseño? | FigCraft: ya tiene los tokens con los nombres de `tema.C`, se lee con stdlib y está en el repo. Figma queda para explorar; lo que se adopte se pasa a FigCraft antes de programarlo. | FigCraft (25/10/2026). |
+| 5 | ¿Quién crea los usuarios en la clínica? | Un administrador de la clínica (`es_admin`) gestiona usuarios y permisos de su clínica desde la web (Fase 5); el operador crea solo el primero. | Un administrador por clínica (`es_admin`) crea usuarios; **un solo usuario edita por área**, los demás solo ven (25/10/2026). |
+| 6 | ¿Qué servicios son tradicionales y cuáles tienen particularidades? | Lista escrita antes de la Fase 7: dimensiona 7a y cuántos diseños de 7b hacen falta. Radiología es el primero de 7b. | Muchos servicios; depende de cada clínica (25/10/2026). No hay lista global: cada clínica clasifica los suyos al incorporarse. |
+| 7 | ¿Radiología necesita la web antes de poder generarse sola? | Si no, sin puente (se omite `archivo` y la subida). Si sí, puente transitorio. | Sí (25/10/2026): Radiología en la web con lo que hace hoy (importando el cuadro mensual). Es la Fase 7b. |
