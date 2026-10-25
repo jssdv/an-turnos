@@ -1,5 +1,6 @@
 """Esterilización: personal, novedades, cuadro mensual, puestos, horas y recargos (secciones del área dentro de An)."""
 import traceback
+from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -314,6 +315,7 @@ class Turnos:
         self.alertas, self.lista_cambios = QListWidget(), QListWidget()
         self.panel_inf.addTab(self.alertas, "Alertas")
         self.panel_inf.addTab(self.lista_cambios, "Cambios respecto al original")
+        self.panel_inf.addTab(self._tab_registro(), "Cambios registrados")
         cuerpo.addWidget(self.panel_inf)
         cuerpo.setStretchFactor(0, 5)
         cuerpo.setStretchFactor(1, 1)
@@ -337,6 +339,77 @@ class Turnos:
         self.pila_cuadro.addWidget(vacio)
         v.addWidget(self.pila_cuadro, 1)
         self.secciones.append(("Cuadro", w))
+
+    def _tab_registro(self):
+        """Pestaña con el registro de auditoría de cambios de turno del periodo, filtros y botón para anular."""
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(8, 6, 8, 6)
+        barra = QHBoxLayout()
+        self.f_tipo = QComboBox()
+        for dato, et in (("", "Todos los tipos"), ("permuta", "Permuta"), ("servicio", "Cambio de servicio"), ("ajuste", "Ajuste")):
+            self.f_tipo.addItem(et, dato)
+        self.f_texto = QLineEdit()
+        self.f_texto.setPlaceholderText("Buscar persona o usuario")
+        self.f_texto.setMaximumWidth(220)
+        self.b_anular = QPushButton("Anular")
+        self.b_anular.setEnabled(False)
+        for x in (self.b_anular, self.f_tipo, self.f_texto):
+            barra.addWidget(x)
+        barra.addStretch()
+        self.t_registro = tabla(["Fecha", "Tipo", "Personas", "Celdas", "Motivo", "Usuario"])
+        self.l_cupos = QLabel(objectName="muted")
+        lay.addLayout(barra)
+        lay.addWidget(con_vacio(self.t_registro, "Sin cambios registrados", "Aquí quedan las permutas, los cambios de servicio y los ajustes."), 1)
+        lay.addWidget(self.l_cupos)
+        self.f_tipo.currentIndexChanged.connect(self._llenar_registro)
+        self.f_texto.textChanged.connect(self._llenar_registro)
+        self.t_registro.itemSelectionChanged.connect(self._sel_registro)
+        self.b_anular.clicked.connect(self._anular_registro)
+        return w
+
+    def _llenar_registro(self):
+        filas = cambios.listar(self.bd, self.clave)
+        tipo, texto = self.f_tipo.currentData(), self.f_texto.text().strip().lower()
+        personas = lambda f: sorted({self.nombres.get(c, str(c)) for c, *_ in f["celdas"]})
+        vis = [f for f in filas if (not tipo or f["tipo"] == tipo)
+               and (not texto or texto in f["usuario"].lower() or any(texto in n.lower() for n in personas(f)))]
+        etiqueta = {"permuta": "Permuta", "servicio": "Cambio de servicio", "ajuste": "Ajuste"}
+        llenar(self.t_registro, [(f["registrado_en"].replace("T", " "), etiqueta[f["tipo"]] + (" (excepción)" if f["excepcion"] else ""),
+                                  ", ".join(personas(f)), "; ".join(f"{d:%d/%m} {a}→{n}" for _, d, a, n in f["celdas"]),
+                                  f["motivo"] or "", f["usuario"]) for f in vis])
+        for r, f in enumerate(vis):
+            self.t_registro.item(r, 0).setData(Qt.UserRole, f["id"])
+            self.t_registro.item(r, 0).setData(Qt.UserRole + 1, bool(f["anulado_en"]))
+            for c in range(self.t_registro.columnCount()):
+                it = self.t_registro.item(r, c)
+                fuente = it.font()
+                fuente.setStrikeOut(bool(f["anulado_en"]))
+                it.setFont(fuente)
+        self.panel_inf.setTabText(2, f"Cambios registrados ({sum(1 for f in filas if not f['anulado_en'])})")
+        usadas = Counter(c for f in filas if f["tipo"] == "permuta" and not f["anulado_en"] for c in (f["colab_a"], f["colab_b"]))
+        lim = cambios.limite(self.bd)
+        self.l_cupos.setText("Permutas usadas: " + ", ".join(f"{self.nombres.get(c, c)} {n}/{lim}" for c, n in usadas.items())
+                             if usadas else "Sin permutas en este periodo.")
+        self._sel_registro()
+
+    def _sel_registro(self):
+        r = self.t_registro.currentRow()
+        it = self.t_registro.item(r, 0) if self.t_registro.selectedItems() else None
+        self.b_anular.setEnabled(bool(it) and not it.data(Qt.UserRole + 1) and not self.b_original.isChecked()
+                                 and not self.bd.periodo_cerrado(self.clave))
+
+    def _anular_registro(self):
+        it = self.t_registro.item(self.t_registro.currentRow(), 0)
+        if not it:
+            return
+        try:
+            cambios.anular(self.bd, it.data(Qt.UserRole), self.v.usuario)
+        except cambios.ErrorCambio as e:
+            return self.avisar(str(e), "error")
+        flujo.recalcular(self.bd, *self.periodo(), self.ctx)
+        self.avisar("Cambio anulado.")
+        self._ver_cuadro()
 
     def _leyenda_html(self):
         chip = lambda txt, bg, extra="": f'<span style="background-color:{bg}; color:#1B2733; {extra}">&nbsp;{txt}&nbsp;</span>'
@@ -442,6 +515,7 @@ class Turnos:
         self.lista_cambios.addItems(difs or ["Sin cambios respecto al original."])
         self.panel_inf.setTabText(0, f"Alertas ({len(alertas)})")
         self.panel_inf.setTabText(1, f"Cambios respecto al original ({len(difs)})")
+        self._llenar_registro()
         ini, fin = self.periodo()
         self.l_titulo.setText(f"Cuadro de {MESES[ini.month - 1].lower()}" if self.modo_periodo == "mes"
                               else f"Cuadro del {ini:%d/%m} al {fin:%d/%m}")
@@ -1248,7 +1322,9 @@ class Turnos:
         self.s_modo.setFixedWidth(200)
         self.s_semanas = spin(1, 8, " semana(s)")
         self.s_vent = spin(1, 8, " semana(s)")
-        for et, wd in (("Esquema", self.s_modo), ("Duración por semanas", self.s_semanas), ("Ventana de horas", self.s_vent)):
+        self.s_limite = spin(0, 20, " permuta(s)", "", "Una permuta que pase de este número pide aprobación como excepción")
+        for et, wd in (("Esquema", self.s_modo), ("Duración por semanas", self.s_semanas), ("Ventana de horas", self.s_vent),
+                       ("Límite de permutas por persona y periodo", self.s_limite)):
             f.addRow(et, wd)
         caja3, f = tarjeta("Descansos", "Se cumplen por defecto; una edición manual puede saltarlos en un caso puntual.")
         self.s_libre = spin(0, 3, " día(s)", "Sin regla")
@@ -1316,6 +1392,7 @@ class Turnos:
         self._resumen_turno()
         self.tab_puestos.refrescar()
         self.s_vent.setValue(int(self.bd.param("ventana_semanas", 3)))
+        self.s_limite.setValue(cambios.limite(self.bd))
         self.s_favor.setValue(int(self.bd.param("banco_tope_favor_h", 12)))
         self.s_deuda.setValue(int(self.bd.param("banco_tope_deuda_h", 12)))
         self.s_modo.setCurrentIndex(max(0, self.s_modo.findData(self.modo_periodo)))
@@ -1436,6 +1513,7 @@ class Turnos:
 
     def _guardar_reglas(self):
         self.bd.set_param("ventana_semanas", self.s_vent.value())
+        self.bd.set_param("limite_permutas", self.s_limite.value())
         self.bd.set_param("banco_tope_favor_h", self.s_favor.value())
         self.bd.set_param("banco_tope_deuda_h", self.s_deuda.value())
         self.bd.set_param("periodo_modo", self.s_modo.currentData())

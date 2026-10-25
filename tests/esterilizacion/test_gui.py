@@ -109,6 +109,26 @@ n = len(cambios.listar(v.bd, K)); v._aplicar([(v._gente()[ra], d1, "L"), (v._gen
 assert len(cambios.listar(v.bd, K)) == n + 1  # un lote es una sola fila
 v.deshacer(); assert ver()[(a, d1)] == "M" and ver()[(b, d1)] == "T"
 v._pedir_tipo = lambda ops, texto, aviso=None: ("ajuste", "", False)
+# pestaña «Cambios registrados»: lista, filtros, cupos y anular desde la tabla
+vivos = lambda: sum(1 for f in cambios.listar(v.bd, K) if not f["anulado_en"])
+n0 = vivos()
+decide(lambda ops, aviso: ("permuta", "pedido", False)); v._mover_celda(ra, c1, rb, c1)
+assert v.panel_inf.tabText(2) == f"Cambios registrados ({n0 + 1})" and v.t_registro.rowCount() == len(cambios.listar(v.bd, K))
+assert v.t_registro.item(0, 1).text() == "Permuta" and "pedido" in v.t_registro.item(0, 4).text()
+assert f"{v.nombres[a]} 1/2" in v.l_cupos.text()
+v.f_tipo.setCurrentIndex(v.f_tipo.findData("servicio"))
+assert v.t_registro.rowCount() == sum(1 for f in cambios.listar(v.bd, K) if f["tipo"] == "servicio")
+v.f_tipo.setCurrentIndex(0); v.f_texto.setText("zzz"); assert v.t_registro.rowCount() == 0
+v.f_texto.setText(v.nombres[b].lower()); assert v.t_registro.rowCount() == sum(1 for f in cambios.listar(v.bd, K) if any(c == b for c, *_ in f["celdas"])) > 0  # por persona, sin importar mayúsculas
+v.f_texto.setText("")
+assert not v.b_anular.isEnabled(); v.t_registro.selectRow(0); assert v.b_anular.isEnabled(); v.b_anular.click()
+assert ver()[(a, d1)] == "M" and v.panel_inf.tabText(2) == f"Cambios registrados ({n0})"
+assert v.t_registro.item(0, 0).font().strikeOut() and v.t_registro.rowCount() == len(cambios.listar(v.bd, K))  # la anulada sigue visible
+v.t_registro.selectRow(0); assert not v.b_anular.isEnabled()  # ya anulada
+v.deshacer()  # deshacer sobre algo ya anulado no falla ni escribe
+assert ver()[(a, d1)] == "M" and ver()[(b, d1)] == "T"
+v.s_limite.setValue(5); v._guardar_reglas(); assert v.bd.param("limite_permutas") == "5"; v.bd.set_param("limite_permutas", 2)
+v._pedir_tipo = lambda ops, texto, aviso=None: ("ajuste", "", False)
 # puesto visible: con «Mostrar puesto» la celda dice M·n, y editarla sigue leyendo solo el código
 from an.esterilizacion import flujo
 flujo.recalcular(v.bd, *P); v.refrescar()
