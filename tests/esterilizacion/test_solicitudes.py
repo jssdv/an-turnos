@@ -5,8 +5,8 @@ from datetime import date
 
 from datetime import timedelta
 
-from an.esterilizacion import db, reglas, solicitudes, solver
-from an.esterilizacion.dominio import Colaborador, Novedad, Solicitud
+from an.turnos import db, reglas, solicitudes, solver
+from an.turnos.dominio import Colaborador, Novedad, Solicitud
 
 F = [date(2026, 10, 5) + timedelta(days=i) for i in range(14)]  # lunes 5 a domingo 18
 

@@ -5,8 +5,8 @@ from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
-from an.esterilizacion import cambios, db
-from an.esterilizacion.cambios import EditadoDespues, ErrorCambio, LimiteExcedido
+from an.turnos import cambios, db
+from an.turnos.cambios import EditadoDespues, ErrorCambio, LimiteExcedido
 
 K = "2026-10-01/2026-10-31"
 d1, d2 = date(2026, 10, 5), date(2026, 10, 6)
