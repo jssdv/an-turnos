@@ -189,7 +189,7 @@ def test_migracion_v1():
         bd = db.BD(ruta)
         k = "2026-02-01/2026-02-28"
         assert bd.periodos() == [k] and bd.asignaciones(k) == {(1, date(2026, 2, 3)): "M"} and len(bd.asignacion_puesto(k)) == 1
-        assert bd.param("periodo_modo") == "mes" and bd.c.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert bd.param("periodo_modo") == "mes" and bd.c.execute("PRAGMA user_version").fetchone()[0] == 6
 
 
 def test_esquema_por_semanas():

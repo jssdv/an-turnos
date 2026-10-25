@@ -7,6 +7,12 @@ from .demanda import cobertura_derivada, franjas_de
 from .dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Turno, festivos,
                      turnos_base)
 
+CAMBIO_TURNO = """
+CREATE TABLE IF NOT EXISTS cambio_turno (
+  id INTEGER PRIMARY KEY, periodo TEXT, servicio TEXT DEFAULT 'esterilizacion', tipo TEXT, registrado_en TEXT, usuario TEXT,
+  colab_a INT, colab_b INT, celdas TEXT, motivo TEXT, excepcion INT DEFAULT 0, anulado_en TEXT, anulado_por TEXT);
+"""
+
 ESQUEMA = """
 CREATE TABLE turno (codigo TEXT PRIMARY KEY, nombre TEXT, inicio INT, fin INT, color TEXT, cubre TEXT,
                     pausas TEXT, dom_fest INT, solver INT, activo INT);
@@ -30,7 +36,7 @@ CREATE TABLE demanda (id INTEGER PRIMARY KEY, puesto_id INT, tipo_dia TEXT, inic
 CREATE TABLE persona_puesto (colab_id INT, puesto_id INT, PRIMARY KEY (colab_id, puesto_id));
 """ + """
 CREATE TABLE asignacion_puesto (periodo TEXT, fecha TEXT, colab_id INT, puesto_id INT, desde INT, hasta INT, pausa INT);
-"""
+""" + CAMBIO_TURNO
 
 PUESTOS_BASE = [(1, "Lavado", "DDEBF7"), (2, "Autoclave", "E2EFDA"), (3, "Sterrad y esto", "FFF2CC"),
                 (4, "Cuarto estéril", "FCE4D6"), (5, "Ropa", "EDEDED"), (6, "Guardia noche", "D9D2E9")]
@@ -50,6 +56,7 @@ def _dt(s):
 
 class BD:
     def __init__(self, ruta=":memory:"):
+        self.ruta = ruta
         self.c = sqlite3.connect(ruta)
         self.c.row_factory = sqlite3.Row
         if self.c.execute("PRAGMA user_version").fetchone()[0] == 0:
@@ -61,7 +68,7 @@ class BD:
             self.c.executemany("INSERT INTO tarifa VALUES (?,?,?)", TARIFAS_BASE)
             for k, v in PARAMETROS_BASE.items():
                 self.set_param(k, v)
-            self.c.execute("PRAGMA user_version = 5")
+            self.c.execute("PRAGMA user_version = 6")
             self.c.commit()
         else:
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
@@ -72,6 +79,14 @@ class BD:
                 self._migrar_a_4()
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 4:
                 self._migrar_a_5()
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 5:
+                self._migrar_a_6()
+
+    def _migrar_a_6(self):
+        """v6 agrega el registro de cambios de turno (permutas, cambios de servicio y ajustes)."""
+        self.c.executescript(CAMBIO_TURNO)
+        self.c.execute("PRAGMA user_version = 6")
+        self.c.commit()
 
     def _migrar_a_5(self):
         """v5 guarda el reparto de puestos por tramos horarios; las filas antiguas (franja M o T) se convierten."""
