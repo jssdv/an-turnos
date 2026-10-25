@@ -2,6 +2,8 @@
 
 **An** — one desktop app (Spanish UI) with a shared core and one area per service: **Radiología** (monthly roster → weekly assignment workbook) and **Esterilización** (shift grid with OR-Tools CP-SAT, posts, hours and Colombian surcharges). The local user picked at startup decides the area. Used by non-technical coordinators on a locked-down Windows PC (no admin, no installs). Remote: `origin` = `jssdv/an-turnos`.
 
+Web direction (progress checklist and per-phase task plans): `docs/PLAN_WEB.md`, `docs/superpowers/plans/`. Resume a phase from the first unchecked `- [ ]`.
+
 Design of the core and how areas plug in: `docs/NUCLEO.md`. Roadmap toward a full scheduling system: `docs/PROYECTO.md` (Radiología stages) and `docs/VISION.md` (Esterilización / multi-service). Each new stage gets its own design doc in `docs/` before coding.
 
 ## Commands
