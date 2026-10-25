@@ -1,0 +1,5 @@
+.caja { display: flex; align-items: center; justify-content: space-between; gap: var(--e3); padding: var(--e3) var(--e4); border-radius: var(--radio); border: 1px solid; }
+.info { background: var(--info-fondo); color: var(--info-texto); border-color: var(--info-borde); }
+.ok { background: var(--ok-fondo); color: var(--ok-texto); border-color: var(--ok-borde); }
+.alerta { background: var(--warn-fondo); color: var(--warn-texto); border-color: var(--warn-borde); }
+.error { background: var(--error-fondo); color: var(--error-texto); border-color: var(--error-borde); }

@@ -1,0 +1,4 @@
+.tabla { width: 100%; border-collapse: collapse; }
+.tabla th { text-align: left; background: var(--superficie-sutil); color: var(--atenuado); font-size: 12px; font-weight: 600; padding: 7px var(--e2); border-bottom: 1px solid var(--borde); }
+.tabla td { padding: 7px var(--e2); border-bottom: 1px solid var(--borde); }
+.vacio { padding: var(--e5); text-align: center; color: var(--atenuado); }
