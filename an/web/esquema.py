@@ -18,3 +18,12 @@ def aplicar(conn):
         aplicadas.append(ruta.name)
     conn.commit()
     return aplicadas
+
+
+if __name__ == "__main__":  # python -m an.web.esquema: aplica las migraciones al esquema `public` de AN_PG_URL
+    import os
+
+    import psycopg
+
+    with psycopg.connect(os.environ["AN_PG_URL"]) as c:
+        print("aplicadas:", aplicar(c) or "ninguna")

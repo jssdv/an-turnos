@@ -23,3 +23,37 @@ jobs:
       - run: python -m pytest tests -q
       # Scripts sin funciones test_*; los de GUI y nucleo piden bibliotecas de Qt que el runner no trae.
       - run: python tests/radiologia/test_generar_semana.py
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: an
+          POSTGRES_PASSWORD: an_dev
+          POSTGRES_DB: an
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U an -d an" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      QT_QPA_PLATFORM: offscreen
+      AN_PG_URL: postgresql://an:an_dev@127.0.0.1:5432/an
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            requirements-web.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt -r requirements-web.txt
+      - run: python -m an.web.esquema
+      - run: python checks/rls.py
+      - run: >-
+          AN_BD=postgres python -m pytest -q
+          tests/esterilizacion/test_puestos.py tests/esterilizacion/test_cambios.py tests/esterilizacion/test_analitica.py
+          tests/esterilizacion/test_solicitudes.py tests/esterilizacion/test_turnos.py tests/turnos tests/web
+      - run: python -m pytest -q tests/web tests/turnos

@@ -35,6 +35,9 @@ def _fila(cursor):
     return lambda valores: Fila(valores, nombres)
 
 
+FILAS = _fila  # row_factory de psycopg para pools y conexiones
+
+
 class Cursor:
     def __init__(self, cur):
         self._cur = cur
