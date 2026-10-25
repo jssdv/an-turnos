@@ -227,20 +227,20 @@ class BD:
             for (m,) in self.c.execute(f"SELECT DISTINCT mes FROM {tabla} WHERE length(mes)=7").fetchall():  # sql-ok: tabla de una lista constante
                 año, mes = int(m[:4]), int(m[5:])
                 nueva = f"{m}-01/{m}-{calendar.monthrange(año, mes)[1]:02d}"
-                self.c.execute(f"UPDATE {tabla} SET mes=? WHERE mes=?", (nueva, m))
+                self.c.execute(f"UPDATE {tabla} SET mes=? WHERE mes=?", (nueva, m))  # sql-ok: partes constantes
         self.c.executemany("INSERT OR IGNORE INTO parametro VALUES (?,?)", [(k, v) for k, v in PARAMETROS_BASE.items()])
         self.c.execute("PRAGMA user_version = 2")
         self.c.commit()
 
     # --- catálogo -------------------------------------------------------------------------------
     def guardar_turno(self, t):
-        self.c.execute("INSERT INTO turno VALUES (?,?,?,?,?,?,?,?,?,?) " + self._upsert("turno"),
+        self.c.execute("INSERT INTO turno VALUES (?,?,?,?,?,?,?,?,?,?) " + self._upsert("turno"),  # sql-ok: partes constantes
                        (t.codigo, t.nombre, t.inicio, t.fin, t.color, json.dumps(t.cubre), json.dumps(t.pausas),
                         t.dom_fest, t.solver, t.activo))
         self.c.commit()
 
     def turnos(self, solo_activos=True):
-        q = "SELECT * FROM turno" + (" WHERE activo=1" if solo_activos else "")
+        q = "SELECT * FROM turno" + (" WHERE activo=1" if solo_activos else "")  # sql-ok: partes constantes
         out = {}
         for r in self.c.execute(q):
             t = Turno(r["codigo"], r["nombre"], r["inicio"], r["fin"], r["color"], (), tuple(json.loads(r["pausas"])),
@@ -279,12 +279,12 @@ class BD:
         return r["valor"] if r else defecto
 
     def set_param(self, clave, valor):
-        self.c.execute("INSERT INTO parametro VALUES (?,?) " + self._upsert("parametro"), (clave, str(valor)))
+        self.c.execute("INSERT INTO parametro VALUES (?,?) " + self._upsert("parametro"), (clave, str(valor)))  # sql-ok: partes constantes
         self.c.commit()
 
     # --- puestos y su demanda --------------------------------------------------------------------
     def catalogo_puestos(self, solo_activos=False):
-        q = "SELECT * FROM puesto" + (" WHERE activo=1" if solo_activos else "") + " ORDER BY numero"
+        q = "SELECT * FROM puesto" + (" WHERE activo=1" if solo_activos else "") + " ORDER BY numero"  # sql-ok: partes constantes
         return {r["id"]: Puesto(r["id"], r["numero"], r["nombre"], r["color"], bool(r["activo"])) for r in self.c.execute(q)}
 
     def guardar_puesto(self, p):
@@ -317,7 +317,7 @@ class BD:
         return "desactivado" if en_uso else "borrado"
 
     def demandas(self, puesto_id=None):
-        q = "SELECT * FROM demanda" + (" WHERE puesto_id=?" if puesto_id else "") + " ORDER BY puesto_id, id"
+        q = "SELECT * FROM demanda" + (" WHERE puesto_id=?" if puesto_id else "") + " ORDER BY puesto_id, id"  # sql-ok: partes constantes
         return [Demanda(r["puesto_id"], r["tipo_dia"], r["inicio"], r["fin"], r["personas"], bool(r["obligatorio"]), r["id"])
                 for r in self.c.execute(q, (puesto_id,) if puesto_id else ())]
 
@@ -345,7 +345,7 @@ class BD:
         return p.id
 
     def colaboradores(self, solo_activos=True):
-        q = "SELECT * FROM colaborador" + (" WHERE activo=1" if solo_activos else "") + " ORDER BY id"
+        q = "SELECT * FROM colaborador" + (" WHERE activo=1" if solo_activos else "") + " ORDER BY id"  # sql-ok: partes constantes
         permitidos = {}
         for r in self.c.execute("SELECT * FROM persona_puesto ORDER BY puesto_id"):
             permitidos.setdefault(r["colab_id"], []).append(r["puesto_id"])
@@ -443,14 +443,14 @@ class BD:
             fijos = {(r["colab_id"], r["fecha"]) for r in self.c.execute(
                 "SELECT * FROM asignacion WHERE mes=? AND version=? AND fijo=1", (mes, v))}
             self.c.execute("DELETE FROM asignacion WHERE mes=? AND version=? AND fijo=0", (mes, v))
-            self.c.executemany("INSERT INTO asignacion VALUES (?,?,?,?,?,?,0) ON CONFLICT (" + self._pk("asignacion") + ") DO NOTHING",
+            self.c.executemany("INSERT INTO asignacion VALUES (?,?,?,?,?,?,0) ON CONFLICT (" + self._pk("asignacion") + ") DO NOTHING",  # sql-ok: partes constantes
                                [(mes, v, cid, f.isoformat(), t, origen) for (cid, f), t in cuadro.items()
                                 if (cid, f.isoformat()) not in fijos])
         self.c.commit()
 
     def set_celda(self, mes, cid, fecha, codigo, fijo=True):
         """Edición manual: solo toca la versión `cambios`."""
-        self.c.execute("INSERT INTO asignacion VALUES (?,?,?,?,?,?,?) " + self._upsert("asignacion"),
+        self.c.execute("INSERT INTO asignacion VALUES (?,?,?,?,?,?,?) " + self._upsert("asignacion"),  # sql-ok: partes constantes
                        (mes, "cambios", cid, fecha.isoformat(), codigo, "manual", int(fijo)))
         self.c.commit()
 
@@ -487,7 +487,7 @@ class BD:
 
     def cerrar_periodo(self, k, filas):
         """Congela las horas del periodo. filas: [(colab_id, contratadas, trabajadas)]."""
-        self.c.execute("INSERT INTO periodo_estado VALUES (?,?) " + self._upsert("periodo_estado"),
+        self.c.execute("INSERT INTO periodo_estado VALUES (?,?) " + self._upsert("periodo_estado"),  # sql-ok: partes constantes
                        (k, datetime.now().isoformat(timespec="seconds")))
         self.c.execute("DELETE FROM cierre WHERE periodo=?", (k,))
         self.c.executemany("INSERT INTO cierre VALUES (?,?,?,?)", [(k, c, a, b) for c, a, b in filas])
@@ -500,7 +500,7 @@ class BD:
 
     def cierres(self, colab_id=None):
         """[(periodo, colab_id, contratadas, trabajadas)] de los periodos cerrados, del más antiguo al más reciente."""
-        q = "SELECT * FROM cierre" + (" WHERE colab_id=?" if colab_id else "") + " ORDER BY periodo"
+        q = "SELECT * FROM cierre" + (" WHERE colab_id=?" if colab_id else "") + " ORDER BY periodo"  # sql-ok: partes constantes
         return [(r["periodo"], r["colab_id"], r["contratadas"], r["trabajadas"])
                 for r in self.c.execute(q, (colab_id,) if colab_id else ())]
 
@@ -516,7 +516,7 @@ class BD:
 
     def movimientos(self, colab_id=None):
         """[(id, colab_id, fecha, horas, concepto, nota)]; horas positivas = se le deben, negativas = se le descontaron."""
-        q = "SELECT * FROM banco_mov" + (" WHERE colab_id=?" if colab_id else "") + " ORDER BY fecha, id"
+        q = "SELECT * FROM banco_mov" + (" WHERE colab_id=?" if colab_id else "") + " ORDER BY fecha, id"  # sql-ok: partes constantes
         return [(r["id"], r["colab_id"], _dt(r["fecha"]), r["horas"], r["concepto"], r["nota"])
                 for r in self.c.execute(q, (colab_id,) if colab_id else ())]
 
