@@ -4,7 +4,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import Qt, QTime
-from an.esterilizacion import flujo
+from an.esterilizacion import cambios, flujo
 from datetime import date
 P = flujo.periodo_mes(2026, 10)
 K = flujo.clave(*P)
@@ -68,6 +68,7 @@ v.bd.guardar_cuadro(K, {(a, d1): "M", (b, d1): "T", (b, d2): "NC"}); v.refrescar
 gente = [p.id for p in v._gente()]; ra, rb = gente.index(a), gente.index(b)
 g = v.grilla; c1, c2 = 4, 5
 ver = lambda: v.bd.asignaciones(K)
+v._pedir_tipo = lambda ops, texto, aviso=None: ("ajuste", "", False)  # sin diálogo: los arrastres y el lote son ajustes
 # soltar de verdad: el evento de drop llama a la señal con origen y destino
 g._origen = (ra, c1)
 pos = g.visualRect(g.model().index(rb, c1)).center()
@@ -84,6 +85,30 @@ v.b_cambios.click(); assert g.item(ra, c1).flags() & Qt.ItemIsEditable
 # lote: seleccionar dos celdas y asignar L
 v._aplicar([(v._gente()[ra], d1, "L"), (v._gente()[rb], d1, "L")], "lote"); assert (a, d1) not in {k for k, x in ver().items() if x != "L"}
 v.deshacer(); assert ver()[(a, d1)] == "M"
+# registro de cambios: arrastrar entre dos personas pregunta el tipo y lo deja en cambio_turno
+decide = lambda r: setattr(v, "_pedir_tipo", lambda ops, texto, aviso=None: r(ops, aviso))
+visto = []
+decide(lambda ops, aviso: (visto.append((ops, aviso)) or ("permuta", "pedido", False)))
+v._mover_celda(ra, c1, rb, c1)
+assert visto[-1] == (("permuta", "servicio", "ajuste"), None)
+assert ver()[(a, d1)] == "T" and cambios.listar(v.bd, K)[0]["tipo"] == "permuta"
+v.deshacer(); assert ver()[(a, d1)] == "M" and cambios.listar(v.bd, K)[0]["anulado_por"]
+v.bd.set_param("limite_permutas", 0)
+v._mover_celda(ra, c1, rb, c1)
+assert visto[-1][1] and "excepción" in visto[-1][1].lower()  # con límite 0 la pregunta trae el aviso
+decide(lambda ops, aviso: ("permuta", "ok", True)); v._mover_celda(ra, c1, rb, c1)
+assert cambios.listar(v.bd, K)[0]["excepcion"] == 1; v.deshacer(); v.bd.set_param("limite_permutas", 2)
+decide(lambda ops, aviso: None); antes = ver(); v._mover_celda(ra, c1, rb, c1); assert ver() == antes  # cancelar no escribe
+decide(lambda ops, aviso: (visto.append((ops, aviso)) or ("servicio", "falta personal", False)))
+v.grilla.item(ra, c1).setText("L")  # escribir en una celda
+assert visto[-1][0] == ("servicio", "ajuste") and cambios.listar(v.bd, K)[0]["tipo"] == "servicio" and ver().get((a, d1), "L") == "L"
+v.deshacer(); assert ver()[(a, d1)] == "M"
+decide(lambda ops, aviso: None); v.grilla.item(ra, c1).setText("T")  # cancelar al escribir deja la celda como estaba
+assert ver()[(a, d1)] == "M" and v.grilla.item(ra, c1).text() == "M"
+n = len(cambios.listar(v.bd, K)); v._aplicar([(v._gente()[ra], d1, "L"), (v._gente()[rb], d1, "L")], "lote", motivo="Lote: 2 celdas → L")
+assert len(cambios.listar(v.bd, K)) == n + 1  # un lote es una sola fila
+v.deshacer(); assert ver()[(a, d1)] == "M" and ver()[(b, d1)] == "T"
+v._pedir_tipo = lambda ops, texto, aviso=None: ("ajuste", "", False)
 # puesto visible: con «Mostrar puesto» la celda dice M·n, y editarla sigue leyendo solo el código
 from an.esterilizacion import flujo
 flujo.recalcular(v.bd, *P); v.refrescar()

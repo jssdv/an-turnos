@@ -68,6 +68,7 @@ class Ventana(QMainWindow):
         self.setWindowTitle(f"An · {Area.NOMBRE}")
         self.setWindowIcon(icono_app())
         self.cfg = QSettings()  # organización y nombre de la app los fija preparar_app
+        self.usuario = usuario
         self.cambiar_usuario = False  # lo pone en True el botón del menú lateral; `main` vuelve a pedir usuario
         self._clave_geometria = f"{Area.CLAVE}/geometria"
 
