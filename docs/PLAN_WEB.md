@@ -8,8 +8,8 @@
 
 > Retomar en otra sesión: leer esta lista, abrir el plan detallado de la primera fase sin cerrar y seguir desde su primer `- [ ]`. Marcar `- [x]` aquí solo al cumplir la **aceptación** de la fase (§6). El avance fino vive en el plan de cada fase (`docs/superpowers/plans/`).
 
-- [ ] **Fase 0** — Decisiones y cimientos · [plan](superpowers/plans/2026-10-25-web-fase-0.md)
-- [ ] **Fase 1** — API sobre el núcleo + pruebas · plan pendiente
+- [x] **Fase 0** — Decisiones y cimientos · [plan](superpowers/plans/2026-10-25-web-fase-0.md)
+- [ ] **Fase 1** — API sobre el núcleo + pruebas · [plan](superpowers/plans/2026-10-26-web-fase-1.md)
 - [ ] **Fase 2** — Migración de `turnos.db` · plan pendiente
 - [ ] **Fase 3** — Trabajador del solver · plan pendiente
 - [ ] **Fase 4** — Planilla piloto en React · plan pendiente
@@ -166,7 +166,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 1 — API sobre el núcleo + pruebas
 - **Objetivo:** el núcleo corre igual sobre PostgreSQL y se expone por HTTP con sesión y aislamiento.
-- **Plan detallado:** pendiente (se escribe al empezar la fase)
+- **Plan detallado:** [2026-10-26-web-fase-1.md](superpowers/plans/2026-10-26-web-fase-1.md)
 - **Entregable:**
   - [ ] Paquete `an/esterilizacion/` renombrado a `an/turnos/` (imports, `AREAS`, tests, `CLAUDE.md`, `NUCLEO.md`)
   - [ ] `BD` portada al subconjunto común SQLite/PostgreSQL (§2)
