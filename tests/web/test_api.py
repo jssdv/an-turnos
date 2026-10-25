@@ -176,6 +176,47 @@ def test_errores_con_un_solo_formato_y_sin_eco_de_la_clave():
         assert r.status_code == 422 and "detalle" in r.json() and "123456789" not in r.text
 
 
+
+def _eventos(e):
+    return [tuple(f) for f in e.su.execute("SELECT evento, codigo, correo, ruta, ip FROM auditoria ORDER BY id")]
+
+
+def test_ingreso_fallido_de_usuario_existente_se_audita_sin_clave():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = e.cliente()
+        r = cli.post("/api/auth/entrar", json={"correo": "editor@a.co", "clave": "clave-secreta-mala"}, headers={"Origin": ORIGEN})
+        assert r.status_code == 401
+        cli.post("/api/auth/entrar", json={"correo": "nadie@x.co", "clave": "clave-secreta-mala"}, headers={"Origin": ORIGEN})
+        ev = _eventos(e)
+        assert [x[:3] for x in ev] == [("ingreso_fallido", 401, "editor@a.co")]  # el correo inexistente no se audita (queda en intento_login)
+        assert "secreta" not in str(e.su.execute("SELECT * FROM auditoria").fetchall())
+
+
+def test_ingreso_bloqueado_se_audita():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = e.cliente()
+        for _ in range(7):
+            cli.post("/api/auth/entrar", json={"correo": "editor@a.co", "clave": "mala"}, headers={"Origin": ORIGEN})
+        codigos = [(x[0], x[1]) for x in _eventos(e)]
+        assert codigos[:5] == [("ingreso_fallido", 401)] * 5 and codigos[5:] == [("bloqueado", 429)] * 2
+
+
+def test_origen_rechazado_con_sesion_valida_se_audita():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = e.cliente()
+        e.entrar(cli, "editor@a.co")
+        assert cli.post(f"/api/areas/{e.ar['A']}/ping", headers={"Origin": "https://malo.example"}).status_code == 403
+        assert ("origen_rechazado", 403, "editor@a.co") in [x[:3] for x in _eventos(e)]
+        e.cliente().post("/api/auth/salir", headers={"Origin": "https://malo.example"})  # sin sesión: no hay a quién auditar
+        assert [x[0] for x in _eventos(e)].count("origen_rechazado") == 1
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):
