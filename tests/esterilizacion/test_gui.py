@@ -4,7 +4,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import QDate, Qt, QTime
-from an.esterilizacion import cambios, flujo
+from an.turnos import cambios, flujo
 from datetime import date
 P = flujo.periodo_mes(2026, 10)
 K = flujo.clave(*P)
@@ -14,7 +14,7 @@ QSettings.setDefaultFormat(QSettings.IniFormat)  # no tocar los ajustes reales d
 QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, _ini)
 from an.nucleo.shell import Ventana
 from an.nucleo.tema import preparar_app
-from an.esterilizacion.paginas import Turnos
+from an.turnos.paginas import Turnos
 qa = preparar_app([])
 
 
@@ -38,7 +38,7 @@ assert v.t_personal.item(0, 0).text() == "Ana María"
 v._eliminar_persona(); assert v.t_personal.rowCount() == 0 and not v.bd.colaboradores(solo_activos=False), v.aviso.text()
 # --- con historial: se desactiva y se ve con «Mostrar inactivos»
 v._nueva_persona(); v.p_nombre.setText("Luis"); v._guardar_persona()
-from datetime import date; from an.esterilizacion.dominio import Novedad
+from datetime import date; from an.turnos.dominio import Novedad
 v.bd.guardar_novedad(Novedad(v.persona_id, "Vacaciones", date(2026,10,1), date(2026,10,2))); v.refrescar()
 v._eliminar_persona(); assert v.t_personal.rowCount() == 0 and "inactivo" in v.aviso.text(), v.aviso.text()
 v.p_inactivos.setChecked(True); assert v.t_personal.rowCount() == 1 and v.t_personal.item(0, 6).text() == "Inactivo"
@@ -49,7 +49,7 @@ v.s_colab.setCurrentIndex(v.s_colab.findData(v.persona_id)); v.s_desde.setDate(Q
 v._agregar_solicitud(); assert v.t_solic.rowCount() == 1 and v.t_solic.item(0, 6).text(), v.aviso.text()
 v.s_tipo.setCurrentIndex(v.s_tipo.findData("evitar")); assert v.s_turno.isEnabled()
 v.t_solic.selectRow(0); v._borrar_solicitud(); assert v.t_solic.rowCount() == 0
-from an.esterilizacion.dominio import Solicitud; from dataclasses import replace
+from an.turnos.dominio import Solicitud; from dataclasses import replace
 _pid = v.persona_id; _c = replace(v.ctx, solicitudes=[Solicitud(_pid, "libre", date(2026, 10, 14), date(2026, 10, 14))])
 assert v._incumplidas(_c, {(_pid, date(2026, 10, 14)): "M"}, [date(2026, 10, 14)]).startswith(" 1 solicitud(es) sin cumplir")
 assert v._incumplidas(_c, {}, [date(2026, 10, 14)]) == ""
@@ -155,8 +155,8 @@ v._aplicar([(v._gente()[ra], d1, "NC")], "noche"); assert "menos de 12 h" not in
 v._aplicar([(v._gente()[ra], d2, "M")], "mañana siguiente")
 assert "ojo" in v.aviso.text() and "menos de 12 h entre NC" in v.aviso.text(), v.aviso.text()
 v._aplicar([(v._gente()[ra], d2, "M")], "igual"); assert "ojo" not in v.aviso.text()  # nada nuevo: no repite lo que ya estaba
-from an.esterilizacion import puestos as pm
-from an.esterilizacion.reglas import Alerta
+from an.turnos import puestos as pm
+from an.turnos.reglas import Alerta
 estado, orig_rec, orig_rep = {"on": False}, flujo.recalcular, pm.alertas_reparto
 flujo.recalcular = lambda *a, **k: (orig_rec(*a, **k), estado.update(on=True))[0]
 pm.alertas_reparto = lambda *a, **k: [Alerta("error", d2, None, "06/10: Lavado sin cubrir 06:00–12:00 (falta 1)")] if estado["on"] else []
@@ -164,7 +164,7 @@ v._aplicar([(v._gente()[ra], d2, "L")], "libre"); assert "Lavado sin cubrir" in 
 flujo.recalcular, pm.alertas_reparto = orig_rec, orig_rep
 v.deshacer(); v.deshacer(); v.deshacer(); v.deshacer(); assert ver()[(a, d1)] == "M" and ver().get((a, d2), "L") == "L"
 # puesto visible: con «Mostrar puesto» la celda dice M·n, y editarla sigue leyendo solo el código
-from an.esterilizacion import flujo
+from an.turnos import flujo
 flujo.recalcular(v.bd, *P); v.refrescar()
 assert v.grilla.item(ra, c1).text() == "M" and v.grilla.item(ra, c1).toolTip().startswith("Puesto: ")
 v.ver_puesto.setChecked(True)
@@ -268,7 +268,7 @@ n = len(v.bd.colaboradores(solo_activos=False)); v._guardar_persona()
 assert "Marca al menos un puesto que pueda ocupar" in v.aviso.text() and len(v.bd.colaboradores(solo_activos=False)) == n
 # --- pestaña Dotación (estimación por horas)
 import tempfile as _tf
-from an.esterilizacion.dominio import Colaborador
+from an.turnos.dominio import Colaborador
 v2 = ventana(_tf.mkdtemp() + "/d.db")
 for i in range(13):
     v2.bd.guardar_colaborador(Colaborador(0, f"P{i}"))
@@ -288,8 +288,8 @@ assert td.l_personas.text() == "12" and td.l_diferencia.text() == "Sobran 1"
 v4 = ventana(_tf.mkdtemp() + "/c.db")
 for pid in list(v4.bd.catalogo_puestos()):
     v4.bd.reemplazar_demandas(pid, [])
-pz = v4.bd.guardar_puesto(__import__("an.esterilizacion.dominio", fromlist=["x"]).Puesto(0, 30, "Solo mañana"))
-v4.bd.reemplazar_demandas(pz, [__import__("an.esterilizacion.dominio", fromlist=["x"]).Demanda(pz, "LS", 360, 720, 1)])
+pz = v4.bd.guardar_puesto(__import__("an.turnos.dominio", fromlist=["x"]).Puesto(0, 30, "Solo mañana"))
+v4.bd.reemplazar_demandas(pz, [__import__("an.turnos.dominio", fromlist=["x"]).Demanda(pz, "LS", 360, 720, 1)])
 cid = v4.bd.guardar_colaborador(Colaborador(0, "Ana"))
 v4.año.setValue(2026); v4.mes.setCurrentIndex(9)
 v4.bd.guardar_cuadro(flujo.clave(*flujo.periodo_mes(2026, 10)), {(cid, date(2026, 10, 5)): "M"}); v4.refrescar()
@@ -298,7 +298,7 @@ assert g4.verticalHeaderItem(1).text() == "Cobertura mañana"
 assert g4.item(1, 4).text() == "ok" and g4.item(1, 5).text() == "−1" and "06:00–12:00" in g4.item(1, 5).toolTip()
 # --- verificación con el generador en la pestaña Dotación (resolutor simulado)
 import time as _time
-from an.esterilizacion import dotacion as _dot
+from an.turnos import dotacion as _dot
 _original = _dot.verificar_minimo
 try:
     def _resultado(ctx, fechas, margen, activos, tiempo=8, progreso=None, cancelar=None):
@@ -345,7 +345,7 @@ tit = [t for t, _ in va.secciones]
 assert tit.index("Analíticas") == tit.index("Historial y banco de horas") + 1, tit
 assert va.a_cifras["sim"][0].text() == "0" and va.t_aus.rowCount() == 0
 assert va.a_hasta.date().toPython() == date(2026, 10, 1) or va.a_hasta.date().month() == va.periodo()[0].month
-from an.esterilizacion.dominio import Colaborador as _Col
+from an.turnos.dominio import Colaborador as _Col
 va.bd.guardar_colaborador(_Col(None, "Zoe"))
 zid = va.bd.colaboradores()[0].id
 va.bd.guardar_novedad(Novedad(zid, "Vacaciones", date(2026, 10, 5), date(2026, 10, 7)))

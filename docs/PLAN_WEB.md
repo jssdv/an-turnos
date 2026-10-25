@@ -35,7 +35,7 @@ Cada plan detallado se escribe al empezar su fase (no antes: depende de lo que e
 flowchart LR
     nav[Navegador<br/>React 19 + Vite + TS] -- HTTPS, cookie de sesión --> caddy[Caddy<br/>TLS]
     caddy --> api[API FastAPI<br/>an/web · uvicorn]
-    api -- importa --> nucleo[Núcleo Python<br/>an/esterilizacion · an/radiologia]
+    api -- importa --> nucleo[Núcleo Python<br/>an/turnos · an/radiologia]
     api -- SQL + RLS --> pg[(PostgreSQL 16)]
     api -- INSERT trabajo --> pg
     trab[Trabajador<br/>python -m an.web.trabajador] -- toma trabajo · progreso · latido --> pg
@@ -82,8 +82,8 @@ Coste de B: el equipo mantiene un servidor en Python y otro (Alianzas) en Node. 
 |---|---|---|
 | `an/esterilizacion/` → `an/turnos/` | Renombrar el paquete del motor (Fase 1, antes de que `an/web/` lo importe). Lo usarán Esterilización, otras áreas tradicionales y, después, Radiología; un nombre de servicio no describe el motor. Se anota en `NUCLEO.md` y `CLAUDE.md` | Evitar un renombrado caro cuando ya haya código web encima |
 | `an/turnos/db.py` | `BD` acepta una conexión ya abierta (SQLite o psycopg). El SQL se escribe en el subconjunto común: `RETURNING id` en vez de `lastrowid`, fechas desde Python en vez de `datetime('now')`, y `INSERT OR REPLACE`/`OR IGNORE` pasan a `DELETE`+`INSERT` u `ON CONFLICT DO NOTHING`. Un envoltorio de una línea cambia `?` por `%s` en psycopg. El esquema y las migraciones `PRAGMA` siguen solo para SQLite; en PostgreSQL el esquema sale de `an/web/migraciones/` | La misma `BD` sirve a Qt, a los tests rápidos en `:memory:`, a la migración y al servidor |
-| `an/esterilizacion/cambios.py` | `_log` no escribe `cambios.log` si `bd.ruta` es `None` | En el servidor el registro es la tabla `cambio_turno` |
-| `an/esterilizacion/solver.py` | `generar(…, al_avance=None, detener=None)`: un `CpSolverSolutionCallback` llama `al_avance(dict)` y un hilo vigía llama `CpSolver.stop_search()` si `detener` (un `threading.Event`) se activa; `detener` también impide el segundo intento sin fijos | Progreso y cancelación sin tocar el modelo. `stop_search` existe en OR-Tools 9.15 (instalado) |
+| `an/turnos/cambios.py` | `_log` no escribe `cambios.log` si `bd.ruta` es `None` | En el servidor el registro es la tabla `cambio_turno` |
+| `an/turnos/solver.py` | `generar(…, al_avance=None, detener=None)`: un `CpSolverSolutionCallback` llama `al_avance(dict)` y un hilo vigía llama `CpSolver.stop_search()` si `detener` (un `threading.Event`) se activa; `detener` también impide el segundo intento sin fijos | Progreso y cancelación sin tocar el modelo. `stop_search` existe en OR-Tools 9.15 (instalado) |
 
 Nada más del núcleo cambia. El aislamiento por clínica no entra al núcleo: lo pone PostgreSQL (§3).
 

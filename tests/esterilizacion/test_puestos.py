@@ -4,12 +4,12 @@ from datetime import date, timedelta
 
 import tempfile
 
-from an.esterilizacion import db
-from an.esterilizacion import demanda
-from an.esterilizacion import dotacion
-from an.esterilizacion import puestos
-from an.esterilizacion import solver
-from an.esterilizacion.dominio import AsignacionPuesto, Colaborador, Contexto, Demanda, Puesto, Turno
+from an.turnos import db
+from an.turnos import demanda
+from an.turnos import dotacion
+from an.turnos import puestos
+from an.turnos import solver
+from an.turnos.dominio import AsignacionPuesto, Colaborador, Contexto, Demanda, Puesto, Turno
 
 
 def ctx_con(demandas):
