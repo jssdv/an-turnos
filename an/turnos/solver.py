@@ -38,11 +38,11 @@ def carga(ctx, cuadro, fechas):
 
 
 def workers_por_defecto():
-    """Hilos de CP-SAT: `AN_SOLVER_WORKERS` si es un entero ≥ 1; si no, 8."""
+    """Hilos de CP-SAT: `AN_SOLVER_WORKERS` si es un entero ≥ 1; si no, los núcleos de la máquina con tope de 8 (más hilos que núcleos no ayudan)."""
     try:
         return max(1, int(os.environ["AN_SOLVER_WORKERS"]))
     except (KeyError, ValueError):
-        return 8
+        return min(8, os.cpu_count() or 1)
 
 
 def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0, ajuste=None, estricto=False,
@@ -52,7 +52,7 @@ def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiem
     `estricto`: la demanda obligatoria es restricción dura (sin faltantes); si no cabe se lanza ErrorSolver.
     `al_avance(dict)`: se llama en cada solución nueva con soluciones, objetivo, cota, segundos y limite.
     `detener`: `threading.Event`; si se activa se corta la búsqueda y se lanza ErrorSolver («Generación cancelada.»), sin segundo intento.
-    `workers`: hilos de CP-SAT (por defecto `AN_SOLVER_WORKERS` o 8).
+    `workers`: hilos de CP-SAT (por defecto `AN_SOLVER_WORKERS` o min(8, núcleos)).
     `info["faltan"]` = [(fecha, tramo 0–47, personas que faltan)]."""
     fechas, fijos, previo, acum = sorted(fechas), fijos or {}, previo or {}, acum or {}
     extra = dict(al_avance=al_avance, detener=detener, workers=workers or workers_por_defecto())

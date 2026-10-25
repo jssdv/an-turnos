@@ -11,7 +11,7 @@
 - [x] **Fase 0** — Decisiones y cimientos · [plan](superpowers/plans/2026-10-25-web-fase-0.md)
 - [x] **Fase 1** — API sobre el núcleo + pruebas · [plan](superpowers/plans/2026-10-26-web-fase-1.md)
 - [ ] **Fase 2** — Migración de `turnos.db` · plan pendiente
-- [ ] **Fase 3** — Trabajador del solver · plan pendiente
+- [x] **Fase 3** — Trabajador del solver · [plan](superpowers/plans/2026-10-26-web-fase-3.md)
 - [ ] **Fase 4** — Planilla piloto en React · plan pendiente
 - [ ] **Fase 5** — Edición con revisiones y auditoría · plan pendiente
 - [ ] **Fase 6** — Exportes · plan pendiente
@@ -197,20 +197,20 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 3 — Trabajador del solver con progreso y cancelación
 - **Objetivo:** generar un periodo desde la API sin bloquearla.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-26-web-fase-3.md](superpowers/plans/2026-10-26-web-fase-3.md)
 - **Entregable:**
-  - [ ] `solver.generar(…, al_avance=None, detener=None)` (§2)
-  - [ ] `an/web/trabajador.py`
-  - [ ] Rutas `generar`, `trabajos/{id}`, `cancelar`
-  - [ ] Contenedor `trabajador`
+  - [x] `solver.generar(…, al_avance=None, detener=None)` (§2), con `workers` / `AN_SOLVER_WORKERS`
+  - [x] `an/web/trabajador.py` y migración `004_trabajo.sql`
+  - [x] Rutas `generar`, `trabajos/{id}`, `cancelar`
+  - [ ] Contenedor `trabajador` (Fase 8: imagen y Compose de producción; aquí se corre con `python -m an.web.trabajador`)
 - **Aceptación:** (`tests/web/test_trabajador.py`)
-  - [ ] Un trabajo termina en `listo` y el cuadro es igual al de `flujo.generar` con la misma semilla
-  - [ ] Cancelar a los 2 s deja `cancelado` en menos de 3 s y no escribe
-  - [ ] Un segundo «Generar» de la misma clínica da 409
-  - [ ] Editar el periodo mientras corre deja `conflicto`
-  - [ ] Matar el proceso deja `fallido` al reiniciar
-  - [ ] Tiempo de un mes medido en el servidor de prueba y anotado en §8
-- **Riesgo:** `num_workers = 8` fijo en el solver sobre un VPS de 4 vCPU → medir; si empeora, se vuelve parámetro (`parametro` de la clínica o variable de entorno).
+  - [x] Un trabajo termina en `listo` y el cuadro es igual al de `flujo.generar` con la misma semilla
+  - [x] Cancelar a los 2 s deja `cancelado` en menos de 3 s y no escribe
+  - [x] Un segundo «Generar» de la misma clínica da 409
+  - [x] Editar el periodo mientras corre deja `conflicto`
+  - [x] Matar el proceso deja `fallido` al reiniciar
+  - [x] Tiempo de un mes medido en el servidor de prueba y anotado en §8
+- **Riesgo:** `num_workers = 8` fijo en el solver sobre un VPS de 4 vCPU → medido (§8): 8 hilos no empeoran a 4 en el Mac; por defecto ahora es `min(8, núcleos)` y `AN_SOLVER_WORKERS` lo fija. Falta medir en el VPS real.
 
 ### Fase 4 — Planilla piloto en React (solo lectura)
 - **Objetivo:** ver el cuadro de Esterilización en el navegador con el aspecto del diseño.
@@ -333,7 +333,7 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 
 | Medida | Dónde | Umbral para actuar | Base (Fase 0, 25/10/2026, Mac M5 de 10 núcleos) |
 |---|---|---|---|
-| Solver, un mes completo (p50/p95) | Trabajador en el VPS | > 60 s | 20,2 s en las 3 corridas (13 personas, octubre 2026): agota el límite de `tiempo=20` en vez de converger; falta medir el tiempo hasta la primera solución y la mejor |
+| Solver, un mes completo (p50/p95) | Trabajador en el VPS | > 60 s | 20,2 s en las 3 corridas (13 personas, octubre 2026): agota el límite de `tiempo=20` en vez de converger. **Fase 3 (26/10/2026, `checks/medir_solver.py`, mismo Mac):** primera solución a los 0,2 s (8 hilos) / 0,4 s (4) / 0,5 s (2) / 2,1 s (1); no converge a óptimo: sigue mejorando hasta el límite (objetivo final con `tiempo=20`: 2265 con 8 hilos, 2730 con 4; con `tiempo=60`: 975 / 600 / 865 con 8 / 4 / 2 hilos, sin faltantes). Con 1 hilo la solución es mala (60 s: objetivo 1,3 M y 84 tramos sin cubrir), con 2 o más es parecida. Falta repetirlo en el VPS real |
 | `GET` del cuadro de un mes | API | > 300 ms | n/a hasta Fase 1 |
 | Edición de una celda, ida y vuelta con alertas | API + navegador | > 500 ms | n/a hasta Fase 5 |
 | Pintar la grilla de un mes | Navegador del PC de la clínica | > 1 s | n/a hasta Fase 4 |
