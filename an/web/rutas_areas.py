@@ -31,7 +31,7 @@ def _plano(x):
 
 def _lista(nombre, leer):
     @router.get(f"/areas/{{area}}/{nombre}")
-    def ruta(ctx: Contexto = Depends(contexto_area)):
+    def ruta(ctx: Contexto = Depends(contexto_area, scope="function")):
         return [_plano(x) for x in leer(ctx.bd)]
     ruta.__name__ = f"leer_{nombre}"
 
@@ -45,12 +45,12 @@ _lista("tarifas", lambda bd: bd.tarifas())
 
 
 @router.get("/areas/{area}/parametros")
-def parametros(ctx: Contexto = Depends(contexto_area)):
+def parametros(ctx: Contexto = Depends(contexto_area, scope="function")):
     return {f["clave"]: f["valor"] for f in ctx.conn.execute("SELECT clave, valor FROM parametro")}
 
 
 @router.get("/areas/{area}/periodos")
-def periodos(ctx: Contexto = Depends(contexto_area)):
+def periodos(ctx: Contexto = Depends(contexto_area, scope="function")):
     return [dict(id=f["id"], clave=f["clave"], revision=f["revision"], publicado_en=f["publicado_en"], cerrado_en=f["cerrado_en"])
             for f in ctx.conn.execute("SELECT id, clave, revision, publicado_en, cerrado_en FROM periodo ORDER BY clave")]
 
@@ -64,14 +64,14 @@ def _periodo(ctx, id_):
 
 
 @router.get("/areas/{area}/periodos/{id}/cuadro")
-def cuadro(id: int, ctx: Contexto = Depends(contexto_area)):
+def cuadro(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, _, _ = _periodo(ctx, id)
     return {"clave": clave, "version": "cambios",
             "celdas": [dict(colab_id=c, fecha=f, turno=t) for (c, f), t in sorted(ctx.bd.asignaciones(clave).items())]}
 
 
 @router.get("/areas/{area}/periodos/{id}/alertas")
-def alertas(id: int, ctx: Contexto = Depends(contexto_area)):
+def alertas(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, inicio, fin = _periodo(ctx, id)
     fijos = ctx.bd.fijos(clave)
     return [_plano(a) if not isinstance(a, str) else a
@@ -79,18 +79,18 @@ def alertas(id: int, ctx: Contexto = Depends(contexto_area)):
 
 
 @router.get("/areas/{area}/periodos/{id}/puestos")
-def puestos_periodo(id: int, ctx: Contexto = Depends(contexto_area)):
+def puestos_periodo(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, _, _ = _periodo(ctx, id)
     return [_plano(x) for x in ctx.bd.asignacion_puesto(clave)]
 
 
 @router.get("/areas/{area}/periodos/{id}/horas")
-def horas(id: int, ctx: Contexto = Depends(contexto_area)):
+def horas(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     _, inicio, fin = _periodo(ctx, id)
     return [dict(colab_id=c, contratadas=a, trabajadas=b) for c, a, b in flujo.resumen_horas(ctx.bd, inicio, fin)]
 
 
 @router.get("/areas/{area}/analiticas")
-def analiticas(desde: date, hasta: date, ctx: Contexto = Depends(contexto_area)):
+def analiticas(desde: date, hasta: date, ctx: Contexto = Depends(contexto_area, scope="function")):
     return {"ausentismo": analitica.ausentismo(ctx.bd, desde, hasta), "cobertura": analitica.cobertura(ctx.bd, desde, hasta),
             "recargos": analitica.recargos_resumen(ctx.bd, desde, hasta)}
