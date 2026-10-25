@@ -2,7 +2,7 @@
 
 [← Volver al inicio](../../../README.md) · [Visión](../../VISION.md) · [Núcleo](../../NUCLEO.md)
 
-Estado: **entrega 1 en desarrollo** (25/10/2026). Las entregas 2 y 3 están especificadas aquí pero no se construyen todavía.
+Estado: **entrega 1 implementada** (25/10/2026). Las entregas 2 y 3 están especificadas aquí pero no se construyen todavía.
 
 ## 1. Qué se quiere lograr
 
