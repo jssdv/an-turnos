@@ -1,4 +1,6 @@
 """Generador del cuadro mensual con OR-Tools CP-SAT. Cobertura, descanso y horas salen del catálogo de turnos."""
+import os
+import threading
 from collections import defaultdict
 from datetime import timedelta
 
@@ -35,23 +37,49 @@ def carga(ctx, cuadro, fechas):
     return {k: dict(v) for k, v in out.items()}
 
 
-def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0, ajuste=None, estricto=False):
+def workers_por_defecto():
+    """Hilos de CP-SAT: `AN_SOLVER_WORKERS` si es un entero ≥ 1; si no, los núcleos de la máquina con tope de 8 (más hilos que núcleos no ayudan)."""
+    try:
+        return max(1, int(os.environ["AN_SOLVER_WORKERS"]))
+    except (KeyError, ValueError):
+        return min(8, os.cpu_count() or 1)
+
+
+def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0, ajuste=None, estricto=False,
+            al_avance=None, detener=None, workers=None):
     """Devuelve (cuadro {(colab_id, fecha): código}, info). Los días libres no aparecen en el cuadro.
     `ajuste`: {colab_id: horas} que se suman a la meta de horas del periodo (negativo: se le deben horas, trabaja menos).
     `estricto`: la demanda obligatoria es restricción dura (sin faltantes); si no cabe se lanza ErrorSolver.
+    `al_avance(dict)`: se llama en cada solución nueva con soluciones, objetivo, cota, segundos y limite.
+    `detener`: `threading.Event`; si se activa se corta la búsqueda y se lanza ErrorSolver («Generación cancelada.»), sin segundo intento.
+    `workers`: hilos de CP-SAT (por defecto `AN_SOLVER_WORKERS` o min(8, núcleos)).
     `info["faltan"]` = [(fecha, tramo 0–47, personas que faltan)]."""
     fechas, fijos, previo, acum = sorted(fechas), fijos or {}, previo or {}, acum or {}
+    extra = dict(al_avance=al_avance, detener=detener, workers=workers or workers_por_defecto())
     try:
-        return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste or {}, estricto)
+        return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste or {}, estricto, **extra)
     except ErrorSolver:
-        if not fijos:
+        if not fijos or (detener and detener.is_set()):
             raise
-        _resolver(ctx, fechas, {}, previo, acum, ventana_sem, min(tiempo, 10), semilla, ajuste or {}, estricto)  # sin fijos tampoco → sale ese error
+        _resolver(ctx, fechas, {}, previo, acum, ventana_sem, min(tiempo, 10), semilla, ajuste or {}, estricto, **extra)  # sin fijos tampoco → sale ese error
         raise ErrorSolver("Las celdas fijas (ediciones manuales) hacen imposible cumplir el descanso de 12 h "
                           "o el día libre semanal. Quita algunas con «Restaurar» y vuelve a generar.")
 
 
-def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste, estricto):
+class _Avance(cp_model.CpSolverSolutionCallback):
+    def __init__(self, al_avance, limite):
+        super().__init__()
+        self.al_avance, self.limite, self.n = al_avance, limite, 0
+
+    def on_solution_callback(self):
+        self.n += 1
+        self.al_avance({"soluciones": self.n, "objetivo": self.ObjectiveValue(), "cota": self.BestObjectiveBound(),
+                        "segundos": self.WallTime(), "limite": self.limite})
+
+
+def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste, estricto, al_avance=None, detener=None, workers=8):
+    if detener and detener.is_set():
+        raise ErrorSolver("Generación cancelada.")
     P = [p for p in ctx.colabs if p.en_solver]
     S = [c for c, t in ctx.turnos.items() if t.solver]
     mal = incompatibles(ctx.turnos)
@@ -278,9 +306,22 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
     m.Minimize(sum(obj))
     sol = cp_model.CpSolver()
     sol.parameters.max_time_in_seconds = tiempo
-    sol.parameters.num_workers = 8
+    sol.parameters.num_workers = workers
     sol.parameters.random_seed = semilla
-    estado = sol.Solve(m)
+    terminado = threading.Event()
+    if detener:
+        def vigia():  # stop_search antes de que arranque la búsqueda se pierde: se repite hasta que Solve termine
+            while not terminado.is_set():
+                if detener.wait(0.1):
+                    sol.stop_search()
+                    terminado.wait(0.1)
+        threading.Thread(target=vigia, daemon=True).start()
+    try:
+        estado = sol.Solve(m, _Avance(al_avance, tiempo)) if al_avance else sol.Solve(m)
+    finally:
+        terminado.set()
+    if detener and detener.is_set():
+        raise ErrorSolver("Generación cancelada.")  # una búsqueda cortada se descarta
     if estado not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise ErrorSolver("No existe un cuadro que cumpla el descanso de 12 h y el día libre semanal con estos datos.")
     cuadro = {(p.id, d): s for p in P for d in fechas for s, v in por_pd[p.id, d] if s != "L" and sol.Value(v)}
