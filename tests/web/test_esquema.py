@@ -43,7 +43,7 @@ def test_aplicar_es_idempotente():
     with conn_nueva() as c:
         if c is None:
             return
-        assert esquema.aplicar(c) == ["001_base.sql", "002_auth.sql", "003_menores.sql"]
+        assert esquema.aplicar(c) == sorted(p.name for p in esquema.MIGRACIONES.glob("[0-9][0-9][0-9]_*.sql"))
         assert esquema.aplicar(c) == []
 
 
