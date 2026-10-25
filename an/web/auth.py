@@ -71,6 +71,7 @@ def iniciar_sesion(c, correo, clave, ip):
     token = secrets.token_urlsafe(32)
     c.execute("SELECT app_limpiar_intentos(?, ?)", (correo, ip))
     c.execute("SELECT app_crear_sesion(?, ?)", (_hash_token(token), u["id"]))
+    c.execute("SELECT app_purgar()")
     c.commit()
     return token, Usuario(u["id"], u["clinica_id"], correo, u["nombre"], u["es_admin"], u["debe_cambiar"])
 

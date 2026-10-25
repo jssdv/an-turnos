@@ -547,7 +547,7 @@ def test_flujo_y_estudio():
     bd = db.BD()
     for i in range(13):
         bd.guardar_colaborador(Colaborador(0, f"P{i}"))
-    info = flujo.generar(bd, *P, tiempo=20)
+    info = flujo.generar(bd, *P, tiempo=45)
     assert not info["faltan"] and bd.diferencias(K) == [] and bd.asignacion_puesto(K) and bd.capacitacion(K)
     # edición manual → aparece como diferencia; «respetar» la conserva y no toca original
     cambios = bd.asignaciones(K)

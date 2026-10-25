@@ -141,6 +141,41 @@ def test_origen_configurado_detras_de_un_proxy():
             del os.environ["AN_ORIGEN"]
 
 
+def test_cuerpo_chunked_o_content_length_invalido():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = e.cliente()
+        h = {"Origin": ORIGEN, "content-type": "application/json"}
+        r = cli.post("/api/auth/entrar", content=(b"x" for _ in range(2)), headers=h)  # sin Content-Length (chunked)
+        assert r.status_code == 411 and r.headers["x-request-id"]
+        r = cli.post("/api/auth/entrar", content=b"{}", headers={**h, "content-length": "abc"})
+        assert r.status_code == 400 and r.headers["x-request-id"]
+
+
+def test_analiticas_valida_el_rango():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = e.cliente()
+        e.entrar(cli, "lector@a.co")
+        base = f"/api/areas/{e.ar['A']}/analiticas"
+        assert cli.get(f"{base}?desde=2026-10-31&hasta=2026-10-01").status_code == 422
+        assert cli.get(f"{base}?desde=2000-01-01&hasta=2026-10-01").status_code == 422
+        assert cli.get(f"{base}?desde=2026-10-01&hasta=2026-10-31").status_code == 200
+
+
+def test_errores_con_un_solo_formato_y_sin_eco_de_la_clave():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = e.cliente()
+        r = cli.get("/api/areas")
+        assert r.status_code == 401 and "detalle" in r.json() and "detail" not in r.json()
+        r = cli.post("/api/auth/entrar", json={"correo": "a@x.co", "clave": 123456789}, headers={"Origin": ORIGEN})
+        assert r.status_code == 422 and "detalle" in r.json() and "123456789" not in r.text
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):
