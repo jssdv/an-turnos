@@ -10,7 +10,7 @@
 
 - [x] **Fase 0** — Decisiones y cimientos · [plan](superpowers/plans/2026-10-25-web-fase-0.md)
 - [x] **Fase 1** — API sobre el núcleo + pruebas · [plan](superpowers/plans/2026-10-26-web-fase-1.md)
-- [ ] **Fase 2** — Migración de `turnos.db` · plan pendiente
+- [x] **Fase 2** — Migración de `turnos.db` · [plan](superpowers/plans/2026-10-26-web-fase-2.md)
 - [ ] **Fase 3** — Trabajador del solver · plan pendiente
 - [ ] **Fase 4** — Planilla piloto en React · [plan](superpowers/plans/2026-10-26-web-fase-4.md) (entregables hechos; falta de la aceptación: la base migrada de la Fase 2, las rutas de la Fase 3 y el PC de la clínica)
 - [ ] **Fase 5** — Edición con revisiones y auditoría · plan pendiente
@@ -185,14 +185,14 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 2 — Migración de `turnos.db` con verificación de cifras
 - **Objetivo:** pasar una base SQLite existente a un área de una clínica sin perder ni alterar nada.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-26-web-fase-2.md](superpowers/plans/2026-10-26-web-fase-2.md)
 - **Entregable:**
-  - [ ] `python -m an.web.migrar turnos.db --clinica N --area M`: lee con `BD` sobre SQLite, escribe tabla a tabla en una transacción, crea `periodo` desde las claves de `asignacion` y `periodo_estado`
-  - [ ] Se niega si el área ya tiene datos
-  - [ ] Verificación en ambos lados con código de salida ≠ 0 si algo difiere: filas por tabla; celdas por turno por periodo y versión; `flujo.resumen_horas` por persona; `analitica.recargos_resumen`, `equidad` y `banco`; `flujo.estado_banco`; número de alertas de `reglas.validar`; `cambio_turno` y `solicitud` por periodo
+  - [x] `python -m an.web.migrar turnos.db --clinica N --area M`: lee con `BD` sobre SQLite, escribe tabla a tabla en una transacción, crea `periodo` desde las claves de `asignacion` y `periodo_estado`
+  - [x] Se niega si el área ya tiene datos
+  - [x] Verificación en ambos lados con código de salida ≠ 0 si algo difiere: filas por tabla; celdas por turno por periodo y versión; `flujo.resumen_horas` por persona; `analitica.recargos_resumen`, `equidad` y `banco`; `flujo.estado_banco`; número de alertas de `reglas.validar`; `cambio_turno` y `solicitud` por periodo
 - **Aceptación:**
-  - [ ] Probado con el `turnos.db` actual
-  - [ ] Probado con una base sintética de 3 meses
+  - [x] Probado con el `turnos.db` actual
+  - [x] Probado con una base sintética de 3 meses
 - **Riesgo:** datos antiguos con claves `AAAA-MM` o columnas nulas → la migración v2–v7 de SQLite se aplica primero abriendo con `BD` (ya migra sola).
 
 ### Fase 3 — Trabajador del solver con progreso y cancelación
@@ -341,6 +341,15 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 Candidatos, solo si una medida pasa su umbral: pista al solver con la solución previa (`AddHint`), `num_workers` según núcleos, dividir por semana (`modo="semana"` ya existe), índices y escritura por lotes (`executemany`) en `BD`, virtualizar la grilla, cargar solo el rango visible.
 
 **Pruebas:** los tests del núcleo siguen siendo scripts que imprimen `OK` y además los corre pytest; en CI corren dos veces (`AN_BD=sqlite` y `AN_BD=postgres`). `tests/web/` (pytest + `httpx` de FastAPI) cubre auth, aislamiento, revisiones, trabajador y exportes. Front: `tsc --noEmit` y build en CI; Vitest solo cuando un componente tenga lógica propia (p. ej. selección por lote en `Planilla`). Checks: `checks/rls.py`, `checks/tokens.py`, `checks/diseno.py`, `checks/reglas.py` (toda ruta declara permiso de área; nada de SQL con f-strings; `subprocess` solo en el trabajador).
+
+## Pendientes conocidos
+
+Abiertos tras cerrar los menores de la Fase 1:
+
+- **IP real detrás de Caddy** (Fase 8): `auditoria.ip` e `intento_login.ip` guardan `request.client.host`, que con el proxy será la IP de Caddy. Hay que confiar en `X-Forwarded-For` solo desde el proxy (uvicorn `--forwarded-allow-ips`) antes de desplegar; hasta entonces el bloqueo por IP del ingreso no distingue clientes.
+- **Tabla `periodo`** (Fase 2): `periodo_estado.cerrado_en` (texto; UTC ISO con `+00:00` desde ahora, las filas anteriores son `AAAA-MM-DD HH:MM:SS` en UTC) se absorbe en `periodo.cerrado_en` (`timestamptz`); la migración debe aceptar ambos formatos. Nadie lee `cerrado_en` todavía.
+- **Marcas de tiempo locales**: `solicitud.creado_en` y `cambio_turno` siguen con `datetime.now()` local; unificarlas a UTC cuando se migren.
+- **Origen rechazado**: la petición con sesión válida pero Origin ajeno renueva `ultima` de la sesión (usa `app_sesion`); aceptable ahora, se puede evitar con una consulta de solo lectura.
 
 ## 9. Qué NO hacer
 

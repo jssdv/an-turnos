@@ -17,6 +17,19 @@ def test_traducir():
     assert pg.traducir("SELECT * FROM t WHERE a=? AND b LIKE '50%' AND c='¿?'") == "SELECT * FROM t WHERE a=%s AND b LIKE '50%%' AND c='¿?'"
 
 
+def test_traducir_construcciones_con_comillas():
+    t = pg.traducir
+    assert t("SELECT ? -- no es d'él ?\nFROM t WHERE a=?") == "SELECT %s -- no es d'él ?\nFROM t WHERE a=%s"  # comentario de línea
+    assert t("SELECT /* d'? */ ?") == "SELECT /* d'? */ %s"
+    assert t("SELECT E'it\\'s ?', ?") == "SELECT E'it\\'s ?', %s"  # E'' con \'
+    assert t("SELECT 'it''s ?', ?") == "SELECT 'it''s ?', %s"
+    assert t("SELECT $$a'?%$$, ?") == "SELECT $$a'?%%$$, %s"
+    assert t("SELECT $f$ x ? $$ ' $f$, ?") == "SELECT $f$ x ? $$ ' $f$, %s"
+    assert t('SELECT "col?", "o\'x", ?') == 'SELECT "col?", "o\'x", %s'
+    assert t('SELECT "a""?", ?') == 'SELECT "a""?", %s'
+    assert t("SELECT $1, a % 2, '5%', -- 100%\n?") == "SELECT $1, a %% 2, '5%%', -- 100%%\n%s"
+
+
 def test_fila_por_indice_y_nombre():
     f = pg.Fila(("a", 2), ("nombre", "n"))
     assert f[0] == "a" and f["n"] == 2 and f["nombre"] == "a" and f.keys() == ["nombre", "n"]
