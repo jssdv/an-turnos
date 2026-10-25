@@ -47,7 +47,7 @@ def salir(request: Request, response: Response, u=Depends(usuario_permitido_camb
 def cambiar_clave(datos: CambioClave, request: Request, u=Depends(usuario_permitido_cambiar)):
     try:
         with request.app.state.pool.connection() as conn:
-            auth.cambiar_clave(Conexion(conn), u.id, datos.actual, datos.nueva)
+            auth.cambiar_clave(Conexion(conn), u, datos.actual, datos.nueva)
     except auth.ErrorAuth as e:
         raise HTTPException(400, str(e))
     request.state.evento = "cambio_clave"

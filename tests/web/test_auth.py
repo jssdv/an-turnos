@@ -3,7 +3,6 @@ import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname
 import contextlib
 import hashlib
 import uuid
-from datetime import datetime, timedelta, timezone
 
 import psycopg
 
@@ -85,17 +84,10 @@ def test_bloqueo_tras_5_fallos_incluso_con_clave_correcta():
         assert token
 
 
-def test_token_vencido_cerrado_o_inexistente_da_none():
+def test_token_cerrado_o_inexistente_da_none():
     with con_usuario() as c:
         if c is None:
             return
-        ahora = datetime.now(timezone.utc)
-        t1, _ = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
-        assert auth.usuario_de_token(c, t1, ahora + timedelta(minutes=36)) is None  # 35 min sin uso
-        t2, _ = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
-        for i in range(1, 24):  # uso cada 30 min: sigue viva casi hasta las 12 h
-            assert auth.usuario_de_token(c, t2, ahora + timedelta(minutes=30 * i)) is not None, i
-        assert auth.usuario_de_token(c, t2, ahora + timedelta(hours=12, minutes=1)) is None  # tope absoluto
         t3, _ = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
         auth.cerrar_sesion(c, t3)
         assert auth.usuario_de_token(c, t3) is None and auth.usuario_de_token(c, "inventado") is None
@@ -107,17 +99,76 @@ def test_cambiar_clave_quita_debe_cambiar():
             return
         _, u = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
         try:
-            auth.cambiar_clave(c, u.id, "equivocada", "otra-clave-larga")
+            auth.cambiar_clave(c, u, "equivocada", "otra-clave-larga")
             raise AssertionError("aceptó la clave actual equivocada")
         except auth.ErrorAuth:
             pass
         try:
-            auth.cambiar_clave(c, u.id, CLAVE, "corta")
+            auth.cambiar_clave(c, u, CLAVE, "corta")
             raise AssertionError("aceptó una clave corta")
         except auth.ErrorAuth as e:
             assert "10" in str(e)
-        auth.cambiar_clave(c, u.id, CLAVE, "otra-clave-larga")
+        auth.cambiar_clave(c, u, CLAVE, "otra-clave-larga")
         assert auth.iniciar_sesion(c, "a@x.co", "otra-clave-larga", "1.1.1.1")[1].debe_cambiar is False
+
+
+def test_funciones_de_ingreso_no_son_ejecutables_por_cualquier_rol():
+    with con_usuario() as c:
+        if c is None:
+            return
+        esq = c.execute("SELECT current_schema()").fetchone()[0]
+        c.conn.execute("RESET ROLE")
+        c.conn.execute("DROP ROLE IF EXISTS an_otro")
+        c.conn.execute("CREATE ROLE an_otro NOLOGIN")
+        c.conn.execute(f'GRANT USAGE ON SCHEMA "{esq}" TO an_otro')
+        c.conn.commit()
+        try:
+            c.conn.execute("SET ROLE an_otro")
+            try:
+                c.execute("SELECT app_hash_clave(1)")
+                raise AssertionError("un rol cualquiera ejecutó app_hash_clave")
+            except psycopg.errors.InsufficientPrivilege:
+                c.conn.rollback()
+        finally:
+            c.conn.execute("RESET ROLE")
+            c.conn.execute(f'REVOKE USAGE ON SCHEMA "{esq}" FROM an_otro')
+            c.conn.execute("DROP ROLE an_otro")
+            c.conn.commit()
+            c.conn.execute("SET ROLE an_app")
+
+
+def test_cambiar_clave_solo_dentro_de_la_clinica_del_usuario():
+    with con_usuario() as c:
+        if c is None:
+            return
+        _, u = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
+        c.execute("SELECT set_config('app.clinica', '99999', true)")
+        c.execute("SELECT app_poner_clave(?, ?)", (u.id, auth.hash_clave("intrusa-larga-1")))
+        c.commit()
+        assert auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.2")  # la clave no cambió: otra clínica en el alcance
+
+
+def test_una_sesion_no_se_renueva_con_una_hora_elegida_por_quien_llama():
+    with con_usuario() as c:
+        if c is None:
+            return
+        token, _ = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
+        c.conn.execute("RESET ROLE")
+        c.execute("UPDATE sesion SET ultima = ultima - interval '36 minutes'")
+        c.conn.commit()
+        c.conn.execute("SET ROLE an_app")
+        assert auth.usuario_de_token(c, token) is None
+        t2, _ = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
+        c.conn.execute("RESET ROLE")
+        c.execute("UPDATE sesion SET creada = creada - interval '12 hours 1 minute' WHERE hash_token = ?", (hashlib.sha256(t2.encode()).hexdigest(),))
+        c.conn.commit()
+        c.conn.execute("SET ROLE an_app")
+        assert auth.usuario_de_token(c, t2) is None
+        try:
+            c.execute("SELECT * FROM app_sesion(?, now())", (hashlib.sha256(t2.encode()).hexdigest(),))
+            raise AssertionError("app_sesion aún acepta una hora externa")
+        except psycopg.errors.UndefinedFunction:
+            c.conn.rollback()
 
 
 if __name__ == "__main__":

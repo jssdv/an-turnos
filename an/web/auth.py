@@ -4,7 +4,6 @@ import hashlib
 import hmac
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 N, R, P = 2 ** 14, 8, 1
 MIN_CLAVE = 10
@@ -71,10 +70,9 @@ def iniciar_sesion(c, correo, clave, ip):
     return token, Usuario(u["id"], u["clinica_id"], correo, u["nombre"], u["es_admin"], u["debe_cambiar"])
 
 
-def usuario_de_token(c, token, ahora=None):
-    """El usuario de la sesión, o None si no existe, se cerró o venció (35 min sin uso / 12 h desde que se creó)."""
-    ahora = ahora or datetime.now(timezone.utc)
-    u = c.execute("SELECT * FROM app_sesion(?, ?)", (_hash_token(token), ahora)).fetchone()
+def usuario_de_token(c, token):
+    """El usuario de la sesión, o None si no existe, se cerró o venció (35 min sin uso / 12 h desde que se creó; hora del servidor)."""
+    u = c.execute("SELECT * FROM app_sesion(?)", (_hash_token(token),)).fetchone()
     c.commit()
     return Usuario(u["id"], u["clinica_id"], u["correo"], u["nombre"], u["es_admin"], u["debe_cambiar"]) if u else None
 
@@ -84,7 +82,10 @@ def cerrar_sesion(c, token):
     c.commit()
 
 
-def cambiar_clave(c, usuario_id, actual, nueva):
+def cambiar_clave(c, usuario, actual, nueva):
+    """Cambia la clave de `usuario` (un Usuario). El alcance de la transacción se fija a su clínica: las funciones lo exigen."""
+    usuario_id = usuario.id
+    c.execute("SELECT set_config('app.clinica', ?, true)", (str(usuario.clinica_id),))
     if not verificar_clave(actual, c.execute("SELECT app_hash_clave(?)", (usuario_id,)).fetchone()[0] or ""):
         raise ErrorAuth("la contraseña actual no coincide")
     if len(nueva) < MIN_CLAVE:
