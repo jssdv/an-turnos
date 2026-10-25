@@ -1,0 +1,53 @@
+"""Dependencias de FastAPI: sesión, bloqueo por `debe_cambiar` y contexto de un área (permiso + alcance RLS + BD)."""
+from fastapi import HTTPException, Request
+
+from an.turnos.db import BD
+from an.turnos.pg import Conexion
+
+from . import auth, conexion
+
+COOKIE = "an_sid"
+ESCRITURA = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def usuario_permitido_cambiar(request: Request):
+    """El usuario de la sesión (incluso con `debe_cambiar`); 401 si no hay sesión válida."""
+    token = request.cookies.get(COOKIE)
+    u = None
+    if token:
+        with request.app.state.pool.connection() as conn:
+            u = auth.usuario_de_token(Conexion(conn), token)
+    if u is None:
+        raise HTTPException(401, "Ingresa de nuevo")
+    request.state.usuario = u
+    return u
+
+
+def usuario_actual(request: Request):
+    u = usuario_permitido_cambiar(request)
+    if u.debe_cambiar:
+        raise HTTPException(403, "Debes cambiar tu contraseña antes de continuar")
+    return u
+
+
+class Contexto:
+    def __init__(self, bd, usuario, permiso, conn):
+        self.bd, self.usuario, self.permiso, self.conn = bd, usuario, permiso, conn
+
+
+def contexto_area(area: int, request: Request):
+    """Dependencia por área: permiso (`ver` para GET, `editar` para escribir), alcance RLS y una BD lista. Una transacción por petición."""
+    u = usuario_actual(request)
+    with request.app.state.pool.connection() as conn:
+        c = Conexion(conn, confirmar=False)
+        conexion.alcance(conn, u.clinica_id)
+        if not c.execute("SELECT 1 FROM area WHERE id = ?", (area,)).fetchone():
+            raise HTTPException(404, "Área no encontrada")
+        fila = c.execute("SELECT permiso FROM usuario_area WHERE usuario_id = ? AND area_id = ?", (u.id, area)).fetchone()
+        permiso = fila[0] if fila else ("ver" if u.es_admin else None)
+        if permiso is None:
+            raise HTTPException(404, "Área no encontrada")
+        if request.method in ESCRITURA and permiso != "editar":
+            raise HTTPException(403, "Solo lectura en esta área")
+        conexion.alcance(conn, u.clinica_id, area)
+        yield Contexto(BD.postgres(c), u, permiso, c)
