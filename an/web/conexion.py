@@ -10,7 +10,8 @@ from an.turnos.pg import FILAS, Conexion
 
 
 def abrir_pool(url=None, rol=None, max_size=10):
-    """Pool sobre AN_PG_URL. En producción la URL ya entra como `an_app`; con `rol` (desarrollo y pruebas) se hace SET ROLE al abrir."""
+    """Pool sobre AN_PG_URL. En producción la URL ya entra como `an_app`; con `rol` (desarrollo y pruebas) se hace SET ROLE al abrir.
+    Se niega a abrir si el rol efectivo se salta RLS (superusuario o BYPASSRLS): sin aislamiento por clínica no se sirve nada."""
     rol = rol or os.environ.get("AN_ROL")
 
     def configurar(conn):
@@ -18,7 +19,18 @@ def abrir_pool(url=None, rol=None, max_size=10):
             conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(rol)))
         conn.commit()
 
-    return ConnectionPool(url or os.environ["AN_PG_URL"], kwargs={"row_factory": FILAS}, configure=configurar, min_size=min(2, max_size), max_size=max_size, timeout=10, open=True)
+    def limpiar(conn):  # el alcance de una petición no debe pasar a la siguiente aunque alguien lo fije a nivel de sesión
+        conn.execute("RESET app.clinica")
+        conn.execute("RESET app.area")
+        conn.commit()
+
+    pool = ConnectionPool(url or os.environ["AN_PG_URL"], kwargs={"row_factory": FILAS}, configure=configurar, reset=limpiar,
+                          min_size=min(2, max_size), max_size=max_size, timeout=10, open=True)
+    with pool.connection() as c:
+        if c.execute("SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user").fetchone()[0]:
+            pool.close()
+            raise RuntimeError("el rol de la aplicación se salta RLS (superusuario o BYPASSRLS); conecta como an_app")
+    return pool
 
 
 def alcance(conn, clinica_id, area_id=None):

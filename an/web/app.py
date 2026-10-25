@@ -1,5 +1,6 @@
 """App FastAPI de An: cadena de seguridad por petición y rutas. Arranque: uvicorn an.web.app:crear_app --factory"""
 import logging
+import os
 import uuid
 
 from fastapi import FastAPI, Request
@@ -15,6 +16,11 @@ LIMITE_CUERPO = 1_000_000
 CABECERAS = {"Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff",
              "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"}
 log = logging.getLogger("an.web")
+
+
+def _origen_esperado(request):
+    """El origen propio. Detrás de un proxy (Caddy) se fija con AN_ORIGEN=https://dominio; si no, se deduce de la petición."""
+    return os.environ.get("AN_ORIGEN") or f"{request.url.scheme}://{request.url.netloc}"
 
 
 def _auditar(pool, request, codigo):
@@ -36,7 +42,7 @@ def crear_app(pool=None):
         request.state.usuario = None
         if int(request.headers.get("content-length") or 0) > LIMITE_CUERPO:
             respuesta = JSONResponse({"detalle": "Cuerpo demasiado grande"}, 413)
-        elif request.method in ESCRITURA and request.headers.get("origin") != f"{request.url.scheme}://{request.url.netloc}":
+        elif request.method in ESCRITURA and request.headers.get("origin") != _origen_esperado(request):
             respuesta = JSONResponse({"detalle": "Origen no permitido"}, 403)
         else:
             try:
