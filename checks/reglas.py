@@ -9,12 +9,12 @@ from pathlib import Path
 PERMISOS = {"contexto_area", "usuario_actual", "usuario_permitido_cambiar"}
 SIN_PERMISO = {"entrar"}  # el ingreso no tiene sesión todavía
 VERBOS = {"get", "post", "put", "patch", "delete"}
-SQL = re.compile(r"\b(SELECT\s.+\sFROM|INSERT\s+INTO|UPDATE\s.+\sSET|DELETE\s+FROM)\b", re.I | re.S)
+SQL = re.compile(r"^\s*(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|WITH)\b", re.I)  # una sentencia SQL empieza así
 
 
 def _es_ruta(f):
     return any(isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and d.func.attr in VERBOS
-               and getattr(d.func.value, "id", "") == "router" for d in f.decorator_list)
+               and getattr(d.func.value, "id", "") in ("router", "app") for d in f.decorator_list)
 
 
 def _depende(f):
@@ -23,17 +23,32 @@ def _depende(f):
                for d in por_defecto)
 
 
-def _texto_sql(n):
-    """¿Es una cadena armada (f-string, % o .format) con una sentencia SQL?"""
+def _cadena(n):
+    return n.value if isinstance(n, ast.Constant) and isinstance(n.value, str) else None
+
+
+def _inicio(n):
+    """Primera parte constante de una cadena armada (f-string, a % b, a + b, a.format()); None si no es una cadena armada."""
     if isinstance(n, ast.JoinedStr):
-        constantes = "".join(v.value for v in n.values if isinstance(v, ast.Constant) and isinstance(v.value, str))
-        return any(isinstance(v, ast.FormattedValue) for v in n.values) and bool(SQL.search(constantes))
-    if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Mod) and isinstance(n.left, ast.Constant) and isinstance(n.left.value, str):
-        return bool(SQL.search(n.left.value))
-    if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "format" and isinstance(n.func.value, ast.Constant) \
-            and isinstance(n.func.value.value, str):
-        return bool(SQL.search(n.func.value.value))
-    return False
+        return _cadena(n.values[0]) if n.values and any(isinstance(v, ast.FormattedValue) for v in n.values) else None
+    if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Mod):
+        return _cadena(n.left)
+    if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Add):
+        if _cadena(n.left) is not None and _cadena(n.right) is not None:
+            return None  # dos constantes
+        izq = n.left
+        while isinstance(izq, ast.BinOp) and isinstance(izq.op, ast.Add):
+            izq = izq.left
+        return _cadena(izq)
+    if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "format":
+        return _cadena(n.func.value)
+    return None
+
+
+def _texto_sql(n):
+    """¿Es una cadena armada con una sentencia SQL?"""
+    inicio = _inicio(n)
+    return inicio is not None and bool(SQL.search(inicio))
 
 
 def revisar(raiz):
@@ -44,7 +59,7 @@ def revisar(raiz):
         lineas = texto.splitlines()
         arbol = ast.parse(texto)
         for n in ast.walk(arbol):
-            if rel.parent.as_posix() == "an/web" and rel.name.startswith("rutas_") and isinstance(n, ast.FunctionDef) and _es_ruta(n):
+            if rel.parent.as_posix() == "an/web" and isinstance(n, ast.FunctionDef) and _es_ruta(n):
                 if n.name not in SIN_PERMISO and not _depende(n):
                     malas.append(f"{rel}:{n.lineno}: la ruta «{n.name}» no declara permiso de área (Depends de contexto_area o usuario_actual)")
             if rel.parts[1] in ("web", "turnos") and _texto_sql(n) and "sql-ok" not in lineas[n.lineno - 1]:
@@ -53,7 +68,7 @@ def revisar(raiz):
                 nombres = [a.name for a in n.names] + ([n.module] if isinstance(n, ast.ImportFrom) and n.module else [])
                 if any(x.split(".")[0] == "subprocess" for x in nombres):
                     malas.append(f"{rel}:{n.lineno}: subprocess solo se permite en an/web/trabajador.py")
-    return malas
+    return sorted(set(malas))
 
 
 def main(argv):

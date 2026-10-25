@@ -27,6 +27,8 @@ def test_ruta_sin_permiso():
     assert rc == 1 and "rutas_x.py" in err and "permiso" in err
     rc, _ = correr({"an/web/rutas_x.py": "@router.get('/a')\ndef a(ctx=Depends(contexto_area)):\n    return 1\n"})
     assert rc == 0
+    rc, err = correr({"an/web/app.py": "@app.get('/b')\ndef b():\n    return 1\n"})  # rutas en cualquier archivo de an/web
+    assert rc == 1 and "app.py" in err
 
 
 def test_sql_con_fstring_o_format():
@@ -36,6 +38,12 @@ def test_sql_con_fstring_o_format():
     assert correr({"an/turnos/q.py": "def f(t):\n    return 'UPDATE {} SET x=1'.format(t)\n"})[0] == 1
     assert correr({"an/turnos/q.py": "def f(t):\n    return f'SELECT * FROM {t}'  # sql-ok: nombre de constante\n"})[0] == 0
     assert correr({"an/turnos/q.py": "def f(t):\n    return f'hola {t}'\n"})[0] == 0
+    # huecos que dejó la primera versión: columnas variables, UPDATE con tabla variable y concatenación
+    assert correr({"an/turnos/q.py": "def f(c, t):\n    return f'SELECT {c} FROM {t}'\n"})[0] == 1
+    assert correr({"an/turnos/q.py": "def f(t):\n    return f'UPDATE {t} SET x=1'\n"})[0] == 1
+    assert correr({"an/turnos/q.py": "def f(w):\n    return 'SELECT x FROM t WHERE ' + w\n"})[0] == 1
+    assert correr({"an/turnos/q.py": "def f(w):\n    return 'SELECT x FROM t WHERE ' + w  # sql-ok: w es constante\n"})[0] == 0
+    assert correr({"an/turnos/q.py": "def f():\n    return 'SELECT x ' + 'FROM t'\n"})[0] == 0  # solo constantes
 
 
 def test_subprocess_solo_en_el_trabajador():
