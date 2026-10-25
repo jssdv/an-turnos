@@ -15,9 +15,9 @@ Programar turnos bien exige cumplir cobertura, descansos, restricciones personal
 1. **La persona decide.** El solver propone; la coordinación ajusta, publica y deja constancia de los cambios.
 2. **Reglas como datos.** Turnos, cobertura, puestos y tarifas se editan desde la app. Agregar un servicio o cambiar una ley no debe exigir programar.
 3. **Núcleo sin interfaz.** El dominio, las reglas y el solver son Python puro; la interfaz solo los llama. Así la misma lógica puede servir desde otra interfaz o un servidor.
-4. **Portátil y sin permisos.** Debe funcionar en un PC corporativo sin administrador.
+4. **Sin instalar nada.** Corre en el navegador de un PC corporativo sin administrador ([PLAN_WEB.md](PLAN_WEB.md)).
 5. **Excel como puente.** Entra y sale en Excel mientras los demás procesos sigan allí.
-6. **Datos personales protegidos.** Los datos del personal no salen del equipo ni del repositorio (Ley 1581 de 2012).
+6. **Datos personales protegidos.** Viven en un servidor con autenticación, aislamiento por clínica y acuerdo de tratamiento (Ley 1581 de 2012); nunca en el repositorio.
 7. **Etapas pequeñas que sirven solas.**
 
 ## Piezas y cómo se vinculan
@@ -80,6 +80,6 @@ Cada uno se diseñará cuando se pida, con su documento en `docs/` antes de prog
 1. ¿Qué otros servicios usarían la herramienta y qué tan distintas son sus reglas?
 2. ¿Quién aprobaría solicitudes y cambios, y con qué flujo?
 3. ¿Qué formato pide Recursos Humanos o nómina para recibir las horas?
-4. ¿Dónde se guardarían los datos si lo usa más de una persona: un equipo, una carpeta compartida o un servidor del hospital?
+4. ¿Dónde se guardarían los datos si lo usa más de una persona: un equipo, una carpeta compartida o un servidor del hospital? *Respondida: en un servidor externo ([PLAN_WEB.md](PLAN_WEB.md)).*
 5. ¿Existe un sistema de personal con el que habría que integrarse?
 6. Qué debe aprobar jurídico sobre jornada, turnos de 12 h y recargos ([puntos por confirmar](REGLAS.md)).

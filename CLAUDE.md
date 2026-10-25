@@ -2,6 +2,8 @@
 
 **An** — one desktop app (Spanish UI) with a shared core and one area per service: **Radiología** (monthly roster → weekly assignment workbook) and **Esterilización** (shift grid with OR-Tools CP-SAT, posts, hours and Colombian surcharges). The local user picked at startup decides the area. Used by non-technical coordinators on a locked-down Windows PC (no admin, no installs). Remote: `origin` = `jssdv/an-turnos`.
 
+Web direction (progress checklist and per-phase task plans): `docs/PLAN_WEB.md`, `docs/superpowers/plans/`. Resume a phase from the first unchecked `- [ ]`.
+
 Design of the core and how areas plug in: `docs/NUCLEO.md`. Roadmap toward a full scheduling system: `docs/PROYECTO.md` (Radiología stages) and `docs/VISION.md` (Esterilización / multi-service). Each new stage gets its own design doc in `docs/` before coding.
 
 ## Commands
@@ -9,6 +11,8 @@ Design of the core and how areas plug in: `docs/NUCLEO.md`. Roadmap toward a ful
 - Run: `.venv/bin/python -m an [usuario]` (without a name it asks; users live in `usuarios.json`, created on first run, git-ignored).
 - Radiología CLI: `.venv/bin/python -m an.radiologia.generar_semana "<mensual>.xlsx" YYYY-MM-DD [salida.xlsx]` (date = Monday).
 - Tests (each prints `OK`): `tests/radiologia/test_generar_semana.py`, `tests/radiologia/test_gui.py`, `tests/esterilizacion/test_puestos.py`, `tests/esterilizacion/test_gui.py`, `tests/esterilizacion/test_cambios.py`, `tests/esterilizacion/test_solicitudes.py`, `tests/esterilizacion/test_analitica.py`, `tests/esterilizacion/test_turnos.py` (~2 min, solves full months), `tests/nucleo/test_nucleo.py`, `tests/nucleo/test_graficos.py`. GUI tests run offscreen (`QT_QPA_PLATFORM=offscreen`) and point `QSettings` at a temp ini so the user's saved settings are not touched; `Ventana(Area).grab()` gives screenshots.
+- pytest (`requirements-dev.txt`): `.venv/bin/python -m pytest tests --ignore=tests/esterilizacion/test_turnos.py` runs the `test_*` files; `test_turnos.py` takes ~2 min. `tests/nucleo`, `tests/radiologia` and every `test_gui.py` are scripts that create a `QApplication` on import: run them with `QT_QPA_PLATFORM=offscreen .venv/bin/python <file>`.
+- Postgres dev (web, `docs/PLAN_WEB.md`): `docker compose up -d db` (127.0.0.1:5433, db/user `an`, clave de desarrollo `an_dev`), `docker compose down`.
 - Windows zip: `./empaquetar.sh` → `dist/An.zip` (Python 3.13 embeddable + win_amd64 wheels from `requirements.txt`, launched by `An.bat` → `pythonw.exe -m an`; copies the whole `an/` package). `./empaquetar.sh prueba` builds a minimal hello-window zip to test a corporate PC. Not yet tested on the target PC.
 
 ## Layout
