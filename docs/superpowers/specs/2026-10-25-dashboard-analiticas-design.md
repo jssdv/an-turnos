@@ -2,7 +2,7 @@
 
 [← Volver al inicio](../../../README.md) · [Visión](../../VISION.md) · [Núcleo](../../NUCLEO.md)
 
-Estado: **entrega 1 implementada** (25/10/2026). Las entregas 2 y 3 están especificadas aquí pero no se construyen todavía.
+Estado: **entregas 1, 2 y 3 implementadas** (25/10/2026). El detalle de 2 y 3 está en la sección 8.
 
 ## 1. Qué se quiere lograr
 
@@ -57,3 +57,14 @@ Ambos son `QWidget` con `paintEvent`, tamaño mínimo razonable, sin datos → t
 ## 7. Docs
 
 `CLAUDE.md` (layout y comandos de prueba) y `docs/GUIA_USUARIO.md` (qué mide cada gráfico).
+
+## 8. Entregas 2 y 3 (detalle)
+
+Mismas reglas: funciones puras en `analitica.py` con `(bd, ini, fin)`, solo `en_solver`, nada se escribe. Se evalúan los periodos con cuadro que tocan el rango (`bd.periodos()`), con el cuadro vigente (`cambios`).
+
+- `horas_extra(bd, ini, fin)` → lista `{"periodo", "ventana", "mes": {"diurna", "nocturna"}, "semanas": {"diurna", "nocturna"}}` (horas extra sumadas de todo el personal). **Esquema N semanas** = `recargos.reporte` con la ventana configurada (`ventana_semanas`); **esquema mes** = la misma función con una sola ventana que abarca todo el periodo. Así se ve cuántas extras aparecen o desaparecen según el esquema.
+- `recargos_resumen(bd, ini, fin)` → `{nombre: {"festivo", "nocturna", "equivalentes"}}` en horas, sumando periodos (esquema N semanas). `festivo` agrupa domingos y festivos, igual que la pestaña «Horas y recargos» (el cálculo no los separa). «Costo estimado» = **horas equivalentes**; no hay salario por persona.
+- `equidad(bd, ini, fin)` → `{"por_persona": {nombre: {"noches", "domingos", "festivos"}}, "dispersion": {"noches", "domingos", "festivos"}}`. Cuenta turnos por fecha de inicio; una noche es un turno con `demanda.es_noche`; un festivo que cae en domingo cuenta solo como domingo. `dispersion` = máximo − mínimo entre personas.
+- `banco(bd, ini, fin)` → `{"saldos": {nombre: horas}, "serie": [(etiqueta "MM/aa", favor, deuda)]}`. Saldo = periodos **cerrados** (trabajadas − contratadas) con fin ≤ fecha, más movimientos con fecha ≤ fecha; acumulado desde el inicio de los datos. `serie` tiene un punto por mes del rango (saldo al fin de mes): `favor` = suma de saldos positivos, `deuda` = suma de los negativos en valor absoluto. No incluye proyecciones de periodos abiertos.
+
+UI: nuevos paneles en la misma sección (horas extra: barras agrupadas mes vs N semanas; recargos: barras horizontales por persona + tabla; equidad: barras horizontales por persona + dispersión; banco: barras favor/deuda por mes + tabla de saldos).

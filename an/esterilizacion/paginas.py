@@ -1102,15 +1102,30 @@ class Turnos:
         v.addLayout(fila)
         cuerpo = QWidget()
         cv = QVBoxLayout(cuerpo)
-        self.a_graf = {"mes": Barras(apilado=True), "dia": Linea(), "cob": Barras(), "cam": Barras(apilado=True)}
+        self.a_graf = {"mes": Barras(apilado=True), "dia": Linea(), "cob": Barras(), "cam": Barras(apilado=True),
+                       "ext": Barras(), "rec": Barras(horizontal=True, apilado=True), "equ": Barras(horizontal=True),
+                       "ban": Barras()}
         self.t_aus = tabla(["Colaborador", "Total (días)", *TIPOS_NOVEDAD])
         self.t_cob = tabla(["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir"])
         self.t_cam = tabla(["Periodo", "Permutas", "Cambios de servicio", "Ajustes", "Excepciones"])
+        self.t_ext = tabla(["Periodo", "Ventana (semanas)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (N sem.)", "Nocturnas (N sem.)"])
+        self.t_rec = tabla(["Colaborador", "Dom/fest (h)", "Nocturnas (h)", "Horas equivalentes"])
+        self.t_equ = tabla(["Colaborador", "Noches", "Domingos", "Festivos"])
+        self.t_ban = tabla(["Colaborador", "Saldo (h)"])
+        self.l_equ = QLabel("", objectName="muted")
         for titulo, g, t, ayuda in (
                 ("Ausentismo por mes (días)", "mes", self.t_aus, "Días de vacaciones, incapacidad, licencia y libres solicitados."),
                 ("Personas ausentes por día", "dia", None, "Los días con ausencias y faltantes obligatorios son los de cobertura en riesgo."),
                 ("Cobertura por periodo (días)", "cob", self.t_cob, "Déficit: falta gente frente a los puestos obligatorios. Exceso: hay más gente que la demanda."),
-                ("Cambios de turno por periodo", "cam", self.t_cam, "Sin contar los anulados.")):
+                ("Cambios de turno por periodo", "cam", self.t_cam, "Sin contar los anulados."),
+                ("Horas extra: mes calendario frente a N semanas", "ext", self.t_ext,
+                 "Mismas horas trabajadas, dos formas de medir las extras: una ventana de N semanas (Parámetros) o todo el periodo."),
+                ("Recargos por persona (horas)", "rec", self.t_rec,
+                 "Domingos y festivos junto con nocturnas. «Horas equivalentes» es el costo estimado en horas pagadas (no hay salarios)."),
+                ("Equidad: noches, domingos y festivos", "equ", self.t_equ,
+                 "Turnos trabajados por persona. Cuanto más parejas las barras, más justo el reparto."),
+                ("Banco de horas: saldos a favor y en deuda por mes", "ban", self.t_ban,
+                 "Solo periodos cerrados y movimientos; no incluye lo proyectado del periodo abierto.")):
             p = QFrame(objectName="panel")
             pv = QVBoxLayout(p)
             pv.addWidget(QLabel(titulo, objectName="panel_t"))
@@ -1119,6 +1134,8 @@ class Turnos:
             if t is not None:
                 t.setMinimumHeight(140)
                 pv.addWidget(t)
+            if g == "equ":
+                pv.addWidget(self.l_equ)
             cv.addWidget(p)
         self.a_riesgo = QLabel("", objectName="muted")
         self.a_riesgo.setWordWrap(True)
@@ -1148,6 +1165,8 @@ class Turnos:
         with ocupado():
             aus, sim = analitica.ausentismo(self.bd, ini, fin), analitica.simultaneos(self.bd, ini, fin)
             cob, cam = analitica.cobertura(self.bd, ini, fin), analitica.cambios_resumen(self.bd, ini, fin)
+            ext, rec = analitica.horas_extra(self.bd, ini, fin), analitica.recargos_resumen(self.bd, ini, fin)
+            equ, ban = analitica.equidad(self.bd, ini, fin), analitica.banco(self.bd, ini, fin)
         c = self.a_cifras
         c["aus"][0].setText(f"{aus['pct']:.1f} %")
         c["aus"][1].setText(f"{sum(aus['por_tipo'].values())} días de ausencia")
@@ -1168,6 +1187,21 @@ class Turnos:
                             for n, t in sorted(aus["por_persona"].items())])
         llenar(self.t_cob, [(etq(r["periodo"]), r["dias_deficit"], r["dias_exceso"], r["puestos_sin_cubrir"]) for r in cob])
         llenar(self.t_cam, [(etq(k), r["permuta"], r["servicio"], r["ajuste"], r["excepciones"]) for k, r in cam.items()])
+        g["ext"].poner([(etq(r["periodo"]), {"Diurnas (mes)": r["mes"]["diurna"], "Nocturnas (mes)": r["mes"]["nocturna"],
+                                              "Diurnas (N sem.)": r["semanas"]["diurna"], "Nocturnas (N sem.)": r["semanas"]["nocturna"]})
+                        for r in ext])
+        llenar(self.t_ext, [(etq(r["periodo"]), r["ventana"], r["mes"]["diurna"], r["mes"]["nocturna"], r["semanas"]["diurna"],
+                             r["semanas"]["nocturna"]) for r in ext])
+        g["rec"].poner([(n, {"Dom/fest": r["festivo"], "Nocturnas": r["nocturna"]}) for n, r in rec.items()])
+        llenar(self.t_rec, [(n, r["festivo"], r["nocturna"], r["equivalentes"]) for n, r in sorted(rec.items())])
+        g["equ"].poner([(n, o) for n, o in equ["por_persona"].items()])
+        llenar(self.t_equ, [(n, o["noches"], o["domingos"], o["festivos"]) for n, o in sorted(equ["por_persona"].items())])
+        d = equ["dispersion"]
+        self.l_equ.setText(f"Diferencia entre quien más y quien menos tiene: {d['noches']} noches, {d['domingos']} domingos, {d['festivos']} festivos.")
+        for k, n in (("rec", len(rec)), ("equ", len(equ["por_persona"]))):
+            g[k].setMinimumHeight(max(180, 28 * n + 30))
+        g["ban"].poner([(m, {"A favor": f, "En deuda": dd}) for m, f, dd in ban["serie"]])
+        llenar(self.t_ban, [(n, v) for n, v in sorted(ban["saldos"].items())])
         self.a_riesgo.setText("Días en riesgo: " + ", ".join(f"{f:%d/%m}" for f in sim["dias_riesgo"]) if sim["dias_riesgo"] else "")
 
     def _pestana_banco(self):

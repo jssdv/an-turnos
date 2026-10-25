@@ -101,6 +101,53 @@ def test_cambios_sin_filas():
     assert analitica.cambios_resumen(nuevo()[0], I, F) == {}
 
 
+def _cuadro_octubre(bd, i):
+    """A: corrido los primeros 14 días de octubre; B: noche corrida los días 5, 6, 11 y 12."""
+    c = {(i["A"], date(2026, 10, d)): "C" for d in range(1, 15)}
+    c.update({(i["B"], date(2026, 10, d)): "NC" for d in (5, 6, 11, 12)})
+    bd.guardar_cuadro("2026-10-01/2026-10-31", c)
+
+
+def test_horas_extra_mes_vs_semanas():
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)
+    [r] = analitica.horas_extra(bd, I, F)
+    assert r["periodo"] == "2026-10-01/2026-10-31" and r["ventana"] == 3, r
+    assert r["semanas"] == {"diurna": 42.0, "nocturna": 0.0}, r  # 168 h contra 126 contratadas en la 1.ª ventana
+    assert r["mes"] == {"diurna": 0.0, "nocturna": 0.0}, r  # 168 h contra 186 del mes completo
+    assert analitica.horas_extra(bd, date(2026, 12, 1), date(2026, 12, 31)) == []
+
+
+def test_recargos_resumen():
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)
+    r = analitica.recargos_resumen(bd, I, F)
+    assert r["A"]["festivo"] == 36.0 and r["A"]["nocturna"] == 0.0, r["A"]  # domingos 4 y 11 y festivo del 12
+    assert r["B"]["nocturna"] == 44.0 and r["B"]["festivo"] > 0, r["B"]  # 4 noches de 11 h desde las 19:00
+    assert r["A"]["equivalentes"] > 0 and set(r) == {"A", "B", "C"}
+
+
+def test_equidad():
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)
+    r = analitica.equidad(bd, I, F)
+    assert r["por_persona"]["A"] == {"noches": 0, "domingos": 2, "festivos": 1}, r
+    assert r["por_persona"]["B"] == {"noches": 4, "domingos": 1, "festivos": 1}, r
+    assert r["dispersion"] == {"noches": 4, "domingos": 2, "festivos": 1}, r
+    assert analitica.equidad(bd, date(2026, 12, 1), date(2026, 12, 31))["dispersion"] == {"noches": 0, "domingos": 0, "festivos": 0}
+
+
+def test_banco():
+    bd, i = nuevo()
+    bd.cerrar_periodo("2026-10-01/2026-10-31", [(i["A"], 100, 110), (i["B"], 100, 94)])
+    bd.cerrar_periodo("2026-09-01/2026-09-30", [(i["A"], 100, 105)])  # anterior al rango: entra en el acumulado
+    bd.agregar_movimiento(i["A"], date(2026, 11, 2), -4, "Pagado en nómina")
+    r = analitica.banco(bd, I, date(2026, 11, 30))
+    assert r["saldos"] == {"A": 11.0, "B": -6.0, "C": 0.0}, r["saldos"]
+    assert r["serie"] == [("10/26", 15.0, 6.0), ("11/26", 11.0, 6.0)], r["serie"]
+    assert analitica.banco(db.BD(), I, F)["serie"] == [("10/26", 0.0, 0.0)]
+
+
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
     t()
 print("OK")
