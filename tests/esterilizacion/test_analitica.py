@@ -2,8 +2,8 @@ import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname
 """Pruebas de las métricas del dashboard de analíticas (solo lectura). Imprime OK."""
 from datetime import date
 
-from an.esterilizacion import analitica, cambios, db
-from an.esterilizacion.dominio import Colaborador, Novedad
+from an.turnos import analitica, cambios, db
+from an.turnos.dominio import Colaborador, Novedad
 
 I, F = date(2026, 10, 1), date(2026, 10, 31)
 

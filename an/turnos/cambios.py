@@ -39,7 +39,7 @@ def excedidos(bd, periodo, colabs):
 
 
 def _log(bd, linea):
-    if bd.ruta == ":memory:":
+    if bd.ruta in (None, ":memory:"):
         return
     try:
         with open(Path(bd.ruta).with_name("cambios.log"), "a", encoding="utf-8") as f:
@@ -59,12 +59,12 @@ def _registrar(bd, periodo, tipo, usuario, nuevas, motivo, colab_a, colab_b=None
         bd.set_celda(periodo, cid, f, cod)
     ahora = datetime.now().isoformat(timespec="seconds")
     js = json.dumps([[c, f.isoformat(), a, d] for c, f, a, d in celdas])
-    cur = bd.c.execute("INSERT INTO cambio_turno (periodo, tipo, registrado_en, usuario, colab_a, colab_b, celdas, motivo, excepcion) "
+    id_ = bd._insertar("INSERT INTO cambio_turno (periodo, tipo, registrado_en, usuario, colab_a, colab_b, celdas, motivo, excepcion) "
                        "VALUES (?,?,?,?,?,?,?,?,?)",
                        (periodo, tipo, ahora, usuario, colab_a, colab_b, js, motivo, int(excepcion)))
     bd.c.commit()
     _log(bd, f"{ahora}\t{usuario}\t{tipo}\t{periodo}\t{motivo}\t{js}")
-    return cur.lastrowid
+    return id_
 
 
 def permuta(bd, periodo, a, fa, b, fb, motivo, usuario, excepcion=False):

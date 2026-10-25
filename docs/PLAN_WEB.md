@@ -8,8 +8,8 @@
 
 > Retomar en otra sesión: leer esta lista, abrir el plan detallado de la primera fase sin cerrar y seguir desde su primer `- [ ]`. Marcar `- [x]` aquí solo al cumplir la **aceptación** de la fase (§6). El avance fino vive en el plan de cada fase (`docs/superpowers/plans/`).
 
-- [ ] **Fase 0** — Decisiones y cimientos · [plan](superpowers/plans/2026-10-25-web-fase-0.md)
-- [ ] **Fase 1** — API sobre el núcleo + pruebas · plan pendiente
+- [x] **Fase 0** — Decisiones y cimientos · [plan](superpowers/plans/2026-10-25-web-fase-0.md)
+- [x] **Fase 1** — API sobre el núcleo + pruebas · [plan](superpowers/plans/2026-10-26-web-fase-1.md)
 - [ ] **Fase 2** — Migración de `turnos.db` · plan pendiente
 - [ ] **Fase 3** — Trabajador del solver · plan pendiente
 - [ ] **Fase 4** — Planilla piloto en React · plan pendiente
@@ -35,7 +35,7 @@ Cada plan detallado se escribe al empezar su fase (no antes: depende de lo que e
 flowchart LR
     nav[Navegador<br/>React 19 + Vite + TS] -- HTTPS, cookie de sesión --> caddy[Caddy<br/>TLS]
     caddy --> api[API FastAPI<br/>an/web · uvicorn]
-    api -- importa --> nucleo[Núcleo Python<br/>an/esterilizacion · an/radiologia]
+    api -- importa --> nucleo[Núcleo Python<br/>an/turnos · an/radiologia]
     api -- SQL + RLS --> pg[(PostgreSQL 16)]
     api -- INSERT trabajo --> pg
     trab[Trabajador<br/>python -m an.web.trabajador] -- toma trabajo · progreso · latido --> pg
@@ -82,8 +82,8 @@ Coste de B: el equipo mantiene un servidor en Python y otro (Alianzas) en Node. 
 |---|---|---|
 | `an/esterilizacion/` → `an/turnos/` | Renombrar el paquete del motor (Fase 1, antes de que `an/web/` lo importe). Lo usarán Esterilización, otras áreas tradicionales y, después, Radiología; un nombre de servicio no describe el motor. Se anota en `NUCLEO.md` y `CLAUDE.md` | Evitar un renombrado caro cuando ya haya código web encima |
 | `an/turnos/db.py` | `BD` acepta una conexión ya abierta (SQLite o psycopg). El SQL se escribe en el subconjunto común: `RETURNING id` en vez de `lastrowid`, fechas desde Python en vez de `datetime('now')`, y `INSERT OR REPLACE`/`OR IGNORE` pasan a `DELETE`+`INSERT` u `ON CONFLICT DO NOTHING`. Un envoltorio de una línea cambia `?` por `%s` en psycopg. El esquema y las migraciones `PRAGMA` siguen solo para SQLite; en PostgreSQL el esquema sale de `an/web/migraciones/` | La misma `BD` sirve a Qt, a los tests rápidos en `:memory:`, a la migración y al servidor |
-| `an/esterilizacion/cambios.py` | `_log` no escribe `cambios.log` si `bd.ruta` es `None` | En el servidor el registro es la tabla `cambio_turno` |
-| `an/esterilizacion/solver.py` | `generar(…, al_avance=None, detener=None)`: un `CpSolverSolutionCallback` llama `al_avance(dict)` y un hilo vigía llama `CpSolver.stop_search()` si `detener` (un `threading.Event`) se activa; `detener` también impide el segundo intento sin fijos | Progreso y cancelación sin tocar el modelo. `stop_search` existe en OR-Tools 9.15 (instalado) |
+| `an/turnos/cambios.py` | `_log` no escribe `cambios.log` si `bd.ruta` es `None` | En el servidor el registro es la tabla `cambio_turno` |
+| `an/turnos/solver.py` | `generar(…, al_avance=None, detener=None)`: un `CpSolverSolutionCallback` llama `al_avance(dict)` y un hilo vigía llama `CpSolver.stop_search()` si `detener` (un `threading.Event`) se activa; `detener` también impide el segundo intento sin fijos | Progreso y cancelación sin tocar el modelo. `stop_search` existe en OR-Tools 9.15 (instalado) |
 
 Nada más del núcleo cambia. El aislamiento por clínica no entra al núcleo: lo pone PostgreSQL (§3).
 
@@ -166,21 +166,21 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 1 — API sobre el núcleo + pruebas
 - **Objetivo:** el núcleo corre igual sobre PostgreSQL y se expone por HTTP con sesión y aislamiento.
-- **Plan detallado:** pendiente (se escribe al empezar la fase)
+- **Plan detallado:** [2026-10-26-web-fase-1.md](superpowers/plans/2026-10-26-web-fase-1.md)
 - **Entregable:**
-  - [ ] Paquete `an/esterilizacion/` renombrado a `an/turnos/` (imports, `AREAS`, tests, `CLAUDE.md`, `NUCLEO.md`)
-  - [ ] `BD` portada al subconjunto común SQLite/PostgreSQL (§2)
-  - [ ] `an/web/`: `app.py` (cadena de seguridad), `auth.py`, `conexion.py` (pool + alcance RLS)
-  - [ ] Migraciones SQL en `an/web/migraciones/` con aplicador y tabla `esquema_version`
-  - [ ] Rutas de catálogos y de lectura de periodos, alertas y analíticas
-  - [ ] `python -m an.web.admin` (crear clínica, área, usuario)
-  - [ ] Trabajo de CI con PostgreSQL (`AN_BD=postgres`) y `checks/rls.py`, `checks/reglas.py`
+  - [x] Paquete `an/esterilizacion/` renombrado a `an/turnos/` (imports, `AREAS`, tests, `CLAUDE.md`, `NUCLEO.md`)
+  - [x] `BD` portada al subconjunto común SQLite/PostgreSQL (§2)
+  - [x] `an/web/`: `app.py` (cadena de seguridad), `auth.py`, `conexion.py` (pool + alcance RLS)
+  - [x] Migraciones SQL en `an/web/migraciones/` con aplicador y tabla `esquema_version`
+  - [x] Rutas de catálogos y de lectura de periodos, alertas y analíticas
+  - [x] `python -m an.web.admin` (crear clínica, área, usuario)
+  - [x] Trabajo de CI con PostgreSQL (`AN_BD=postgres`) y `checks/rls.py`, `checks/reglas.py`
 - **Aceptación:**
-  - [ ] `test_puestos`, `test_cambios`, `test_solicitudes`, `test_analitica`, `test_turnos` pasan con `AN_BD=sqlite` y con `AN_BD=postgres`
-  - [ ] `tests/web/test_aislamiento.py`: con la sesión de la clínica A, cada ruta con un id de la clínica B responde 404 y cada tabla devuelve 0 filas de B
-  - [ ] Login con bloqueo tras 5 fallos
-  - [ ] `checks/rls.py` en verde
-  - [ ] Solicitud sin `servicio` fijo (lo da `area_id`)
+  - [x] `test_puestos`, `test_cambios`, `test_solicitudes`, `test_analitica`, `test_turnos` pasan con `AN_BD=sqlite` y con `AN_BD=postgres`
+  - [x] `tests/web/test_aislamiento.py`: con la sesión de la clínica A, cada ruta con un id de la clínica B responde 404 y cada tabla devuelve 0 filas de B
+  - [x] Login con bloqueo tras 5 fallos
+  - [x] `checks/rls.py` en verde
+  - [x] Solicitud sin `servicio` fijo (lo da `area_id`)
 - **Riesgo:** SQL de SQLite difícil de llevar al subconjunto común → se resuelve método a método; si un caso no tiene equivalente, el método se bifurca por dialecto en `BD` y se anota.
 
 ### Fase 2 — Migración de `turnos.db` con verificación de cifras

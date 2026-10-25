@@ -5,8 +5,8 @@ from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
-from an.esterilizacion import cambios, db
-from an.esterilizacion.cambios import EditadoDespues, ErrorCambio, LimiteExcedido
+from an.turnos import cambios, db
+from an.turnos.cambios import EditadoDespues, ErrorCambio, LimiteExcedido
 
 K = "2026-10-01/2026-10-31"
 d1, d2 = date(2026, 10, 5), date(2026, 10, 6)
@@ -31,6 +31,8 @@ def nuevo(ruta=":memory:"):
 
 def test_esquema_v6():
     bd = db.BD()
+    if bd.es_postgres():  # PRAGMA es de SQLite; el esquema de PostgreSQL lo cubre tests/web/test_esquema.py
+        return
     assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
     cols = [r["name"] for r in bd.c.execute("PRAGMA table_info(cambio_turno)")]
     assert cols == ["id", "periodo", "servicio", "tipo", "registrado_en", "usuario", "colab_a", "colab_b",
@@ -60,7 +62,7 @@ def test_permuta_intercambia_registra_y_gasta_cupo():
     assert cambios.cupo(bd, K, 1) == (1, 2) and cambios.cupo(bd, K, 2) == (1, 2)
     fila = cambios.listar(bd, K)[0]
     assert fila["id"] == i and fila["tipo"] == "permuta" and fila["usuario"] == u and fila["motivo"] == "pedido"
-    assert fila["servicio"] == "esterilizacion"
+    assert bd.es_postgres() or fila["servicio"] == "esterilizacion"  # en PostgreSQL el servicio lo da area_id
     assert fila["celdas"] == [(1, d1, "M", "T"), (2, d1, "T", "M")]
 
 

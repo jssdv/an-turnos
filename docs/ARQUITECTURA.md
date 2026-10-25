@@ -9,7 +9,7 @@ Principios: núcleo en Python puro y sin interfaz; reglas y tarifas como **datos
 ```mermaid
 flowchart TB
     subgraph UI[Interfaz]
-        app[an/esterilizacion/paginas.py<br/>sobre an/nucleo · PySide6]
+        app[an/turnos/paginas.py<br/>sobre an/nucleo · PySide6]
     end
     subgraph Nucleo[Núcleo sin interfaz]
         flujo[flujo.py]
@@ -46,7 +46,7 @@ flowchart TB
 | `recargos.py` | Horas por categoría y ventana del art. 165 |
 | `flujo.py` | Orquestación (`cero`, `respetar`, `semana`) y acumulado de equidad |
 | `exportar.py` | Tres libros Excel sin sobrescribir |
-| `paginas.py`, `ui_puestos.py` (en `an/esterilizacion/`) | Secciones PySide6 de esta área; puestos y dotación. Ventana, tema y helpers de tablas viven en `an/nucleo/` (ver `NUCLEO.md`). El solver y la verificación corren en `QThread` |
+| `paginas.py`, `ui_puestos.py` (en `an/turnos/`) | Secciones PySide6 de esta área; puestos y dotación. Ventana, tema y helpers de tablas viven en `an/nucleo/` (ver `NUCLEO.md`). El solver y la verificación corren en `QThread` |
 
 ## Datos (SQLite)
 

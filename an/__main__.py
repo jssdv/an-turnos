@@ -4,7 +4,7 @@ import sys
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QInputDialog, QMessageBox
 
-from .esterilizacion.paginas import Turnos
+from .turnos.paginas import Turnos
 from .nucleo import usuarios as usuarios_mod
 from .nucleo.shell import Ventana, error_inesperado
 from .nucleo.tema import preparar_app

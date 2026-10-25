@@ -5,14 +5,16 @@ from datetime import date
 
 from datetime import timedelta
 
-from an.esterilizacion import db, reglas, solicitudes, solver
-from an.esterilizacion.dominio import Colaborador, Novedad, Solicitud
+from an.turnos import db, reglas, solicitudes, solver
+from an.turnos.dominio import Colaborador, Novedad, Solicitud
 
 F = [date(2026, 10, 5) + timedelta(days=i) for i in range(14)]  # lunes 5 a domingo 18
 
 
 def test_esquema_v7():
     bd = db.BD()
+    if bd.es_postgres():  # PRAGMA es de SQLite
+        return
     assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
     cols = [r["name"] for r in bd.c.execute("PRAGMA table_info(solicitud)")]
     assert cols == ["id", "servicio", "colab_id", "tipo", "desde", "hasta", "turno", "prioridad", "nota", "registrado_en", "usuario"]
