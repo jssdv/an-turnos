@@ -104,7 +104,7 @@ def test_migracion_v3_a_v4():
         assert bd.contexto(2026).cobertura["LS"] == {"M": 5, "T": 4, "N": 2}
         sterrad = next(i for i, p in pu.items() if p.numero == 3)
         assert bd.colaboradores()[0].puestos_permitidos == (sterrad,)
-        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 6  # la cadena termina en la versión vigente
+        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7  # la cadena termina en la versión vigente
 
 
 def test_borrar_puesto_en_uso():
@@ -306,7 +306,7 @@ def test_asignacion_puesto_roundtrip_y_migracion_v5():
         bd = db.BD(ruta)
         assert sorted(bd.asignacion_puesto("p")) == sorted([AsignacionPuesto(LUN, 1, aut, 360, 720, 1),
                                                            AsignacionPuesto(LUN, 2, 0, 720, 1080, 2)])
-        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
 
 
 class _Simulado:
