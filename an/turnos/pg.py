@@ -12,6 +12,11 @@ def traducir(sql):
     return "".join(salida)
 
 
+def _int_si_bool(params):
+    """SQLite guarda los bool como 0/1; las columnas INT de PostgreSQL no los aceptan."""
+    return tuple(int(p) if isinstance(p, bool) else p for p in params)
+
+
 class Fila(tuple):
     def __new__(cls, valores, nombres):
         f = super().__new__(cls, valores)
@@ -47,8 +52,8 @@ class Cursor:
 
 
 class Conexion:
-    def __init__(self, conn):
-        self.conn = conn
+    def __init__(self, conn, confirmar=True):
+        self.conn, self.confirmar = conn, confirmar  # confirmar=False: commit lo hace quien abrió la transacción (la API)
 
     @classmethod
     def abrir(cls, url):
@@ -56,16 +61,17 @@ class Conexion:
 
     def execute(self, sql, params=()):
         cur = self.conn.cursor()
-        cur.execute(traducir(sql), params)
+        cur.execute(traducir(sql), _int_si_bool(params))
         return Cursor(cur)
 
     def executemany(self, sql, seq):
         cur = self.conn.cursor()
-        cur.executemany(traducir(sql), list(seq))
+        cur.executemany(traducir(sql), [_int_si_bool(p) for p in seq])
         return Cursor(cur)
 
     def commit(self):
-        self.conn.commit()
+        if self.confirmar:
+            self.conn.commit()
 
     def rollback(self):
         self.conn.rollback()

@@ -39,7 +39,7 @@ def excedidos(bd, periodo, colabs):
 
 
 def _log(bd, linea):
-    if bd.ruta == ":memory:":
+    if bd.ruta in (None, ":memory:"):
         return
     try:
         with open(Path(bd.ruta).with_name("cambios.log"), "a", encoding="utf-8") as f:
