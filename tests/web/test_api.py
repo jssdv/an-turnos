@@ -112,6 +112,20 @@ def test_cerrar_sesion_invalida_la_cookie():
         assert otro.get("/api/areas").status_code == 401
 
 
+def test_la_conexion_de_la_peticion_se_libera_antes_de_auditar():
+    import time
+    with entorno(pool_max=1) as e:  # con una sola conexión, si la petición la retiene la auditoría espera y se pierde
+        if e is None:
+            return
+        cli = e.cliente()
+        e.entrar(cli, "lector@a.co")
+        t = time.time()
+        assert cli.get(f"/api/areas/{e.ar['A']}/periodos").status_code == 200
+        assert time.time() - t < 5
+        filas = e.su.execute("SELECT ruta FROM auditoria WHERE metodo = 'GET'").fetchall()
+        assert [f[0] for f in filas] == [f"/api/areas/{e.ar['A']}/periodos"]
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):

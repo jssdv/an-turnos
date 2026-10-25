@@ -22,7 +22,7 @@ CLAVE_PERIODO = "2026-10-01/2026-10-31"
 
 
 @contextlib.contextmanager
-def entorno():
+def entorno(pool_max=10):
     """Rinde un objeto con: cliente (TestClient https), ids (clinicas/areas/usuarios) y su.conn (superusuario, sin RLS) para sembrar."""
     if not URL:
         try:
@@ -64,11 +64,11 @@ def entorno():
             su.execute("INSERT INTO usuario_area (usuario_id, area_id, permiso, clinica_id) VALUES (%s, %s, %s, %s)", (uid, e.ar[n], perm, e.cl[n]))
     su.commit()
     sep = "&" if "?" in URL else "?"
-    pool = conexion.abrir_pool(f"{URL}{sep}options=-csearch_path%3D{nombre}", rol="an_app")
+    pool = conexion.abrir_pool(f"{URL}{sep}options=-csearch_path%3D{nombre}", rol="an_app", max_size=pool_max)
     app = crear_app(pool)
 
     @app.post("/api/areas/{area}/ping")
-    def ping(ctx=Depends(contexto_area)):
+    def ping(ctx=Depends(contexto_area, scope="function")):
         return {"ok": 1}
 
     @app.get("/api/boom")
