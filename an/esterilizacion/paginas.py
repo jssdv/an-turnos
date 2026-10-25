@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QDate, QPointF, QRectF, Qt, QThread, QTime, Signal
 from PySide6.QtGui import QBrush, QColor, QKeySequence, QPainter, QPen, QPolygonF
-from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDoubleSpinBox,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog, QDoubleSpinBox,
                                QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
                                QInputDialog, QLabel, QLineEdit, QListWidget, QMenu, QMessageBox, QPushButton, QSpinBox,
                                QSplitter, QStackedWidget, QStyle, QButtonGroup, QFrame, QStyledItemDelegate, QTableWidget, QTableWidgetItem, QTabWidget, QTimeEdit,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComb
 from ..nucleo import RAIZ
 from ..nucleo.tema import C
 from ..nucleo.widgets import abrir, con_vacio, hhmm, llenar, ocupado, signo, sin_seleccion, tabla, texto_sobre
+from . import cambios
 from . import db
 from . import exportar
 from . import flujo
@@ -435,17 +436,17 @@ class Turnos:
         if hay_cuadro:
             alertas += [a.texto for a in puestos_mod.alertas_reparto(self.ctx, self.bd.asignacion_puesto(k), fechas, cat)]
         alertas += ["Aviso: " + a.texto for a in reglas.validar_catalogo(self.ctx.turnos)]
-        cambios = [f"{self.nombres.get(cid, cid)} · {f:%d/%m}: {antes} → {ahora}"
+        difs = [f"{self.nombres.get(cid, cid)} · {f:%d/%m}: {antes} → {ahora}"
                    for cid, f, antes, ahora in self.bd.diferencias(k)] if hay_cuadro else []
         self.alertas.addItems(alertas or ["Todo en orden: sin alertas."])
-        self.lista_cambios.addItems(cambios or ["Sin cambios respecto al original."])
+        self.lista_cambios.addItems(difs or ["Sin cambios respecto al original."])
         self.panel_inf.setTabText(0, f"Alertas ({len(alertas)})")
-        self.panel_inf.setTabText(1, f"Cambios respecto al original ({len(cambios)})")
+        self.panel_inf.setTabText(1, f"Cambios respecto al original ({len(difs)})")
         ini, fin = self.periodo()
         self.l_titulo.setText(f"Cuadro de {MESES[ini.month - 1].lower()}" if self.modo_periodo == "mes"
                               else f"Cuadro del {ini:%d/%m} al {fin:%d/%m}")
         estado = ("Versión original publicada" if self.b_original.isChecked()
-                  else f"Copia de trabajo · {len(cambios)} cambio{'s' * (len(cambios) != 1)} respecto al original")
+                  else f"Copia de trabajo · {len(difs)} cambio{'s' * (len(difs) != 1)} respecto al original")
         self.l_estado.setText(estado + (" · periodo cerrado, solo lectura." if self.bd.periodo_cerrado(k) else "."))
 
     def _gente(self):
@@ -460,18 +461,57 @@ class Turnos:
         nov = self.ctx.novedad(p.id, f)
         return None if nov and self.bd.asignaciones(self.clave).get((p.id, f), "L") == "L" else (p, f)
 
-    def _aplicar(self, cambios, texto):
-        """cambios: [(persona, fecha, código)]. Guarda, recalcula, deja deshacer y avisa de reglas que se rompen."""
-        k, cuadro = self.clave, self.bd.asignaciones(self.clave)
-        self._deshacer.append([(p.id, f, cuadro.get((p.id, f), "L")) for p, f, _ in cambios])
-        motivos = []
-        for p, f, cod in cambios:
-            self.bd.set_celda(k, p.id, f, cod)
-            if cod != "L" and (m := self.ctx.bloqueo(p, self.ctx.turnos[cod], f)):
-                motivos.append(f"{p.nombre} {f:%d/%m}: {m}")
+    def _aplicar(self, celdas, texto, tipo="ajuste", motivo="", excepcion=False):
+        """celdas: [(persona, fecha, código)]. Registra el cambio (permuta, servicio o ajuste), recalcula, deja deshacer
+        y avisa de reglas que se rompen."""
+        k, usuario = self.clave, self.v.usuario
+        nuevas = [(p.id, f, cod) for p, f, cod in celdas]
+        try:
+            if tipo == "permuta":
+                (a, fa, _), (b, fb, _) = nuevas
+                ids = cambios.permuta(self.bd, k, a, fa, b, fb, motivo, usuario, excepcion)
+            else:
+                ids = {"servicio": cambios.servicio, "ajuste": cambios.ajuste}[tipo](self.bd, k, nuevas, motivo, usuario)
+        except cambios.ErrorCambio as e:
+            self.avisar(str(e), "error")
+            return self._ver_cuadro()
+        self._deshacer.append(ids)
+        motivos = [f"{p.nombre} {f:%d/%m}: {m}" for p, f, cod in celdas
+                   if cod != "L" and (m := self.ctx.bloqueo(p, self.ctx.turnos[cod], f))]
         flujo.recalcular(self.bd, *self.periodo(), self.ctx)
         self.avisar(texto + (" — ojo: " + "; ".join(motivos[:3]) + "." if motivos else ""), "warn" if motivos else "info")
         self._ver_cuadro()
+
+    def _pedir_tipo(self, opciones, texto, aviso=None):
+        """Pregunta qué clase de cambio es. Devuelve (tipo, motivo, excepción) o None si se cancela. Con `aviso` (cupo de
+        permutas agotado) la permuta pasa a ser una excepción que la coordinación aprueba."""
+        nombres = {"permuta": "Permuta", "servicio": "Cambio de servicio", "ajuste": "Solo ajuste"}
+        d = QDialog(self.v)
+        d.setWindowTitle("Registrar cambio")
+        lay = QVBoxLayout(d)
+        for txt, nombre in ((texto, ""), (aviso, "muted")):
+            if txt:
+                e = QLabel(txt, objectName=nombre)
+                e.setWordWrap(True)
+                lay.addWidget(e)
+        motivo = QLineEdit()
+        motivo.setPlaceholderText("Motivo (obligatorio en un cambio de servicio)")
+        lay.addWidget(motivo)
+        fila, res = QHBoxLayout(), []
+        for op in opciones:
+            b = QPushButton(nombres[op] + (" (aprobar como excepción)" if op == "permuta" and aviso else ""))
+            if op == opciones[0]:
+                b.setObjectName("primario")
+            if op == "servicio":
+                b.setEnabled(False)
+                motivo.textChanged.connect(lambda t, b=b: b.setEnabled(bool(t.strip())))
+            b.clicked.connect(lambda _=False, op=op: (res.append((op, motivo.text().strip(), bool(aviso) and op == "permuta")), d.accept()))
+            fila.addWidget(b)
+        cancelar = QPushButton("Cancelar")
+        cancelar.clicked.connect(d.reject)
+        fila.addWidget(cancelar)
+        lay.addLayout(fila)
+        return res[0] if d.exec() and res else None
 
     def _celda_editada(self, it):
         celda = self._editable(it.row(), it.column())
@@ -483,7 +523,11 @@ class Turnos:
             self.avisar(f"«{cod}» no es un turno. Usa L o uno de: {', '.join(self.ctx.turnos)}.", "error")
             self._ver_cuadro()
         else:
-            self._aplicar([(p, f, cod)], f"{p.nombre} · {f:%d/%m}: {cod}")
+            texto = f"{p.nombre} · {f:%d/%m}: {cod}"
+            if r := self._pedir_tipo(("servicio", "ajuste"), texto):
+                self._aplicar([(p, f, cod)], texto, r[0], r[1])
+            else:
+                self._ver_cuadro()
 
     def _mover_celda(self, r1, c1, r2, c2):
         """Intercambia el contenido de dos celdas (arrastrar y soltar)."""
@@ -494,8 +538,18 @@ class Turnos:
         x, y = cuadro.get((a[0].id, a[1]), "L"), cuadro.get((b[0].id, b[1]), "L")
         if x == y:
             return
-        self._aplicar([(a[0], a[1], y), (b[0], b[1], x)],
-                      f"Intercambio: {a[0].nombre} {a[1]:%d/%m} ({x}) ⇄ {b[0].nombre} {b[1]:%d/%m} ({y})")
+        texto = f"Intercambio: {a[0].nombre} {a[1]:%d/%m} ({x}) ⇄ {b[0].nombre} {b[1]:%d/%m} ({y})"
+        tipo, motivo, excepcion = "ajuste", "", False
+        if a[0].id != b[0].id:  # la misma persona en dos fechas es un ajuste; entre dos personas hay que decidir
+            aviso = None
+            if sobre := cambios.excedidos(self.bd, self.clave, [a[0].id, b[0].id]):
+                aviso = "Ya agotó su cupo de permutas en este periodo: " + ", ".join(
+                    "{} {}/{}".format(self.nombres.get(c, c), *cambios.cupo(self.bd, self.clave, c)) for c in sobre) + \
+                    ". Puedes aprobar esta permuta como excepción."
+            if not (r := self._pedir_tipo(("permuta", "servicio", "ajuste"), texto, aviso)):
+                return
+            tipo, motivo, excepcion = r
+        self._aplicar([(a[0], a[1], y), (b[0], b[1], x)], texto, tipo, motivo, excepcion)
 
     def _menu_lote(self, pos):
         celdas = [c for i in self.grilla.selectedIndexes() if (c := self._editable(i.row(), i.column()))]
@@ -505,18 +559,14 @@ class Turnos:
         m.addSection(f"Asignar a {len(celdas)} celda(s)")
         for cod in [*self.ctx.turnos, "L"]:
             m.addAction(cod if cod != "L" else "L · libre", lambda cod=cod: self._aplicar(
-                [(p, f, cod) for p, f in celdas], f"{len(celdas)} celda(s) → {cod}"))
+                [(p, f, cod) for p, f in celdas], f"{len(celdas)} celda(s) → {cod}", motivo=f"Lote: {len(celdas)} celdas → {cod}"))
         m.exec(self.grilla.viewport().mapToGlobal(pos))
 
     def deshacer(self):
         if not self._deshacer or self.b_original.isChecked() or self.bd.periodo_cerrado(self.clave):
             return
-        k, orig = self.clave, self.bd.asignaciones(self.clave, "original")
-        for cid, f, antes in self._deshacer.pop():
-            if orig.get((cid, f), "L") == antes:
-                self.bd.restaurar(k, {cid}, {f})
-            else:
-                self.bd.set_celda(k, cid, f, antes)
+        for id_ in self._deshacer.pop():
+            cambios.anular(self.bd, id_, self.v.usuario)
         flujo.recalcular(self.bd, *self.periodo(), self.ctx)
         self.avisar("Cambio deshecho.")
         self._ver_cuadro()
