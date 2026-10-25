@@ -15,6 +15,13 @@ class LimiteExcedido(ErrorCambio):
         self.ids = ids
 
 
+class EditadoDespues(ErrorCambio):
+    """No se puede anular: alguna celda del cambio se editó después. `celdas` = [(colab_id, fecha)]."""
+    def __init__(self, celdas):
+        super().__init__("Una celda de este cambio se editó después; anula primero los cambios posteriores.")
+        self.celdas = celdas
+
+
 def limite(bd):
     return int(bd.param("limite_permutas", 2))
 
@@ -102,7 +109,11 @@ def anular(bd, id_, usuario):
         return False
     if bd.periodo_cerrado(r["periodo"]):
         raise ErrorCambio("El periodo está cerrado.")
-    restaurar_celdas(bd, r["periodo"], [(c, date.fromisoformat(f), a) for c, f, a, _ in json.loads(r["celdas"])])
+    celdas = [(c, date.fromisoformat(f), a, n) for c, f, a, n in json.loads(r["celdas"])]
+    actual = bd.asignaciones(r["periodo"])
+    if cambiadas := [(c, f) for c, f, _, n in celdas if actual.get((c, f), "L") != n]:  # todo o nada, sin dejar una permuta a medias
+        raise EditadoDespues(cambiadas)
+    restaurar_celdas(bd, r["periodo"], [(c, f, a) for c, f, a, _ in celdas])
     ahora = datetime.now().isoformat(timespec="seconds")
     bd.c.execute("UPDATE cambio_turno SET anulado_en=?, anulado_por=? WHERE id=?", (ahora, usuario or "—", id_))
     bd.c.commit()
