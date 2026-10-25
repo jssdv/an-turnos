@@ -1,16 +1,22 @@
 """Persistencia SQLite: catálogo de turnos, personal, novedades, cuadro (versiones original/cambios), puestos."""
 import json
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 
 from .demanda import cobertura_derivada, franjas_de
-from .dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Turno, festivos,
+from .dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Solicitud, Turno, festivos,
                      turnos_base)
 
 CAMBIO_TURNO = """
 CREATE TABLE IF NOT EXISTS cambio_turno (
   id INTEGER PRIMARY KEY, periodo TEXT, servicio TEXT DEFAULT 'esterilizacion', tipo TEXT, registrado_en TEXT, usuario TEXT,
   colab_a INT, colab_b INT, celdas TEXT, motivo TEXT, excepcion INT DEFAULT 0, anulado_en TEXT, anulado_por TEXT);
+"""
+
+SOLICITUD = """
+CREATE TABLE IF NOT EXISTS solicitud (
+  id INTEGER PRIMARY KEY, servicio TEXT DEFAULT 'esterilizacion', colab_id INT, tipo TEXT, desde TEXT, hasta TEXT,
+  turno TEXT, prioridad TEXT, nota TEXT, registrado_en TEXT, usuario TEXT);
 """
 
 ESQUEMA = """
@@ -36,7 +42,7 @@ CREATE TABLE demanda (id INTEGER PRIMARY KEY, puesto_id INT, tipo_dia TEXT, inic
 CREATE TABLE persona_puesto (colab_id INT, puesto_id INT, PRIMARY KEY (colab_id, puesto_id));
 """ + """
 CREATE TABLE asignacion_puesto (periodo TEXT, fecha TEXT, colab_id INT, puesto_id INT, desde INT, hasta INT, pausa INT);
-""" + CAMBIO_TURNO
+""" + CAMBIO_TURNO + SOLICITUD
 
 PUESTOS_BASE = [(1, "Lavado", "DDEBF7"), (2, "Autoclave", "E2EFDA"), (3, "Sterrad y esto", "FFF2CC"),
                 (4, "Cuarto estéril", "FCE4D6"), (5, "Ropa", "EDEDED"), (6, "Guardia noche", "D9D2E9")]
@@ -68,7 +74,7 @@ class BD:
             self.c.executemany("INSERT INTO tarifa VALUES (?,?,?)", TARIFAS_BASE)
             for k, v in PARAMETROS_BASE.items():
                 self.set_param(k, v)
-            self.c.execute("PRAGMA user_version = 6")
+            self.c.execute("PRAGMA user_version = 7")
             self.c.commit()
         else:
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
@@ -81,6 +87,14 @@ class BD:
                 self._migrar_a_5()
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 5:
                 self._migrar_a_6()
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 6:
+                self._migrar_a_7()
+
+    def _migrar_a_7(self):
+        """v7 agrega las solicitudes personales (deseos blandos para el solver)."""
+        self.c.executescript(SOLICITUD)
+        self.c.execute("PRAGMA user_version = 7")
+        self.c.commit()
 
     def _migrar_a_6(self):
         """v6 agrega el registro de cambios de turno (permutas, cambios de servicio y ajustes)."""
@@ -291,8 +305,8 @@ class BD:
 
     def borrar_colaborador(self, id_):
         """Con historial (cuadros o novedades) se desactiva para no perderlo. Devuelve «borrado» o «desactivado»."""
-        historia = self.c.execute("SELECT 1 FROM asignacion WHERE colab_id=? UNION SELECT 1 FROM novedad WHERE colab_id=? LIMIT 1",
-                                  (id_, id_)).fetchone()
+        historia = self.c.execute("SELECT 1 FROM asignacion WHERE colab_id=? UNION SELECT 1 FROM novedad WHERE colab_id=? "
+                                  "UNION SELECT 1 FROM solicitud WHERE colab_id=? LIMIT 1", (id_, id_, id_)).fetchone()
         self.c.execute("UPDATE colaborador SET activo=0 WHERE id=?" if historia else "DELETE FROM colaborador WHERE id=?", (id_,))
         self.c.commit()
         return "desactivado" if historia else "borrado"
@@ -314,6 +328,25 @@ class BD:
         return [Novedad(r["colab_id"], r["tipo"], _dt(r["desde"]), _dt(r["hasta"]), r["nota"], r["id"])
                 for r in self.c.execute("SELECT * FROM novedad ORDER BY desde")]
 
+    def guardar_solicitud(self, s, usuario=""):
+        vals = (s.colab_id, s.tipo, s.desde.isoformat(), s.hasta.isoformat(), s.turno, s.prioridad, s.nota)
+        if s.id:
+            self.c.execute("UPDATE solicitud SET colab_id=?,tipo=?,desde=?,hasta=?,turno=?,prioridad=?,nota=? WHERE id=?",
+                           vals + (s.id,))
+        else:
+            s.id = self.c.execute("INSERT INTO solicitud (colab_id,tipo,desde,hasta,turno,prioridad,nota,registrado_en,usuario) "
+                                  "VALUES (?,?,?,?,?,?,?,?,?)",
+                                  vals + (datetime.now().isoformat(timespec="seconds"), usuario)).lastrowid
+        self.c.commit()
+
+    def borrar_solicitud(self, id_):
+        self.c.execute("DELETE FROM solicitud WHERE id=?", (id_,))
+        self.c.commit()
+
+    def solicitudes(self):
+        return [Solicitud(r["colab_id"], r["tipo"], _dt(r["desde"]), _dt(r["hasta"]), r["turno"] or "", r["prioridad"],
+                          r["nota"] or "", r["id"]) for r in self.c.execute("SELECT * FROM solicitud ORDER BY desde, id")]
+
     def contexto(self, año=None):
         años = {año} if año else {date.today().year}
         fest = {}
@@ -324,7 +357,8 @@ class BD:
         return Contexto(self.turnos(), self.colaboradores(), self.novedades(), cobertura_derivada(demandas), fest,
                         int(self.param("libre_tras_noche", 1)), int(self.param("libres_por_semana", 1)),
                         int(self.param("fines_semana_libres", 1)), int(self.param("max_noches_seguidas", 2)),
-                        int(self.param("max_c_seguidos", 2)), int(self.param("max_igual_seguidos", 3)), puestos, demandas)
+                        int(self.param("max_c_seguidos", 2)), int(self.param("max_igual_seguidos", 3)), puestos, demandas,
+                        self.solicitudes())
 
     # --- cuadro: versiones original / cambios ---------------------------------------------------
     def asignaciones(self, mes, version="cambios"):

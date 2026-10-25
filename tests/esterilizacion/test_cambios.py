@@ -31,7 +31,7 @@ def nuevo(ruta=":memory:"):
 
 def test_esquema_v6():
     bd = db.BD()
-    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
     cols = [r["name"] for r in bd.c.execute("PRAGMA table_info(cambio_turno)")]
     assert cols == ["id", "periodo", "servicio", "tipo", "registrado_en", "usuario", "colab_a", "colab_b",
                     "celdas", "motivo", "excepcion", "anulado_en", "anulado_por"]
@@ -46,7 +46,7 @@ def test_migra_v5_a_v6():
     bd.c.commit()
     bd.c.close()
     bd = db.BD(ruta)
-    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
     assert bd.asignaciones("2026-10-01/2026-10-31") == {(1, date(2026, 10, 5)): "M"}
     assert bd.c.execute("SELECT count(*) FROM cambio_turno").fetchone()[0] == 0
     assert bd.ruta == ruta

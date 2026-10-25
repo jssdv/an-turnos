@@ -6,6 +6,8 @@ from datetime import date, datetime, timedelta
 # Ventanas del día en minutos desde las 00:00 (la noche cruza medianoche).
 FRANJAS = {"M": (360, 720), "T": (720, 1080), "N": (1080, 1800)}
 TIPOS_NOVEDAD = ("Vacaciones", "Incapacidad", "Licencia", "Libre solicitado")
+TIPOS_SOLICITUD = ("libre", "quiero", "evitar")
+PRIORIDADES = ("normal", "alta")
 TIPOS_COLAB = ("regular", "restringido", "estudiante", "refuerzo")
 DESCANSO_MIN = 12 * 60
 DIAS = ("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")
@@ -151,6 +153,19 @@ class Novedad:
 
 
 @dataclass
+class Solicitud:
+    """Deseo de una persona (libre, quiero un turno, evitar un turno) que el solver intenta cumplir sin garantía."""
+    colab_id: int
+    tipo: str
+    desde: date
+    hasta: date
+    turno: str = ""
+    prioridad: str = "normal"
+    nota: str = ""
+    id: int = None
+
+
+@dataclass
 class Contexto:
     """Todo lo que necesitan reglas, solver y recargos para un conjunto de fechas."""
     turnos: dict  # código -> Turno (activos)
@@ -166,6 +181,7 @@ class Contexto:
     max_igual: int = 3  # mismo turno de 6 h (M, T…) en días consecutivos; 0 = sin tope
     puestos: dict = field(default_factory=dict)  # id -> Puesto
     demandas: list = field(default_factory=list)  # reglas de demanda de los puestos activos
+    solicitudes: list = field(default_factory=list)  # deseos blandos del solver
     _nov: dict = field(default_factory=dict, repr=False)
 
     def __post_init__(self):
