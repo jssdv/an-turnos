@@ -43,7 +43,7 @@ def test_aplicar_es_idempotente():
     with conn_nueva() as c:
         if c is None:
             return
-        assert esquema.aplicar(c) == ["001_base.sql", "002_auth.sql"]
+        assert esquema.aplicar(c) == ["001_base.sql", "002_auth.sql", "003_menores.sql"]
         assert esquema.aplicar(c) == []
 
 
@@ -87,6 +87,22 @@ def test_un_solo_editor_por_area():
         except psycopg.errors.UniqueViolation:
             return
         raise AssertionError("permitió dos editores en la misma área")
+
+
+def test_la_aplicacion_no_toca_esquema_version():
+    with conn_nueva() as c:
+        if c is None:
+            return
+        esquema.aplicar(c)
+        c.execute("SET ROLE an_app")
+        try:
+            c.execute("SELECT * FROM esquema_version")
+        except psycopg.errors.InsufficientPrivilege:
+            c.rollback()
+            return
+        finally:
+            c.execute("RESET ROLE")
+        raise AssertionError("an_app lee esquema_version")
 
 
 if __name__ == "__main__":

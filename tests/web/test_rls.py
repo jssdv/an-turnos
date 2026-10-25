@@ -132,6 +132,27 @@ def test_el_pool_limpia_el_alcance_al_devolver_la_conexion():
                 assert c.execute("select current_setting('app.clinica', true)").fetchone()[0] in (None, "")
 
 
+def test_checks_rls_detecta_politica_abierta_tabla_sin_clinica_y_funcion_publica():
+    with dos_clinicas() as d:
+        if d is None:
+            return
+        su, _, _, nombre = d
+        casos = [("CREATE TABLE suelta (x int)", "suelta"),
+                 ("CREATE POLICY abierta ON turno USING (true)", "abierta"),
+                 ("CREATE FUNCTION app_publica() RETURNS int LANGUAGE sql SECURITY DEFINER AS 'select 1'", "app_publica")]
+        for sentencia, esperado in casos:
+            su.execute(sentencia)
+            su.commit()
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                assert rls.main(["--esquema", nombre]) == 1, sentencia
+            assert esperado in err.getvalue(), (sentencia, err.getvalue())
+            su.execute({"suelta": "DROP TABLE suelta", "abierta": "DROP POLICY abierta ON turno",
+                        "app_publica": "DROP FUNCTION app_publica()"}[esperado])
+            su.commit()
+        assert rls.main(["--esquema", nombre]) == 0
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):
