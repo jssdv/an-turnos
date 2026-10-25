@@ -9,8 +9,10 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import conexion
-from .deps import ESCRITURA
+from an.turnos.pg import Conexion
+
+from . import auth, conexion
+from .deps import COOKIE, ESCRITURA
 from .rutas_areas import router as rutas_areas
 from .rutas_auth import router as rutas_auth
 
@@ -34,6 +36,18 @@ def _auditar(pool, request, codigo):
                      (u.id, u.correo, request.method, request.url.path, codigo, ip, getattr(request.state, "evento", None)))
 
 
+def _usuario_del_rechazo(pool, request):
+    """Si el 403 por Origin llega con una sesión válida, deja al usuario en el estado de la petición para que se audite como `origen_rechazado`."""
+    token = request.cookies.get(COOKIE)
+    try:
+        if token:
+            with pool.connection() as conn:
+                request.state.usuario = auth.usuario_de_token(Conexion(conn), token)
+            request.state.evento = "origen_rechazado"
+    except Exception:
+        log.exception("no se pudo resolver la sesión del origen rechazado")
+
+
 def crear_app(pool=None):
     app = FastAPI(title="An", docs_url=None, redoc_url=None)
     app.state.pool = pool or conexion.abrir_pool()
@@ -51,6 +65,7 @@ def crear_app(pool=None):
             respuesta = JSONResponse({"detalle": "Cuerpo demasiado grande"}, 413)
         elif request.method in ESCRITURA and request.headers.get("origin") != _origen_esperado(request):
             respuesta = JSONResponse({"detalle": "Origen no permitido"}, 403)
+            await run_in_threadpool(_usuario_del_rechazo, app.state.pool, request)
         else:
             try:
                 respuesta = await call_next(request)

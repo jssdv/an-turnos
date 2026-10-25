@@ -1,15 +1,28 @@
 """Adaptador de psycopg 3 con la forma de sqlite3 que usa BD: `?`, filas por índice y por nombre, execute/commit."""
+import re
+
 import psycopg
 
 
+_TOKEN = re.compile(r"""
+    --[^\n]*                                  # comentario de línea
+  | /\*(?:[^/*]|/(?!\*)|\*(?!/))*\*/          # comentario de bloque (sin anidar)
+  | (?<![\w$])[eE]'(?:[^'\\]|\\.|'')*'          # cadena E'…' con \ de escape
+  | '(?:[^']|'')*'                             # cadena normal
+  | "(?:[^"]|"")*"                             # identificador entre comillas dobles
+  | (?<![\w$])\$([A-Za-z_]\w*|)\$.*?\$\1\$     # cuerpo $$…$$ o $tag$…$tag$
+  | (?P<param>\?)
+  | (?P<pct>%)
+""", re.VERBOSE | re.DOTALL)
+
+
 def traducir(sql):
-    """`?` → `%s` fuera de literales; `%` → `%%` en todo el texto (psycopg lo interpreta como parámetro)."""
-    salida, en_texto = [], False
-    for ch in sql:
-        if ch == "'":
-            en_texto = not en_texto
-        salida.append("%%" if ch == "%" else "%s" if ch == "?" and not en_texto else ch)
-    return "".join(salida)
+    """`?` → `%s` fuera de literales, comentarios, identificadores y cuerpos `$$`; `%` → `%%` en todo el texto (psycopg lo interpreta)."""
+    def cambio(m):
+        if m.lastgroup == "param":
+            return "%s"
+        return m.group(0).replace("%", "%%")
+    return _TOKEN.sub(cambio, sql)
 
 
 def _int_si_bool(params):
