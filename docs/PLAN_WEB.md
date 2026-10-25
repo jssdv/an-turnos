@@ -342,6 +342,15 @@ Candidatos, solo si una medida pasa su umbral: pista al solver con la solución 
 
 **Pruebas:** los tests del núcleo siguen siendo scripts que imprimen `OK` y además los corre pytest; en CI corren dos veces (`AN_BD=sqlite` y `AN_BD=postgres`). `tests/web/` (pytest + `httpx` de FastAPI) cubre auth, aislamiento, revisiones, trabajador y exportes. Front: `tsc --noEmit` y build en CI; Vitest solo cuando un componente tenga lógica propia (p. ej. selección por lote en `Planilla`). Checks: `checks/rls.py`, `checks/tokens.py`, `checks/diseno.py`, `checks/reglas.py` (toda ruta declara permiso de área; nada de SQL con f-strings; `subprocess` solo en el trabajador).
 
+## Pendientes conocidos
+
+Abiertos tras cerrar los menores de la Fase 1:
+
+- **IP real detrás de Caddy** (Fase 8): `auditoria.ip` e `intento_login.ip` guardan `request.client.host`, que con el proxy será la IP de Caddy. Hay que confiar en `X-Forwarded-For` solo desde el proxy (uvicorn `--forwarded-allow-ips`) antes de desplegar; hasta entonces el bloqueo por IP del ingreso no distingue clientes.
+- **Tabla `periodo`** (Fase 2): `periodo_estado.cerrado_en` (texto; UTC ISO con `+00:00` desde ahora, las filas anteriores son `AAAA-MM-DD HH:MM:SS` en UTC) se absorbe en `periodo.cerrado_en` (`timestamptz`); la migración debe aceptar ambos formatos. Nadie lee `cerrado_en` todavía.
+- **Marcas de tiempo locales**: `solicitud.creado_en` y `cambio_turno` siguen con `datetime.now()` local; unificarlas a UTC cuando se migren.
+- **Origen rechazado**: la petición con sesión válida pero Origin ajeno renueva `ultima` de la sesión (usa `app_sesion`); aceptable ahora, se puede evitar con una consulta de solo lectura.
+
 ## 9. Qué NO hacer
 
 - Sin tiempo real (WebSocket/SSE): el sondeo basta.
