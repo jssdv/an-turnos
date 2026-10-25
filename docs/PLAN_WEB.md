@@ -317,12 +317,12 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 
 **Medir primero.** En la Fase 0 se fija la tabla; cada fase anota sus cifras.
 
-| Medida | Dónde | Umbral para actuar |
-|---|---|---|
-| Solver, un mes completo (p50/p95) | Trabajador en el VPS | > 60 s |
-| `GET` del cuadro de un mes | API | > 300 ms |
-| Edición de una celda, ida y vuelta con alertas | API + navegador | > 500 ms |
-| Pintar la grilla de un mes | Navegador del PC de la clínica | > 1 s |
+| Medida | Dónde | Umbral para actuar | Base (Fase 0, 25/10/2026, Mac M5 de 10 núcleos) |
+|---|---|---|---|
+| Solver, un mes completo (p50/p95) | Trabajador en el VPS | > 60 s | 20,2 s en las 3 corridas (13 personas, octubre 2026): agota el límite de `tiempo=20` en vez de converger; falta medir el tiempo hasta la primera solución y la mejor |
+| `GET` del cuadro de un mes | API | > 300 ms | n/a hasta Fase 1 |
+| Edición de una celda, ida y vuelta con alertas | API + navegador | > 500 ms | n/a hasta Fase 5 |
+| Pintar la grilla de un mes | Navegador del PC de la clínica | > 1 s | n/a hasta Fase 4 |
 
 Candidatos, solo si una medida pasa su umbral: pista al solver con la solución previa (`AddHint`), `num_workers` según núcleos, dividir por semana (`modo="semana"` ya existe), índices y escritura por lotes (`executemany`) en `BD`, virtualizar la grilla, cargar solo el rango visible.
 
