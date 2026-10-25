@@ -90,6 +90,24 @@ class BD:
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 6:
                 self._migrar_a_7()
 
+    # --- SQL común a SQLite y PostgreSQL ---------------------------------------------------------
+    CLAVES = {"turno": "codigo", "parametro": "clave", "periodo_estado": "clave", "asignacion": "mes, version, colab_id, fecha"}
+    COLUMNAS = {"turno": "nombre inicio fin color cubre pausas dom_fest solver activo",
+                "parametro": "valor", "periodo_estado": "cerrado_en", "asignacion": "turno origen fijo"}
+
+    def _pk(self, tabla):
+        """Columnas de la clave de conflicto de `tabla` (en PostgreSQL llevan además el área)."""
+        return self.CLAVES[tabla]
+
+    def _upsert(self, tabla):
+        """Cola `ON CONFLICT (clave) DO UPDATE SET …` que reemplaza las columnas no clave."""
+        sets = ", ".join(f"{c}=excluded.{c}" for c in self.COLUMNAS[tabla].split())
+        return f"ON CONFLICT ({self._pk(tabla)}) DO UPDATE SET {sets}"
+
+    def _insertar(self, sql, params=()):
+        """INSERT con `RETURNING id`: devuelve el id nuevo."""
+        return self.c.execute(sql + " RETURNING id", params).fetchone()[0]
+
     def _migrar_a_7(self):
         """v7 agrega las solicitudes personales (deseos blandos para el solver)."""
         self.c.executescript(SOLICITUD)
@@ -136,8 +154,8 @@ class BD:
         Cuarto estéril), el excedente va al primero, y la noche pasa a «Guardia noche». Ropa queda como deseable."""
         ids = {}
         for numero, nombre, color in PUESTOS_BASE:
-            ids[numero] = self.c.execute("INSERT INTO puesto (numero, nombre, color, activo) VALUES (?,?,?,1)",
-                                         (numero, nombre, color)).lastrowid
+            ids[numero] = self._insertar("INSERT INTO puesto (numero, nombre, color, activo) VALUES (?,?,?,1)",
+                                         (numero, nombre, color))
         filas = []
         for td in ("LS", "DF"):
             cob = cobertura.get(td, {})
@@ -182,7 +200,7 @@ class BD:
 
     # --- catálogo -------------------------------------------------------------------------------
     def guardar_turno(self, t):
-        self.c.execute("INSERT OR REPLACE INTO turno VALUES (?,?,?,?,?,?,?,?,?,?)",
+        self.c.execute("INSERT INTO turno VALUES (?,?,?,?,?,?,?,?,?,?) " + self._upsert("turno"),
                        (t.codigo, t.nombre, t.inicio, t.fin, t.color, json.dumps(t.cubre), json.dumps(t.pausas),
                         t.dom_fest, t.solver, t.activo))
         self.c.commit()
@@ -227,7 +245,7 @@ class BD:
         return r["valor"] if r else defecto
 
     def set_param(self, clave, valor):
-        self.c.execute("INSERT OR REPLACE INTO parametro VALUES (?,?)", (clave, str(valor)))
+        self.c.execute("INSERT INTO parametro VALUES (?,?) " + self._upsert("parametro"), (clave, str(valor)))
         self.c.commit()
 
     # --- puestos y su demanda --------------------------------------------------------------------
@@ -242,8 +260,8 @@ class BD:
             self.c.execute("UPDATE puesto SET numero=?, nombre=?, color=?, activo=? WHERE id=?",
                            (p.numero, p.nombre, p.color, p.activo, p.id))
         else:
-            p.id = self.c.execute("INSERT INTO puesto (numero, nombre, color, activo) VALUES (?,?,?,?)",
-                                  (p.numero, p.nombre, p.color, p.activo)).lastrowid
+            p.id = self._insertar("INSERT INTO puesto (numero, nombre, color, activo) VALUES (?,?,?,?)",
+                                  (p.numero, p.nombre, p.color, p.activo))
         self.c.commit()
         return p.id
 
@@ -285,8 +303,8 @@ class BD:
             self.c.execute("UPDATE colaborador SET nombre=?,tipo=?,horas_sem=?,pct=?,permitidos=?,puesto_fijo=?,"
                            "estudio=?,activo=? WHERE id=?", vals + (p.id,))
         else:
-            p.id = self.c.execute("INSERT INTO colaborador (nombre,tipo,horas_sem,pct,permitidos,puesto_fijo,estudio,"
-                                  "activo) VALUES (?,?,?,?,?,?,?,?)", vals).lastrowid
+            p.id = self._insertar("INSERT INTO colaborador (nombre,tipo,horas_sem,pct,permitidos,puesto_fijo,estudio,"
+                                  "activo) VALUES (?,?,?,?,?,?,?,?)", vals)
         self.c.execute("DELETE FROM persona_puesto WHERE colab_id=?", (p.id,))
         self.c.executemany("INSERT INTO persona_puesto VALUES (?,?)", [(p.id, q) for q in p.puestos_permitidos or ()])
         self.c.commit()
@@ -316,8 +334,7 @@ class BD:
         if n.id:
             self.c.execute("UPDATE novedad SET colab_id=?,tipo=?,desde=?,hasta=?,nota=? WHERE id=?", vals + (n.id,))
         else:
-            n.id = self.c.execute("INSERT INTO novedad (colab_id,tipo,desde,hasta,nota) VALUES (?,?,?,?,?)",
-                                  vals).lastrowid
+            n.id = self._insertar("INSERT INTO novedad (colab_id,tipo,desde,hasta,nota) VALUES (?,?,?,?,?)", vals)
         self.c.commit()
 
     def borrar_novedad(self, id_):
@@ -334,9 +351,9 @@ class BD:
             self.c.execute("UPDATE solicitud SET colab_id=?,tipo=?,desde=?,hasta=?,turno=?,prioridad=?,nota=? WHERE id=?",
                            vals + (s.id,))
         else:
-            s.id = self.c.execute("INSERT INTO solicitud (colab_id,tipo,desde,hasta,turno,prioridad,nota,registrado_en,usuario) "
+            s.id = self._insertar("INSERT INTO solicitud (colab_id,tipo,desde,hasta,turno,prioridad,nota,registrado_en,usuario) "
                                   "VALUES (?,?,?,?,?,?,?,?,?)",
-                                  vals + (datetime.now().isoformat(timespec="seconds"), usuario)).lastrowid
+                                  vals + (datetime.now().isoformat(timespec="seconds"), usuario))
         self.c.commit()
 
     def borrar_solicitud(self, id_):
@@ -392,14 +409,14 @@ class BD:
             fijos = {(r["colab_id"], r["fecha"]) for r in self.c.execute(
                 "SELECT * FROM asignacion WHERE mes=? AND version=? AND fijo=1", (mes, v))}
             self.c.execute("DELETE FROM asignacion WHERE mes=? AND version=? AND fijo=0", (mes, v))
-            self.c.executemany("INSERT OR IGNORE INTO asignacion VALUES (?,?,?,?,?,?,0)",
+            self.c.executemany("INSERT INTO asignacion VALUES (?,?,?,?,?,?,0) ON CONFLICT (" + self._pk("asignacion") + ") DO NOTHING",
                                [(mes, v, cid, f.isoformat(), t, origen) for (cid, f), t in cuadro.items()
                                 if (cid, f.isoformat()) not in fijos])
         self.c.commit()
 
     def set_celda(self, mes, cid, fecha, codigo, fijo=True):
         """Edición manual: solo toca la versión `cambios`."""
-        self.c.execute("INSERT OR REPLACE INTO asignacion VALUES (?,?,?,?,?,?,?)",
+        self.c.execute("INSERT INTO asignacion VALUES (?,?,?,?,?,?,?) " + self._upsert("asignacion"),
                        (mes, "cambios", cid, fecha.isoformat(), codigo, "manual", int(fijo)))
         self.c.commit()
 
@@ -436,7 +453,8 @@ class BD:
 
     def cerrar_periodo(self, k, filas):
         """Congela las horas del periodo. filas: [(colab_id, contratadas, trabajadas)]."""
-        self.c.execute("INSERT OR REPLACE INTO periodo_estado VALUES (?, datetime('now'))", (k,))
+        self.c.execute("INSERT INTO periodo_estado VALUES (?,?) " + self._upsert("periodo_estado"),
+                       (k, datetime.now().isoformat(timespec="seconds")))
         self.c.execute("DELETE FROM cierre WHERE periodo=?", (k,))
         self.c.executemany("INSERT INTO cierre VALUES (?,?,?,?)", [(k, c, a, b) for c, a, b in filas])
         self.c.commit()
@@ -453,8 +471,8 @@ class BD:
                 for r in self.c.execute(q, (colab_id,) if colab_id else ())]
 
     def agregar_movimiento(self, colab_id, fecha, horas, concepto, nota=""):
-        i = self.c.execute("INSERT INTO banco_mov (colab_id,fecha,horas,concepto,nota) VALUES (?,?,?,?,?)",
-                           (colab_id, fecha.isoformat(), horas, concepto, nota)).lastrowid
+        i = self._insertar("INSERT INTO banco_mov (colab_id,fecha,horas,concepto,nota) VALUES (?,?,?,?,?)",
+                           (colab_id, fecha.isoformat(), horas, concepto, nota))
         self.c.commit()
         return i
 
