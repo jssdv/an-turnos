@@ -102,7 +102,7 @@ an/
   __main__.py        registro AREAS, selección de usuario
   nucleo/            tema, widgets, shell (Ventana), usuarios
   radiologia/        generar_semana, analisis, paginas, plantilla_semana.xlsx
-  esterilizacion/    dominio, db, reglas, solver, demanda, dotacion, puestos,
+  turnos/            dominio, db, reglas, solver, demanda, dotacion, puestos,
                      capacitacion, recargos, flujo, exportar, paginas, ui_puestos
 tests/<área>/        cada test imprime OK
 docs/                guías, reglas, diseño por etapa

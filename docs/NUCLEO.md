@@ -6,7 +6,7 @@ La estética es la de Radiología; Esterilización se adaptó a ella.
 
 ## Qué es núcleo y qué es área
 
-| Núcleo (`an/nucleo/`) | Área (`an/radiologia/`, `an/esterilizacion/`) |
+| Núcleo (`an/nucleo/`) | Área (`an/radiologia/`, `an/turnos/`) |
 |---|---|
 | `tema.py`: tokens de color `C`, `ESTILO`, ícono, arranque de Qt (Fusion, tema claro, fuentes Inter y Sora empaquetadas en `fuentes/`) | Reglas de negocio, datos y archivos de su servicio |
 | `widgets.py`: `Tarjeta`, `tabla`/`llenar`, `con_vacio`, `ocupado`, `poner_nivel`, `titulo_pagina`, `abrir` | Sus páginas (`paginas.py`) y su cabecera (selector de semana/periodo, acciones) |
@@ -57,3 +57,5 @@ mínimo lo fija la barra del área (~1300 px en Radiología con un archivo carga
 - Unificar el tratamiento de tablas con números (alineación, orden) en ambas áreas.
 - Extraer a `nucleo/` más patrones repetidos (panel con título, barra de acciones) cuando haya una tercera área.
 - Probar `dist/An.zip` en el PC corporativo (bloqueo 0.6/0.7 de `PROYECTO.md`).
+
+Nota: el paquete del motor se llama `an/turnos/`; la clave del área sigue siendo `esterilizacion` (`CLAVE`, claves de `QSettings`, datos).
