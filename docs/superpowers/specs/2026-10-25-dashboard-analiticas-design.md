@@ -31,7 +31,7 @@ Todas las funciones reciben `bd` y un rango de fechas `(ini, fin)` y devuelven e
 
 - `ausentismo(bd, ini, fin)` → `{"por_tipo": {tipo: dias}, "por_persona": {nombre: {tipo: dias}}, "por_mes": {"AAAA-MM": {tipo: dias}}, "pct": float}`. Cada novedad se recorta al rango; un día con varias novedades cuenta una vez (la primera, igual que `Contexto.novedad`). `pct` = días de ausencia / (días del rango × personas).
 - `simultaneos(bd, ini, fin)` → `{"serie": [(fecha, n)], "maximo": n, "fecha_maximo": fecha|None, "dias_riesgo": [fecha]}`. `n` = personas distintas con novedad ese día. `dias_riesgo` = días con cuadro cuyo `reglas.faltantes_dia` tiene algún faltante obligatorio **y** al menos una ausencia.
-- `cobertura(bd, ini, fin)` → lista por periodo con cuadro que intersecta el rango: `{"periodo", "dias_deficit", "dias_exceso", "puestos_sin_cubrir"}`. Déficit = día con faltante en alguna franja. **Exceso** = día en que las personas presentes superan la demanda total (obligatoria + deseable) en todos los tramos. `puestos_sin_cubrir` = `len(puestos.alertas_reparto(...))` con `bd.asignacion_puesto`.
+- `cobertura(bd, ini, fin)` → lista por periodo con cuadro que intersecta el rango: `{"periodo", "dias_deficit", "dias_exceso", "puestos_sin_cubrir"}`. Déficit = día con faltante en alguna franja. **Exceso** = día en que hay al menos un tramo de 30 min con más personas presentes que la demanda total (obligatoria + deseable). `puestos_sin_cubrir` = `len(puestos.alertas_reparto(...))` con `bd.asignacion_puesto`.
 - `cambios_resumen(bd, ini, fin)` → `{periodo: {"permuta": n, "servicio": n, "ajuste": n, "excepciones": n}}` vía `cambios.listar`, sin anulados.
 
 Rango por defecto en la UI: últimos 6 meses terminando en el mes de la vista.
