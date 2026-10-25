@@ -18,7 +18,7 @@ def abrir_pool(url=None, rol=None):
             conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(rol)))
         conn.commit()
 
-    return ConnectionPool(url or os.environ["AN_PG_URL"], kwargs={"row_factory": FILAS}, configure=configurar, min_size=1, open=True)
+    return ConnectionPool(url or os.environ["AN_PG_URL"], kwargs={"row_factory": FILAS}, configure=configurar, min_size=2, max_size=10, timeout=10, open=True)
 
 
 def alcance(conn, clinica_id, area_id=None):
