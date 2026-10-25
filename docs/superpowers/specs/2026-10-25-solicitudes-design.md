@@ -2,7 +2,7 @@
 
 [← Volver al inicio](../../../README.md) · [Visión](../../VISION.md) · [Arquitectura](../../ARQUITECTURA.md) · [Cambios de turno](2026-10-25-cambios-turno-design.md)
 
-Estado: **en implementación**. Pieza **S** de cuatro (C hecha, D dashboard en paralelo, V varios servicios fuera de este ciclo).
+Estado: **implementado** (25/10/2026), según el [plan](../plans/2026-10-25-solicitudes.md). Pieza **S** de cuatro (C hecha, D dashboard en paralelo, V varios servicios fuera de este ciclo).
 
 ## 1. Qué se quiere lograr
 

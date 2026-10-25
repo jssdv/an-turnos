@@ -91,6 +91,10 @@ Cada celda del cuadro muestra el turno. Para ver **en qué puesto** está cada p
 
 Las noches también tienen puesto si defines uno de noche (por ejemplo, «Guardia noche»). El reparto respeta los **puestos permitidos** de cada persona y evita cambiar de puesto dentro del turno salvo que la demanda lo exija. Si escribes en una celda con el puesto visible, basta el código (`T`, o `T·2`, ambos valen). Los puestos se recalculan solos con cada cambio.
 
+### Solicitudes personales
+
+Pestaña **Solicitudes**: cuando alguien pide algo («quiero el 14 libre», «prefiero tarde esa semana», «no puedo noche el 20»), regístralo con colaborador, qué pide (*día libre*, *quiere turno* o *evita turno*), fechas y prioridad (*alta* pesa mucho más que *normal*). Al generar, la app **intenta** cumplirlo, pero **no es una garantía**: la cobertura de los puestos y las reglas legales (descansos, día libre semanal, art. 165) mandan. La columna *Estado* dice si quedó cumplida, parcial o no cumplida, y por qué (tiene novedad, libre obligatorio tras noche, edición manual, cobertura o reglas…). Al terminar de generar, el aviso nombra las que no se cumplieron. Para cambiar una solicitud, bórrala y créala de nuevo.
+
 ### 4. Cuando llega una novedad tarde
 
 Regístrala en **Novedades** y usa **Generar…**:

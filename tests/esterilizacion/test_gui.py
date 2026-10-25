@@ -3,7 +3,7 @@ import sys, os, tempfile
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 from PySide6.QtWidgets import QMessageBox
-from PySide6.QtCore import Qt, QTime
+from PySide6.QtCore import QDate, Qt, QTime
 from an.esterilizacion import cambios, flujo
 from datetime import date
 P = flujo.periodo_mes(2026, 10)
@@ -42,6 +42,18 @@ from datetime import date; from an.esterilizacion.dominio import Novedad
 v.bd.guardar_novedad(Novedad(v.persona_id, "Vacaciones", date(2026,10,1), date(2026,10,2))); v.refrescar()
 v._eliminar_persona(); assert v.t_personal.rowCount() == 0 and "inactivo" in v.aviso.text(), v.aviso.text()
 v.p_inactivos.setChecked(True); assert v.t_personal.rowCount() == 1 and v.t_personal.item(0, 6).text() == "Inactivo"
+# --- solicitudes: crear, ver estado, borrar
+v._nueva_persona(); v.p_nombre.setText("Sol"); v._guardar_persona(); v.refrescar()
+assert v.t_solic.rowCount() == 0 and not v.s_turno.isEnabled()
+v.s_colab.setCurrentIndex(v.s_colab.findData(v.persona_id)); v.s_desde.setDate(QDate(2026, 10, 14)); v.s_hasta.setDate(QDate(2026, 10, 14))
+v._agregar_solicitud(); assert v.t_solic.rowCount() == 1 and v.t_solic.item(0, 6).text(), v.aviso.text()
+v.s_tipo.setCurrentIndex(v.s_tipo.findData("evitar")); assert v.s_turno.isEnabled()
+v.t_solic.selectRow(0); v._borrar_solicitud(); assert v.t_solic.rowCount() == 0
+from an.esterilizacion.dominio import Solicitud; from dataclasses import replace
+_pid = v.persona_id; _c = replace(v.ctx, solicitudes=[Solicitud(_pid, "libre", date(2026, 10, 14), date(2026, 10, 14))])
+assert v._incumplidas(_c, {(_pid, date(2026, 10, 14)): "M"}, [date(2026, 10, 14)]).startswith(" 1 solicitud(es) sin cumplir")
+assert v._incumplidas(_c, {}, [date(2026, 10, 14)]) == ""
+v.bd.c.execute("UPDATE colaborador SET activo=0 WHERE nombre='Sol'"); v.bd.c.commit(); v.refrescar()
 # --- turnos: crear, editar, eliminar
 v._nuevo_turno(); v.t_cod.setText("m7"); v.t_nom.setText("Mañana 7"); v.t_ini.setTime(QTime(7, 0)); v.t_fin.setTime(QTime(13, 0))
 v._guardar_turno(); assert "M7" in v.bd.turnos(), v.aviso.text()

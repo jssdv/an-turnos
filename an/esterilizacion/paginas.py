@@ -1,6 +1,7 @@
 """Esterilización: personal, novedades, cuadro mensual, puestos, horas y recargos (secciones del área dentro de An)."""
 import traceback
 from collections import Counter
+from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -21,10 +22,11 @@ from . import exportar
 from . import flujo
 from . import recargos
 from . import reglas
+from . import solicitudes as solic
 from . import solver
 from .demanda import franjas_de
 from .ui_puestos import TabDotacion, TabPuestos
-from .dominio import DIAS, TIPOS_COLAB, TIPOS_NOVEDAD, Colaborador, Novedad, Turno, texto_estudio
+from .dominio import DIAS, PRIORIDADES, TIPOS_COLAB, TIPOS_NOVEDAD, TIPOS_SOLICITUD, Colaborador, Novedad, Solicitud, Turno, texto_estudio
 from . import puestos as puestos_mod
 from .puestos import etiqueta, leyenda, por_persona
 
@@ -32,6 +34,17 @@ BD_RUTA = RAIZ / "turnos.db"
 MESES = flujo.MESES
 CAMBIADA = Qt.UserRole + 1  # la celda difiere del original
 ABREV = exportar.ABREV_NOVEDAD
+SOLICITUD_TEXTO = {"libre": "Día libre", "quiero": "Quiere turno", "evitar": "Evita turno"}
+
+
+def texto_estado(r):
+    """Estado de una solicitud frente al cuadro vigente, para la tabla."""
+    if r.estado == "fuera":
+        return "Fuera del periodo"
+    if r.estado == "cumplida":
+        return "Cumplida"
+    cuando = ", ".join(f"{d:%d/%m}" for d in r.dias_fallidos[:3]) + ("…" if len(r.dias_fallidos) > 3 else "")
+    return f"{r.estado.capitalize()}: {r.motivo} ({cuando})"
 
 
 
@@ -121,6 +134,7 @@ class Turnos:
         self._pestana_cuadro()
         self._pestana_personal()
         self._pestana_novedades()
+        self._pestana_solicitudes()
         self._pestana_puestos()
         self._pestana_horas()
         self._pestana_banco()
@@ -238,7 +252,7 @@ class Turnos:
         self._mostrar_selector()
         self.ctx = self.bd.contexto(self.periodo()[0].year)
         self.nombres = {p.id: p.nombre for p in self.ctx.colabs}
-        for f in (self._ver_cuadro, self._ver_personal, self._ver_novedades, self._ver_puestos, self._ver_horas,
+        for f in (self._ver_cuadro, self._ver_personal, self._ver_novedades, self._ver_solicitudes, self._ver_puestos, self._ver_horas,
                   self._ver_banco, self.tab_dotacion.refrescar, self._ver_parametros):
             f()
 
@@ -684,14 +698,16 @@ class Turnos:
         self._deshacer.clear()
         self.b_generar.setEnabled(True)
         flujo.terminar(self.bd, *self.periodo(), ctx, fechas, cuadro, modo)
+        sin_cumplir = self._incumplidas(ctx, cuadro, fechas)
         if info["faltan"]:
             dias = ", ".join(f"{d:%d/%m} {hhmm(t * 30)} (faltan {n})" for d, t, n in info["faltan"][:6])
-            self.avisar("No se pudo cubrir todo: " + dias + ". Revisa novedades y personal disponible.", "warn")
+            self.avisar("No se pudo cubrir todo: " + dias + ". Revisa novedades y personal disponible." + sin_cumplir, "warn")
         else:
             comp = info.get("ajuste") or {}
             extra = (f" Se compensó el banco de horas de {len(comp)} persona(s): " + ", ".join(
                 f"{self.nombres.get(c, c)} {h:+g} h" for c, h in list(comp.items())[:4]) + ("…" if len(comp) > 4 else ".")) if comp else ""
-            self.avisar("Cuadro generado. Cobertura completa y reglas cumplidas." + extra)
+            self.avisar("Cuadro generado. Cobertura completa y reglas cumplidas." + extra + sin_cumplir,
+                        "warn" if sin_cumplir else "info")
         self.refrescar()
 
     def _fallo(self, texto):
@@ -996,6 +1012,91 @@ class Turnos:
         if 0 <= r < len(self._novs):
             self.bd.borrar_novedad(self._novs[r].id)
             self.refrescar()
+
+    # --- solicitudes personales -----------------------------------------------------------------
+    def _pestana_solicitudes(self):
+        w = QWidget()
+        h = QHBoxLayout(w)
+        h.setContentsMargins(16, 14, 16, 16)
+        h.setSpacing(16)
+        self.t_solic = tabla(["Colaborador", "Pide", "Turno", "Desde", "Hasta", "Prioridad", "Estado", "Nota"])
+        self.t_solic.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.t_solic.setSelectionMode(QAbstractItemView.SingleSelection)
+        h.addWidget(con_vacio(self.t_solic, "Sin solicitudes registradas", "Registra lo que pide una persona («quiero el 14 libre»). "
+                                                                          "El generador intenta cumplirlo, pero cobertura y reglas legales mandan."), 3)
+        caja = QGroupBox("Nueva solicitud")
+        caja.setMinimumWidth(420)
+        f = QFormLayout(caja)
+        self.s_colab, self.s_tipo, self.s_turno, self.s_prio = QComboBox(), QComboBox(), QComboBox(), QComboBox()
+        for t, txt in SOLICITUD_TEXTO.items():
+            self.s_tipo.addItem(txt, t)
+        self.s_prio.addItems(PRIORIDADES)
+        self.s_tipo.currentIndexChanged.connect(lambda _: self.s_turno.setEnabled(self.s_tipo.currentData() != "libre"))
+        self.s_desde, self.s_hasta = QDateEdit(QDate.currentDate()), QDateEdit(QDate.currentDate())
+        for d in (self.s_desde, self.s_hasta):
+            d.setCalendarPopup(True)
+            d.setDisplayFormat("dd/MM/yyyy")
+        self.s_nota = QLineEdit()
+        self.s_nota.setPlaceholderText("Opcional")
+        for et, wd in (("Colaborador", self.s_colab), ("Pide", self.s_tipo), ("Turno", self.s_turno), ("Desde", self.s_desde),
+                       ("Hasta", self.s_hasta), ("Prioridad", self.s_prio), ("Nota", self.s_nota)):
+            f.addRow(et, wd)
+        bs = QHBoxLayout()
+        b1, b2 = QPushButton("Agregar solicitud", objectName="primario"), QPushButton("Borrar la seleccionada", objectName="peligro")
+        b1.clicked.connect(self._agregar_solicitud)
+        b2.clicked.connect(self._borrar_solicitud)
+        bs.addWidget(b1)
+        bs.addWidget(b2)
+        bs.addStretch()
+        f.addRow(bs)
+        h.addWidget(caja, 0, Qt.AlignTop)
+        self.secciones.append(("Solicitudes", w))
+
+    def _ver_solicitudes(self):
+        for cb, items in ((self.s_colab, [(p.nombre, p.id) for p in self.ctx.colabs]),
+                          (self.s_turno, [(f"{c} · {t.nombre}", c) for c, t in self.ctx.turnos.items() if t.solver])):
+            actual = cb.currentData()
+            cb.clear()
+            for txt, d in items:
+                cb.addItem(txt, d)
+            if cb.findData(actual) >= 0:
+                cb.setCurrentIndex(cb.findData(actual))
+        self.s_turno.setEnabled(self.s_tipo.currentData() != "libre")
+        self._sols = self.bd.solicitudes()
+        ctx = replace(self.ctx, solicitudes=self._sols)
+        ini, fin = self.periodo()
+        res = solic.evaluar(ctx, self.bd.asignaciones(self.clave), flujo.fechas(ini, fin), self.bd.fijos(self.clave))
+        llenar(self.t_solic, [(self.nombres.get(r.solicitud.colab_id, "—"), SOLICITUD_TEXTO[r.solicitud.tipo], r.solicitud.turno or "—",
+                             f"{r.solicitud.desde:%d/%m/%Y}", f"{r.solicitud.hasta:%d/%m/%Y}", r.solicitud.prioridad,
+                             texto_estado(r), r.solicitud.nota) for r in res])
+
+    def _agregar_solicitud(self):
+        if self.s_colab.currentData() is None:
+            return self.avisar("Primero agrega personal.", "warn")
+        d, h = self.s_desde.date().toPython(), self.s_hasta.date().toPython()
+        if h < d:
+            return self.avisar("La fecha final es anterior a la inicial.", "error")
+        tipo = self.s_tipo.currentData()
+        turno = "" if tipo == "libre" else self.s_turno.currentData()
+        self.bd.guardar_solicitud(Solicitud(self.s_colab.currentData(), tipo, d, h, turno, self.s_prio.currentText(),
+                                            self.s_nota.text()), self.v.usuario)
+        self.s_nota.clear()
+        self.avisar("Solicitud guardada. Se tiene en cuenta al generar; no es una garantía.")
+        self.refrescar()
+
+    def _borrar_solicitud(self):
+        r = self.t_solic.currentRow()
+        if 0 <= r < len(self._sols):
+            self.bd.borrar_solicitud(self._sols[r].id)
+            self.refrescar()
+
+    def _incumplidas(self, ctx, cuadro, fechas):
+        """Texto con las solicitudes que el cuadro generado no cumplió (hasta 3), o ''."""
+        malas = [r for r in solic.evaluar(ctx, cuadro, fechas) if r.estado in ("parcial", "no cumplida")]
+        if not malas:
+            return ""
+        det = ", ".join(f"{self.nombres.get(r.solicitud.colab_id, '—')} {r.dias_fallidos[0]:%d/%m} ({r.motivo})" for r in malas[:3])
+        return f" {len(malas)} solicitud(es) sin cumplir: {det}{'…' if len(malas) > 3 else ''}."
 
     # --- puestos y capacitación -----------------------------------------------------------------
     def _pestana_puestos(self):
