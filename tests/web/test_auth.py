@@ -171,6 +171,46 @@ def test_una_sesion_no_se_renueva_con_una_hora_elegida_por_quien_llama():
             c.conn.rollback()
 
 
+def test_el_intento_se_registra_antes_de_verificar_la_clave():
+    with con_usuario() as c:
+        if c is None:
+            return
+        vistos = []
+        original = auth.verificar_clave
+
+        def espia(clave, guardado):
+            vistos.append(c.execute("SELECT app_intentos(?, ?)", ("a@x.co", "7.7.7.7")).fetchone()[0])
+            return original(clave, guardado)
+
+        auth.verificar_clave = espia
+        try:
+            auth.iniciar_sesion(c, "a@x.co", CLAVE, "7.7.7.7")
+        finally:
+            auth.verificar_clave = original
+        assert vistos == [1]  # ya contaba cuando se verificó (si no, 200 peticiones en paralelo pasarían antes del bloqueo)
+        assert c.execute("SELECT app_intentos(?, ?)", ("a@x.co", "7.7.7.7")).fetchone()[0] == 0  # y un ingreso correcto lo borra
+
+
+def test_cambiar_clave_cierra_las_otras_sesiones_y_limita_intentos():
+    with con_usuario() as c:
+        if c is None:
+            return
+        t1, u = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
+        t2, _ = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
+        auth.cambiar_clave(c, u, CLAVE, "otra-clave-larga", token=t2, ip="1.1.1.1")
+        assert auth.usuario_de_token(c, t1) is None and auth.usuario_de_token(c, t2) is not None
+        for _ in range(5):
+            try:
+                auth.cambiar_clave(c, u, "equivocada", "nueva-clave-larga", ip="2.2.2.2")
+            except auth.ErrorAuth as e:
+                assert "no coincide" in str(e)
+        try:
+            auth.cambiar_clave(c, u, "otra-clave-larga", "nueva-clave-larga", ip="2.2.2.2")
+            raise AssertionError("debía estar bloqueado")
+        except auth.ErrorAuth as e:
+            assert "bloqueado" in str(e)
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):

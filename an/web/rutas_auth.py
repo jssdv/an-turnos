@@ -47,9 +47,9 @@ def salir(request: Request, response: Response, u=Depends(usuario_permitido_camb
 def cambiar_clave(datos: CambioClave, request: Request, u=Depends(usuario_permitido_cambiar)):
     try:
         with request.app.state.pool.connection() as conn:
-            auth.cambiar_clave(Conexion(conn), u, datos.actual, datos.nueva)
+            auth.cambiar_clave(Conexion(conn), u, datos.actual, datos.nueva, request.cookies.get(COOKIE), request.client.host if request.client else "?")
     except auth.ErrorAuth as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(429 if "bloqueado" in str(e) else 400, str(e))
     request.state.evento = "cambio_clave"
     return {"ok": True}
 

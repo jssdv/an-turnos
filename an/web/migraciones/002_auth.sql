@@ -89,9 +89,16 @@ BEGIN
              DELETE FROM sesion WHERE hash_token = p_hash $f$';
   EXECUTE 'CREATE FUNCTION app_hash_clave(p_usuario bigint) RETURNS text LANGUAGE sql SECURITY DEFINER ' || sp || ' AS $f$
              SELECT hash_clave FROM usuario WHERE id = p_usuario AND clinica_id = current_setting(''app.clinica'')::bigint $f$';
-  EXECUTE 'CREATE FUNCTION app_poner_clave(p_usuario bigint, p_hash text) RETURNS void LANGUAGE sql SECURITY DEFINER ' || sp || ' AS $f$
-             UPDATE usuario SET hash_clave = p_hash, debe_cambiar = false WHERE id = p_usuario AND clinica_id = current_setting(''app.clinica'')::bigint $f$';
-  -- solo la aplicación (an_app) puede ejecutarlas: por omisión PostgreSQL las deja ejecutables por PUBLIC
+  -- cambia la clave dentro de la clínica del alcance y cierra las demás sesiones del usuario (la que se conserva, si se indica, sigue viva)
+  EXECUTE 'CREATE FUNCTION app_poner_clave(p_usuario bigint, p_hash text, p_conservar text DEFAULT NULL) RETURNS void LANGUAGE plpgsql
+             SECURITY DEFINER ' || sp || ' AS $f$
+             BEGIN
+               UPDATE usuario SET hash_clave = p_hash, debe_cambiar = false
+                 WHERE id = p_usuario AND clinica_id = current_setting(''app.clinica'')::bigint;
+               IF FOUND THEN
+                 DELETE FROM sesion WHERE usuario_id = p_usuario AND (p_conservar IS NULL OR hash_token <> p_conservar);
+               END IF;
+             END $f$';
   EXECUTE format('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA %I FROM PUBLIC', current_schema());
   EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA %I TO an_app', current_schema());
 END $$;
