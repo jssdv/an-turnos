@@ -37,19 +37,19 @@ CREATE TABLE cambio_turno (
   id INTEGER PRIMARY KEY, periodo TEXT, servicio TEXT DEFAULT 'esterilizacion',
   tipo TEXT,                       -- 'permuta' | 'servicio' | 'ajuste'
   registrado_en TEXT, usuario TEXT,
-  colab_a INT, fecha_a TEXT, antes_a TEXT, despues_a TEXT,
-  colab_b INT, fecha_b TEXT, antes_b TEXT, despues_b TEXT,   -- solo permutas
+  colab_a INT, colab_b INT,        -- colab_b solo en permutas
+  celdas TEXT,                     -- JSON [[colab_id, fecha, antes, despues], ...]: sirve para mostrar y para anular un lote
   motivo TEXT, excepcion INT DEFAULT 0,
   anulado_en TEXT, anulado_por TEXT);
 ```
 
-La tabla solo crece: anular llena `anulado_en` y `anulado_por`, no borra. El parámetro `limite_permutas` (por defecto `2`) va en `PARAMETROS_BASE`.
+La tabla solo crece: anular llena `anulado_en` y `anulado_por`, no borra. El parámetro `limite_permutas` (por defecto `2`) se lee con `bd.param("limite_permutas", 2)`, sin sembrarlo.
 
 ## 4. Dominio puro: `an/esterilizacion/cambios.py`
 
 Sin Qt, en el estilo de `flujo.py`. Todas las funciones toman `bd` y el `usuario` actual.
 
-- `permuta(bd, periodo, a, fa, b, fb, motivo, usuario, excepcion=False)`: intercambia las dos celdas con `bd.set_celda` (que las marca `fijo`) y guarda la fila. Si alguien está en su límite y `excepcion` es falso, no escribe y devuelve `Aviso(personas_sobre_limite)`.
+- `permuta(bd, periodo, a, fa, b, fb, motivo, usuario, excepcion=False)`: intercambia las dos celdas con `bd.set_celda` (que las marca `fijo`) y guarda la fila. Si alguien está en su límite y `excepcion` es falso, no escribe y lanza `LimiteExcedido(ids)`. Las tres funciones de registro devuelven la lista de ids creados.
 - `servicio(bd, periodo, colab, fecha, codigo, motivo, usuario)`: motivo obligatorio. Una fila por persona afectada.
 - `ajuste(bd, periodo, celdas, motivo, usuario)`: `celdas` = `[(colab, fecha, código)]`. Una sola fila por operación; si son varias celdas (lote), el detalle va en `motivo` («Lote: 12 celdas → L»).
 - `cupo(bd, periodo, colab)` → `(usadas, límite)`. Cuenta permutas no anuladas en que la persona es A o B.
