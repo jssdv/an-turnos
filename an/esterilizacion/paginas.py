@@ -406,7 +406,7 @@ class Turnos:
         try:
             cambios.anular(self.bd, it.data(Qt.UserRole), self.v.usuario)
         except cambios.ErrorCambio as e:
-            return self.avisar(str(e), "error")
+            return self.avisar(self._texto_error(e), "error")
         flujo.recalcular(self.bd, *self.periodo(), self.ctx)
         self.avisar("Cambio anulado.")
         self._ver_cuadro()
@@ -505,9 +505,7 @@ class Turnos:
         self.pila_cuadro.setCurrentIndex(0 if hay_cuadro else 1)
         self.alertas.clear()
         self.lista_cambios.clear()
-        alertas = [a.texto for a in reglas.validar(self.ctx, self.bd.asignaciones(k), fechas, self.bd.fijos(k))] if hay_cuadro else []
-        if hay_cuadro:
-            alertas += [a.texto for a in puestos_mod.alertas_reparto(self.ctx, self.bd.asignacion_puesto(k), fechas, cat)]
+        alertas = self._textos_alertas() if hay_cuadro else []
         alertas += ["Aviso: " + a.texto for a in reglas.validar_catalogo(self.ctx.turnos)]
         difs = [f"{self.nombres.get(cid, cid)} · {f:%d/%m}: {antes} → {ahora}"
                    for cid, f, antes, ahora in self.bd.diferencias(k)] if hay_cuadro else []
@@ -522,6 +520,19 @@ class Turnos:
         estado = ("Versión original publicada" if self.b_original.isChecked()
                   else f"Copia de trabajo · {len(difs)} cambio{'s' * (len(difs) != 1)} respecto al original")
         self.l_estado.setText(estado + (" · periodo cerrado, solo lectura." if self.bd.periodo_cerrado(k) else "."))
+
+    def _textos_alertas(self):
+        """Alertas de la copia de trabajo: reglas, cobertura por cabezas y puestos que quedan sin cubrir en el reparto."""
+        k = self.clave
+        return ([a.texto for a in reglas.validar(self.ctx, self.bd.asignaciones(k), self.fechas, self.bd.fijos(k))]
+                + [a.texto for a in puestos_mod.alertas_reparto(self.ctx, self.bd.asignacion_puesto(k), self.fechas,
+                                                                self.bd.catalogo_puestos())])
+
+    def _texto_error(self, e):
+        if isinstance(e, cambios.EditadoDespues):
+            celdas = ", ".join(f"{self.nombres.get(c, c)} {f:%d/%m}" for c, f in e.celdas)
+            return f"No se puede anular: {celdas} se editó después. Anula primero los cambios posteriores."
+        return str(e)
 
     def _gente(self):
         return [p for p in self.ctx.colabs if p.en_solver]
@@ -539,6 +550,7 @@ class Turnos:
         """celdas: [(persona, fecha, código)]. Registra el cambio (permuta, servicio o ajuste), recalcula, deja deshacer
         y avisa de reglas que se rompen."""
         k, usuario = self.clave, self.v.usuario
+        antes = set(self._textos_alertas())
         nuevas = [(p.id, f, cod) for p, f, cod in celdas]
         try:
             if tipo == "permuta":
@@ -547,13 +559,13 @@ class Turnos:
             else:
                 ids = {"servicio": cambios.servicio, "ajuste": cambios.ajuste}[tipo](self.bd, k, nuevas, motivo, usuario)
         except cambios.ErrorCambio as e:
-            self.avisar(str(e), "error")
+            self.avisar(self._texto_error(e), "error")
             return self._ver_cuadro()
         self._deshacer.append(ids)
-        motivos = [f"{p.nombre} {f:%d/%m}: {m}" for p, f, cod in celdas
-                   if cod != "L" and (m := self.ctx.bloqueo(p, self.ctx.turnos[cod], f))]
         flujo.recalcular(self.bd, *self.periodo(), self.ctx)
-        self.avisar(texto + (" — ojo: " + "; ".join(motivos[:3]) + "." if motivos else ""), "warn" if motivos else "info")
+        rotas = [t for t in self._textos_alertas() if t not in antes]  # lo que rompe este cambio, no lo que ya estaba
+        self.avisar(texto + (" — ojo: " + "; ".join(rotas[:3]) + ("…" if len(rotas) > 3 else ".") if rotas else ""),
+                    "warn" if rotas else "info")
         self._ver_cuadro()
 
     def _pedir_tipo(self, opciones, texto, aviso=None):
@@ -639,8 +651,11 @@ class Turnos:
     def deshacer(self):
         if not self._deshacer or self.b_original.isChecked() or self.bd.periodo_cerrado(self.clave):
             return
-        for id_ in self._deshacer.pop():
-            cambios.anular(self.bd, id_, self.v.usuario)
+        try:
+            for id_ in self._deshacer.pop():
+                cambios.anular(self.bd, id_, self.v.usuario)
+        except cambios.ErrorCambio as e:
+            return self.avisar(self._texto_error(e), "error")
         flujo.recalcular(self.bd, *self.periodo(), self.ctx)
         self.avisar("Cambio deshecho.")
         self._ver_cuadro()

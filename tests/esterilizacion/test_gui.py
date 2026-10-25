@@ -129,6 +129,28 @@ v.deshacer()  # deshacer sobre algo ya anulado no falla ni escribe
 assert ver()[(a, d1)] == "M" and ver()[(b, d1)] == "T"
 v.s_limite.setValue(5); v._guardar_reglas(); assert v.bd.param("limite_permutas") == "5"; v.bd.set_param("limite_permutas", 2)
 v._pedir_tipo = lambda ops, texto, aviso=None: ("ajuste", "", False)
+# anular desde la pestaña no pisa una edición posterior: avisa con nombres y no cambia nada
+decide(lambda ops, aviso: ("permuta", "pedido", False)); v._mover_celda(ra, c1, rb, c1)
+v.bd.set_celda(K, a, d1, "L"); v._ver_cuadro()
+v.t_registro.selectRow(0); v.b_anular.click()
+assert "se editó después" in v.aviso.text() and v.nombres[a] in v.aviso.text() and f"{d1:%d/%m}" in v.aviso.text(), v.aviso.text()
+assert ver()[(a, d1)] == "L" and ver()[(b, d1)] == "M" and not cambios.listar(v.bd, K)[0]["anulado_en"]
+v.bd.set_celda(K, a, d1, "T"); v.t_registro.selectRow(0); v.b_anular.click()  # sin la edición, anula sin problema
+assert ver()[(a, d1)] == "M" and ver()[(b, d1)] == "T"
+v._pedir_tipo = lambda ops, texto, aviso=None: ("ajuste", "", False)
+# tras cada cambio, el aviso trae las alertas nuevas (reglas y puestos sin cubrir), no las que ya había
+v._aplicar([(v._gente()[ra], d1, "NC")], "noche"); assert "menos de 12 h" not in v.aviso.text()
+v._aplicar([(v._gente()[ra], d2, "M")], "mañana siguiente")
+assert "ojo" in v.aviso.text() and "menos de 12 h entre NC" in v.aviso.text(), v.aviso.text()
+v._aplicar([(v._gente()[ra], d2, "M")], "igual"); assert "ojo" not in v.aviso.text()  # nada nuevo: no repite lo que ya estaba
+from an.esterilizacion import puestos as pm
+from an.esterilizacion.reglas import Alerta
+estado, orig_rec, orig_rep = {"on": False}, flujo.recalcular, pm.alertas_reparto
+flujo.recalcular = lambda *a, **k: (orig_rec(*a, **k), estado.update(on=True))[0]
+pm.alertas_reparto = lambda *a, **k: [Alerta("error", d2, None, "06/10: Lavado sin cubrir 06:00–12:00 (falta 1)")] if estado["on"] else []
+v._aplicar([(v._gente()[ra], d2, "L")], "libre"); assert "Lavado sin cubrir" in v.aviso.text(), v.aviso.text()  # la alerta de puestos aparece al recalcular el reparto
+flujo.recalcular, pm.alertas_reparto = orig_rec, orig_rep
+v.deshacer(); v.deshacer(); v.deshacer(); v.deshacer(); assert ver()[(a, d1)] == "M" and ver().get((a, d2), "L") == "L"
 # puesto visible: con «Mostrar puesto» la celda dice M·n, y editarla sigue leyendo solo el código
 from an.esterilizacion import flujo
 flujo.recalcular(v.bd, *P); v.refrescar()

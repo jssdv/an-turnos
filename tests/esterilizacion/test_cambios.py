@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from an.esterilizacion import cambios, db
-from an.esterilizacion.cambios import ErrorCambio, LimiteExcedido
+from an.esterilizacion.cambios import EditadoDespues, ErrorCambio, LimiteExcedido
 
 K = "2026-10-01/2026-10-31"
 d1, d2 = date(2026, 10, 5), date(2026, 10, 6)
@@ -137,6 +137,29 @@ def test_log_en_archivo_y_tolera_fallo():
     b.ruta = "/no/existe/t.db"
     cambios.ajuste(b, K, [(1, d2, "M")], "y", u)  # no lanza
     assert len(cambios.listar(b, K)) == 2
+
+
+def test_anular_rechaza_si_se_edito_despues():
+    bd = nuevo()
+    [i] = cambios.permuta(bd, K, 1, d1, 2, d1, "", u)
+    bd.set_celda(K, 1, d1, "L")  # edición posterior a la permuta
+    with raises(EditadoDespues):
+        cambios.anular(bd, i, u)
+    assert raises.visto.celdas == [(1, d1)]
+    c = bd.asignaciones(K)
+    assert c[(1, d1)] == "L" and c[(2, d1)] == "M"  # no restauró ni la otra mitad de la permuta
+    assert cambios.listar(bd, K)[0]["anulado_en"] is None
+
+
+def test_anular_en_orden_inverso_funciona():
+    bd = nuevo()
+    [i] = cambios.permuta(bd, K, 1, d1, 2, d1, "", u)
+    [j] = cambios.ajuste(bd, K, [(1, d1, "L")], "", u)
+    with raises(EditadoDespues):
+        cambios.anular(bd, i, u)
+    assert cambios.anular(bd, j, u) is True and cambios.anular(bd, i, u) is True
+    c = bd.asignaciones(K)
+    assert c[(1, d1)] == "M" and c[(2, d1)] == "T"
 
 
 if __name__ == "__main__":
