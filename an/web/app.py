@@ -4,8 +4,10 @@ import os
 import uuid
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import conexion
 from .deps import ESCRITURA
@@ -40,7 +42,12 @@ def crear_app(pool=None):
     async def cadena(request: Request, call_next):
         id_ = uuid.uuid4().hex[:12]
         request.state.usuario = None
-        if int(request.headers.get("content-length") or 0) > LIMITE_CUERPO:
+        largo = request.headers.get("content-length")
+        if largo is not None and not largo.isdigit():
+            respuesta = JSONResponse({"detalle": "Content-Length inválido"}, 400)
+        elif largo is None and request.method in ESCRITURA and "chunked" in request.headers.get("transfer-encoding", "").lower():
+            respuesta = JSONResponse({"detalle": "Se requiere Content-Length"}, 411)
+        elif int(largo or 0) > LIMITE_CUERPO:
             respuesta = JSONResponse({"detalle": "Cuerpo demasiado grande"}, 413)
         elif request.method in ESCRITURA and request.headers.get("origin") != _origen_esperado(request):
             respuesta = JSONResponse({"detalle": "Origen no permitido"}, 403)
@@ -59,6 +66,14 @@ def crear_app(pool=None):
             except Exception:
                 log.exception("no se pudo auditar (petición %s)", id_)
         return respuesta
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http(request, exc):  # un solo formato de error: {"detalle": …}
+        return JSONResponse({"detalle": exc.detail}, exc.status_code, headers=getattr(exc, "headers", None))
+
+    @app.exception_handler(RequestValidationError)
+    async def _validacion(request, exc):  # sin devolver el cuerpo enviado (puede traer contraseñas)
+        return JSONResponse({"detalle": "Datos inválidos", "campos": [".".join(str(x) for x in e["loc"]) for e in exc.errors()]}, 422)
 
     app.include_router(rutas_auth)
     app.include_router(rutas_areas)
