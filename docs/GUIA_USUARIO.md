@@ -170,7 +170,10 @@ La sección **Analíticas** (menú lateral, después de «Historial y banco de h
 - **Cobertura por periodo:** días con **déficit** (falta gente frente a los puestos obligatorios), días con **exceso** (en algún momento hay más gente que la demanda de los puestos) y puestos obligatorios que quedan sin cubrir en el reparto.
 - **Cambios de turno:** permutas, cambios de servicio y ajustes por periodo, sin contar los anulados, y cuántas fueron con excepción al límite.
 
-Las analíticas de horas extra, recargos, equidad y banco de horas llegarán en próximas entregas.
+- **Horas extra:** por periodo, las extras diurnas y nocturnas medidas de dos formas: con la ventana de N semanas (Parámetros) y con una sola ventana de todo el periodo (mes calendario). Sirve para ver cuántas extras aparecen o desaparecen según el esquema.
+- **Recargos:** por persona, horas en domingo o festivo, horas nocturnas y **horas equivalentes** (el costo estimado en horas pagadas; An no guarda salarios, así que no hay pesos).
+- **Equidad:** noches, domingos y festivos trabajados por persona, y la diferencia entre quien más y quien menos tiene.
+- **Banco de horas:** saldo de cada persona al final del rango y, por mes, el total a favor y en deuda. Cuenta solo periodos cerrados y movimientos; lo proyectado del periodo abierto no entra.
 
 ## Preguntas frecuentes
 

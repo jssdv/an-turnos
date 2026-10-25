@@ -340,5 +340,8 @@ va.bd.guardar_novedad(Novedad(zid, "Vacaciones", date(2026, 10, 5), date(2026, 1
 va.a_desde.setDate(QDate(2026, 9, 1)); va.a_hasta.setDate(QDate(2026, 10, 1))
 assert va.t_aus.rowCount() == 1 and va.t_aus.item(0, 0).text() == "Zoe" and va.t_aus.item(0, 1).text() == "3", va.t_aus.rowCount()
 assert va.a_cifras["sim"][0].text() == "1"
+assert va.t_equ.rowCount() == 1 and va.t_ban.rowCount() == 1 and va.t_rec.rowCount() == 0  # sin cuadro no hay recargos
+va.bd.guardar_cuadro("2026-10-01/2026-10-31", {(zid, date(2026, 10, 4)): "M"}); va._ver_analiticas()
+assert va.t_rec.rowCount() == 1 and va.t_equ.item(0, 2).text() == "1" and va.t_ext.rowCount() == 1  # un domingo trabajado
 assert not va.v.grab().isNull()
 print("OK")
