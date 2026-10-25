@@ -17,7 +17,7 @@ Programar turnos del personal, calcular horas y recargos, registrar cambios de t
 Acceso con usuario y contraseña, bloqueo tras fallos, permiso por área, aislamiento por clínica en la base de datos, cifrado en tránsito, auditoría de accesos y exportes, respaldos cifrados. [pendiente: detalle final tras la Fase 8].
 
 ## 5. Ubicación y transferencia
-Servidor en [pendiente: región, ver pregunta 1 de PLAN_WEB.md §10]. Respaldos en la misma región. [pendiente: si hay transferencia internacional, país y garantías].
+Servidor en [pendiente: región; sin restricción del cliente, ver pregunta 1 de PLAN_WEB.md §10]. Respaldos en la misma región. [pendiente: si hay transferencia internacional, país y garantías].
 
 ## 6. Subencargados
 [pendiente: proveedor del servidor y de respaldos].
