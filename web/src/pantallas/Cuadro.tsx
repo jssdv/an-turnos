@@ -32,8 +32,9 @@ export function Cuadro() {
   const [recarga, setRecarga] = useState(0);
   const [foco, setFoco] = useState<Foco | null>(null);
 
+  // Al recargar (p. ej. tras generar) se conserva lo que hay en pantalla: vaciarlo desmontaría el diálogo de Generar.
+  useEffect(() => { setPeriodos(null); setDatos(null); }, [area.id]);
   useEffect(() => {
-    setPeriodos(null);
     leer<Periodo[]>(`/api/areas/${area.id}/periodos`).then(setPeriodos).catch((x) => setError(x.message));
   }, [area.id, recarga]);
 
@@ -64,13 +65,17 @@ export function Cuadro() {
     return () => { vivo = false; };
   }, [area.id, actual?.id, recarga]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pintado: de que llegan los datos a que el navegador dibuja la grilla (umbral de PLAN_WEB §8: 1 s).
+  // Pintado: de que llegan los datos a que la grilla está maquetada (umbral de PLAN_WEB §8: 1 s). Leer offsetHeight fuerza la maquetación
+  // sin depender de requestAnimationFrame, que un navegador en segundo plano retrasa; el pintado en sí se mide aparte.
   useEffect(() => {
     if (!datos) return;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    void document.body.offsetHeight;
+    performance.mark("cuadro:maquetado");
+    performance.measure("cuadro:maquetado-ms", "cuadro:datos", "cuadro:maquetado");
+    requestAnimationFrame(() => {
       performance.mark("cuadro:pintado");
       performance.measure("cuadro:pintado-ms", "cuadro:datos", "cuadro:pintado");
-    }));
+    });
   }, [datos]);
 
   const dias = useMemo(() => (actual ? diasDe(actual.clave) : []), [actual]);
