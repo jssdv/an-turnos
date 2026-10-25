@@ -11,12 +11,13 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QColorDialog, QComb
                                QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
                                QInputDialog, QLabel, QLineEdit, QListWidget, QMenu, QMessageBox, QPushButton, QSpinBox,
                                QSplitter, QStackedWidget, QStyle, QButtonGroup, QFrame, QStyledItemDelegate, QTableWidget, QTableWidgetItem, QTabWidget, QTimeEdit,
-                               QToolButton, QVBoxLayout, QWidget)
+                               QScrollArea, QToolButton, QVBoxLayout, QWidget)
 
 from ..nucleo import RAIZ
+from ..nucleo.graficos import Barras, Linea
 from ..nucleo.tema import C
 from ..nucleo.widgets import abrir, con_vacio, hhmm, llenar, ocupado, signo, sin_seleccion, tabla, texto_sobre
-from . import cambios
+from . import analitica, cambios
 from . import db
 from . import exportar
 from . import flujo
@@ -138,6 +139,7 @@ class Turnos:
         self._pestana_puestos()
         self._pestana_horas()
         self._pestana_banco()
+        self._pestana_analiticas()
         self.tab_dotacion = TabDotacion(self)
         self.secciones.append(("Dotación", self.tab_dotacion))
         self._pestana_parametros()
@@ -253,7 +255,7 @@ class Turnos:
         self.ctx = self.bd.contexto(self.periodo()[0].year)
         self.nombres = {p.id: p.nombre for p in self.ctx.colabs}
         for f in (self._ver_cuadro, self._ver_personal, self._ver_novedades, self._ver_solicitudes, self._ver_puestos, self._ver_horas,
-                  self._ver_banco, self.tab_dotacion.refrescar, self._ver_parametros):
+                  self._ver_banco, self._ver_analiticas, self.tab_dotacion.refrescar, self._ver_parametros):
             f()
 
     # --- cuadro ---------------------------------------------------------------------------------
@@ -1167,6 +1169,142 @@ class Turnos:
             f"{recargos.tarifa(tar, 'noche_inicio', f0) // 60}:00. Cifras de apoyo: confirma con RR. HH./jurídico.")
 
     # --- historial y banco de horas -------------------------------------------------------------
+    # --- analíticas (solo lectura) --------------------------------------------------------------
+    def _pestana_analiticas(self):
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(16, 14, 16, 16)
+        v.setSpacing(10)
+        v.addWidget(QLabel("Analíticas", objectName="seccion"))
+        barra = QHBoxLayout()
+        self.a_desde, self.a_hasta = QDateEdit(), QDateEdit()
+        for e in (self.a_desde, self.a_hasta):
+            e.setDisplayFormat("MM/yyyy")
+            e.setCalendarPopup(True)
+            e.dateChanged.connect(lambda _: self._ver_analiticas(True))
+        barra.addWidget(QLabel("Desde", objectName="campo"))
+        barra.addWidget(self.a_desde)
+        barra.addWidget(QLabel("Hasta", objectName="campo"))
+        barra.addWidget(self.a_hasta)
+        barra.addStretch(1)
+        v.addLayout(barra)
+        self.a_cifras = {}
+        fila = QHBoxLayout()
+        for clave, titulo in (("aus", "Ausentismo"), ("sim", "Máx. ausentes a la vez"), ("def", "Días con déficit"),
+                              ("cam", "Cambios de turno")):
+            f = QFrame(objectName="tarjeta")
+            lv = QVBoxLayout(f)
+            lv.addWidget(QLabel(titulo, objectName="muted"))
+            cifra, detalle = QLabel("—", objectName="cifra"), QLabel("", objectName="detalle")
+            lv.addWidget(cifra)
+            lv.addWidget(detalle)
+            self.a_cifras[clave] = (cifra, detalle)
+            fila.addWidget(f)
+        v.addLayout(fila)
+        cuerpo = QWidget()
+        cv = QVBoxLayout(cuerpo)
+        self.a_graf = {"mes": Barras(apilado=True), "dia": Linea(), "cob": Barras(), "cam": Barras(apilado=True),
+                       "ext": Barras(), "rec": Barras(horizontal=True, apilado=True), "equ": Barras(horizontal=True),
+                       "ban": Barras()}
+        self.t_aus = tabla(["Colaborador", "Total (días)", *TIPOS_NOVEDAD])
+        self.t_cob = tabla(["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir"])
+        self.t_cam = tabla(["Periodo", "Permutas", "Cambios de servicio", "Ajustes", "Excepciones"])
+        self.t_ext = tabla(["Periodo", "Ventana (semanas)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (N sem.)", "Nocturnas (N sem.)"])
+        self.t_rec = tabla(["Colaborador", "Dom/fest (h)", "Nocturnas (h)", "Horas equivalentes"])
+        self.t_equ = tabla(["Colaborador", "Noches", "Domingos", "Festivos"])
+        self.t_ban = tabla(["Colaborador", "Saldo (h)"])
+        self.l_equ = QLabel("", objectName="muted")
+        for titulo, g, t, ayuda in (
+                ("Ausentismo por mes (días)", "mes", self.t_aus, "Días de vacaciones, incapacidad, licencia y libres solicitados."),
+                ("Personas ausentes por día", "dia", None, "Los días con ausencias y faltantes obligatorios son los de cobertura en riesgo."),
+                ("Cobertura por periodo (días)", "cob", self.t_cob, "Déficit: falta gente frente a los puestos obligatorios. Exceso: hay más gente que la demanda."),
+                ("Cambios de turno por periodo", "cam", self.t_cam, "Sin contar los anulados."),
+                ("Horas extra: mes calendario frente a N semanas", "ext", self.t_ext,
+                 "Mismas horas trabajadas, dos formas de medir las extras: una ventana de N semanas (Parámetros) o todo el periodo."),
+                ("Recargos por persona (horas)", "rec", self.t_rec,
+                 "Domingos y festivos junto con nocturnas. «Horas equivalentes» es el costo estimado en horas pagadas (no hay salarios)."),
+                ("Equidad: noches, domingos y festivos", "equ", self.t_equ,
+                 "Turnos trabajados por persona. Cuanto más parejas las barras, más justo el reparto."),
+                ("Banco de horas: saldos a favor y en deuda por mes", "ban", self.t_ban,
+                 "Solo periodos cerrados y movimientos; no incluye lo proyectado del periodo abierto.")):
+            p = QFrame(objectName="panel")
+            pv = QVBoxLayout(p)
+            pv.addWidget(QLabel(titulo, objectName="panel_t"))
+            pv.addWidget(QLabel(ayuda, objectName="muted"))
+            pv.addWidget(self.a_graf[g])
+            if t is not None:
+                t.setMinimumHeight(140)
+                pv.addWidget(t)
+            if g == "equ":
+                pv.addWidget(self.l_equ)
+            cv.addWidget(p)
+        self.a_riesgo = QLabel("", objectName="muted")
+        self.a_riesgo.setWordWrap(True)
+        cv.addWidget(self.a_riesgo)
+        sc = QScrollArea()
+        sc.setWidgetResizable(True)
+        sc.setFrameShape(QFrame.NoFrame)
+        sc.setWidget(cuerpo)
+        v.addWidget(sc, 1)
+        self._a_init = False
+        self.secciones.append(("Analíticas", w))
+
+    def _ver_analiticas(self, manual=False):
+        if not self._a_init:  # primera vez: los 6 meses que terminan en el mes en pantalla
+            fin = self.periodo()[0].replace(day=1)
+            m = fin.year * 12 + fin.month - 6
+            ini = date(m // 12, m % 12 + 1, 1)
+            self._a_init = True
+            for e, d in ((self.a_desde, ini), (self.a_hasta, fin)):
+                e.blockSignals(True)
+                e.setDate(QDate(d.year, d.month, 1))
+                e.blockSignals(False)
+        d, h = self.a_desde.date().toPython(), self.a_hasta.date().toPython()
+        if d > h:
+            d, h = h, d
+        ini, fin = d.replace(day=1), flujo.periodo_mes(h.year, h.month)[1]
+        with ocupado():
+            aus, sim = analitica.ausentismo(self.bd, ini, fin), analitica.simultaneos(self.bd, ini, fin)
+            cob, cam = analitica.cobertura(self.bd, ini, fin), analitica.cambios_resumen(self.bd, ini, fin)
+            ext, rec = analitica.horas_extra(self.bd, ini, fin), analitica.recargos_resumen(self.bd, ini, fin)
+            equ, ban = analitica.equidad(self.bd, ini, fin), analitica.banco(self.bd, ini, fin)
+        c = self.a_cifras
+        c["aus"][0].setText(f"{aus['pct']:.1f} %")
+        c["aus"][1].setText(f"{sum(aus['por_tipo'].values())} días de ausencia")
+        c["sim"][0].setText(str(sim["maximo"]))
+        c["sim"][1].setText(f"{sim['fecha_maximo']:%d/%m/%Y}" if sim["fecha_maximo"] else "Sin ausencias")
+        c["def"][0].setText(str(sum(r["dias_deficit"] for r in cob)))
+        c["def"][1].setText(f"{len(sim['dias_riesgo'])} con ausentes (en riesgo)")
+        c["cam"][0].setText(str(sum(r["permuta"] + r["servicio"] + r["ajuste"] for r in cam.values())))
+        c["cam"][1].setText(f"{sum(r['excepciones'] for r in cam.values())} con excepción")
+        g = self.a_graf
+        g["mes"].poner([(m[5:] + "/" + m[2:4], v) for m, v in aus["por_mes"].items()])
+        g["dia"].poner([(f"{f:%d/%m}", n) for f, n in sim["serie"]])
+        etq = lambda k: flujo.etiqueta(*flujo.desde_clave(k))
+        g["cob"].poner([(etq(r["periodo"]), {"Déficit": r["dias_deficit"], "Exceso": r["dias_exceso"]}) for r in cob])
+        g["cam"].poner([(etq(k), {"Permutas": r["permuta"], "Servicio": r["servicio"], "Ajustes": r["ajuste"]})
+                        for k, r in cam.items()])
+        llenar(self.t_aus, [(n, sum(t.values()), *(t.get(x, 0) for x in TIPOS_NOVEDAD))
+                            for n, t in sorted(aus["por_persona"].items())])
+        llenar(self.t_cob, [(etq(r["periodo"]), r["dias_deficit"], r["dias_exceso"], r["puestos_sin_cubrir"]) for r in cob])
+        llenar(self.t_cam, [(etq(k), r["permuta"], r["servicio"], r["ajuste"], r["excepciones"]) for k, r in cam.items()])
+        g["ext"].poner([(etq(r["periodo"]), {"Diurnas (mes)": r["mes"]["diurna"], "Nocturnas (mes)": r["mes"]["nocturna"],
+                                              "Diurnas (N sem.)": r["semanas"]["diurna"], "Nocturnas (N sem.)": r["semanas"]["nocturna"]})
+                        for r in ext])
+        llenar(self.t_ext, [(etq(r["periodo"]), r["ventana"], r["mes"]["diurna"], r["mes"]["nocturna"], r["semanas"]["diurna"],
+                             r["semanas"]["nocturna"]) for r in ext])
+        g["rec"].poner([(n, {"Dom/fest": r["festivo"], "Nocturnas": r["nocturna"]}) for n, r in rec.items()])
+        llenar(self.t_rec, [(n, r["festivo"], r["nocturna"], r["equivalentes"]) for n, r in sorted(rec.items())])
+        g["equ"].poner([(n, o) for n, o in equ["por_persona"].items()])
+        llenar(self.t_equ, [(n, o["noches"], o["domingos"], o["festivos"]) for n, o in sorted(equ["por_persona"].items())])
+        d = equ["dispersion"]
+        self.l_equ.setText(f"Diferencia entre quien más y quien menos tiene: {d['noches']} noches, {d['domingos']} domingos, {d['festivos']} festivos.")
+        for k, n in (("rec", len(rec)), ("equ", len(equ["por_persona"]))):
+            g[k].setMinimumHeight(max(180, 28 * n + 30))
+        g["ban"].poner([(m, {"A favor": f, "En deuda": dd}) for m, f, dd in ban["serie"]])
+        llenar(self.t_ban, [(n, v) for n, v in sorted(ban["saldos"].items())])
+        self.a_riesgo.setText("Días en riesgo: " + ", ".join(f"{f:%d/%m}" for f in sim["dias_riesgo"]) if sim["dias_riesgo"] else "")
+
     def _pestana_banco(self):
         self.sub_banco = QTabWidget()
         w = QWidget()
