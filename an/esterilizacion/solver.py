@@ -5,6 +5,7 @@ from datetime import timedelta
 from ortools.sat.python import cp_model
 
 from . import demanda as dem
+from .solicitudes import W_SOL, malo
 
 from .dominio import DESCANSO_MIN
 
@@ -268,6 +269,11 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
             exceso = m.NewIntVar(0, 1000, "")  # la diferencia hasta 2 pesa normal; lo que pase de 2 pesa el triple
             m.Add(exceso >= mx - mn - 2)
             obj += [W_EQUIDAD * (mx - mn), 3 * W_EQUIDAD * exceso]
+
+    for s in ctx.solicitudes:  # deseos blandos: cuestan, nunca prohíben
+        for d in fechas:
+            if s.desde <= d <= s.hasta:
+                obj += [W_SOL[s.prioridad] * v for t, v in por_pd.get((s.colab_id, d), ()) if malo(s, t)]
 
     m.Minimize(sum(obj))
     sol = cp_model.CpSolver()
