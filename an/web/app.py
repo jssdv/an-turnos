@@ -13,6 +13,7 @@ from . import conexion
 from .deps import ESCRITURA
 from .rutas_areas import router as rutas_areas
 from .rutas_auth import router as rutas_auth
+from .rutas_trabajos import router as rutas_trabajos
 
 LIMITE_CUERPO = 1_000_000
 CABECERAS = {"Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff",
@@ -77,4 +78,5 @@ def crear_app(pool=None):
 
     app.include_router(rutas_auth)
     app.include_router(rutas_areas)
+    app.include_router(rutas_trabajos)
     return app
