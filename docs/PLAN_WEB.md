@@ -10,7 +10,7 @@
 
 - [x] **Fase 0** — Decisiones y cimientos · [plan](superpowers/plans/2026-10-25-web-fase-0.md)
 - [x] **Fase 1** — API sobre el núcleo + pruebas · [plan](superpowers/plans/2026-10-26-web-fase-1.md)
-- [ ] **Fase 2** — Migración de `turnos.db` · plan pendiente
+- [x] **Fase 2** — Migración de `turnos.db` · [plan](superpowers/plans/2026-10-26-web-fase-2.md)
 - [ ] **Fase 3** — Trabajador del solver · plan pendiente
 - [ ] **Fase 4** — Planilla piloto en React · plan pendiente
 - [ ] **Fase 5** — Edición con revisiones y auditoría · plan pendiente
@@ -185,14 +185,14 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 2 — Migración de `turnos.db` con verificación de cifras
 - **Objetivo:** pasar una base SQLite existente a un área de una clínica sin perder ni alterar nada.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-26-web-fase-2.md](superpowers/plans/2026-10-26-web-fase-2.md)
 - **Entregable:**
-  - [ ] `python -m an.web.migrar turnos.db --clinica N --area M`: lee con `BD` sobre SQLite, escribe tabla a tabla en una transacción, crea `periodo` desde las claves de `asignacion` y `periodo_estado`
-  - [ ] Se niega si el área ya tiene datos
-  - [ ] Verificación en ambos lados con código de salida ≠ 0 si algo difiere: filas por tabla; celdas por turno por periodo y versión; `flujo.resumen_horas` por persona; `analitica.recargos_resumen`, `equidad` y `banco`; `flujo.estado_banco`; número de alertas de `reglas.validar`; `cambio_turno` y `solicitud` por periodo
+  - [x] `python -m an.web.migrar turnos.db --clinica N --area M`: lee con `BD` sobre SQLite, escribe tabla a tabla en una transacción, crea `periodo` desde las claves de `asignacion` y `periodo_estado`
+  - [x] Se niega si el área ya tiene datos
+  - [x] Verificación en ambos lados con código de salida ≠ 0 si algo difiere: filas por tabla; celdas por turno por periodo y versión; `flujo.resumen_horas` por persona; `analitica.recargos_resumen`, `equidad` y `banco`; `flujo.estado_banco`; número de alertas de `reglas.validar`; `cambio_turno` y `solicitud` por periodo
 - **Aceptación:**
-  - [ ] Probado con el `turnos.db` actual
-  - [ ] Probado con una base sintética de 3 meses
+  - [x] Probado con el `turnos.db` actual
+  - [x] Probado con una base sintética de 3 meses
 - **Riesgo:** datos antiguos con claves `AAAA-MM` o columnas nulas → la migración v2–v7 de SQLite se aplica primero abriendo con `BD` (ya migra sola).
 
 ### Fase 3 — Trabajador del solver con progreso y cancelación
