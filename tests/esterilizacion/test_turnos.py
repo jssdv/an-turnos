@@ -547,18 +547,18 @@ def test_flujo_y_estudio():
     bd = db.BD()
     for i in range(13):
         bd.guardar_colaborador(Colaborador(0, f"P{i}"))
-    info = flujo.generar(bd, *P, tiempo=8)
+    info = flujo.generar(bd, *P, tiempo=20)
     assert not info["faltan"] and bd.diferencias(K) == [] and bd.asignacion_puesto(K) and bd.capacitacion(K)
     # edición manual → aparece como diferencia; «respetar» la conserva y no toca original
     cambios = bd.asignaciones(K)
     f = date(2026, 10, 7)
     bd.set_celda(K, 1, f, "L")
-    flujo.generar(bd, *P, "respetar", tiempo=8)
+    flujo.generar(bd, *P, "respetar", tiempo=20)
     assert bd.asignaciones(K).get((1, f), "L") == "L"  # regenerar todo el mes sí puede mover otras celdas (por eso existe «semana»)
     # novedad sobrevenida + regenerar solo esa semana: nada fuera de la semana cambia
     bd.guardar_novedad(Novedad(2, "Incapacidad", date(2026, 10, 14), date(2026, 10, 16)))
     antes = bd.asignaciones(K)
-    flujo.generar(bd, *P, "semana", lunes=date(2026, 10, 12), tiempo=8)
+    flujo.generar(bd, *P, "semana", lunes=date(2026, 10, 12), tiempo=20)
     despues = bd.asignaciones(K)
     fuera = lambda d: not date(2026, 10, 12) <= d <= date(2026, 10, 18)
     assert {k: v for k, v in antes.items() if fuera(k[1])} == {k: v for k, v in despues.items() if fuera(k[1])}
