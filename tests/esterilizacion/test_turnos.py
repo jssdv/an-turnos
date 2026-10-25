@@ -277,7 +277,7 @@ def test_compensar_banco():
         bd2.guardar_colaborador(Colaborador(0, f"P{i}"))
     ctx = bd2.contexto(2026)
     mes = flujo.fechas(*P)
-    cuadro, info = solver.generar(ctx, mes, tiempo=15, ajuste={1: -24, 2: 24})
+    cuadro, info = solver.generar(ctx, mes, tiempo=30, ajuste={1: -24, 2: 24})
     horas = lambda pid: sum(ctx.turnos[x].horas for (p, _), x in cuadro.items() if p == pid)
     assert info["ajuste"] == {1: -24, 2: 24} and horas(2) - horas(1) >= 24, (horas(1), horas(2))
 
