@@ -2,7 +2,7 @@
 import json
 import os
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from .demanda import cobertura_derivada, franjas_de
 from .dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Solicitud, Turno, festivos,
@@ -488,7 +488,7 @@ class BD:
     def cerrar_periodo(self, k, filas):
         """Congela las horas del periodo. filas: [(colab_id, contratadas, trabajadas)]."""
         self.c.execute("INSERT INTO periodo_estado VALUES (?,?) " + self._upsert("periodo_estado"),  # sql-ok: partes constantes
-                       (k, datetime.now().isoformat(timespec="seconds")))
+                       (k, datetime.now(timezone.utc).isoformat(timespec="seconds")))
         self.c.execute("DELETE FROM cierre WHERE periodo=?", (k,))
         self.c.executemany("INSERT INTO cierre VALUES (?,?,?,?)", [(k, c, a, b) for c, a, b in filas])
         self.c.commit()
