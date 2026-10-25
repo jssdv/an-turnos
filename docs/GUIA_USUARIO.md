@@ -161,6 +161,17 @@ La verificación aplica el margen sobre el mínimo entero, así que puede dar un
 
 Si el archivo ya existe, guarda `v2`, `v3`… y no sobrescribe nada.
 
+### 11. Analíticas
+
+La sección **Analíticas** (menú lateral, después de «Historial y banco de horas») resume varios meses de un vistazo y **no modifica nada**. Arriba eliges el mes inicial y el final (por defecto, los últimos 6 meses hasta el periodo en pantalla).
+
+- **Ausentismo:** días de vacaciones, incapacidad, licencia y libres solicitados por mes y por persona, y el porcentaje sobre los días-persona del rango. No cuenta a refuerzos ni a personas inactivas.
+- **Personas ausentes por día:** cuántas personas tienen novedad cada día; el punto rojo marca el máximo. Los días con ausentes **y** faltantes obligatorios aparecen como «Días en riesgo».
+- **Cobertura por periodo:** días con **déficit** (falta gente frente a los puestos obligatorios), días con **exceso** (en algún momento hay más gente que la demanda de los puestos) y puestos obligatorios que quedan sin cubrir en el reparto.
+- **Cambios de turno:** permutas, cambios de servicio y ajustes por periodo, sin contar los anulados, y cuántas fueron con excepción al límite.
+
+Las analíticas de horas extra, recargos, equidad y banco de horas llegarán en próximas entregas.
+
 ## Preguntas frecuentes
 
 **¿Por qué una celda no deja cambiar?** Los días de novedad (VAC, INC…), las filas de totales y la vista *Original* son de solo lectura; arrastrar sobre ellas avisa.
@@ -174,14 +185,3 @@ Si el archivo ya existe, guarda `v2`, `v3`… y no sobrescribe nada.
 **Cambié un horario de turno y salieron alertas.** Es lo esperado: el cuadro existente se revalida con los horarios nuevos. Regenera el mes o la semana.
 
 **¿Qué hago si algo falla?** El detalle queda en `errores.log`, junto a la app. Envíalo a quien mantiene An~.
-
-## Analíticas
-
-La sección **Analíticas** (menú lateral, después de «Historial y banco de horas») resume varios meses de un vistazo y **no modifica nada**. Arriba eliges el mes inicial y el final (por defecto, los últimos 6 meses hasta el periodo en pantalla).
-
-- **Ausentismo:** días de vacaciones, incapacidad, licencia y libres solicitados por mes y por persona, y el porcentaje sobre los días-persona del rango. No cuenta a refuerzos ni a personas inactivas.
-- **Personas ausentes por día:** cuántas personas tienen novedad cada día; el punto rojo marca el máximo. Los días con ausentes **y** faltantes obligatorios aparecen como «Días en riesgo».
-- **Cobertura por periodo:** días con **déficit** (falta gente frente a los puestos obligatorios), días con **exceso** (en algún momento hay más gente que la demanda de los puestos) y puestos obligatorios que quedan sin cubrir en el reparto.
-- **Cambios de turno:** permutas, cambios de servicio y ajustes por periodo, sin contar los anulados, y cuántas fueron con excepción al límite.
-
-Las analíticas de horas extra, recargos, equidad y banco de horas llegarán en próximas entregas.
