@@ -74,20 +74,24 @@ BEGIN
              DELETE FROM intento_login WHERE correo = lower(p_correo) AND ip = p_ip $f$';
   EXECUTE 'CREATE FUNCTION app_crear_sesion(p_hash text, p_usuario bigint) RETURNS void LANGUAGE sql SECURITY DEFINER ' || sp || ' AS $f$
              INSERT INTO sesion (hash_token, usuario_id) VALUES (p_hash, p_usuario) $f$';
-  -- devuelve el usuario de la sesión si no venció (35 min sin uso o 12 h desde que se creó) y le renueva `ultima`
-  EXECUTE 'CREATE FUNCTION app_sesion(p_hash text, p_ahora timestamptz) RETURNS TABLE (id bigint, clinica_id bigint, correo text, nombre text,
+  -- devuelve el usuario de la sesión si no venció (35 min sin uso o 12 h desde que se creó) y le renueva `ultima`; la hora es la del servidor
+  EXECUTE 'CREATE FUNCTION app_sesion(p_hash text) RETURNS TABLE (id bigint, clinica_id bigint, correo text, nombre text,
              es_admin boolean, debe_cambiar boolean) LANGUAGE plpgsql SECURITY DEFINER ' || sp || ' AS $f$
+             DECLARE v_ahora timestamptz := clock_timestamp();
              BEGIN
-               UPDATE sesion s SET ultima = p_ahora WHERE s.hash_token = p_hash
-                 AND p_ahora - s.ultima < interval ''35 minutes'' AND p_ahora - s.creada < interval ''12 hours''
+               UPDATE sesion s SET ultima = v_ahora WHERE s.hash_token = p_hash
+                 AND v_ahora - s.ultima < interval ''35 minutes'' AND v_ahora - s.creada < interval ''12 hours''
                  AND EXISTS (SELECT 1 FROM usuario u WHERE u.id = s.usuario_id AND u.activo);
                RETURN QUERY SELECT u.id, u.clinica_id, u.correo, u.nombre, u.es_admin, u.debe_cambiar
-                 FROM sesion s JOIN usuario u ON u.id = s.usuario_id WHERE s.hash_token = p_hash AND s.ultima = p_ahora;
+                 FROM sesion s JOIN usuario u ON u.id = s.usuario_id WHERE s.hash_token = p_hash AND s.ultima = v_ahora;
              END $f$';
   EXECUTE 'CREATE FUNCTION app_cerrar_sesion(p_hash text) RETURNS void LANGUAGE sql SECURITY DEFINER ' || sp || ' AS $f$
              DELETE FROM sesion WHERE hash_token = p_hash $f$';
   EXECUTE 'CREATE FUNCTION app_hash_clave(p_usuario bigint) RETURNS text LANGUAGE sql SECURITY DEFINER ' || sp || ' AS $f$
-             SELECT hash_clave FROM usuario WHERE id = p_usuario $f$';
+             SELECT hash_clave FROM usuario WHERE id = p_usuario AND clinica_id = current_setting(''app.clinica'')::bigint $f$';
   EXECUTE 'CREATE FUNCTION app_poner_clave(p_usuario bigint, p_hash text) RETURNS void LANGUAGE sql SECURITY DEFINER ' || sp || ' AS $f$
-             UPDATE usuario SET hash_clave = p_hash, debe_cambiar = false WHERE id = p_usuario $f$';
+             UPDATE usuario SET hash_clave = p_hash, debe_cambiar = false WHERE id = p_usuario AND clinica_id = current_setting(''app.clinica'')::bigint $f$';
+  -- solo la aplicación (an_app) puede ejecutarlas: por omisión PostgreSQL las deja ejecutables por PUBLIC
+  EXECUTE format('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA %I FROM PUBLIC', current_schema());
+  EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA %I TO an_app', current_schema());
 END $$;
