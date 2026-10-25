@@ -2,7 +2,7 @@
 
 [← Volver al inicio](../../../README.md) · [Visión](../../VISION.md) · [Arquitectura](../../ARQUITECTURA.md) · [Hoja de ruta](../../HOJA_DE_RUTA.md)
 
-Estado: **diseño aprobado** (25/10/2026), pendiente de plan. Primera de cuatro piezas: **C** (este documento), **S** (solicitudes personales como deseo para el solver), **D** (dashboard) y **V** (varios servicios, fuera de este ciclo).
+Estado: **implementado** (25/10/2026), según el [plan](../plans/2026-10-25-cambios-turno.md). Primera de cuatro piezas: **C** (este documento), **S** (solicitudes personales como deseo para el solver), **D** (dashboard) y **V** (varios servicios, fuera de este ciclo).
 
 ## 1. Qué se quiere lograr
 

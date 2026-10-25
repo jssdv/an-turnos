@@ -20,7 +20,7 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación y e
 | Excel del banco | Exportar saldos y movimientos para RR. HH. | Hoy se ve en pantalla |
 | Interfaz más ágil | Aviso anticipado de subcobertura, rehacer (Ctrl+Y), mover un turno a una celda libre sin intercambiar, vista por semana | Arrastrar, lote, deshacer y estudio ya están; ver [inspiración](ARQUITECTURA.md#interfaz-y-tecnología) |
 | Importar el Excel actual | Cargar personal y ciclos desde `TURNOS ESTERILIZACION*.xlsx` | Evita digitar a mano la primera vez |
-| Cambios y solicitudes | Permutas entre colaboradores con aprobación y registro (quién, cuándo, por qué) | Hoy solo hay edición manual |
+| Solicitudes | Que la coordinación registre «quiero este turno» y el solver lo tome como deseo | Los cambios y permutas ya se registran; falta esta pieza |
 | Pausas en cobertura | Que el solver reserve relevos de almuerzo por puesto | Hoy solo se asignan grupos de pausa |
 | Refuerzo y practicantes | Modelar su horario fijo y que cubran ropa | Hoy quedan fuera del solver |
 | Ventana entre periodos | Que la ventana del art. 165 continúe de un periodo al siguiente | Hoy se reinicia en cada periodo |
@@ -31,6 +31,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación y e
 | Servidor y accesos | Cada colaborador consulta su horario | Implica base compartida y autenticación; fuera de alcance por ahora |
 
 ## Hecho recientemente
+
+Cambios de turno registrados: permutas con límite por persona y periodo, cambios por necesidad del servicio y ajustes, con auditoría y anulación (diseño: [spec](superpowers/specs/2026-10-25-cambios-turno-design.md), plan: [plan](superpowers/plans/2026-10-25-cambios-turno.md)).
 
 Puestos editables con demanda por tramos, cobertura derivada, reparto por tramo con puestos permitidos y calculadora de dotación (diseño: [spec](superpowers/specs/2026-10-21-puestos-dotacion-design.md), plan: [plan](superpowers/plans/2026-10-21-puestos-dotacion.md)).
 
