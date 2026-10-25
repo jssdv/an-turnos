@@ -50,18 +50,23 @@ def _hash_token(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _contar_intento(c, clave, ip):
+    """Registra el intento ANTES de verificar y dice si ya pasó el límite: así las peticiones en paralelo no se cuelan antes del bloqueo."""
+    c.execute("SELECT app_registrar_intento(?, ?)", (clave, ip))
+    c.commit()
+    return c.execute("SELECT app_intentos(?, ?)", (clave, ip)).fetchone()[0] > MAX_FALLOS
+
+
 def iniciar_sesion(c, correo, clave, ip):
     """(token en claro, Usuario). Lanza ErrorAuth("credenciales inválidas") o ErrorAuth("bloqueado")."""
     global _FALSO
     correo = correo.strip().lower()
-    if c.execute("SELECT app_intentos(?, ?)", (correo, ip)).fetchone()[0] >= MAX_FALLOS:
+    if _contar_intento(c, correo, ip):
         raise ErrorAuth("bloqueado: demasiados intentos; espera 15 minutos")
     u = c.execute("SELECT * FROM app_buscar_usuario(?)", (correo,)).fetchone()
     if u is None and _FALSO is None:
         _FALSO = hash_clave(secrets.token_hex(8))
     if not verificar_clave(clave, u["hash_clave"] if u else _FALSO) or u is None or not u["activo"]:
-        c.execute("SELECT app_registrar_intento(?, ?)", (correo, ip))
-        c.commit()
         raise ErrorAuth("credenciales inválidas")
     token = secrets.token_urlsafe(32)
     c.execute("SELECT app_limpiar_intentos(?, ?)", (correo, ip))
@@ -82,13 +87,18 @@ def cerrar_sesion(c, token):
     c.commit()
 
 
-def cambiar_clave(c, usuario, actual, nueva):
-    """Cambia la clave de `usuario` (un Usuario). El alcance de la transacción se fija a su clínica: las funciones lo exigen."""
-    usuario_id = usuario.id
+def cambiar_clave(c, usuario, actual, nueva, token=None, ip="?"):
+    """Cambia la clave de `usuario` (un Usuario) y cierra sus demás sesiones (se conserva la de `token`). Las pruebas fallidas de la
+    clave actual cuentan como intentos (mismo bloqueo que el ingreso). El alcance se fija a su clínica: las funciones SQL lo exigen."""
+    clave_intento = f"clave:{usuario.id}"
+    if _contar_intento(c, clave_intento, ip):
+        raise ErrorAuth("bloqueado: demasiados intentos; espera 15 minutos")
     c.execute("SELECT set_config('app.clinica', ?, true)", (str(usuario.clinica_id),))
-    if not verificar_clave(actual, c.execute("SELECT app_hash_clave(?)", (usuario_id,)).fetchone()[0] or ""):
+    if not verificar_clave(actual, c.execute("SELECT app_hash_clave(?)", (usuario.id,)).fetchone()[0] or ""):
+        c.commit()
         raise ErrorAuth("la contraseña actual no coincide")
     if len(nueva) < MIN_CLAVE:
         raise ErrorAuth(f"la contraseña nueva debe tener al menos {MIN_CLAVE} caracteres")
-    c.execute("SELECT app_poner_clave(?, ?)", (usuario_id, hash_clave(nueva)))
+    c.execute("SELECT app_limpiar_intentos(?, ?)", (clave_intento, ip))
+    c.execute("SELECT app_poner_clave(?, ?, ?)", (usuario.id, hash_clave(nueva), _hash_token(token) if token else None))
     c.commit()
