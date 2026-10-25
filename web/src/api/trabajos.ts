@@ -1,5 +1,5 @@
 /** Generar un periodo: contrato de la Fase 3 (POST …/generar con If-Match, GET /api/trabajos/{id}, POST …/cancelar).
- *  Las rutas reales las hace la Fase 3; con VITE_TRABAJOS_SIMULADOS=1 se usa una simulación en memoria. */
+ *  Son las rutas reales; con VITE_TRABAJOS_SIMULADOS=1 se usa una simulación en memoria (para probar la pantalla sin trabajador). */
 import { pedir } from "./cliente";
 import type { PedidoGenerar, Trabajo } from "./tipos";
 
@@ -27,7 +27,7 @@ function estadoSimulado(id: number): Trabajo {
   const base = { id, resultado: null, error: null };
   if (s.cancelado) return { ...base, estado: "cancelado", progreso: null };
   const progreso = { segundos: Math.round(seg * 10) / 10, limite: LIMITE_S, soluciones: Math.floor(seg / 2) + (seg > 1 ? 1 : 0), objetivo: seg > 1 ? Math.round(9000 - seg * 500) : null };
-  if (seg >= LIMITE_S) return { ...base, estado: "listo", progreso, resultado: { faltantes: 0, solicitudes_no_cumplidas: [] } };
+  if (seg >= LIMITE_S) return { ...base, estado: "listo", progreso, resultado: { estado: "OPTIMAL", objetivo: progreso.objetivo, solicitudes: [], faltan: [] } };
   return { ...base, estado: seg < 0.8 ? "en_cola" : "corriendo", progreso };
 }
 

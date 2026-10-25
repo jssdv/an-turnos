@@ -33,7 +33,8 @@ export async function pedir<T>(
   if (!r.ok) {
     if (r.status === 401 && !opciones.sinAviso401) alVencer?.();
     const d = datos?.detalle;
-    throw new ErrorApi(r.status, typeof d === "string" && d ? d.charAt(0).toUpperCase() + d.slice(1) : "No se pudo completar la operación", datos?.campos);
+    const texto = typeof d === "string" ? d : typeof d?.mensaje === "string" ? d.mensaje : "";  // 409 de revisión: {mensaje, revision}
+    throw new ErrorApi(r.status, texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "No se pudo completar la operación", datos?.campos);
   }
   return datos as T;
 }
