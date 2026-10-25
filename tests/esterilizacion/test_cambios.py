@@ -2,7 +2,7 @@ import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname
 """Pruebas del registro de cambios de turno (permutas, cambios de servicio, ajustes). Imprime OK."""
 import tempfile
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from an.turnos import cambios, db
@@ -129,6 +129,13 @@ def test_periodo_cerrado_rechaza():
     with raises(ErrorCambio):
         cambios.ajuste(bd, K, [(1, d1, "L")], "", u)
     assert bd.asignaciones(K)[(1, d1)] == "M"
+
+
+def test_cerrado_en_se_guarda_en_utc_iso():
+    bd = nuevo()
+    bd.cerrar_periodo(K, [])
+    t = datetime.fromisoformat(bd.c.execute("SELECT cerrado_en FROM periodo_estado WHERE clave=?", (K,)).fetchone()[0])
+    assert t.utcoffset() == timedelta(0) and abs(datetime.now(timezone.utc) - t) < timedelta(seconds=10)  # nadie lo lee aún: filas viejas ("AAAA-MM-DD HH:MM:SS", UTC) no se tocan
 
 
 def test_log_en_archivo_y_tolera_fallo():
