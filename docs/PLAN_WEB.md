@@ -150,14 +150,14 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 - **Plan detallado:** [2026-10-25-web-fase-0.md](superpowers/plans/2026-10-25-web-fase-0.md)
 - **Entregable:**
   - [ ] Preguntas de §10 respondidas por escrito
-  - [ ] pytest corre los tests existentes (`requirements-dev.txt`, `pytest.ini`)
-  - [ ] `docker-compose.yml` de desarrollo (Postgres 16)
-  - [ ] CI (GitHub Actions) con los tests del núcleo en SQLite y `checks/tokens.py`. El trabajo con Postgres entra en la Fase 1 (cuando exista `AN_BD`) y el build del front en la Fase 4
-  - [ ] `checks/tokens.py` y `web/src/tokens.css` generado (§7)
-  - [ ] `docs/REGLAS_AUTOMATICAS.md` (no `reglas.md`: choca con `REGLAS.md` en macOS)
-  - [ ] `VISION.md` (principios 4 y 6) y `CLAUDE.md` al día
-  - [ ] Borrador del acuerdo de tratamiento de datos: `docs/ACUERDO_TRATAMIENTO.md`
-  - [ ] Tabla de mediciones base en §8
+  - [x] pytest corre los tests existentes (`requirements-dev.txt`, `pytest.ini`)
+  - [x] `docker-compose.yml` de desarrollo (Postgres 16) — escrito, sin verificar: falta Docker
+  - [x] CI (GitHub Actions) — escrito, sin verificar en remoto: falta push/PR con los tests del núcleo en SQLite y `checks/tokens.py`. El trabajo con Postgres entra en la Fase 1 (cuando exista `AN_BD`) y el build del front en la Fase 4
+  - [x] `checks/tokens.py` y `web/src/tokens.css` generado (§7)
+  - [x] `docs/REGLAS_AUTOMATICAS.md` (no `reglas.md`: choca con `REGLAS.md` en macOS)
+  - [x] `VISION.md` (principios 4 y 6) y `CLAUDE.md` al día
+  - [x] Borrador del acuerdo de tratamiento de datos: `docs/ACUERDO_TRATAMIENTO.md`
+  - [x] Tabla de mediciones base en §8
 - **Aceptación:**
   - [ ] `docker compose up db` en `healthy` y la CI en verde sobre `main`
   - [ ] Preguntas de §10 respondidas por escrito (o «Pendiente» justificado)
