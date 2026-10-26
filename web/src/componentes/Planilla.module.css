@@ -17,3 +17,5 @@ tfoot th, tfoot td { border-top: 1px solid var(--borde); font-size: 11px; font-w
 tfoot .persona { font-weight: 600; }
 .resumen { font-variant-numeric: tabular-nums; }
 .malo { background: var(--error-fondo); color: var(--error-texto); font-weight: 700; }
+.editable { cursor: pointer; }
+.elegida { outline: 2px solid var(--acento); outline-offset: -2px; border-radius: var(--radio-s); background: var(--acento-suave); }
