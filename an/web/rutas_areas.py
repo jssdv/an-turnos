@@ -101,4 +101,6 @@ def analiticas(desde: date, hasta: date, ctx: Contexto = Depends(contexto_area, 
     if hasta < desde or (hasta - desde).days > MAX_DIAS_ANALITICAS:
         raise HTTPException(422, f"El rango debe ir de «desde» a «hasta» y no pasar de {MAX_DIAS_ANALITICAS} días")
     return {"ausentismo": analitica.ausentismo(ctx.bd, desde, hasta), "cobertura": analitica.cobertura(ctx.bd, desde, hasta),
-            "recargos": analitica.recargos_resumen(ctx.bd, desde, hasta)}
+            "recargos": analitica.recargos_resumen(ctx.bd, desde, hasta), "simultaneos": analitica.simultaneos(ctx.bd, desde, hasta),
+            "cambios": analitica.cambios_resumen(ctx.bd, desde, hasta), "horas_extra": analitica.horas_extra(ctx.bd, desde, hasta),
+            "equidad": analitica.equidad(ctx.bd, desde, hasta), "banco": analitica.banco(ctx.bd, desde, hasta)}
