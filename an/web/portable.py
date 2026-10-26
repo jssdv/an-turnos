@@ -111,5 +111,22 @@ def main():
             servidor.cleanup()
 
 
+def main_seguro():
+    """Deja el error en an.log y espera una tecla: la ventana de consola no debe cerrarse antes de poder leerlo."""
+    try:
+        main()
+    except BaseException:
+        import traceback
+
+        texto = traceback.format_exc()
+        try:
+            (carpeta_datos() / "an.log").write_text(texto, encoding="utf-8")
+        except OSError:
+            pass
+        print(texto)
+        input("\nHubo un error (copiado en an.log, carpeta de datos). Presiona Enter para cerrar.")
+        raise
+
+
 if __name__ == "__main__":
-    main()
+    main_seguro()
