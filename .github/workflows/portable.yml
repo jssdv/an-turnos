@@ -20,7 +20,7 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-web.txt pgserver pyinstaller
       - name: Empaquetar
         run: >-
-          pyinstaller deploy/lanzar.py --noconfirm --name An --onedir
+          pyinstaller deploy/lanzar.py --paths . --noconfirm --name An --onedir
           --add-data "web/dist;web_dist"
           --add-data "an/web/migraciones;an/web/migraciones"
           --collect-all pgserver --collect-all ortools --collect-all psycopg_binary
