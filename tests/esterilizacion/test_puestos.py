@@ -104,7 +104,7 @@ def test_migracion_v3_a_v4():
         assert bd.contexto(2026).cobertura["LS"] == {"M": 5, "T": 4, "N": 2}
         sterrad = next(i for i, p in pu.items() if p.numero == 3)
         assert bd.colaboradores()[0].puestos_permitidos == (sterrad,)
-        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7  # la cadena termina en la versión vigente
+        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8  # la cadena termina en la versión vigente
 
 
 def test_borrar_puesto_en_uso():
@@ -306,7 +306,7 @@ def test_asignacion_puesto_roundtrip_y_migracion_v5():
         bd = db.BD(ruta)
         assert sorted(bd.asignacion_puesto("p")) == sorted([AsignacionPuesto(LUN, 1, aut, 360, 720, 1),
                                                            AsignacionPuesto(LUN, 2, 0, 720, 1080, 2)])
-        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
 
 
 class _Simulado:
@@ -413,6 +413,39 @@ def test_noche_y_corrido_segun_el_horario():
     assert demanda.es_corrido(Turno("C", "", 360, 1080))
     assert not demanda.es_corrido(Turno("M9", "", 540, 900)) and not demanda.es_corrido(Turno("NC", "", 1080, 360))
     assert not demanda.es_corrido(Turno("T2", "", 840, 1320))
+
+
+def test_requerimiento_sin_puestos_por_dia_de_la_semana():
+    bd = db.BD()
+    bd.set_param("usa_puestos", 0)
+    bd.guardar_requerimiento([dict(dia=0, inicio=360, fin=720, personas=3, obligatorio=True), dict(dia=5, inicio=360, fin=720, personas=1, obligatorio=True),
+                              dict(dia=7, inicio=1080, fin=360, personas=2, obligatorio=True)])
+    assert len(bd.requerimiento()) == 3
+    ctx = bd.contexto(2026)
+    assert not ctx.usa_puestos and not ctx.puestos
+    lunes, sabado, festivo = date(2026, 10, 5), date(2026, 10, 10), date(2026, 10, 12)  # el 12/10 es festivo
+    assert demanda.demanda_fecha(ctx, lunes)[0][12:24] == [3] * 12
+    assert demanda.demanda_fecha(ctx, sabado)[0][12:24] == [1] * 12
+    assert demanda.demanda_fecha(ctx, date(2026, 10, 6)) == ([0] * 48, [0] * 48)
+    assert sum(demanda.demanda_fecha(ctx, festivo, con_ayer=False)[0][36:]) == 24 and sum(demanda.demanda_fecha(ctx, festivo)[0][:12]) == 0
+    bd.guardar_requerimiento([dict(dia=0, inicio=360, fin=1080, personas=1, obligatorio=True)])  # ventana de un turno corrido C
+    assert bd.requerimiento() == [dict(dia=0, inicio=360, fin=1080, personas=1, obligatorio=True)]
+    assert demanda.demanda_fecha(bd.contexto(2026), lunes)[0][12:36] == [1] * 24
+    bd.set_param("usa_puestos", 1)  # con puestos vuelve la demanda por puesto y el requerimiento queda guardado
+    assert bd.contexto(2026).usa_puestos and all(d.puesto_id for d in bd.contexto(2026).demandas)
+
+
+def test_requerimiento_por_puesto_lee_reglas_ls_df_dia_a_dia():
+    bd = db.BD()
+    pid = bd.guardar_puesto(Puesto(0, 90, "Prueba", "FFFFFF", True))
+    bd.reemplazar_demandas(pid, [Demanda(pid, "LS", 360, 720, 2), Demanda(pid, "LS", 360, 720, 1), Demanda(pid, "DF", 360, 720, 1, obligatorio=False)])
+    r = bd.requerimiento(pid)
+    assert sorted((f["dia"], f["personas"], f["obligatorio"]) for f in r) == [(d, 3, True) for d in range(6)] + [(6, 1, False), (7, 1, False)]
+    ctx = bd.contexto(2026)
+    antes = [demanda.demanda_por_puesto(ctx, date(2026, 10, d))[pid] for d in (5, 10, 11, 12)]  # lunes, sábado, domingo, festivo
+    bd.guardar_requerimiento(r, pid)
+    assert all(d.tipo_dia in "0123456F" for d in bd.demandas(pid))
+    assert antes == [demanda.demanda_por_puesto(bd.contexto(2026), date(2026, 10, d))[pid] for d in (5, 10, 11, 12)]
 
 
 if __name__ == "__main__":

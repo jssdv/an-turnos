@@ -120,18 +120,32 @@ def test_puestos_y_demandas():
         assert cli.put(base(e, f"/puestos/{i}"), headers=H, json=dict(numero=51, nombre="Nuevo 2", color="00FF00", activo=False)).status_code == 200
         p = [x for x in cli.get(base(e, "/puestos")).json() if x["id"] == i][0]
         assert (p["numero"], p["nombre"], p["activo"]) == (51, "Nuevo 2", False)
-        d = [dict(tipo_dia="LS", inicio=360, fin=720, personas=2, obligatorio=True), dict(tipo_dia="DF", inicio=360, fin=720, personas=1, obligatorio=False)]
-        assert cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=[{**d[0], "tipo_dia": "XX"}]).status_code == 422
-        assert cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=[{**d[0], "fin": 360}]).status_code == 422  # empieza y termina igual
-        assert cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=[{**d[0], "inicio": 365}]).status_code == 422  # no es múltiplo de 30
-        r = cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=d)
-        assert r.status_code == 200 and r.json() == {"ok": True, "avisos": []}
-        r = cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=[d[0], {**d[0], "inicio": 600, "fin": 780}])
-        assert r.json()["avisos"] == ["Las reglas solapadas se suman."]
-        assert cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=d).status_code == 200
-        assert [(x["tipo_dia"], x["personas"], x["obligatorio"]) for x in cli.get(base(e, "/demandas")).json() if x["puesto_id"] == i] == [("LS", 2, True), ("DF", 1, False)]
-        assert cli.put(base(e, "/puestos/9999/demandas"), headers=H, json=d).status_code == 404
+        r = [dict(dia=0, inicio=360, fin=720, personas=2, obligatorio=False), dict(dia=7, inicio=360, fin=720, personas=1, obligatorio=False)]
+        ruta = f"/puestos/{i}/requerimiento"
+        assert cli.put(base(e, ruta), headers=H, json=[{**r[0], "dia": 9}]).status_code == 422
+        assert cli.put(base(e, ruta), headers=H, json=[{**r[0], "fin": 360}]).status_code == 422  # empieza y termina igual
+        assert cli.put(base(e, ruta), headers=H, json=[{**r[0], "inicio": 365}]).status_code == 422  # no es múltiplo de 30
+        assert cli.put(base(e, ruta), headers=H, json=[r[0], r[0]]).status_code == 422
+        assert cli.put(base(e, ruta), headers=H, json=r).status_code == 200
+        assert cli.get(base(e, ruta)).json() == r
+        assert [(x["tipo_dia"], x["personas"], x["obligatorio"]) for x in cli.get(base(e, "/demandas")).json() if x["puesto_id"] == i] == [("0", 2, False), ("F", 1, False)]
+        assert cli.put(base(e, "/puestos/9999/requerimiento"), headers=H, json=r).status_code == 404
         assert cli.delete(base(e, f"/puestos/{i}"), headers=H).json() == {"resultado": "borrado"}
+
+
+def test_requerimiento_sin_puestos():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "editor@a.co")
+        assert cli.put(base(e, "/parametros"), headers=H, json={"usa_puestos": 0}).status_code == 200
+        assert cli.get(base(e, "/parametros")).json()["usa_puestos"] == "0"
+        r = [dict(dia=0, inicio=360, fin=720, personas=3, obligatorio=True), dict(dia=7, inicio=1080, fin=360, personas=2, obligatorio=True)]
+        assert cli.put(base(e, "/requerimiento"), headers=H, json=r).status_code == 200
+        assert cli.get(base(e, "/requerimiento")).json() == r
+        assert cli.put(base(e, "/requerimiento"), headers=H, json=[{**r[0], "dia": 9}]).status_code == 422
+        assert cli.put(base(e, "/requerimiento"), headers=H, json=[r[0], r[0]]).status_code == 422
+        assert cli.put(base(e, "/parametros"), headers=H, json={"usa_puestos": 2}).status_code == 422
 
 
 def test_parametros_todo_o_nada_y_tarifas():
@@ -162,7 +176,7 @@ def test_ver_no_escribe_catalogos():
         lector = sesion(e, "lector@a.co")
         for metodo, ruta in (("post", "/solicitudes"), ("post", "/colaboradores"), ("put", "/colaboradores/1"), ("delete", "/colaboradores/1"), ("post", "/novedades"),
                              ("delete", "/novedades/1"), ("post", "/turnos"), ("put", "/turnos/M"), ("delete", "/turnos/M"), ("post", "/puestos"), ("put", "/puestos/1"),
-                             ("delete", "/puestos/1"), ("put", "/puestos/1/demandas"), ("put", "/parametros"), ("post", "/tarifas")):
+                             ("delete", "/puestos/1"), ("put", "/puestos/1/requerimiento"), ("put", "/parametros"), ("post", "/tarifas")):
             assert getattr(lector, metodo)(base(e, ruta), headers=H, **({} if metodo == "delete" else {"json": {}})).status_code == 403, (metodo, ruta)
 
 

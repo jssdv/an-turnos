@@ -3,7 +3,7 @@ import { useNavigate, useOutletContext, useParams } from "react-router";
 import { borrador as guardado, cambios, type Borrador } from "../api/cambios";
 import { ErrorApi, leer } from "../api/cliente";
 import { useSesion } from "../Sesion";
-import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Turno } from "../api/tipos";
+import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Puesto, Turno } from "../api/tipos";
 import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
 import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
@@ -24,6 +24,7 @@ interface Datos {
   horas: Horas[];
   colabs: Colaborador[];
   turnos: Turno[];
+  puestos: Puesto[];
   novedades: Novedad[];
   analiticas: Analiticas;
 }
@@ -76,13 +77,14 @@ export function Cuadro() {
       leer<Horas[]>(`${base}/periodos/${actual.id}/horas`),
       leer<Colaborador[]>(`${base}/colaboradores`),
       leer<Turno[]>(`${base}/turnos`),
+      leer<Puesto[]>(`${base}/puestos`),
       leer<Novedad[]>(`${base}/novedades`),
       leer<Analiticas>(`${base}/analiticas?desde=${desde}&hasta=${hasta}`),
     ])
-      .then(([cuadro, alertas, horas, colabs, turnos, novedades, analiticas]) => {
+      .then(([cuadro, alertas, horas, colabs, turnos, puestos, novedades, analiticas]) => {
         if (!vivo) return;
         performance.mark("cuadro:datos");
-        setDatos({ cuadro, alertas, horas, colabs, turnos, novedades, analiticas });
+        setDatos({ cuadro, alertas, horas, colabs, turnos, puestos, novedades, analiticas });
       })
       .catch((x) => vivo && setError(x.message));
     return () => { vivo = false; };
@@ -113,12 +115,19 @@ export function Cuadro() {
     for (const n of datos.novedades) for (const d of dias) if (d.fecha >= n.desde && d.fecha <= n.hasta) novedades.set(`${n.colab_id}|${d.fecha}`, n.tipo);
     const presentes = (fecha: string, franja: string) =>
       datos.colabs.reduce((s, c) => s + (turnos.get(celdas.get(`${c.id}|${fecha}`)?.turno ?? "")?.cubre.includes(franja) ? 1 : 0), 0);
-    return { celdas, turnos, horas, faltan, diaMalo, novedades, presentes };
+    const puestos = new Map(datos.puestos.map((q) => [q.id, q]));
+    return { celdas, turnos, puestos, horas, faltan, diaMalo, novedades, presentes };
   }, [datos, dias]);
 
   const nombres = useMemo(() => new Map((datos?.colabs ?? []).map((c) => [c.id, c.nombre])), [datos]);
   const puedeEditar = area.permiso === "editar" && !!actual && !actual.cerrado_en;
   const codigoDe = (id: number, fecha: string) => vista?.celdas.get(`${id}|${fecha}`)?.turno ?? "L";
+  const usaPuestos = !!datos?.cuadro.usa_puestos;
+  /** Nombre del puesto de una celda con turno, o "" (libre, apoyo o área sin puestos). */
+  const puestoDe = (id: number, fecha: string) => {
+    const c = vista?.celdas.get(`${id}|${fecha}`);
+    return usaPuestos && c && c.turno !== "L" && c.puesto ? `${vista?.puestos.get(c.puesto)?.nombre ?? ""}${c.puesto_fijo ? " (fijo)" : ""}` : "";
+  };
   /** Como `_editable` de Qt: persona del cuadro, y no una celda libre cubierta por novedad. */
   const editable = (id: number, fecha: string) => {
     if (!puedeEditar || !vista) return false;
@@ -149,7 +158,7 @@ export function Cuadro() {
       const [x, y] = b.celdas;
       if (codigoDe(x.colab_id, x.fecha) === codigoDe(y.colab_id, y.fecha)) return setErrorCambio("Las dos celdas ya tienen el mismo turno: no hay nada que intercambiar.");
       celdas = [{ ...x, turno: codigoDe(y.colab_id, y.fecha) }, { ...y, turno: codigoDe(x.colab_id, x.fecha) }];
-    } else celdas = b.celdas.map((c) => ({ ...c, turno: b.turno }));
+    } else celdas = b.celdas.map((c) => ({ ...c, turno: b.turno, ...(b.puesto ? { puesto: Number(b.puesto) } : {}) }));
     const motivo = b.motivo.trim() || (tipo === "ajuste" && celdas.length > 1 && b.modo === "asignar" ? `Lote: ${celdas.length} celdas → ${b.turno}` : "");
     setEnviando(true);
     setErrorCambio(null);
@@ -257,7 +266,7 @@ export function Cuadro() {
                 const falta = vista.faltan.has(`${id}|${fecha}`);
                 return {
                   codigo, color: t?.color, cambiada: c?.fijo, novedad: nov ? (SIGLA_NOVEDAD[nov] ?? nov) : null, faltante: falta,
-                  etiqueta: `${nov ?? t?.nombre ?? (codigo === "L" ? "Libre" : codigo)}${c?.fijo ? ", editada a mano" : ""}${falta ? ", con alerta" : ""}`,
+                  etiqueta: `${nov ?? t?.nombre ?? (codigo === "L" ? "Libre" : codigo)}${puestoDe(id, fecha) ? `, puesto ${puestoDe(id, fecha)}` : ""}${c?.fijo ? ", editada a mano" : ""}${falta ? ", con alerta" : ""}`,
                 };
               }}
               pie={(["M", "T", "N"] as const).map((f) => ({
@@ -276,7 +285,7 @@ export function Cuadro() {
         )}
       </Seccion>
 
-      <RegistrarCambio borrador={borrador} alCambiar={cerrarCambio} nombres={nombres} turnos={datos?.turnos ?? []} actual={codigoDe}
+      <RegistrarCambio borrador={borrador} alCambiar={cerrarCambio} nombres={nombres} turnos={datos?.turnos ?? []} actual={codigoDe} puestos={usaPuestos ? datos!.puestos.filter((q) => q.activo) : null} puestoDe={puestoDe}
         cupos={cupos} error={errorCambio} enviando={enviando} alEnviar={enviar} />
 
       {datos && (

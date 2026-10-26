@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
-import { aHHMM, aMinutos, enviar, usar } from "../api/catalogos";
-import type { Area, Tarifa, Turno } from "../api/tipos";
+import { enviar, usar } from "../api/catalogos";
+import type { Area, Tarifa } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
-import { Checkbox } from "@/components/base/checkbox/checkbox";
-import { Badge } from "@/components/base/badges/badges";
 
 const NUM: [string, string, number, number, string][] = [
   ["ventana_semanas", "Promedio de horas (semanas)", 1, 8, "Las 42 h semanales se miden como promedio de este número de semanas (art. 165 CST)."],
@@ -25,19 +23,15 @@ const NUM: [string, string, number, number, string][] = [
   ["banco_tope_deuda_h", "Banco: máximo en deuda (h)", 0, 48, "Horas de menos que se pueden deber por periodo. 0 = no compensar."],
 ];
 const CONCEPTOS = ["dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio"];
-const TURNO_NUEVO = { codigo: "", nombre: "", inicio: 360, fin: 720, color: "FFF2CC", pmin: 0, pini: 60, ppag: false, dom_fest: true, solver: true, activo: true };
 
 /** Reglas del área, turnos y tarifas legales (editables: confirmar con RR. HH./legal). */
 export function Parametros() {
   const area = useOutletContext<Area>();
   const base = `/api/areas/${area.id}`;
   const params = usar<Record<string, string>>(`${base}/parametros`);
-  const turnos = usar<Turno[]>(`${base}/turnos`);
   const tarifas = usar<Tarifa[]>(`${base}/tarifas`);
-  const { ocupado, aviso, hacer, avisar } = useAccion();
+  const { ocupado, aviso, hacer } = useAccion();
   const [v, setV] = useState<Record<string, string>>({});
-  const [t, setT] = useState(TURNO_NUEVO);
-  const [nuevo, setNuevo] = useState(true);
   const [tar, setTar] = useState({ concepto: CONCEPTOS[0], valor: "", desde: "" });
   const editar = area.permiso === "editar";
   useEffect(() => { if (params.datos) setV(params.datos); }, [params.datos]);
@@ -49,23 +43,6 @@ export function Parametros() {
     params.recargar();
     return "Reglas guardadas.";
   });
-  const elegirTurno = (x: Turno | null) => {
-    setNuevo(!x);
-    setT(x ? { codigo: x.codigo, nombre: x.nombre, inicio: x.inicio, fin: x.fin, color: x.color, pmin: x.pausas[0]?.min ?? 0, pini: x.pausas[0]?.ini ?? 60, ppag: x.pausas[0]?.pagada ?? false, dom_fest: x.dom_fest, solver: x.solver, activo: x.activo } : TURNO_NUEVO);
-  };
-  const guardarTurno = () => hacer(async () => {
-    const cuerpo = { codigo: t.codigo, nombre: t.nombre, inicio: t.inicio, fin: t.fin, color: t.color, dom_fest: t.dom_fest, solver: t.solver, activo: t.activo,
-      pausa: t.pmin > 0 ? { ini: t.pini, min: t.pmin, pagada: t.ppag } : null };
-    await enviar(nuevo ? "POST" : "PUT", nuevo ? `${base}/turnos` : `${base}/turnos/${t.codigo}`, cuerpo);
-    turnos.recargar();
-    setNuevo(false);
-    return `Turno «${t.codigo.toUpperCase()}» guardado. El cuadro existente se revalida; regenera si hay alertas.`;
-  });
-  const borrarTurno = () => window.confirm(`¿Eliminar el turno «${t.codigo}»?`) && hacer(async () => {
-    const r = await enviar<{ resultado: string }>("DELETE", `${base}/turnos/${t.codigo}`);
-    elegirTurno(null); turnos.recargar();
-    avisar({ nivel: r.resultado === "borrado" ? "ok" : "aviso", texto: r.resultado === "borrado" ? "Turno eliminado." : "Ya está en cuadros guardados, así que quedó inactivo en lugar de borrarse." });
-  });
   const agregarTarifa = () => hacer(async () => {
     await enviar("POST", `${base}/tarifas`, { ...tar, valor: Number(tar.valor) });
     tarifas.recargar();
@@ -74,7 +51,7 @@ export function Parametros() {
   });
 
   return (
-    <Pagina titulo="Reglas y turnos" sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Los <strong>turnos</strong> definen horarios y pausas. Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? turnos.error ?? tarifas.error} aviso={aviso}>
+    <Pagina titulo="Reglas y tarifas" sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? tarifas.error} aviso={aviso}>
       <Seccion titulo="Reglas" aria-busy={!params.datos}>
         {!params.datos ? !params.error && <p aria-busy="true">Cargando…</p> : (
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
@@ -85,32 +62,6 @@ export function Parametros() {
               <Input value={String(v[k] ?? "")} key={k} label={etiqueta} hint={`${ayuda} Entre ${lo} y ${hi}.`} type="number" isDisabled={!editar} onChange={(x) => setV({ ...v, [k]: x })} />
             ))}
             {editar && <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado}>Guardar reglas</Button></Fila>}
-          </Formulario>
-        )}
-      </Seccion>
-
-      <Seccion titulo="Turnos">
-        <Tabla descripcion="Turnos del área" cargando={!turnos.datos && !turnos.error} vacio="Sin turnos." columnas={["Código", "Nombre", "Horario", "Estado", ""]}
-          filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, <Badge size="sm" color={x.activo ? "success" : "gray"}>{x.activo ? "Activo" : "Inactivo"}</Badge>,
-            editar ? <Button color="link-color" size="sm" onPress={() => elegirTurno(x)}>Editar</Button> : null])} />
-        {editar && (
-          <Formulario onSubmit={(x) => { x.preventDefault(); void guardarTurno(); }}>
-            <Input value={String(t.codigo)} label="Código" isRequired maxLength={6} isDisabled={!nuevo} onChange={(x) => setT({ ...t, codigo: x })} />
-            <Input value={String(t.nombre)} label="Nombre" maxLength={60} onChange={(x) => setT({ ...t, nombre: x })} />
-            <Input value={String(aHHMM(t.inicio))} label="Entra" type="time" onChange={(x) => setT({ ...t, inicio: aMinutos(x) })} />
-            <Input value={String(aHHMM(t.fin))} label="Sale" type="time" onChange={(x) => setT({ ...t, fin: aMinutos(x) })} />
-            <Input value={String(`#${t.color}`)} label="Color en el cuadro" type="color" onChange={(x) => setT({ ...t, color: x.slice(1).toUpperCase() })} />
-            <Input value={String(t.pmin)} label="Pausa (min, 0 = sin pausa)" type="number" onChange={(x) => setT({ ...t, pmin: Number(x) })} />
-            {t.pmin > 0 && <Input value={String(t.pini)} label="Pausa empieza (min desde la entrada)" type="number" onChange={(x) => setT({ ...t, pini: Number(x) })} />}
-            {t.pmin > 0 && <Checkbox label="Pausa pagada" isSelected={t.ppag} onChange={(x) => setT({ ...t, ppag: x })} />}
-            <Checkbox label="Permitido en domingo y festivo" isSelected={t.dom_fest} onChange={(x) => setT({ ...t, dom_fest: x })} />
-            <Checkbox label="Lo usa el solver" isSelected={t.solver} onChange={(x) => setT({ ...t, solver: x })} />
-            <Checkbox label="Activo" isSelected={t.activo} onChange={(x) => setT({ ...t, activo: x })} />
-            <Fila>
-              <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !t.codigo.trim()}>Guardar turno</Button>
-              <Button color="secondary" size="sm" onPress={() => elegirTurno(null)}>Nuevo turno</Button>
-              {!nuevo && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrarTurno}>Eliminar</Button>}
-            </Fila>
           </Formulario>
         )}
       </Seccion>

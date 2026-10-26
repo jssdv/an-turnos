@@ -28,6 +28,21 @@ def test_cuadro_trae_revision_y_fijo():
         assert [(c["fecha"], c["fijo"]) for c in r["celdas"]] == [("2026-10-05", False), ("2026-10-06", True), ("2026-10-07", False)]
 
 
+def test_puesto_fijado_en_la_celda():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, c = sesion(e, "editor@a.co"), e.colab["A"]
+        q = cli.get(f"/api/areas/{e.ar['A']}/puestos").json()[0]["id"]
+        cambio(cli, e, "ajuste", [(c, "2026-10-05", "M")])
+        r = cli.post(url(e, "/cambios"), headers={**H, "If-Match": "1"}, json=dict(tipo="ajuste", motivo="", celdas=[dict(colab_id=c, fecha="2026-10-05", turno="M", puesto=q)]))
+        assert r.status_code == 200, r.text
+        celda = [x for x in cli.get(f"/api/areas/{e.ar['A']}/periodos/{periodo(e)}/cuadro").json()["celdas"] if x["fecha"] == "2026-10-05"][0]
+        assert celda["puesto"] == q and celda["puesto_fijo"] is True
+        r = cli.post(url(e, "/cambios"), headers={**H, "If-Match": "2"}, json=dict(tipo="ajuste", motivo="", celdas=[dict(colab_id=c, fecha="2026-10-05", turno="M", puesto=99999)]))
+        assert r.status_code == 422
+
+
 def agregar_persona(e, n="A", nombre="P2"):
     """Segunda persona del área con M el 5/10, T el 6/10 y M el 7/10; devuelve su id."""
     from datetime import date
@@ -150,7 +165,7 @@ def test_listar_y_anular_todo_o_nada():
         cli, c = sesion(e, "editor@a.co"), e.colab["A"]
         cambio(cli, e, "ajuste", [(c, "2026-10-07", "M")], motivo="uno")
         lista = cli.get(url(e, "/cambios")).json()
-        assert len(lista) == 1 and lista[0]["celdas"] == [dict(colab_id=c, fecha="2026-10-07", antes="L", despues="M")]
+        assert len(lista) == 1 and lista[0]["celdas"] == [dict(colab_id=c, fecha="2026-10-07", antes="L", despues="M", puesto_antes=0, puesto_despues=0)]
         assert lista[0]["anulado_en"] is None and lista[0]["excepcion"] is False
         cid = lista[0]["id"]
         cambio(cli, e, "ajuste", [(c, "2026-10-07", "T")], rev=1)  # edita después la misma celda
