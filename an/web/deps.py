@@ -45,8 +45,7 @@ class Contexto:
         self.bd, self.usuario, self.permiso, self.conn = bd, usuario, permiso, conn
 
 
-def contexto_area(area: int, request: Request):
-    """Dependencia por área: permiso (`ver` para GET, `editar` para escribir), alcance RLS y una BD lista. Una transacción por petición."""
+def _contexto(area, request, exige_editar):
     u = usuario_actual(request)
     with request.app.state.pool.connection() as conn:
         c = Conexion(conn, confirmar=False)
@@ -57,7 +56,17 @@ def contexto_area(area: int, request: Request):
         permiso = fila[0] if fila else ("ver" if u.es_admin else None)
         if permiso is None:
             raise HTTPException(404, "Área no encontrada")
-        if request.method in ESCRITURA and permiso != "editar":
+        if exige_editar and request.method in ESCRITURA and permiso != "editar":
             raise HTTPException(403, "Solo lectura en esta área")
         conexion.alcance(conn, u.clinica_id, area)
         yield Contexto(BD.postgres(c), u, permiso, c)
+
+
+def contexto_area(area: int, request: Request):
+    """Dependencia por área: permiso (`ver` para GET, `editar` para escribir), alcance RLS y una BD lista. Una transacción por petición."""
+    yield from _contexto(area, request, True)
+
+
+def contexto_area_lectura(area: int, request: Request):
+    """Como `contexto_area`, pero `ver` basta también en POST: para acciones que no cambian el cuadro (exportes)."""
+    yield from _contexto(area, request, False)
