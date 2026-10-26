@@ -3,6 +3,7 @@ Los datos (histórico incluido) viven en %LOCALAPPDATA%\\An (o AN_DATOS). Arranq
 Pruebas sin pgserver: AN_PG_ADMIN_URL=postgresql://…(rol dueño) usa esa base en vez de la embebida."""
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -108,9 +109,10 @@ def al_cerrar_ventana(servidor, terminado):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     datos = carpeta_datos()
     datos.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s",
+                        handlers=[logging.StreamHandler(), logging.FileHandler(datos / "an.log", encoding="utf-8")])  # incluye el stderr de initdb
     if sys.platform == "win32":  # initdb corre con token restringido (sin el grupo Administradores): el usuario debe figurar en la ACL
         subprocess.run(["icacls", str(datos), "/grant", f"{os.environ['USERNAME']}:(OI)(CI)F"], check=True, capture_output=True)
     servidor, terminado = None, threading.Event()
@@ -119,6 +121,9 @@ def main():
         import pgserver  # solo en el paquete portable
 
         detener_huerfano(datos / "pg")
+        pg = datos / "pg"
+        if pg.exists() and not (pg / "PG_VERSION").exists():  # inicialización interrumpida: sin clúster no hay nada que perder
+            shutil.rmtree(pg, ignore_errors=True)
         servidor = pgserver.get_server(datos / "pg", cleanup_mode="stop")
         url_admin = servidor.get_uri()
     try:
@@ -151,10 +156,7 @@ def main_seguro():
         import traceback
 
         texto = traceback.format_exc()
-        try:
-            (carpeta_datos() / "an.log").write_text(texto, encoding="utf-8")
-        except OSError:
-            pass
+        logging.getLogger("an").error(texto)
         print(texto)
         input("\nHubo un error (copiado en an.log, carpeta de datos). Presiona Enter para cerrar.")
         raise
