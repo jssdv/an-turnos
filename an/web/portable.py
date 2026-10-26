@@ -80,17 +80,45 @@ def servir_front(app, dist):
     app.mount("/", Spa(directory=dist, html=True))
 
 
+def detener_huerfano(pg):
+    """Si la sesión anterior se cerró a la fuerza (X de la ventana) queda un Postgres vivo; se detiene antes de arrancar."""
+    if (pg / "postmaster.pid").exists():
+        from pgserver._commands import pg_ctl
+
+        try:
+            pg_ctl(["-w", "-m", "fast", "stop"], pgdata=pg, timeout=30)
+        except Exception:
+            logging.exception("no se pudo detener el Postgres anterior; se intenta reutilizarlo")
+
+
+def al_cerrar_ventana(servidor, terminado):
+    """Windows: la X de la consola mata el proceso a los ~5 s; se pide a uvicorn que salga y se espera a que termine la limpieza."""
+    import ctypes
+
+    @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)
+    def manejador(evento):
+        if evento in (2, 5, 6):  # CTRL_CLOSE / LOGOFF / SHUTDOWN
+            servidor.should_exit = True
+            terminado.wait(4)
+            return True
+        return False
+
+    ctypes.windll.kernel32.SetConsoleCtrlHandler(manejador, True)
+    return manejador  # hay que conservar la referencia
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     datos = carpeta_datos()
     datos.mkdir(parents=True, exist_ok=True)
     if sys.platform == "win32":  # initdb corre con token restringido (sin el grupo Administradores): el usuario debe figurar en la ACL
         subprocess.run(["icacls", str(datos), "/grant", f"{os.environ['USERNAME']}:(OI)(CI)F"], check=True, capture_output=True)
-    servidor = None
+    servidor, terminado = None, threading.Event()
     url_admin = os.environ.get("AN_PG_ADMIN_URL")
     if not url_admin:
         import pgserver  # solo en el paquete portable
 
+        detener_huerfano(datos / "pg")
         servidor = pgserver.get_server(datos / "pg", cleanup_mode="stop")
         url_admin = servidor.get_uri()
     try:
@@ -103,12 +131,16 @@ def main():
         threading.Thread(target=Trabajador(pool).servir, args=(parar,), daemon=True).start()
         threading.Timer(1.5, webbrowser.open, (os.environ["AN_ORIGEN"],)).start()
         print(f"An corriendo en {os.environ['AN_ORIGEN']} · datos en {datos} · cierra esta ventana para detenerlo")
-        uvicorn.run(app, host="127.0.0.1", port=PUERTO, log_level="warning")
+        web = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=PUERTO, log_level="warning"))
+        if sys.platform == "win32":
+            manejador = al_cerrar_ventana(web, terminado)  # noqa: F841
+        web.run()
         parar.set()
         pool.close()
     finally:
         if servidor is not None:
             servidor.cleanup()
+        terminado.set()
 
 
 def main_seguro():
