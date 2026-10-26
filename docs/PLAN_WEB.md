@@ -223,7 +223,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
   - [x] Pantalla Generar con barra de progreso y Cancelar (conectada a las rutas reales de la Fase 3; la simulación queda solo para pruebas)
 - **Aceptación:**
   - [ ] Con la base migrada de la Fase 2, la grilla muestra las mismas celdas que la app Qt para octubre 2026 (prueba que compara la API con `bd.asignaciones`)
-  - [x] Capturas del navegador junto a `docs/diseno/esterilizacion_cuadro.png` (`docs/diseno/web_*.png`)
+  - [x] Capturas del navegador (`docs/diseno/web_*.png`)
   - [x] Navegación completa con teclado y foco visible
   - [ ] Cuadro de un mes carga en < 1 s en el PC de referencia (medido en el Mac de desarrollo: ver §8; falta el PC de la clínica)
   - [ ] Acceso probado desde un PC de la clínica (red, dominio, certificado)
