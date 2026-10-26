@@ -6,6 +6,7 @@ from datetime import timedelta
 TRAMO_MIN = 30
 TRAMOS_DIA = 48
 FRANJAS = {"M": range(12, 24), "T": range(24, 36), "N": [*range(36, 48), *range(0, 12)]}
+VENTANA_FRANJA = {"M": (360, 720), "T": (720, 1080), "N": (1080, 360)}  # ventana de demanda de cada franja
 _MIN_FRANJA = {"M": (360, 720), "T": (720, 1080), "N": (1080, 1800)}  # N sigue de 18:00 a 06:00 del día siguiente
 
 
@@ -44,16 +45,26 @@ def turno_tramos(turno):
     return tramos_ventana(turno.inicio, turno.fin)
 
 
+def _tipos(ctx, f):
+    """Tipos de día de `f` contra los que se compara una regla: LS/DF y el día de la semana (o festivo)."""
+    return ctx.tipo_dia(f), ctx.codigo_dia(f)
+
+
+def _veces(tipo_dia):
+    """Veces por semana tipo que cuenta una regla."""
+    return {"LS": 6, "DF": 1, "F": 0}.get(tipo_dia, 1)
+
+
 def demanda_fecha(ctx, fecha, con_ayer=True):
     """(obligatoria, deseable): 48 enteros cada una con las personas pedidas en cada tramo de `fecha`. Incluye la
     parte que cae hoy de las ventanas que empezaron ayer, con el tipo de día de ayer (salvo `con_ayer=False`)."""
     obl, des = [0] * TRAMOS_DIA, [0] * TRAMOS_DIA
     ayer = fecha - timedelta(days=1)
     for d in ctx.demandas:
-        for dia, tipo in ((0, ctx.tipo_dia(fecha)), (1, ctx.tipo_dia(ayer))):
+        for dia, tipo in ((0, _tipos(ctx, fecha)), (1, _tipos(ctx, ayer))):
             if dia == 1 and not con_ayer:
                 continue
-            if d.tipo_dia != tipo:
+            if d.tipo_dia not in tipo:
                 continue
             for off, t in tramos_ventana(d.inicio, d.fin):
                 if off == dia:
@@ -67,8 +78,8 @@ def demanda_por_puesto(ctx, fecha, con_ayer=True):
     ayer = fecha - timedelta(days=1)
     for d in ctx.demandas:
         obl, des = out.setdefault(d.puesto_id, ([0] * TRAMOS_DIA, [0] * TRAMOS_DIA))
-        for dia, tipo in ((0, ctx.tipo_dia(fecha)), (1, ctx.tipo_dia(ayer))):
-            if d.tipo_dia != tipo or (dia == 1 and not con_ayer):
+        for dia, tipo in ((0, _tipos(ctx, fecha)), (1, _tipos(ctx, ayer))):
+            if d.tipo_dia not in tipo or (dia == 1 and not con_ayer):
                 continue
             for off, t in tramos_ventana(d.inicio, d.fin):
                 if off == dia:
@@ -98,7 +109,7 @@ def huecos_sin_turno(demandas, turnos):
     for d in demandas:
         cubierto = set()
         for t in turnos.values():
-            if not (t.activo and t.solver) or (d.tipo_dia == "DF" and not t.dom_fest):
+            if not (t.activo and t.solver) or (d.tipo_dia in ("DF", "6", "F") and not t.dom_fest):
                 continue
             for base in (0, TRAMOS_DIA):
                 cubierto |= {base + o * TRAMOS_DIA + x for o, x in turno_tramos(t)}
@@ -118,7 +129,7 @@ def horas_persona_semana(demandas, incluir_deseables=False):
     total = 0.0
     for d in demandas:
         if d.obligatorio or incluir_deseables:
-            total += len(tramos_ventana(d.inicio, d.fin)) * 0.5 * d.personas * (6 if d.tipo_dia == "LS" else 1)
+            total += len(tramos_ventana(d.inicio, d.fin)) * 0.5 * d.personas * _veces(d.tipo_dia)
     return total
 
 
@@ -127,7 +138,7 @@ def estimar_personas(demandas, jornada_media, margen, incluir_deseables=False):
     for d in demandas:
         if not (d.obligatorio or incluir_deseables):
             continue
-        veces = 6 if d.tipo_dia == "LS" else 1
+        veces = _veces(d.tipo_dia)
         for _, t in tramos_ventana(d.inicio, d.fin):
             h = 0.5 * d.personas * veces
             por_puesto[d.puesto_id] += h

@@ -457,6 +457,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/areas/{area}/requerimiento": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Leer Requerimiento */
+        get: operations["leer_requerimiento_api_areas__area__requerimiento_get"];
+        /**
+         * Guardar Requerimiento
+         * @description Personas por franja (M/T/N) y día de la semana de un área sin puestos.
+         */
+        put: operations["guardar_requerimiento_api_areas__area__requerimiento_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/areas/{area}/periodos/{id}/cambios": {
         parameters: {
             query?: never;
@@ -939,6 +960,8 @@ export interface components {
              * @default L
              */
             turno: string;
+            /** Puesto */
+            puesto?: number | null;
         };
         /** ColaboradorIn */
         ColaboradorIn: {
@@ -1121,6 +1144,23 @@ export interface components {
              * @default true
              */
             activo: boolean;
+        };
+        /** RequerimientoIn */
+        RequerimientoIn: {
+            /** Dia */
+            dia: number;
+            /**
+             * Franja
+             * @enum {string}
+             */
+            franja: "M" | "T" | "N";
+            /** Personas */
+            personas: number;
+            /**
+             * Obligatorio
+             * @default true
+             */
+            obligatorio: boolean;
         };
         /** SolicitudIn */
         SolicitudIn: {
@@ -2392,6 +2432,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DemandaIn"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leer_requerimiento_api_areas__area__requerimiento_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    guardar_requerimiento_api_areas__area__requerimiento_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequerimientoIn"][];
             };
         };
         responses: {

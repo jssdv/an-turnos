@@ -14,7 +14,7 @@ import { SECCIONES } from "./Radiologia";
 
 const TURNOS: [string, string, FC<{ className?: string }>][] = [
   ["Cuadro", "cuadro", Calendar], ["Solicitudes", "solicitudes", Inbox01], ["Personal", "personal", Users01], ["Ausencias", "novedades", CalendarMinus01],
-  ["Puestos", "puestos", Building02], ["Reglas y turnos", "parametros", Settings01], ["Analíticas", "analiticas", BarChart03],
+  ["Requerimiento", "puestos", Building02], ["Reglas y turnos", "parametros", Settings01], ["Analíticas", "analiticas", BarChart03],
 ];
 
 /** Marco con la navegación lateral de Untitled UI. `/areas` elige la primera área disponible. */

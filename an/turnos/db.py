@@ -4,7 +4,7 @@ import os
 import sqlite3
 from datetime import date, datetime, timezone
 
-from .demanda import cobertura_derivada, franjas_de
+from .demanda import VENTANA_FRANJA, cobertura_derivada, franjas_de
 from .dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Solicitud, Turno, festivos,
                      turnos_base)
 
@@ -12,6 +12,10 @@ CAMBIO_TURNO = """
 CREATE TABLE IF NOT EXISTS cambio_turno (
   id INTEGER PRIMARY KEY, periodo TEXT, servicio TEXT DEFAULT 'esterilizacion', tipo TEXT, registrado_en TEXT, usuario TEXT,
   colab_a INT, colab_b INT, celdas TEXT, motivo TEXT, excepcion INT DEFAULT 0, anulado_en TEXT, anulado_por TEXT);
+"""
+
+PUESTO_FIJO = """
+CREATE TABLE IF NOT EXISTS puesto_fijo (periodo TEXT, fecha TEXT, colab_id INT, puesto_id INT, PRIMARY KEY (periodo, fecha, colab_id));
 """
 
 SOLICITUD = """
@@ -43,7 +47,7 @@ CREATE TABLE demanda (id INTEGER PRIMARY KEY, puesto_id INT, tipo_dia TEXT, inic
 CREATE TABLE persona_puesto (colab_id INT, puesto_id INT, PRIMARY KEY (colab_id, puesto_id));
 """ + """
 CREATE TABLE asignacion_puesto (periodo TEXT, fecha TEXT, colab_id INT, puesto_id INT, desde INT, hasta INT, pausa INT);
-""" + CAMBIO_TURNO + SOLICITUD
+""" + CAMBIO_TURNO + SOLICITUD + PUESTO_FIJO
 
 PUESTOS_BASE = [(1, "Lavado", "DDEBF7"), (2, "Autoclave", "E2EFDA"), (3, "Sterrad y esto", "FFF2CC"),
                 (4, "Cuarto estéril", "FCE4D6"), (5, "Ropa", "EDEDED"), (6, "Guardia noche", "D9D2E9")]
@@ -80,7 +84,7 @@ class BD:
         if self.c.execute("PRAGMA user_version").fetchone()[0] == 0:
             self.c.executescript(ESQUEMA)
             self.sembrar()
-            self.c.execute("PRAGMA user_version = 7")
+            self.c.execute("PRAGMA user_version = 8")
             self.c.commit()
         else:
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
@@ -95,6 +99,8 @@ class BD:
                 self._migrar_a_6()
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 6:
                 self._migrar_a_7()
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 7:
+                self._migrar_a_8()
 
     # --- SQL común a SQLite y PostgreSQL ---------------------------------------------------------
     CLAVES = {"turno": "codigo", "parametro": "clave", "periodo_estado": "clave", "asignacion": "mes, version, colab_id, fecha"}
@@ -141,6 +147,12 @@ class BD:
             self._limpiar()
         elif self.dialecto == "sqlite":
             self.c.close()
+
+    def _migrar_a_8(self):
+        """v8 agrega el puesto fijado a mano en una celda del cuadro."""
+        self.c.executescript(PUESTO_FIJO)
+        self.c.execute("PRAGMA user_version = 8")
+        self.c.commit()
 
     def _migrar_a_7(self):
         """v7 agrega las solicitudes personales (deseos blandos para el solver)."""
@@ -327,6 +339,30 @@ class BD:
                            [(puesto_id, d.tipo_dia, d.inicio, d.fin, d.personas, d.obligatorio) for d in demandas])
         self.c.commit()
 
+    def usa_puestos(self):
+        return self.param("usa_puestos", "1") != "0"
+
+    def requerimiento(self):
+        """[{dia, franja, personas, obligatorio}] del área sin puestos; dia 0 = lunes … 6 = domingo, 7 = festivo."""
+        franja = {v: k for k, v in VENTANA_FRANJA.items()}
+        return [dict(dia=7 if d.tipo_dia == "F" else int(d.tipo_dia), franja=franja[d.inicio, d.fin], personas=d.personas,
+                     obligatorio=d.obligatorio) for d in self.demandas() if d.puesto_id == 0 and (d.inicio, d.fin) in franja]
+
+    def guardar_requerimiento(self, filas):
+        self.reemplazar_demandas(0, [Demanda(0, "F" if f["dia"] == 7 else str(f["dia"]), *VENTANA_FRANJA[f["franja"]], f["personas"],
+                                             f["obligatorio"]) for f in filas if f["personas"]])
+
+    def puestos_fijos(self, periodo):
+        """{(colab_id, fecha): puesto_id} fijados a mano."""
+        return {(r["colab_id"], _dt(r["fecha"])): r["puesto_id"] for r in self.c.execute("SELECT * FROM puesto_fijo WHERE periodo=?", (periodo,))}
+
+    def fijar_puesto(self, periodo, cid, fecha, puesto_id):
+        """Fija (o, con None, suelta) el puesto de la celda."""
+        self.c.execute("DELETE FROM puesto_fijo WHERE periodo=? AND fecha=? AND colab_id=?", (periodo, fecha.isoformat(), cid))
+        if puesto_id:
+            self.c.execute("INSERT INTO puesto_fijo (periodo, fecha, colab_id, puesto_id) VALUES (?,?,?,?)", (periodo, fecha.isoformat(), cid, puesto_id))
+        self.c.commit()
+
     # --- personal y novedades -------------------------------------------------------------------
     def guardar_colaborador(self, p):
         if p.puestos_permitidos is not None and not p.puestos_permitidos:
@@ -403,13 +439,14 @@ class BD:
         fest = {}
         for a in años | {a + 1 for a in años} | {a - 1 for a in años}:
             fest.update(festivos(a))
-        puestos = self.catalogo_puestos(solo_activos=True)
-        demandas = [d for d in self.demandas() if d.puesto_id in puestos]
+        usa = self.usa_puestos()
+        puestos = self.catalogo_puestos(solo_activos=True) if usa else {}
+        demandas = [d for d in self.demandas() if (d.puesto_id in puestos if usa else d.puesto_id == 0)]  # sin puestos: requerimiento (puesto 0)
         return Contexto(self.turnos(), self.colaboradores(), self.novedades(), cobertura_derivada(demandas), fest,
                         int(self.param("libre_tras_noche", 1)), int(self.param("libres_por_semana", 1)),
                         int(self.param("fines_semana_libres", 1)), int(self.param("max_noches_seguidas", 2)),
                         int(self.param("max_c_seguidos", 2)), int(self.param("max_igual_seguidos", 3)), puestos, demandas,
-                        self.solicitudes())
+                        self.solicitudes(), usa)
 
     # --- cuadro: versiones original / cambios ---------------------------------------------------
     def asignaciones(self, mes, version="cambios"):
@@ -439,6 +476,7 @@ class BD:
         `reiniciar` borra todo el mes (también las ediciones manuales)."""
         if reiniciar:
             self.c.execute("DELETE FROM asignacion WHERE mes=?", (mes,))
+            self.c.execute("DELETE FROM puesto_fijo WHERE periodo=?", (mes,))
         for v in versiones:
             fijos = {(r["colab_id"], r["fecha"]) for r in self.c.execute(
                 "SELECT * FROM asignacion WHERE mes=? AND version=? AND fijo=1", (mes, v))}
@@ -458,6 +496,8 @@ class BD:
         """Devuelve celdas de `cambios` a lo que dice `original` (todas si no se filtra). Una celda libre en el
         original deja de tener fila en `cambios`."""
         orig, cam = self.asignaciones(mes, "original"), self.asignaciones(mes, "cambios")
+        if cids is None and fechas is None:
+            self.c.execute("DELETE FROM puesto_fijo WHERE periodo=?", (mes,))
         for (cid, f) in set(orig) | set(cam):
             if (cids is None or cid in cids) and (fechas is None or f in fechas):
                 self.c.execute("DELETE FROM asignacion WHERE mes=? AND version='cambios' AND colab_id=? AND fecha=?",
