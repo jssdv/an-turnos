@@ -7,8 +7,6 @@ on:
 jobs:
   nucleo:
     runs-on: ubuntu-latest
-    env:
-      QT_QPA_PLATFORM: offscreen
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,7 +23,7 @@ jobs:
       - run: python -m pytest tests -q
         env:
           AN_TIEMPO_ESCALA: "3"
-      # Scripts sin funciones test_*; los de GUI y nucleo piden bibliotecas de Qt que el runner no trae.
+      # Script sin funciones test_*.
       - run: python tests/radiologia/test_generar_semana.py
 
   postgres:
@@ -41,7 +39,6 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U an -d an" --health-interval 5s --health-timeout 3s --health-retries 10
     env:
-      QT_QPA_PLATFORM: offscreen
       AN_PG_URL: postgresql://an:an_dev@127.0.0.1:5432/an
     steps:
       - uses: actions/checkout@v4
