@@ -1,12 +1,14 @@
 """Radiología en la web: cuadro mensual subido (`archivo`) y, sobre él, las funciones de `an/radiologia/`. La API no reimplementa reglas."""
 import re
 import zipfile
+from datetime import date
 from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
+from an.radiologia import analisis
 from an.radiologia import generar_semana as gs
 
 from .deps import Contexto, contexto_area
@@ -76,3 +78,74 @@ def borrar_archivo(area: int, id: int, ctx: Contexto = Depends(contexto_area, sc
     _exigir_radiologia(ctx, area)
     if ctx.conn.execute("DELETE FROM archivo WHERE id = ? RETURNING id", (id,)).fetchone() is None:
         raise HTTPException(404, "Archivo no encontrado")
+
+
+# ---------------------------------------------------------------- semanas
+def _cuadro(ctx, area, id):
+    """La hoja «Cambios …» del archivo (404 si no es de esta área)."""
+    _exigir_radiologia(ctx, area)
+    f = ctx.conn.execute("SELECT contenido FROM archivo WHERE id = ?", (id,)).fetchone()
+    if f is None:
+        raise HTTPException(404, "Archivo no encontrado")
+    try:
+        return gs.cargar_mensual(BytesIO(bytes(f["contenido"])))
+    except gs.ErrorPlanilla as e:  # subido válido, pero ilegible hoy (no debería pasar)
+        raise HTTPException(422, str(e))
+
+
+def _lunes(ws, texto):
+    try:
+        lunes = date.fromisoformat(texto)
+    except ValueError:
+        lunes = None
+    if lunes not in gs.lunes_disponibles(ws):
+        raise HTTPException(422, "La fecha debe ser un lunes del cuadro.")
+    return lunes
+
+
+def _version_anterior(ctx, lunes):
+    """(nombre, libro openpyxl) de la última planilla guardada de la semana, o None. Hoy no se guardan: espera a la tabla `exporte` (Fase 6)."""
+    return None
+
+
+@router.get("/areas/{area}/archivos/{id}/semanas")
+def semanas(area: int, id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
+    ws = _cuadro(ctx, area, id)
+    lunes = gs.lunes_disponibles(ws)
+    return dict(hoja=ws.title, semanas=[dict(lunes=l.isoformat(), etiqueta=analisis.semana_texto(l)) for l in lunes],
+                defecto=analisis.semana_por_defecto(lunes, date.today()).isoformat())
+
+
+def _calcular(ctx, ws, lunes):
+    try:
+        wb, resumen, datos = gs.construir(ws, lunes)
+    except gs.ErrorPlanilla as e:
+        raise HTTPException(422, str(e))
+    previa = _version_anterior(ctx, lunes)
+    cambios = analisis.comparar_libros(previa[1], wb, lunes) if previa else None
+    return wb, resumen, datos, previa, cambios
+
+
+QUE_FALTA = {"disp": "Disponibilidad sin asignar", "turno": "Turno sin médico", "remoto": "Remoto sin médico"}
+
+
+@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}")
+def semana(area: int, id: int, lunes: str, ctx: Contexto = Depends(contexto_area, scope="function")):
+    ws = _cuadro(ctx, area, id)
+    lunes = _lunes(ws, lunes)
+    _, resumen, datos, previa, cambios = _calcular(ctx, ws, lunes)
+    alertas, revision = analisis.alertas(ws, lunes), analisis.revisar_cuadro(datos)
+    agendas = analisis.agenda_por_medico(datos)
+    corta = analisis.fecha_corta
+    nombre = previa[0] if previa else None
+    return dict(
+        resumen=dict(analisis.resumen_semana(lunes, datos, resumen, alertas, revision, len(agendas), nombre, cambios),
+                     festivos=resumen["festivos"]),
+        alertas=dict(
+            revision=[dict(fecha=f, corta=corta(f) if f else "Toda la semana", medico=m, problema=t) for f, m, t in revision],
+            descanso=[dict(fecha=f, corta=corta(f), medico=m, regla=t) for f, m, t in alertas],
+            pendientes=[dict(fecha=f, corta=corta(f), servicio=analisis.SERVICIOS.get(s, s), franja=fr, que=QUE_FALTA[t])
+                        for f, fr, s, t in resumen["pendientes"]]),
+        equidad=analisis.equidad(ws, lunes),
+        agendas={n: analisis.texto_agenda(n, ev, lunes) for n, ev in agendas.items()},
+        cambios=dict(version_anterior=nombre, lista=cambios or []))
