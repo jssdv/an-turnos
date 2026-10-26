@@ -33,7 +33,7 @@ def test_esquema_v6():
     bd = db.BD()
     if bd.es_postgres():  # PRAGMA es de SQLite; el esquema de PostgreSQL lo cubre tests/web/test_esquema.py
         return
-    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
     cols = [r["name"] for r in bd.c.execute("PRAGMA table_info(cambio_turno)")]
     assert cols == ["id", "periodo", "servicio", "tipo", "registrado_en", "usuario", "colab_a", "colab_b",
                     "celdas", "motivo", "excepcion", "anulado_en", "anulado_por"]
@@ -48,7 +48,7 @@ def test_migra_v5_a_v6():
     bd.c.commit()
     bd.c.close()
     bd = db.BD(ruta)
-    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
     assert bd.asignaciones("2026-10-01/2026-10-31") == {(1, date(2026, 10, 5)): "M"}
     assert bd.c.execute("SELECT count(*) FROM cambio_turno").fetchone()[0] == 0
     assert bd.ruta == ruta
@@ -63,7 +63,7 @@ def test_permuta_intercambia_registra_y_gasta_cupo():
     fila = cambios.listar(bd, K)[0]
     assert fila["id"] == i and fila["tipo"] == "permuta" and fila["usuario"] == u and fila["motivo"] == "pedido"
     assert bd.es_postgres() or fila["servicio"] == "esterilizacion"  # en PostgreSQL el servicio lo da area_id
-    assert fila["celdas"] == [(1, d1, "M", "T"), (2, d1, "T", "M")]
+    assert fila["celdas"] == [(1, d1, "M", "T", 0, 0), (2, d1, "T", "M", 0, 0)]
 
 
 def test_permuta_sobre_limite_exige_excepcion():
@@ -169,6 +169,27 @@ def test_anular_en_orden_inverso_funciona():
     assert cambios.anular(bd, j, u) is True and cambios.anular(bd, i, u) is True
     c = bd.asignaciones(K)
     assert c[(1, d1)] == "M" and c[(2, d1)] == "T"
+
+
+def test_permuta_mueve_el_puesto_y_anular_lo_devuelve():
+    bd = nuevo()
+    bd.fijar_puesto(K, 1, d1, 2)
+    bd.fijar_puesto(K, 2, d1, 3)
+    [i] = cambios.permuta(bd, K, 1, d1, 2, d1, "", u)
+    assert bd.puestos_fijos(K) == {(1, d1): 3, (2, d1): 2}
+    assert cambios.anular(bd, i, u) is True
+    assert bd.puestos_fijos(K) == {(1, d1): 2, (2, d1): 3}
+
+
+def test_ajuste_solo_puesto_y_editado_despues():
+    bd = nuevo()
+    [i] = cambios.ajuste(bd, K, [(1, d1, "M", 4)], "", u)  # mismo turno, otro puesto
+    assert bd.asignaciones(K)[(1, d1)] == "M" and bd.puestos_fijos(K) == {(1, d1): 4}
+    bd.fijar_puesto(K, 1, d1, 5)
+    with raises(EditadoDespues):
+        cambios.anular(bd, i, u)
+    bd.fijar_puesto(K, 1, d1, 4)
+    assert cambios.anular(bd, i, u) and bd.puestos_fijos(K) == {}
 
 
 if __name__ == "__main__":

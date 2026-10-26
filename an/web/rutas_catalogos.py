@@ -6,13 +6,13 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from an.turnos import demanda, flujo, solicitudes
-from an.turnos.dominio import PRIORIDADES, TIPOS_COLAB, TIPOS_NOVEDAD, TIPOS_SOLICITUD, Colaborador, Demanda, Novedad, Puesto, Solicitud, Turno
+from an.turnos import flujo, solicitudes
+from an.turnos.dominio import PRIORIDADES, TIPOS_COLAB, TIPOS_NOVEDAD, TIPOS_SOLICITUD, Colaborador, Novedad, Puesto, Solicitud, Turno
 
 from .deps import Contexto, contexto_area
 
 router = APIRouter(prefix="/api/areas/{area}")
-RANGOS_PARAMETROS = {"ventana_semanas": (1, 8), "limite_permutas": (0, 20), "banco_tope_favor_h": (0, 48), "banco_tope_deuda_h": (0, 48),
+RANGOS_PARAMETROS = {"usa_puestos": (0, 1), "ventana_semanas": (1, 8), "limite_permutas": (0, 20), "banco_tope_favor_h": (0, 48), "banco_tope_deuda_h": (0, 48),
                      "periodo_semanas": (1, 8), "max_noches_seguidas": (0, 7), "max_c_seguidos": (0, 7), "max_igual_seguidos": (0, 7),
                      "libre_tras_noche": (0, 3), "libres_por_semana": (1, 3), "fines_semana_libres": (0, 4)}
 CONCEPTOS_TARIFA = ("dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio")
@@ -231,14 +231,6 @@ class PuestoIn(BaseModel):
     activo: bool = True
 
 
-class DemandaIn(BaseModel):
-    tipo_dia: Literal["LS", "DF"]
-    inicio: int = Field(ge=0, le=1439)
-    fin: int = Field(ge=0, le=1440)
-    personas: int = Field(ge=0, le=50)
-    obligatorio: bool = True
-
-
 def _puesto_existe(bd, id_):
     if id_ not in bd.catalogo_puestos():
         raise HTTPException(404, "Puesto no encontrado")
@@ -270,27 +262,46 @@ def borrar_puesto(id: int, request: Request, ctx: Contexto = Depends(contexto_ar
     return {"resultado": ctx.bd.borrar_puesto(id)}
 
 
-@router.put("/puestos/{id}/demandas")
-def reemplazar_demandas(id: int, datos: list[DemandaIn], request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
+class RequerimientoIn(BaseModel):
+    dia: int = Field(ge=0, le=7)  # 0 lunes … 6 domingo, 7 festivo
+    inicio: int = Field(ge=0, le=1439)
+    fin: int = Field(ge=0, le=1440)
+    personas: int = Field(ge=0, le=50)
+    obligatorio: bool = True
+
+
+def _requerimiento(datos, ctx, puesto_id, request):
+    if len({(d.dia, d.inicio, d.fin) for d in datos}) != len(datos):
+        raise HTTPException(422, "Un horario aparece dos veces el mismo día")
+    if any(d.inicio == d.fin or d.inicio % 30 or d.fin % 30 for d in datos):
+        raise HTTPException(422, "Las horas deben ser distintas y múltiplos de 30 minutos")
+    ctx.bd.guardar_requerimiento([d.model_dump() for d in datos], puesto_id)
+    _evento(request, "requerimiento_guardado")
+    return {"ok": True}
+
+
+@router.get("/requerimiento")
+def leer_requerimiento(ctx: Contexto = Depends(contexto_area, scope="function")):
+    return ctx.bd.requerimiento()
+
+
+@router.put("/requerimiento")
+def guardar_requerimiento(datos: list[RequerimientoIn], request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
+    """Personas por ventana horaria (la de cada turno) y día de la semana de un área sin puestos."""
+    return _requerimiento(datos, ctx, 0, request)
+
+
+@router.get("/puestos/{id}/requerimiento")
+def leer_requerimiento_puesto(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     _puesto_existe(ctx.bd, id)
-    for d in datos:  # mismas reglas que la pestaña de Qt
-        if d.inicio == d.fin:
-            raise HTTPException(422, "El puesto no puede empezar y terminar a la misma hora.")
-        if d.inicio % 30 or d.fin % 30:
-            raise HTTPException(422, "Las horas deben ser múltiplos de 30 minutos.")
-    reglas = [Demanda(id, d.tipo_dia, d.inicio, d.fin, d.personas, d.obligatorio) for d in datos]
-    ctx.bd.reemplazar_demandas(id, reglas)
-    avisos, vistos = [], set()
-    for d in reglas:
-        tramos = {(d.tipo_dia, o * demanda.TRAMOS_DIA + t) for o, t in demanda.tramos_ventana(d.inicio, d.fin)}
-        if vistos & tramos and not avisos:
-            avisos.append("Las reglas solapadas se suman.")
-        vistos |= tramos
-    if huecos := demanda.huecos_sin_turno([d for d in reglas if d.obligatorio], ctx.bd.turnos()):
-        hhmm = lambda m: f"{m // 60 % 24:02d}:{m % 60:02d}"
-        avisos.append("Ningún turno cubre " + ", ".join(f"{hhmm(a)}–{hhmm(b)}" for a, b in huecos[:3]) + ".")
-    _evento(request, "demandas_reemplazadas")
-    return {"ok": True, "avisos": avisos}
+    return ctx.bd.requerimiento(id)
+
+
+@router.put("/puestos/{id}/requerimiento")
+def guardar_requerimiento_puesto(id: int, datos: list[RequerimientoIn], request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
+    """Lo mismo que el de un área sin puestos, para un puesto (obligatorio o deseable en todas sus filas)."""
+    _puesto_existe(ctx.bd, id)
+    return _requerimiento(datos, ctx, id, request)
 
 
 # --- parámetros y tarifas -----------------------------------------------------------------------

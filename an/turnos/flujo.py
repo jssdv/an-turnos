@@ -87,7 +87,7 @@ def recalcular(bd, inicio, fin, ctx=None):
     k, dias = clave(inicio, fin), fechas(inicio, fin)
     ctx = ctx or bd.contexto(inicio.year)
     cuadro = bd.asignaciones(k)
-    bd.guardar_asignacion_puesto(k, puestos.asignar_tramos(ctx, cuadro, dias))
+    bd.guardar_asignacion_puesto(k, puestos.asignar_tramos(ctx, cuadro, dias, fijos=bd.puestos_fijos(k)))
     sesiones, _ = capacitacion.programar(ctx, cuadro, dias)
     bd.guardar_capacitacion(k, sesiones)
     return reglas.validar(ctx, cuadro, dias, bd.fijos(k))

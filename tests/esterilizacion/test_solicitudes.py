@@ -15,7 +15,7 @@ def test_esquema_v7():
     bd = db.BD()
     if bd.es_postgres():  # PRAGMA es de SQLite
         return
-    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
     cols = [r["name"] for r in bd.c.execute("PRAGMA table_info(solicitud)")]
     assert cols == ["id", "servicio", "colab_id", "tipo", "desde", "hasta", "turno", "prioridad", "nota", "registrado_en", "usuario"]
 
@@ -28,7 +28,7 @@ def test_migra_v6_a_v7():
     bd.c.commit()
     bd.c.close()
     bd = db.BD(ruta)
-    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
     assert bd.c.execute("SELECT count(*) FROM solicitud").fetchone()[0] == 0
 
 

@@ -113,7 +113,7 @@ class Puesto:
 
 @dataclass
 class Demanda:
-    """Regla: `personas` en el puesto durante la ventana [inicio, fin) de los días de tipo `tipo_dia` (LS o DF).
+    """Regla: `personas` en el puesto durante la ventana [inicio, fin) de los días de tipo `tipo_dia` (LS o DF; sin puestos: "0"…"6" día de la semana o "F" festivo).
     Minutos desde las 00:00; si fin <= inicio la ventana cruza medianoche."""
     puesto_id: int
     tipo_dia: str
@@ -182,6 +182,7 @@ class Contexto:
     puestos: dict = field(default_factory=dict)  # id -> Puesto
     demandas: list = field(default_factory=list)  # reglas de demanda de los puestos activos
     solicitudes: list = field(default_factory=list)  # deseos blandos del solver
+    usa_puestos: bool = True  # False: la necesidad son personas por franja y día de la semana (demanda con puesto 0)
     _nov: dict = field(default_factory=dict, repr=False)
 
     def __post_init__(self):
@@ -193,6 +194,10 @@ class Contexto:
 
     def tipo_dia(self, f):
         return "DF" if f.weekday() == 6 or f in self.fest else "LS"
+
+    def codigo_dia(self, f):
+        """Día de la semana ("0" lunes … "6") o "F" si es festivo: clave del requerimiento de un área sin puestos."""
+        return "F" if f in self.fest else str(f.weekday())
 
     def novedad(self, cid, f):
         return self._nov.get((cid, f))

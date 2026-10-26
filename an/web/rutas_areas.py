@@ -4,7 +4,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from an.turnos import analitica, flujo, reglas
+from an.turnos import analitica, cambios, flujo, reglas
 
 from . import deps
 from .deps import Contexto, contexto_area, usuario_actual
@@ -51,7 +51,7 @@ _lista("tarifas", lambda bd: bd.tarifas())
 PARAMETROS_POR_DEFECTO = {
     "periodo_modo": "mes", "periodo_semanas": "4", "ventana_semanas": "3", "limite_permutas": "2", "max_noches_seguidas": "2",
     "max_c_seguidos": "2", "max_igual_seguidos": "3", "libre_tras_noche": "1", "libres_por_semana": "1", "fines_semana_libres": "1",
-    "banco_tope_favor_h": "12", "banco_tope_deuda_h": "12",
+    "banco_tope_favor_h": "12", "banco_tope_deuda_h": "12", "usa_puestos": "1",
 }
 
 
@@ -81,9 +81,12 @@ def _periodo(ctx, id_):
 def cuadro(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, _, _ = _periodo(ctx, id)
     revision = ctx.conn.execute("SELECT revision FROM periodo WHERE id = ?", (id,)).fetchone()[0]  # antes que las celdas: una revisión vieja solo da un 409 inofensivo
-    fijos = ctx.bd.fijos(clave)
-    return {"clave": clave, "version": "cambios", "revision": revision,
-            "celdas": [dict(colab_id=c, fecha=f, turno=t, fijo=(c, f) in fijos) for (c, f), t in sorted(ctx.bd.asignaciones(clave).items())]}
+    fijos, fijos_q = ctx.bd.fijos(clave), ctx.bd.puestos_fijos(clave)
+    usa = ctx.bd.usa_puestos()
+    return {"clave": clave, "version": "cambios", "revision": revision, "usa_puestos": usa,
+            "celdas": [dict(colab_id=c, fecha=f, turno=t, fijo=(c, f) in fijos, **({"puesto": cambios.puesto_de(ctx.bd, clave, c, f),
+                                                                                   "puesto_fijo": (c, f) in fijos_q} if usa else {}))
+                       for (c, f), t in sorted(ctx.bd.asignaciones(clave).items())]}
 
 
 @router.get("/areas/{area}/periodos/{id}/alertas")

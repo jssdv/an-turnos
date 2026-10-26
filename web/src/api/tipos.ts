@@ -29,8 +29,13 @@ export interface Celda {
   turno: string;
   /** Editada a mano. */
   fijo?: boolean;
+  /** Puesto (id) donde pasa más tiempo; 0 = apoyo. Solo en áreas con puestos. */
+  puesto?: number;
+  /** Puesto fijado a mano: el reparto automático lo respeta. */
+  puesto_fijo?: boolean;
 }
 export interface Cuadro {
+  usa_puestos?: boolean;
   clave: string;
   version: string;
   revision?: number;
@@ -114,7 +119,7 @@ export interface PedidoGenerar {
 export type TipoCambio = "permuta" | "servicio" | "ajuste";
 export interface CuerpoCambio {
   tipo: TipoCambio;
-  celdas: { colab_id: number; fecha: string; turno: string }[];
+  celdas: { colab_id: number; fecha: string; turno: string; puesto?: number | null }[];
   motivo: string;
   excepcion: boolean;
 }
@@ -135,7 +140,7 @@ export interface CambioRegistrado {
   excepcion: boolean;
   anulado_en: string | null;
   anulado_por: string | null;
-  celdas: { colab_id: number; fecha: string; antes: string; despues: string }[];
+  celdas: { colab_id: number; fecha: string; antes: string; despues: string; puesto_antes?: number; puesto_despues?: number }[];
 }
 export interface Cupo {
   colab_id: number;
@@ -195,4 +200,13 @@ export interface Exporte {
   bytes: number;
   creado: string;
   creado_por: string | null;
+}
+
+/** Personas pedidas en una ventana horaria (la de un turno) y día de un área sin puestos (dia 0 lunes … 6 domingo, 7 festivo). */
+export interface Requerimiento {
+  dia: number;
+  inicio: number;
+  fin: number;
+  personas: number;
+  obligatorio: boolean;
 }

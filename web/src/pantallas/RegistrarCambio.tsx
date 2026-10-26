@@ -1,5 +1,5 @@
 import type { Borrador } from "../api/cambios";
-import type { Cupo, Turno } from "../api/tipos";
+import type { Cupo, Puesto, Turno } from "../api/tipos";
 import { fechaCorta } from "./fechas";
 import { Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
@@ -14,6 +14,10 @@ interface Props {
   turnos: Turno[];
   /** Código actual de una celda. */
   actual: (colab: number, fecha: string) => string;
+  /** Puestos activos del área, o null si no trabaja por puestos. */
+  puestos: Puesto[] | null;
+  /** Nombre del puesto actual de una celda ("" si no tiene). */
+  puestoDe: (colab: number, fecha: string) => string;
   cupos: Cupo[] | null;
   error: string | null;
   enviando: boolean;
@@ -30,14 +34,14 @@ export function sinCupo(b: Borrador, cupos: Cupo[] | null) {
 }
 
 /** Diálogo «Registrar cambio»: qué se cambia y de qué clase es (permuta, cambio de servicio o ajuste). Lo escrito vive en `borrador`. */
-export function RegistrarCambio({ borrador: b, alCambiar, nombres, turnos, actual, cupos, error, enviando, alEnviar }: Props) {
+export function RegistrarCambio({ borrador: b, alCambiar, nombres, turnos, actual, puestos, puestoDe, cupos, error, enviando, alEnviar }: Props) {
   if (!b) return <Ventana abierto={false} alCambiar={() => undefined} titulo="Registrar cambio">{null}</Ventana>;
   const set = (p: Partial<Borrador>) => alCambiar({ ...b, ...p });
   const entre = b.modo === "intercambio" && b.celdas.length === 2 && b.celdas[0].colab_id !== b.celdas[1].colab_id;
   const tipos = (entre ? ["permuta", "servicio", "ajuste"] : ["servicio", "ajuste"]) as Borrador["tipo"][];
   const tipo = tipos.includes(b.tipo) ? b.tipo : tipos[0];
   const agotados = tipo === "permuta" ? sinCupo(b, cupos) : [];
-  const cel = (x: Borrador["celdas"][number]) => `${nombres.get(x.colab_id) ?? x.colab_id} · ${fechaCorta(x.fecha)} (${actual(x.colab_id, x.fecha)})`;
+  const cel = (x: Borrador["celdas"][number]) => `${nombres.get(x.colab_id) ?? x.colab_id} · ${fechaCorta(x.fecha)} (${actual(x.colab_id, x.fecha)}${puestoDe(x.colab_id, x.fecha) ? ` · ${puestoDe(x.colab_id, x.fecha)}` : ""})`;
   const resumen = b.modo === "intercambio" && b.celdas.length === 2 ? `${cel(b.celdas[0])} ⇄ ${cel(b.celdas[1])}`
     : b.celdas.length === 1 ? cel(b.celdas[0]) : `${b.celdas.length} celdas`;
   const sinMotivo = tipo === "servicio" && !b.motivo.trim();
@@ -57,6 +61,15 @@ export function RegistrarCambio({ borrador: b, alCambiar, nombres, turnos, actua
             {turnos.filter((t) => t.activo).map((t) => <option key={t.codigo} value={t.codigo}>{t.codigo} · {t.nombre}</option>)}
           </NativeSelect>
         )}
+        {puestos && b.modo === "asignar" && (
+          <NativeSelect size="sm" label="Puesto" value={b.puesto ?? ""} onChange={(x) => set({ puesto: x.target.value })}
+            hint="Déjalo en «Sin cambio» para mover solo el turno; elige un puesto para fijarlo en la celda.">
+            <option value="">Sin cambio</option>
+            <option value="0">Automático (soltar el fijado)</option>
+            {puestos.map((q) => <option key={q.id} value={q.id}>{q.numero} · {q.nombre}</option>)}
+          </NativeSelect>
+        )}
+        {puestos && b.modo === "intercambio" && <p className="text-sm text-tertiary">Cada persona se lleva el turno y el puesto de la otra celda (si puede ocuparlo).</p>}
         <NativeSelect size="sm" label="Clase de cambio" value={tipo} onChange={(x) => set({ tipo: x.target.value as Borrador["tipo"] })}>
           {tipos.map((t) => <option key={t} value={t}>{NOMBRE_TIPO[t]}</option>)}
         </NativeSelect>
