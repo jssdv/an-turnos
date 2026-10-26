@@ -5,7 +5,9 @@ from datetime import date
 from io import BytesIO
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from an.radiologia import analisis
@@ -149,3 +151,79 @@ def semana(area: int, id: int, lunes: str, ctx: Contexto = Depends(contexto_area
         equidad=analisis.equidad(ws, lunes),
         agendas={n: analisis.texto_agenda(n, ev, lunes) for n, ev in agendas.items()},
         cambios=dict(version_anterior=nombre, lista=cambios or []))
+
+
+@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}/previa")
+def previa(area: int, id: int, lunes: str, ctx: Contexto = Depends(contexto_area, scope="function")):
+    ws = _cuadro(ctx, area, id)
+    wb = _calcular(ctx, ws, _lunes(ws, lunes))[0]
+    tema = analisis.paleta_tema(wb)
+    return [dict(hoja=hoja, titulo=titulo, **analisis.hoja_a_json(wb[hoja], 1 if hoja == "Cambios" else 3, tema))
+            for hoja, titulo in analisis.PESTANAS_PREVIA.items() if hoja in wb.sheetnames]
+
+
+MAX_CUADROS = 12
+
+
+@router.get("/areas/{area}/equidad-meses")
+def equidad_meses(area: int, archivos: str, ctx: Contexto = Depends(contexto_area, scope="function")):
+    _exigir_radiologia(ctx, area)
+    try:
+        ids = list(dict.fromkeys(int(x) for x in archivos.split(",") if x.strip()))
+    except ValueError:
+        raise HTTPException(422, "Indica los cuadros como una lista de números separados por comas.")
+    if not ids or len(ids) > MAX_CUADROS:
+        raise HTTPException(422, f"Elige entre 1 y {MAX_CUADROS} cuadros.")
+    hojas, fallidos, vistos = [], [], 0
+    for id_ in ids:
+        f = ctx.conn.execute("SELECT nombre, contenido FROM archivo WHERE id = ?", (id_,)).fetchone()
+        if f is None:
+            continue
+        vistos += 1
+        try:
+            ws = gs.cargar_mensual(BytesIO(bytes(f["contenido"])))
+            hojas.append((ws.title.replace("Cambios ", ""), ws))
+        except gs.ErrorPlanilla:
+            fallidos.append(f["nombre"])
+    if not vistos:
+        raise HTTPException(404, "Archivo no encontrado")
+    return dict(meses=[e for e, _ in hojas], fallidos=fallidos, filas=analisis.equidad_meses(hojas))
+
+
+def _descarga(contenido, tipo, nombre):
+    ascii_ = nombre.encode("ascii", "ignore").decode().replace('"', "")
+    return Response(contenido, media_type=tipo, headers={"Content-Disposition": f"attachment; filename=\"{ascii_}\"; filename*=UTF-8''{quote(nombre)}"})
+
+
+@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}/agenda.ics")
+def agenda_ics(area: int, id: int, lunes: str, medico: str, ctx: Contexto = Depends(contexto_area, scope="function")):
+    ws = _cuadro(ctx, area, id)
+    lunes = _lunes(ws, lunes)
+    agendas = analisis.agenda_por_medico(_calcular(ctx, ws, lunes)[2])
+    if medico not in agendas:
+        raise HTTPException(404, "Ese médico no tiene turnos esa semana")
+    return _descarga(analisis.ics(medico, agendas[medico]).encode("utf-8"), "text/calendar; charset=utf-8", analisis.nombre_archivo(medico) + ".ics")
+
+
+@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}/agendas.zip")
+def agendas_zip(area: int, id: int, lunes: str, ctx: Contexto = Depends(contexto_area, scope="function")):
+    ws = _cuadro(ctx, area, id)
+    lunes = _lunes(ws, lunes)
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for nombre, ev in analisis.agenda_por_medico(_calcular(ctx, ws, lunes)[2]).items():
+            base = analisis.nombre_archivo(nombre)
+            z.writestr(base + ".ics", analisis.ics(nombre, ev))
+            z.writestr(base + ".txt", analisis.texto_agenda(nombre, ev, lunes))
+    return _descarga(buf.getvalue(), "application/zip", f"Agendas {gs.nombre_semana(lunes)}.zip")
+
+
+@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}/libro.xlsx")
+def libro(area: int, id: int, lunes: str, request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
+    ws = _cuadro(ctx, area, id)
+    lunes = _lunes(ws, lunes)
+    wb = _calcular(ctx, ws, lunes)[0]
+    buf = BytesIO()
+    wb.save(buf)
+    request.state.evento = "exportacion"  # TODO(Fase 6): guardar en `exporte` con numeración v2, v3… en vez de solo descargar
+    return _descarga(buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", gs.nombre_semana(lunes) + ".xlsx")

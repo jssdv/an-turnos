@@ -165,3 +165,120 @@ def test_semanas_y_analisis():
             x = cli.get(f"/api/areas/{area}/archivos/{id_}/semanas/{malo}")
             assert x.status_code == 422 and x.json()["detalle"] == "La fecha debe ser un lunes del cuadro."
         assert cli.get(f"/api/areas/{area}/archivos/9999/semanas").status_code == 404
+
+
+def test_previa():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, id_, area = con_cuadro(e)
+        hojas = cli.get(f"/api/areas/{area}/archivos/{id_}/semanas/2026-10-05/previa").json()
+        assert [h["titulo"] for h in hojas] == ["Ecografía", "Neuro", "MSK", "Abdomen", "Tórax y Corazón", "Mamografía y Densito"]  # sin «Cambios»: no hay versión anterior
+        abd = next(h for h in hojas if h["hoja"] == "Lectura - Abdomen")
+        assert any(c["texto"] == MEDICO for fila in abd["filas"] for c in fila) and abd["fusiones"]
+
+
+def test_equidad_meses():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, id_, area = con_cuadro(e)
+        editor = e.cliente()
+        e.entrar(editor, "editor@a.co")
+        id2 = subir(editor, area, cuadro_minimo()).json()["id"]
+        r = cli.get(f"/api/areas/{area}/equidad-meses?archivos={id_},{id2}").json()
+        assert r["meses"] == ["Octubre 2026", "Octubre 2026"] and r["fallidos"] == []
+        assert r["filas"][0]["medico"] == MEDICO and r["filas"][0]["mes"] == 20  # 10 + 10
+        assert cli.get(f"/api/areas/{area}/equidad-meses?archivos=9999").status_code == 404
+        assert cli.get(f"/api/areas/{area}/equidad-meses?archivos=a").status_code == 422
+        assert cli.get(f"/api/areas/{area}/equidad-meses?archivos=" + ",".join(str(i) for i in range(1, 14))).status_code == 422
+
+
+def test_agendas_ics_y_zip():
+    import urllib.parse
+    from an.radiologia import analisis, generar_semana as gs
+    with entorno() as e:
+        if e is None:
+            return
+        cli, id_, area = con_cuadro(e)
+        base = f"/api/areas/{area}/archivos/{id_}/semanas/2026-10-05"
+        r = cli.get(f"{base}/agenda.ics?medico={urllib.parse.quote(MEDICO)}")
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/calendar") and r.text.startswith("BEGIN:VCALENDAR")
+        assert r.text.count("BEGIN:VEVENT") >= 1
+        assert 'filename="Prueba Uno, Ana.ics"' in r.headers["content-disposition"]
+        assert cli.get(f"{base}/agenda.ics?medico=Nadie").status_code == 404
+        z = zipfile.ZipFile(io.BytesIO(cli.get(f"{base}/agendas.zip").content))
+        assert sorted(z.namelist()) == [f"{MEDICO}.ics", f"{MEDICO}.txt"]
+        assert z.read(f"{MEDICO}.ics").decode().count("BEGIN:VEVENT") == r.text.count("BEGIN:VEVENT")
+    assert analisis.nombre_archivo('A/B:"C"') == "ABC"
+
+
+def test_libro_nombre_y_auditoria():
+    import openpyxl
+    from an.radiologia import generar_semana as gs
+    with entorno() as e:
+        if e is None:
+            return
+        cli, id_, area = con_cuadro(e)
+        r = cli.get(f"/api/areas/{area}/archivos/{id_}/semanas/2026-10-19/libro.xlsx")
+        assert r.status_code == 200 and "SEMANA 19 AL 25 DE OCTUBRE.xlsx" in r.headers["content-disposition"]
+        assert openpyxl.load_workbook(io.BytesIO(r.content)).sheetnames == openpyxl.load_workbook(gs.PLANTILLA).sheetnames
+        fila = e.su.execute("SELECT metodo, codigo FROM auditoria WHERE evento = 'exportacion'").fetchone()
+        assert (fila["metodo"], fila["codigo"]) == ("GET", 200)
+
+
+def _preparado(origen, destino):
+    """Copia con fechas completas en la fila 3 (como en tests/radiologia/test_generar_semana.py)."""
+    from datetime import datetime, timedelta
+    import openpyxl
+    wb = openpyxl.load_workbook(origen, data_only=True)
+    ws = wb["Cambios Octubre 2026"]
+    f = datetime(2026, 10, 1)
+    for c in range(6, ws.max_column + 1):
+        v = ws.cell(3, c).value
+        if isinstance(v, (int, float, datetime)) and not isinstance(v, bool):
+            ws.cell(3, c).value, f = f, f + timedelta(1)
+    wb.save(destino)
+
+
+def _diferencias(a, b):
+    """Celdas distintas entre dos libros (valor, relleno, negrita, combinadas); solo coordenadas, nunca valores."""
+    malas = []
+    assert a.sheetnames == b.sheetnames
+    for nombre in a.sheetnames:
+        x, y = a[nombre], b[nombre]
+        if sorted(map(str, x.merged_cells.ranges)) != sorted(map(str, y.merged_cells.ranges)):
+            malas.append(f"{nombre}: combinadas")
+        for fila in range(1, max(x.max_row, y.max_row) + 1):
+            for col in range(1, max(x.max_column, y.max_column) + 1):
+                p, q = x.cell(fila, col), y.cell(fila, col)
+                if (p.value, p.fill.fgColor.rgb, p.font.b) != (q.value, q.fill.fgColor.rgb, q.font.b):
+                    malas.append(f"{nombre}!{p.coordinate}")
+    return malas
+
+
+def test_libro_igual_a_qt():
+    """Aceptación 7b: la semana del 19 al 25 de octubre sale igual (celdas) que la que genera el núcleo con las mismas entradas."""
+    import tempfile
+    from datetime import date
+    from pathlib import Path
+    import openpyxl
+    from an.radiologia import generar_semana as gs
+    ejemplo = Path(__file__).resolve().parents[2] / "ejemplos" / "radiologia" / "Cuadro Octubre 2026 (prueba con fechas).xlsx"
+    with entorno() as e:
+        if e is None:
+            return
+        tmp = Path(tempfile.mkdtemp())
+        if ejemplo.exists():
+            _preparado(ejemplo, tmp / "mensual.xlsx")
+        else:  # sin los datos locales, el cuadro mínimo prueba el mismo camino
+            (tmp / "mensual.xlsx").write_bytes(cuadro_minimo())
+        con_area_radiologia(e)
+        editor = e.cliente()
+        e.entrar(editor, "editor@a.co")
+        id_ = subir(editor, e.rad["A"], (tmp / "mensual.xlsx").read_bytes()).json()["id"]
+        r = editor.get(f"/api/areas/{e.rad['A']}/archivos/{id_}/semanas/2026-10-19/libro.xlsx")
+        assert r.status_code == 200
+        gs.generar(tmp / "mensual.xlsx", date(2026, 10, 19), tmp / "qt.xlsx")
+        malas = _diferencias(openpyxl.load_workbook(io.BytesIO(r.content)), openpyxl.load_workbook(tmp / "qt.xlsx"))
+        assert not malas, malas[:20]
