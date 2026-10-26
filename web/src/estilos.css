@@ -20,3 +20,16 @@ button, input, select { font: inherit; color: inherit; }
 .saltar { position: absolute; left: var(--e2); top: -48px; padding: var(--e2) var(--e3); background: var(--superficie); border-radius: var(--radio-s); z-index: 20; }
 .saltar:focus { top: var(--e2); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Imprimir → Guardar como PDF: solo el título y la planilla, apaisado, sin menú ni botones. */
+@page { size: landscape; margin: 10mm; }
+@media print {
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  html, body, #raiz { height: auto; }
+  body { background: transparent; }
+  aside, [data-no-imprimir], .saltar { display: none !important; }
+  *:has(> #contenido) { display: block !important; height: auto !important; }
+  #contenido { overflow: visible !important; padding: 0 !important; }
+  #contenido [role="alert"], #contenido [role="status"] { display: none !important; }
+  [data-solo-pantalla] { display: none !important; }
+}

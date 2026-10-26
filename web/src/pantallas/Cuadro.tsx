@@ -12,6 +12,7 @@ import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
 import e from "./Cuadro.module.css";
 import { dias as diasDe, fechaCorta, mesDe, nombrePeriodo } from "./fechas";
+import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
 import { RegistrarCambio, sinCupo } from "./RegistrarCambio";
 
@@ -183,11 +184,13 @@ export function Cuadro() {
             {deficit && ` · ${deficit.dias_deficit} días con déficit, ${deficit.puestos_sin_cubrir} puestos sin cubrir`}
           </p>
         </div>
-        <div className={e.acciones}>
+        <div className={e.acciones} data-no-imprimir>
           {actual.cerrado_en ? <span className={e.estado}>Cerrado</span> : actual.publicado_en && <span className={e.estado}>Publicado</span>}
           <Seleccion etiqueta="Periodo" value={actual.id} onChange={(x) => ir(`/areas/${area.id}/cuadro/${x.target.value}`)}>
             {periodos.map((p) => <option key={p.id} value={p.id}>{nombrePeriodo(p.clave)}</option>)}
           </Seleccion>
+          <Exportar area={area.id} periodo={actual.id} hayCuadro={!datos || datos.cuadro.celdas.length > 0} />
+          <Boton onClick={() => window.print()}>Imprimir</Boton>
           {area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={actual} alTerminar={() => setRecarga((n) => n + 1)} />}
           {area.permiso === "editar" && <Generar area={area.id} periodo={actual} bloqueado={!!actual.cerrado_en} alTerminar={() => setRecarga((n) => n + 1)} />}
         </div>
@@ -253,7 +256,7 @@ export function Cuadro() {
         cupos={cupos} error={errorCambio} enviando={enviando} alEnviar={enviar} />
 
       {datos && (
-        <Tarjeta titulo={<>Alertas {datos.alertas.length > 0 && <span className={e.cuenta}>{datos.alertas.length}</span>}</>}>
+        <Tarjeta data-solo-pantalla titulo={<>Alertas {datos.alertas.length > 0 && <span className={e.cuenta}>{datos.alertas.length}</span>}</>}>
           {datos.alertas.length === 0 ? (
             <p className={e.vacio}>Sin alertas: el cuadro cumple las reglas.</p>
           ) : (
@@ -275,9 +278,11 @@ export function Cuadro() {
       )}
 
       {datos && (
+        <div data-solo-pantalla>
         <Cambios area={area.id} periodo={actual.id} revision={actual.revision} nombres={nombres} puedeAnular={puedeEditar}
           alConflicto={() => setRecarga((n) => n + 1)}
           alAnular={(a) => { setResultado({ nivel: a.length ? "aviso" : "ok", texto: "Cambio anulado." + (a.length ? " Ojo: " + a.slice(0, 3).join("; ") : "") }); setRecarga((n) => n + 1); }} />
+        </div>
       )}
     </div>
   );
