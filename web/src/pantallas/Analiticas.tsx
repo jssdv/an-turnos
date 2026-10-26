@@ -7,7 +7,7 @@ import { Tabla } from "../componentes/Tabla";
 import { Tarjeta } from "../componentes/Tarjeta";
 import { Pagina } from "./comun";
 import f from "./Formulario.module.css";
-import { nombrePeriodo } from "./fechas";
+import { fechaCorta, nombrePeriodo } from "./fechas";
 
 interface Datos {
   ausentismo: { pct: number; por_tipo: Record<string, number>; por_persona: Record<string, Record<string, number>> };
@@ -41,7 +41,7 @@ export function Analiticas() {
   }, [d]);
 
   return (
-    <Pagina titulo="Analíticas" sub="Lectura de lo ya registrado; no cambia nada." error={r.error}>
+    <Pagina titulo="Analíticas" sub="Cifras de lo ya registrado. Solo se consulta: aquí no se cambia nada." ayuda={<>Elige el rango de meses. Arriba ves el resumen: <strong>ausentismo</strong> (porcentaje de días perdidos por ausencias), cuántas personas faltaron <strong>a la vez</strong>, días con <strong>déficit</strong> (faltó gente en algún puesto) y cambios de turno. Las tablas de abajo muestran el detalle por persona y por periodo.</>} error={r.error}>
       <Tarjeta titulo="Rango">
         <div className={f.form}>
           <Campo etiqueta="Desde (mes)" type="month" value={desde} onChange={(x) => setDesde(x.target.value)} />
@@ -52,7 +52,7 @@ export function Analiticas() {
         <>
           <div className={f.cifras} role="list" aria-label="Resumen">
             <div className={f.cifra} role="listitem"><strong>{n(d.ausentismo.pct)} %</strong><span>Ausentismo · {total.ausencias} días de ausencia</span></div>
-            <div className={f.cifra} role="listitem"><strong>{d.simultaneos.maximo}</strong><span>Ausentes a la vez (máximo){d.simultaneos.fecha_maximo ? ` · ${d.simultaneos.fecha_maximo}` : ""}</span></div>
+            <div className={f.cifra} role="listitem"><strong>{d.simultaneos.maximo}</strong><span>Ausentes a la vez (máximo){d.simultaneos.fecha_maximo ? ` · ${fechaCorta(d.simultaneos.fecha_maximo)}` : ""}</span></div>
             <div className={f.cifra} role="listitem"><strong>{total.deficit}</strong><span>Días con déficit · {d.simultaneos.dias_riesgo.length} con ausentes en riesgo</span></div>
             <div className={f.cifra} role="listitem"><strong>{total.cambios}</strong><span>Cambios de turno · {total.excepciones} con excepción</span></div>
           </div>

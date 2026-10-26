@@ -30,9 +30,9 @@ export function Novedades() {
   });
 
   return (
-    <Pagina titulo="Novedades" sub="Ausencias de las personas en fechas concretas." error={lista.error ?? personas.error} aviso={aviso}>
+    <Pagina titulo="Ausencias" sub="Vacaciones, incapacidades, licencias y días libres concedidos." ayuda={<>Registra aquí cuándo alguien <strong>no puede trabajar</strong>. Al generar el cuadro, el sistema no le asigna turnos esos días. Si el cuadro ya existe, las alertas te avisan de los turnos que chocan con una ausencia.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
-        <Tarjeta titulo="Nueva novedad">
+        <Tarjeta titulo="Nueva ausencia">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <Seleccion etiqueta="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>
@@ -48,9 +48,10 @@ export function Novedades() {
           </Formulario>
         </Tarjeta>
       )}
-      <Tarjeta titulo="Novedades registradas">
+      <Tarjeta titulo="Ausencias registradas">
         <Tabla
-          descripcion="Novedades del área"
+          descripcion="Ausencias del área"
+          cargando={!lista.datos && !lista.error}
           vacio="Aún no hay novedades."
           columnas={["Persona", "Tipo", "Desde", "Hasta", "Nota", ""]}
           filas={(lista.datos ?? []).map((n) => [

@@ -1,8 +1,8 @@
 :root {
-  --fondo: #F5F7FA;
+  --fondo: #F3F7F6;
   --superficie: #FFFFFF;
-  --superficie-sutil: #F3F5F8;
-  --borde: #E3E8EE;
+  --superficie-sutil: #EEF4F3;
+  --borde: #DDE7E5;
   --borde-control: #C9D1DB;
   --borde-campo: #8D99A6;
   --texto: #1A2633;
@@ -11,12 +11,12 @@
   --acento: #0B7A75;
   --acento-hover: #08625E;
   --acento-suave: #E3F3F1;
-  --marca: #2BB3A3;
-  --lateral: #0F1D2B;
-  --lateral-sel: #1D3347;
-  --lateral-hover: #16293A;
-  --lateral-texto: #B9C7D5;
-  --lateral-tenue: #6F849A;
+  --marca: #34C3B0;
+  --lateral: #0E3433;
+  --lateral-sel: #18504E;
+  --lateral-hover: #134241;
+  --lateral-texto: #C4DEDA;
+  --lateral-tenue: #7FA9A4;
   --info: #0B6B8C;
   --info-fondo: #E6F2F7;
   --warn: #A86F00;
@@ -27,17 +27,18 @@
   --error-fondo: #FDECEA;
   --ok: #1E7A47;
   --ok-fondo: #E7F5EC;
-  --turno-M: #FFF1C2;
-  --turno-T: #DCEBFF;
-  --turno-C: #DDF3E4;
-  --turno-NC: #E6E0F7;
+  --turno-M: #FFE9A8;
+  --turno-T: #CFE3FF;
+  --turno-C: #CDEFD8;
+  --turno-NC: #E0D6FA;
   --error-borde: #F2C1BC;
   --warn-borde: #F1D58F;
-  --warn-insignia: #F2B43C;
+  --warn-insignia: #F5A524;
   --info-borde: #B9D9E6;
   --ok-texto: #14512F;
   --info-texto: #0B4A61;
   --error-texto: #7A1A12;
   --deshabilitado: #7A828C;
   --ok-borde: #B8E0C6;
+  --sombra: #0E343314;
 }

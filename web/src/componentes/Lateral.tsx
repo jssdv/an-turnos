@@ -11,11 +11,12 @@ interface Props {
   area: string;
   entradas: Entrada[];
   usuario: string;
+  rol?: string;
   pie?: ReactNode;
 }
 
 /** Menú del área: marca, secciones con insignias y usuario. Todas las áreas lo usan tal cual. */
-export function Lateral({ area, entradas, usuario, pie }: Props) {
+export function Lateral({ area, entradas, usuario, rol, pie }: Props) {
   return (
     <aside className={e.lateral}>
       <div className={e.marca}>
@@ -39,7 +40,7 @@ export function Lateral({ area, entradas, usuario, pie }: Props) {
         </ul>
       </nav>
       <div className={e.usuario}>
-        <div className={e.usuarioNombre}>{usuario}</div>
+        <div><div className={e.usuarioNombre}>{usuario}</div>{rol && <div className={e.rol}>{rol}</div>}</div>
         {pie}
       </div>
     </aside>

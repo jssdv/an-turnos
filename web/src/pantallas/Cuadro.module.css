@@ -14,3 +14,17 @@
 .chip-aviso { background: var(--warn-fondo); color: var(--warn-texto); border-color: var(--warn-borde); }
 .cuenta { background: var(--warn-insignia); color: var(--titulo); border-radius: 9px; padding: 0 7px; font-size: 11px; font-weight: 700; }
 .vacio { padding: var(--e5); text-align: center; color: var(--atenuado); }
+.grupo + .grupo { margin-top: var(--e3); }
+.grupo > summary { cursor: pointer; padding: var(--e2) 0; }
+.grupo > summary::marker { color: var(--atenuado); }
+.veces { color: var(--atenuado); }
+.pasos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--e3); }
+.pasos li { display: flex; align-items: center; gap: var(--e3); padding: var(--e3) var(--e4); border-radius: 12px; border: 1px solid var(--borde); background: var(--superficie); color: var(--titulo); }
+.numero { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: var(--superficie-sutil); color: var(--atenuado); font-weight: 700; }
+.paso { display: block; font-size: 12px; color: var(--atenuado); margin-top: 2px; }
+.pasos li.hecho { background: var(--ok-fondo); border-color: var(--ok-borde); color: var(--ok-texto); }
+.hecho .numero { background: var(--ok); color: var(--superficie); }
+.hecho .paso { color: var(--ok-texto); }
+.pasos li.actual { background: var(--warn-fondo); border-color: var(--warn-borde); color: var(--warn-texto); }
+.actual .numero { background: var(--warn-insignia); color: var(--titulo); }
+.actual .paso { color: var(--warn-texto); }

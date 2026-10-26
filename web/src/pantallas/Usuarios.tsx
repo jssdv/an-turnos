@@ -59,7 +59,7 @@ export function Usuarios() {
   const permisoDe = (u: UsuarioClinica, a: number) => u.permisos.find((p) => p.area_id === a)?.permiso ?? "";
 
   return (
-    <Pagina titulo="Usuarios" sub="Quién ingresa a la clínica y qué puede hacer en cada área." error={lista.error ?? areas.error} aviso={aviso}>
+    <Pagina titulo="Usuarios" sub="Quién ingresa a la clínica y qué puede hacer en cada área." ayuda={<>Cada persona puede tener, por área: <strong>Editar</strong> (genera y cambia el cuadro), <strong>Ver</strong> (solo consulta y exporta) o <strong>Sin acceso</strong>. Al crear un usuario se le asigna una contraseña temporal que deberá cambiar la primera vez que entre.</>} error={lista.error ?? areas.error} aviso={aviso}>
       {clave && (
         <Aviso nivel="aviso" accion={<Boton onClick={() => setClave(null)}>Ya la copié</Boton>}>
           Contraseña temporal de {clave.para}: <strong>{clave.valor}</strong>. Se muestra una sola vez; la persona debe cambiarla al ingresar.
@@ -79,6 +79,7 @@ export function Usuarios() {
       <Tarjeta titulo="Usuarios y permisos">
         <Tabla
           descripcion="Usuarios de la clínica"
+          cargando={!lista.datos && !lista.error}
           vacio="Aún no hay usuarios."
           columnas={["Usuario", "Estado", ...(areas.datos ?? []).map((a) => a.nombre), ""]}
           filas={(lista.datos ?? []).map((u) => [
