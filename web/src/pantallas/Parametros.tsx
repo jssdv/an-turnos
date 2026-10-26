@@ -9,6 +9,7 @@ import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { Badge } from "@/components/base/badges/badges";
 
 const NUM: [string, string, number, number, string][] = [
   ["ventana_semanas", "Promedio de horas (semanas)", 1, 8, "Las 42 h semanales se miden como promedio de este número de semanas (art. 165 CST)."],
@@ -90,7 +91,7 @@ export function Parametros() {
 
       <Seccion titulo="Turnos">
         <Tabla descripcion="Turnos del área" cargando={!turnos.datos && !turnos.error} vacio="Sin turnos." columnas={["Código", "Nombre", "Horario", "Estado", ""]}
-          filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, x.activo ? "Activo" : "Inactivo",
+          filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, <Badge size="sm" color={x.activo ? "success" : "gray"}>{x.activo ? "Activo" : "Inactivo"}</Badge>,
             editar ? <Button color="link-color" size="sm" onPress={() => elegirTurno(x)}>Editar</Button> : null])} />
         {editar && (
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardarTurno(); }}>

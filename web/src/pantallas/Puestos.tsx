@@ -8,6 +8,7 @@ import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { Badge } from "@/components/base/badges/badges";
 
 const TIPO_DIA = { LS: "Lunes a sábado", DF: "Domingo y festivo" } as const;
 
@@ -52,7 +53,7 @@ export function Puestos() {
     <Pagina titulo="Puestos" sub="Dónde trabaja la gente y cuántas personas hacen falta en cada uno." ayuda={<>Cada puesto tiene <strong>reglas de cobertura</strong>: cuántas personas necesita, qué días y en qué turno. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error} aviso={aviso}>
       <Seccion titulo="Puestos">
         <Tabla descripcion="Puestos del área" cargando={!puestos.datos && !puestos.error} vacio="Aún no hay puestos." columnas={["N.º", "Nombre", "Estado", "Reglas", ""]}
-          filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, q.activo ? "Activo" : "Inactivo", (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
+          filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, <Badge size="sm" color={q.activo ? "success" : "gray"}>{q.activo ? "Activo" : "Inactivo"}</Badge>, (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
             editar ? <Button color="link-color" size="sm" onPress={() => elegir(q)}>{sel?.id === q.id ? "Editando" : "Editar"}</Button> : null])} />
       </Seccion>
       {editar && (

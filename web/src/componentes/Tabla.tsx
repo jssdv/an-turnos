@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import e from "./Tabla.module.css";
+import { Table } from "@/components/application/table/table";
 
 interface Props {
   columnas: string[];
@@ -10,20 +10,24 @@ interface Props {
   cargando?: boolean;
 }
 
-/** Tabla simple de datos con estado vacío y de carga. La grilla del cuadro es `Planilla`. */
+/** Tabla de Untitled UI armada desde columnas y filas, con estados de carga y vacío (Untitled no los trae). La grilla del cuadro es `Planilla`. */
 export function Tabla({ columnas, filas, vacio, descripcion, cargando }: Props) {
-  if (cargando) return <p className={e.vacio} aria-busy="true">Cargando…</p>;
-  if (!filas.length) return <p className={e.vacio}>{vacio}</p>;
+  if (cargando) return <p className="p-6 text-center text-tertiary" aria-busy="true">Cargando…</p>;
+  if (!filas.length) return <p className="p-6 text-center text-tertiary">{vacio}</p>;
   return (
-    <div className={e.marco}>
-      <table className={e.tabla} aria-label={descripcion}>
-        <thead>
-          <tr>{columnas.map((c) => <th key={c} scope="col">{c}</th>)}</tr>
-        </thead>
-        <tbody>
-          {filas.map((f, i) => <tr key={i}>{f.map((c, j) => <td key={j}>{c}</td>)}</tr>)}
-        </tbody>
-      </table>
+    <div className="-mx-5 overflow-x-auto">
+      <Table aria-label={descripcion} size="sm">
+        <Table.Header>
+          {columnas.map((c, i) => <Table.Head key={i} id={`c${i}`} label={c} isRowHeader={i === 0} />)}
+        </Table.Header>
+        <Table.Body>
+          {filas.map((f, i) => (
+            <Table.Row key={i} id={i}>
+              {f.map((c, j) => <Table.Cell key={j}>{c}</Table.Cell>)}
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table>
     </div>
   );
 }

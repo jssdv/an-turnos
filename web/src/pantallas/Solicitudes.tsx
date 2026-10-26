@@ -8,6 +8,7 @@ import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
+import { Badge } from "@/components/base/badges/badges";
 
 const TIPO = { libre: "Pide el día libre", quiero: "Prefiere un turno", evitar: "Prefiere no hacer un turno" } as const;
 
@@ -72,7 +73,7 @@ export function Solicitudes() {
             nombre.get(s.colab_id) ?? `#${s.colab_id}`,
             TIPO[s.tipo] + (s.turno ? ` ${s.turno}` : ""),
             `${fechaCorta(s.desde)} – ${fechaCorta(s.hasta)}`,
-            s.prioridad === "alta" ? "Alta" : "Normal",
+            s.prioridad === "alta" ? <Badge size="sm" color="warning">Alta</Badge> : "Normal",
             estado.get(s.id) ? `${estado.get(s.id)!.estado}${estado.get(s.id)!.motivo ? ` (${estado.get(s.id)!.motivo})` : ""}` : "",
             s.nota,
             editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => hacer(async () => { await enviar("DELETE", `${base}/solicitudes/${s.id}`); lista.recargar(); estados.recargar(); })}>Borrar</Button> : null,

@@ -2,7 +2,6 @@ import { useState, type HTMLAttributes, type ReactNode } from "react";
 import { HelpCircle } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
 import { mensaje } from "../api/catalogos";
-import f from "./Formulario.module.css";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 
@@ -82,11 +81,19 @@ export function useAccion() {
   return { ocupado, aviso, hacer, avisar: setAviso };
 }
 
-export const Formulario = ({ children, ...r }: React.FormHTMLAttributes<HTMLFormElement>) => <form className={f.form} {...r}>{children}</form>;
-export const Fila = ({ children }: { children: ReactNode }) => <div className={f.fila}>{children}</div>;
-export function Casilla({ etiqueta, ...r }: { etiqueta: string } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return <label className={f.casilla}><input type="checkbox" {...r} /> {etiqueta}</label>;
-}
+/** Grilla de campos que se reacomoda sola: columnas de al menos 200 px. */
+export const Formulario = ({ children, ...r }: React.FormHTMLAttributes<HTMLFormElement>) => (
+  <form className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] items-start gap-4" {...r}>{children}</form>
+);
+/** Fila de botones o casillas a lo ancho del formulario. */
+export const Fila = ({ children }: { children: ReactNode }) => <div className="col-span-full flex flex-wrap items-center gap-3">{children}</div>;
+/** Grupo de casillas con leyenda, a lo ancho del formulario. */
+export const Grupo = ({ leyenda, children }: { leyenda: string; children: ReactNode }) => (
+  <fieldset className="col-span-full flex flex-wrap gap-x-5 gap-y-2">
+    <legend className="mb-2 text-sm font-medium text-secondary">{leyenda}</legend>
+    {children}
+  </fieldset>
+);
 
 /** Ventana modal con título: Untitled UI trae solo las piezas (fondo, caja, diálogo); el título y el relleno van aquí.
  * `bloqueado`: un trabajo en marcha no se cierra con Escape ni con un clic fuera. */
