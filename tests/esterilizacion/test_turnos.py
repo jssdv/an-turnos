@@ -15,8 +15,13 @@ from an.turnos import solver
 from an.turnos.dominio import Demanda, Puesto, Colaborador, Novedad, Turno, festivos
 
 
+# Los límites de tiempo son para un equipo local; el runner de la CI es más lento: AN_TIEMPO_ESCALA=3 los triplica.
+_generar = solver.generar
+_ESCALA = float(os.environ.get("AN_TIEMPO_ESCALA", "1"))
+solver.generar = lambda *a, tiempo=20, **kw: _generar(*a, tiempo=tiempo * _ESCALA, **kw)
+
 P = flujo.periodo_mes(2026, 10)
-K = flujo.clave(*P)  # «2026-10-01/2026-10-31»
+K =flujo.clave(*P)  # «2026-10-01/2026-10-31»
 
 def cuadro_vacio(bd):
     return bd.contexto(2026)
