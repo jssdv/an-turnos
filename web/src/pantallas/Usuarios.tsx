@@ -11,6 +11,7 @@ import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { Alert } from "@/components/application/alerts/alert";
+import { Badge } from "@/components/base/badges/badges";
 
 /** Usuarios de la clínica y su permiso por área (solo el administrador). Un solo usuario edita cada área; el resto ve. */
 export function Usuarios() {
@@ -85,7 +86,7 @@ export function Usuarios() {
           columnas={["Usuario", "Estado", ...(areas.datos ?? []).map((a) => a.nombre), ""]}
           filas={(lista.datos ?? []).map((u) => [
             <>{u.nombre}<br />{u.correo}{u.es_admin && " · administra"}</>,
-            !u.activo ? "Inactivo" : u.debe_cambiar ? "Debe cambiar la contraseña" : "Activo",
+            <Badge size="sm" color={!u.activo ? "gray" : u.debe_cambiar ? "warning" : "success"}>{!u.activo ? "Inactivo" : u.debe_cambiar ? "Debe cambiar la contraseña" : "Activo"}</Badge>,
             ...(areas.datos ?? []).map((a) => (
               <NativeSelect size="sm" key={a.id} label={`Permiso de ${u.nombre} en ${a.nombre}`} value={permisoDe(u, a.id)} disabled={ocupado || !u.activo} onChange={(x) => fijar(u, a.id, x.target.value)}>
                 <option value="">Sin acceso</option><option value="ver">Ver</option><option value="editar">Editar</option>

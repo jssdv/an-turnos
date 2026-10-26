@@ -3,12 +3,12 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
-import f from "./Formulario.module.css";
+import { Fila, Formulario, Pagina, useAccion, Seccion, Grupo } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { Badge } from "@/components/base/badges/badges";
 
 const TIPOS = ["regular", "restringido", "estudiante", "refuerzo"];
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -64,7 +64,7 @@ export function Personal() {
           vacio="Aún no hay personal. Agrega a la primera persona abajo."
           columnas={["Nombre", "Tipo", "Horas/sem", "Dedicación", "Estado", ""]}
           filas={(lista.datos ?? []).filter((p) => p.activo || verInactivos).map((p) => [
-            p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, p.activo ? "Activo" : "Inactivo",
+            p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, <Badge size="sm" color={p.activo ? "success" : "gray"}>{p.activo ? "Activo" : "Inactivo"}</Badge>,
             editar ? <Button color="link-color" size="sm" onPress={() => elegir(p)} aria-pressed={sel === p.id}>{sel === p.id ? "Editando" : "Editar"}</Button> : null,
           ])}
         />
@@ -76,17 +76,17 @@ export function Personal() {
             <NativeSelect size="sm" label="Tipo" value={actual.tipo} onChange={(x) => set({ tipo: x.target.value })}>{TIPOS.map((t) => <option key={t}>{t}</option>)}</NativeSelect>
             <Input value={String(actual.horas_sem)} label="Horas por semana" type="text" inputMode="decimal" onChange={(x) => set({ horas_sem: Number(x.replace(",", ".")) })} />
             <Input value={String(actual.pct)} label="Dedicación (%)" type="number" onChange={(x) => set({ pct: Number(x) })} />
-            <fieldset className={f.grupo}><legend>Turnos que puede hacer</legend>
+            <Grupo leyenda="Turnos que puede hacer">
               {turnos.map((t) => <Checkbox key={t.codigo} label={`${t.codigo} · ${t.nombre}`} isSelected={actual.permitidos.includes(t.codigo)} onChange={() => set({ permitidos: alternar(actual.permitidos, t.codigo) })} />)}
-            </fieldset>
-            <fieldset className={f.grupo}><legend>Puestos que puede ocupar</legend>
+            </Grupo>
+            <Grupo leyenda="Puestos que puede ocupar">
               {puestos.map((p) => <Checkbox key={p.id} label={`${p.numero} · ${p.nombre}`} isSelected={actual.puestos.includes(p.id)} onChange={() => set({ puestos: alternar(actual.puestos, p.id) })} />)}
-            </fieldset>
-            <fieldset className={f.grupo}><legend>Bloques de estudio (no disponible)</legend>
+            </Grupo>
+            <Grupo leyenda="Bloques de estudio (no disponible)">
               {(["M", "T"] as const).map((fr) => DIAS.map((d, i) => (
                 <Checkbox key={`${i}${fr}`} label={`${d} ${fr === "M" ? "mañana" : "tarde"}`} isSelected={actual.estudio.includes(`${i}${fr}`)} onChange={() => set({ estudio: alternar(actual.estudio, `${i}${fr}`) })} />
               )))}
-            </fieldset>
+            </Grupo>
             <Checkbox label="Activo" isSelected={actual.activo} onChange={(x) => set({ activo: x })} />
             <Fila>
               <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !actual.nombre.trim() || !actual.permitidos.length || !actual.puestos.length}>{ocupado ? "Guardando…" : "Guardar"}</Button>
