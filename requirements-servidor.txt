@@ -1,0 +1,4 @@
+# Imagen del servidor (API y trabajador): sin Qt.
+-r requirements-web.txt
+openpyxl
+ortools
