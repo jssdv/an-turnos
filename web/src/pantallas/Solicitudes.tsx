@@ -9,7 +9,7 @@ import { Tarjeta } from "../componentes/Tarjeta";
 import { Fila, Formulario, Pagina, useAccion } from "./comun";
 import { fechaCorta } from "./fechas";
 
-const TIPO = { libre: "Libre", quiero: "Quiero el turno", evitar: "Evitar el turno" } as const;
+const TIPO = { libre: "Pide el día libre", quiero: "Prefiere un turno", evitar: "Prefiere no hacer un turno" } as const;
 
 /** Deseos de las personas (libre, quiero, evitar). El solver los intenta cumplir sin garantía; la columna Estado mira el último periodo. */
 export function Solicitudes() {
@@ -35,7 +35,7 @@ export function Solicitudes() {
   });
 
   return (
-    <Pagina titulo="Solicitudes" sub="Deseos personales: se tienen en cuenta al generar, pero la cobertura y las reglas legales van primero." error={lista.error ?? personas.error} aviso={aviso}>
+    <Pagina titulo="Solicitudes" sub="Preferencias del personal para el próximo cuadro." ayuda={<>Una solicitud es un <strong>deseo, no una garantía</strong>: el sistema intenta cumplirla al generar, pero primero cubre los puestos y respeta las reglas legales. Usa prioridad <strong>alta</strong> solo para lo importante (una cita médica, un compromiso familiar). Después de generar verás si cada solicitud se cumplió.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
         <Tarjeta titulo="Nueva solicitud">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
@@ -65,6 +65,7 @@ export function Solicitudes() {
       <Tarjeta titulo="Solicitudes registradas">
         <Tabla
           descripcion="Solicitudes del área"
+          cargando={!lista.datos && !lista.error}
           vacio="Aún no hay solicitudes."
           columnas={["Persona", "Tipo", "Fechas", "Prioridad", ultimo ? "Estado en el último periodo" : "Estado", "Nota", ""]}
           filas={(lista.datos ?? []).map((s) => [

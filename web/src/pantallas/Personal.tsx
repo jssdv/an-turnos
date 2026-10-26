@@ -55,10 +55,11 @@ export function Personal() {
   });
 
   return (
-    <Pagina titulo="Personal" sub="Quién entra al cuadro y qué puede hacer." error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
+    <Pagina titulo="Personal" sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
       <Tarjeta titulo="Colaboradores" acciones={<Casilla etiqueta="Mostrar inactivos" checked={verInactivos} onChange={(x) => setVerInactivos(x.target.checked)} />}>
         <Tabla
           descripcion="Personal del área"
+          cargando={!lista.datos && !lista.error}
           vacio="Aún no hay personal. Agrega a la primera persona abajo."
           columnas={["Nombre", "Tipo", "Horas/sem", "Dedicación", "Estado", ""]}
           filas={(lista.datos ?? []).filter((p) => p.activo || verInactivos).map((p) => [

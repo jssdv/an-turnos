@@ -9,13 +9,18 @@ import { Tarjeta } from "../componentes/Tarjeta";
 import { Casilla, Fila, Formulario, Pagina, useAccion } from "./comun";
 import { fechaCorta } from "./fechas";
 
-const NUM: [string, string, number, number][] = [
-  ["ventana_semanas", "Ventana de horas (semanas)", 1, 8], ["limite_permutas", "Permutas por persona y periodo", 0, 20],
-  ["periodo_semanas", "Semanas por periodo", 1, 8], ["max_noches_seguidas", "Noches seguidas (0 = sin tope)", 0, 7],
-  ["max_c_seguidos", "Corridos seguidos (0 = sin tope)", 0, 7], ["max_igual_seguidos", "Mismo turno de 6 h seguido (0 = sin tope)", 0, 7],
-  ["libre_tras_noche", "Días libres tras noche (0 = sin regla)", 0, 3], ["libres_por_semana", "Libres por semana", 1, 3],
-  ["fines_semana_libres", "Fines de semana libres (0 = sin regla)", 0, 4], ["banco_tope_favor_h", "Banco: tope a favor por periodo (h, 0 = no compensar)", 0, 48],
-  ["banco_tope_deuda_h", "Banco: tope en deuda por periodo (h, 0 = no compensar)", 0, 48],
+const NUM: [string, string, number, number, string][] = [
+  ["ventana_semanas", "Promedio de horas (semanas)", 1, 8, "Las 42 h semanales se miden como promedio de este número de semanas (art. 165 CST)."],
+  ["limite_permutas", "Permutas por persona y periodo", 0, 20, "Cuántos intercambios de turno puede pedir cada persona. Pasado el límite hace falta una excepción."],
+  ["periodo_semanas", "Semanas por periodo", 1, 8, "Solo si el periodo es «Semanas desde un lunes»."],
+  ["max_noches_seguidas", "Noches seguidas (máximo)", 0, 7, "Cuántas noches puede hacer alguien sin parar. 0 = sin límite."],
+  ["max_c_seguidos", "Corridos seguidos (máximo)", 0, 7, "Turnos de 12 h de día seguidos. 0 = sin límite."],
+  ["max_igual_seguidos", "Mismo turno corto seguido", 0, 7, "Días seguidos con el mismo turno de 6 h (mañana o tarde). 0 = sin límite."],
+  ["libre_tras_noche", "Días libres después de noche", 0, 3, "Descanso mínimo al terminar una noche. 0 = no aplicar la regla."],
+  ["libres_por_semana", "Días libres por semana", 1, 3, "Mínimo de días sin turno cada semana."],
+  ["fines_semana_libres", "Fines de semana libres al mes", 0, 4, "Sábado y domingo completos sin turno. 0 = no aplicar la regla."],
+  ["banco_tope_favor_h", "Banco: máximo a favor (h)", 0, 48, "Horas de más que se pueden guardar por periodo para compensar después. 0 = no compensar."],
+  ["banco_tope_deuda_h", "Banco: máximo en deuda (h)", 0, 48, "Horas de menos que se pueden deber por periodo. 0 = no compensar."],
 ];
 const CONCEPTOS = ["dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio"];
 const TURNO_NUEVO = { codigo: "", nombre: "", inicio: 360, fin: 720, color: "FFF2CC", pmin: 0, pini: 60, ppag: false, dom_fest: true, solver: true, activo: true };
@@ -67,21 +72,23 @@ export function Parametros() {
   });
 
   return (
-    <Pagina titulo="Parámetros" sub="Reglas del cuadro, turnos y tarifas. Los valores legales son datos editables: confírmalos con RR. HH./legal." error={params.error ?? turnos.error ?? tarifas.error} aviso={aviso}>
-      <Tarjeta titulo="Reglas">
-        <Formulario onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
-          <Seleccion etiqueta="Periodo" disabled={!editar} value={v.periodo_modo ?? "mes"} onChange={(x) => setV({ ...v, periodo_modo: x.target.value })}>
-            <option value="mes">Mes calendario</option><option value="semanas">Semanas desde un lunes</option>
-          </Seleccion>
-          {NUM.map(([k, etiqueta, lo, hi]) => (
-            <Campo key={k} etiqueta={etiqueta} type="number" min={lo} max={hi} disabled={!editar} value={v[k] ?? ""} onChange={(x) => setV({ ...v, [k]: x.target.value })} />
-          ))}
-          {editar && <Fila><Boton type="submit" variante="primario" disabled={ocupado}>Guardar reglas</Boton></Fila>}
-        </Formulario>
+    <Pagina titulo="Reglas y turnos" sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Los <strong>turnos</strong> definen horarios y pausas. Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? turnos.error ?? tarifas.error} aviso={aviso}>
+      <Tarjeta titulo="Reglas" aria-busy={!params.datos}>
+        {!params.datos ? !params.error && <p aria-busy="true">Cargando…</p> : (
+          <Formulario onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
+            <Seleccion etiqueta="Periodo" ayuda="Cómo se corta cada cuadro." disabled={!editar} value={v.periodo_modo ?? "mes"} onChange={(x) => setV({ ...v, periodo_modo: x.target.value })}>
+              <option value="mes">Mes calendario</option><option value="semanas">Semanas desde un lunes</option>
+            </Seleccion>
+            {NUM.map(([k, etiqueta, lo, hi, ayuda]) => (
+              <Campo key={k} etiqueta={etiqueta} ayuda={ayuda} type="number" min={lo} max={hi} disabled={!editar} value={v[k] ?? ""} onChange={(x) => setV({ ...v, [k]: x.target.value })} />
+            ))}
+            {editar && <Fila><Boton type="submit" variante="primario" disabled={ocupado}>Guardar reglas</Boton></Fila>}
+          </Formulario>
+        )}
       </Tarjeta>
 
       <Tarjeta titulo="Turnos">
-        <Tabla descripcion="Turnos del área" vacio="Sin turnos." columnas={["Código", "Nombre", "Horario", "Estado", ""]}
+        <Tabla descripcion="Turnos del área" cargando={!turnos.datos && !turnos.error} vacio="Sin turnos." columnas={["Código", "Nombre", "Horario", "Estado", ""]}
           filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, x.activo ? "Activo" : "Inactivo",
             editar ? <Boton variante="texto" onClick={() => elegirTurno(x)}>Editar</Boton> : null])} />
         {editar && (
@@ -90,7 +97,7 @@ export function Parametros() {
             <Campo etiqueta="Nombre" maxLength={60} value={t.nombre} onChange={(x) => setT({ ...t, nombre: x.target.value })} />
             <Campo etiqueta="Entra" type="time" value={aHHMM(t.inicio)} onChange={(x) => setT({ ...t, inicio: aMinutos(x.target.value) })} />
             <Campo etiqueta="Sale" type="time" value={aHHMM(t.fin)} onChange={(x) => setT({ ...t, fin: aMinutos(x.target.value) })} />
-            <Campo etiqueta="Color (RRGGBB)" pattern="[0-9A-Fa-f]{6}" maxLength={6} value={t.color} onChange={(x) => setT({ ...t, color: x.target.value })} />
+            <Campo etiqueta="Color en el cuadro" type="color" value={`#${t.color}`} onChange={(x) => setT({ ...t, color: x.target.value.slice(1).toUpperCase() })} />
             <Campo etiqueta="Pausa (min, 0 = sin pausa)" type="number" min={0} max={240} value={t.pmin} onChange={(x) => setT({ ...t, pmin: Number(x.target.value) })} />
             {t.pmin > 0 && <Campo etiqueta="Pausa empieza (min desde la entrada)" type="number" min={0} max={1439} value={t.pini} onChange={(x) => setT({ ...t, pini: Number(x.target.value) })} />}
             {t.pmin > 0 && <Casilla etiqueta="Pausa pagada" checked={t.ppag} onChange={(x) => setT({ ...t, ppag: x.target.checked })} />}
@@ -107,7 +114,7 @@ export function Parametros() {
       </Tarjeta>
 
       <Tarjeta titulo="Tarifas">
-        <Tabla descripcion="Tarifas vigentes por fecha" vacio="Sin tarifas." columnas={["Concepto", "Valor", "Desde"]}
+        <Tabla descripcion="Tarifas vigentes por fecha" cargando={!tarifas.datos && !tarifas.error} vacio="Sin tarifas." columnas={["Concepto", "Valor", "Desde"]}
           filas={[...(tarifas.datos ?? [])].sort((a, b) => a[0].localeCompare(b[0]) || a[2].localeCompare(b[2])).map(([c, valor, d]) => [c, valor, fechaCorta(d)])} />
         {editar && (
           <Formulario onSubmit={(x) => { x.preventDefault(); void agregarTarifa(); }}>
