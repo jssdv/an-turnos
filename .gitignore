@@ -8,3 +8,6 @@ turnos.db
 .superpowers/
 usuarios.json
 cambios.log
+.env
+*.key
+respaldos/
