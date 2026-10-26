@@ -202,3 +202,16 @@ if __name__ == "__main__":
         if n.startswith("test_") and inspect.isfunction(f):
             f()
     print("OK")
+
+
+def test_tope_de_exportes_por_periodo_y_dia():
+    from an.web.rutas_exportes import MAX_EXPORTES_DIA
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "lector@a.co")
+        for _ in range(MAX_EXPORTES_DIA):
+            assert cli.post(ruta(e), headers=H, json={"tipo": "horas"}).status_code == 201
+        r = cli.post(ruta(e), headers=H, json={"tipo": "horas"})
+        assert r.status_code == 429 and "exportes" in r.json()["detalle"], r.text
+        assert e.su.execute("SELECT count(*) FROM exporte").fetchone()[0] == MAX_EXPORTES_DIA

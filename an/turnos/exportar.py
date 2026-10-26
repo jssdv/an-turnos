@@ -6,6 +6,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from an.nucleo.xlsx import poner_texto
+
 from . import recargos
 from . import reglas
 from .dominio import DIAS
@@ -46,7 +48,7 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
         if ctx.tipo_dia(f) == "DF":
             ws.cell(1, i).fill = PatternFill("solid", fgColor="C55A11")
     for r, p in enumerate(cols, 2):
-        ws.cell(r, 1, p.nombre).font = Font(bold=True)
+        poner_texto(ws.cell(r, 1), p.nombre).font = Font(bold=True)
         horas = 0
         for i, f in enumerate(fechas, 2):
             cod = cuadro.get((p.id, f), "L")
@@ -54,7 +56,7 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
             texto = ABREV_NOVEDAD[nov.tipo] if nov and cod == "L" else cod
             if puestos is not None and cod in ctx.turnos and (p.id, f) in puestos:
                 texto = etiqueta(cod, puestos[p.id, f])
-            c = ws.cell(r, i, texto)
+            c = poner_texto(ws.cell(r, i), texto)
             c.alignment = CENTRO
             if cod in ctx.turnos:
                 c.fill = PatternFill("solid", fgColor=ctx.turnos[cod].color)
@@ -88,14 +90,14 @@ def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias
         con = wb.create_sheet("Cuadro con puestos")
         cat = catalogo or ctx.puestos
         _hoja_cuadro(con, ctx, cuadro, fechas, puestos=por_persona(filas_puestos, {i: p.numero for i, p in cat.items()}))
-        con.cell(con.max_row + 2, 1, leyenda(cat))
+        poner_texto(con.cell(con.max_row + 2, 1), leyenda(cat))
     _hoja_cuadro(wb.create_sheet("Original"), ctx, original, fechas)
     ws = wb.create_sheet("Cambios")
     _encabezado(ws, 1, ["Colaborador", "Fecha", "Antes", "Después"])
     nombres = {p.id: p.nombre for p in ctx.colabs}
     for r, (cid, f, antes, ahora) in enumerate(diferencias, 2):
         for c, v in enumerate((nombres.get(cid, cid), f.strftime("%d/%m/%Y"), antes, ahora), 1):
-            ws.cell(r, c, v)
+            poner_texto(ws.cell(r, c), v)
     _ancho(ws, 26, 14)
     ruta = ruta_libre(carpeta, f"CUADRO {mes_txt.upper()}")
     wb.save(ruta)
@@ -133,7 +135,7 @@ def exportar_puestos(carpeta, mes_txt, ctx, cuadro, fechas, filas, capacitacion,
                 continue
             fila = ["\n".join(celdas.get((f, i), [])) for i in usados] + ["\n".join(celdas.get((f, 0), []))] + [", ".join(cap.get(f, []))]
             for i, v in enumerate(fila, 2):
-                ws.cell(r, i, v).alignment = CENTRO
+                poner_texto(ws.cell(r, i), v).alignment = CENTRO
         ws.cell(10, 1, "(P1)/(P2): grupo de pausa — el grupo 1 sale primero y el 2 cubre; se alternan cada día.")
         _ancho(ws, 14, 26)
         ws.freeze_panes = "B2"
@@ -161,8 +163,8 @@ def exportar_horas(carpeta, mes_txt, ctx, tarifas, cuadro, fechas, ventana_sem):
             + [round(rep["cat"].get(c, 0), 1) for c in CATEGORIAS] \
             + [rep["festivos_trabajados"], "Sí" if rep["habitual"] else "No", round(rep["equivalentes"], 1)]
         for c, v in enumerate(fila, 1):
-            ws.cell(r, c, v)
-        sem.cell(r, 1, p.nombre)
+            poner_texto(ws.cell(r, c), v)
+        poner_texto(sem.cell(r, 1), p.nombre)
         for c, l in enumerate(lunes, 2):
             sem.cell(r, c, round(rep["semanas"].get(l, 0), 1))
     _ancho(ws, 24, 14)

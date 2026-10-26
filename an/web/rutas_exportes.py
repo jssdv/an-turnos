@@ -13,6 +13,7 @@ from an.turnos import exportar, flujo
 from .deps import Contexto, contexto_area_lectura
 
 router = APIRouter(prefix="/api")
+MAX_EXPORTES_DIA = 20  # por periodo y por día: un `ver` puede exportar, pero `exporte` es de solo inserción
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 COLUMNAS = ("e.id, e.tipo, e.numero, e.nombre_archivo, octet_length(e.contenido) AS bytes, e.creado, u.nombre AS creado_por "
             "FROM exporte e LEFT JOIN usuario u ON u.id = e.creado_por")
@@ -42,6 +43,9 @@ def crear(id: int, datos: NuevoExporte, request: Request, ctx: Contexto = Depend
     f = ctx.conn.execute("SELECT clave FROM periodo WHERE id = ? FOR UPDATE", (id,)).fetchone()  # serializa `numero` por periodo
     if not f:
         raise HTTPException(404, "Periodo no encontrado")
+    hoy = ctx.conn.execute("SELECT count(*) FROM exporte WHERE periodo_id = ? AND creado > now() - interval '1 day'", (id,)).fetchone()[0]
+    if hoy >= MAX_EXPORTES_DIA:
+        raise HTTPException(429, f"Ya hay {MAX_EXPORTES_DIA} exportes de este periodo en las últimas 24 horas. Descarga uno de los existentes o inténtalo mañana.")
     cuadro = ctx.bd.asignaciones(f["clave"])
     if not cuadro:
         raise HTTPException(409, "No hay cuadro para exportar.")

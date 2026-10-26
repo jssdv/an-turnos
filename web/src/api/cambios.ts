@@ -29,12 +29,14 @@ export interface Borrador {
   excepcion: boolean;
 }
 const LLAVE = "an/pendiente";
+/** Va ligado al usuario: `motivo` es texto libre y puede llevar datos de salud; otro usuario del mismo equipo no debe verlo. */
 export const borrador = {
-  guardar(b: Borrador) { try { sessionStorage.setItem(LLAVE, JSON.stringify(b)); } catch { /* sin almacenamiento: se pierde solo en un 401 */ } },
-  leer(area: number): Borrador | null {
+  guardar(b: Borrador, usuario: number) { try { sessionStorage.setItem(LLAVE, JSON.stringify({ usuario, borrador: b })); } catch { /* sin almacenamiento: se pierde solo en un 401 */ } },
+  leer(area: number, usuario: number): Borrador | null {
     try {
-      const b = JSON.parse(sessionStorage.getItem(LLAVE) ?? "null") as Borrador | null;
-      return b && b.area === area ? b : null;
+      const g = JSON.parse(sessionStorage.getItem(LLAVE) ?? "null") as { usuario: number; borrador: Borrador } | null;
+      if (g && g.usuario !== usuario) { this.borrar(); return null; }
+      return g && g.borrador.area === area ? g.borrador : null;
     } catch { return null; }
   },
   borrar() { try { sessionStorage.removeItem(LLAVE); } catch { /* nada */ } },

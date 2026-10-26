@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router";
 import { borrador as guardado, cambios, type Borrador } from "../api/cambios";
 import { ErrorApi, leer } from "../api/cliente";
+import { useSesion } from "../Sesion";
 import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Turno } from "../api/tipos";
 import { Aviso } from "../componentes/Aviso";
 import { Boton } from "../componentes/Boton";
@@ -36,12 +37,13 @@ export function Cuadro() {
   const [error, setError] = useState<string | null>(null);
   const [recarga, setRecarga] = useState(0);
   const [foco, setFoco] = useState<Foco | null>(null);
+  const uid = useSesion().usuario?.id ?? 0;
   const [borrador, setBorrador] = useState<Borrador | null>(null);
   const [cupos, setCupos] = useState<Cupo[] | null>(null);
   const [errorCambio, setErrorCambio] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ nivel: "ok" | "aviso"; texto: string } | null>(null);
-  const [pendiente, setPendiente] = useState<Borrador | null>(() => guardado.leer(area.id));
+  const [pendiente, setPendiente] = useState<Borrador | null>(() => guardado.leer(area.id, uid));
 
   // Al recargar (p. ej. tras generar) se conserva lo que hay en pantalla: vaciarlo desmontaría el diálogo de Generar.
   useEffect(() => { setPeriodos(null); setDatos(null); }, [area.id]);
@@ -141,7 +143,7 @@ export function Cuadro() {
     const motivo = b.motivo.trim() || (tipo === "ajuste" && celdas.length > 1 && b.modo === "asignar" ? `Lote: ${celdas.length} celdas → ${b.turno}` : "");
     setEnviando(true);
     setErrorCambio(null);
-    guardado.guardar({ ...b, tipo }); // si la sesión vence a mitad de camino, se recupera al ingresar de nuevo
+    guardado.guardar({ ...b, tipo }, uid); // si la sesión vence a mitad de camino, se recupera al ingresar de nuevo
     try {
       const r = await cambios.registrar(area.id, actual.id, actual.revision, { tipo, celdas, motivo, excepcion: tipo === "permuta" && sinCupo(b, cupos).length > 0 });
       guardado.borrar();

@@ -13,9 +13,13 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import openpyxl
+from an.nucleo.xlsx import poner_texto
 from openpyxl.worksheet.datavalidation import DataValidation
 
 PLANTILLA = Path(__file__).with_name("plantilla_semana.xlsx")
+
+
+MAX_FILAS, MAX_COLUMNAS = 500, 80  # el cuadro real usa ~230 filas y ~57 columnas
 
 
 class ErrorPlanilla(Exception):
@@ -107,6 +111,9 @@ def cargar_mensual(ruta):
     ws = next((s for s in wb if s.title.lower().startswith("cambios")), None)
     if ws is None:
         raise ErrorPlanilla("El archivo no tiene una hoja que empiece por 'Cambios'.")
+    if ws.max_row > MAX_FILAS or ws.max_column > MAX_COLUMNAS:  # una celda perdida en E1048576 haría recorrer un millón de filas
+        raise ErrorPlanilla(f"La hoja '{ws.title}' usa más de {MAX_FILAS} filas o {MAX_COLUMNAS} columnas: no parece un cuadro mensual. "
+                            "Borra las filas y columnas sobrantes en Excel y vuelve a guardar.")
     if not fechas_mensual(ws):
         raise ErrorPlanilla(
             f"La fila 3 de '{ws.title}' no tiene fechas completas.\nEscribe la primera fecha "
@@ -288,7 +295,7 @@ def escribir_lectura(ws, datos, lunes, paneles, esp):
         ws.cell(r, 1).value = None
     nombres = sorted(n for n, e in datos["nombres_esp"].items() if e & esp)
     for k, n in enumerate(nombres, 1):
-        ws.cell(k, 1).value = n
+        poner_texto(ws.cell(k, 1), n)
 
     fila, celdas_nombre, pendientes = 5, [], []
     for d in range(7):
@@ -300,7 +307,7 @@ def escribir_lectura(ws, datos, lunes, paneles, esp):
             for k, (fr, nombre, etiqueta, tipo) in enumerate(filas, fila + 1):
                 base = est[col]["disp" if tipo == "disp" else "turno"]
                 for j, v in enumerate((fr, nombre, etiqueta)):
-                    cel = ws.cell(k, col + j, v)
+                    cel = poner_texto(ws.cell(k, col + j), v)
                     cel._style = copy(base[j])
                 if tipo == "remoto":
                     ws.cell(k, col + 2)._style = copy(est[col]["remoto"])
@@ -329,7 +336,7 @@ def escribir_eco(ws, datos, lunes):
     for r in range(1, ws.max_row + 1):
         ws.cell(r, 2).value = None
     for k, n in enumerate(sorted(datos["nombres_esp"]), 1):
-        ws.cell(k, 2).value = n
+        poner_texto(ws.cell(k, 2), n)
 
     ws["F2"] = datetime.combine(lunes, datetime.min.time())
     for d in range(7):
@@ -345,7 +352,7 @@ def escribir_eco(ws, datos, lunes):
         if datos["disp"][d + 1].get("PROCED"):
             celdas[16] = [datos["disp"][d + 1]["PROCED"]]
         for fila, ns in celdas.items():
-            ws.cell(fila, col).value = " / ".join(dict.fromkeys(ns))
+            poner_texto(ws.cell(fila, col), " / ".join(dict.fromkeys(ns)))
         for fila in filas_nombres:
             ws.cell(fila, col)._style = copy(blanco if ws.cell(fila, col).value else gris)
 
