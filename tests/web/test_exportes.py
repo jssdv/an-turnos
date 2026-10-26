@@ -153,6 +153,49 @@ def test_exporte_de_otro_periodo_404():
         assert cli.get(ruta(e, p=otro, extra=f"/{x['id']}/descargar")).status_code == 404
 
 
+def celdas(libro):
+    """Todo lo que ve quien abre el libro: hojas, dimensiones, valor y estilo de cada celda, anchos y panel fijo."""
+    out = []
+    for ws in libro.worksheets:
+        out.append((ws.title, ws.dimensions, ws.freeze_panes, sorted((k, v.width) for k, v in ws.column_dimensions.items())))
+        for fila in ws.iter_rows():
+            out += [(c.coordinate, c.value, c.fill.fgColor.rgb, c.font.bold, c.font.color.rgb if c.font.color else None, c.alignment.horizontal) for c in fila]
+    return out
+
+
+def test_identico_a_qt():
+    import tempfile
+    from pathlib import Path
+
+    from openpyxl import load_workbook
+
+    from an.turnos import exportar, flujo
+    from an.turnos.db import BD
+    from an.turnos.pg import Conexion
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "lector@a.co")
+        k = "2026-10-01/2026-10-31"
+        inicio, fin = flujo.desde_clave(k)
+        fechas, txt = flujo.fechas(inicio, fin), flujo.etiqueta(inicio, fin)
+        with e.pool.connection() as conn:  # como an_app: el superusuario se salta RLS y vería también la clínica B
+            conexion.alcance(conn, e.cl["A"], e.ar["A"])
+            bd = BD.postgres(Conexion(conn, confirmar=False))
+            ctx, cuadro = bd.contexto(2026), bd.asignaciones(k)
+            with tempfile.TemporaryDirectory() as t:
+                esperado = {
+                    "cuadro": exportar.exportar_cuadro(t, txt, ctx, cuadro, bd.asignaciones(k, "original"), fechas, bd.diferencias(k), bd.asignacion_puesto(k), bd.catalogo_puestos()),
+                    "puestos": exportar.exportar_puestos(t, txt, ctx, cuadro, fechas, bd.asignacion_puesto(k), bd.capacitacion(k), bd.catalogo_puestos()),
+                    "horas": exportar.exportar_horas(t, txt, ctx, bd.tarifas(), cuadro, fechas, int(bd.param("ventana_semanas", 3)))}
+                esperado = {tipo: celdas(load_workbook(r)) for tipo, r in esperado.items()}
+        for tipo, celdas_qt in esperado.items():
+            x = cli.post(ruta(e), headers=H, json={"tipo": tipo}).json()
+            web = celdas(load_workbook(BytesIO(cli.get(ruta(e, extra=f"/{x['id']}/descargar")).content)))
+            assert len(web) > 50, tipo
+            assert web == celdas_qt, (tipo, len(web), len(celdas_qt), [(a, b) for a, b in zip(web, celdas_qt) if a != b][:3])
+
+
 if __name__ == "__main__":
     import inspect
     for n, f in list(globals().items()):
