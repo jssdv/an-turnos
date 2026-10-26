@@ -16,12 +16,15 @@ from .deps import COOKIE, ESCRITURA
 from .rutas_areas import router as rutas_areas
 from .rutas_auth import router as rutas_auth
 from .rutas_catalogos import router as rutas_catalogos
+from .rutas_radiologia import MAX_ARCHIVO, RUTA_ARCHIVOS
+from .rutas_radiologia import router as rutas_radiologia
 from .rutas_edicion import router as rutas_edicion
 from .rutas_exportes import router as rutas_exportes
 from .rutas_trabajos import router as rutas_trabajos
 from .rutas_usuarios import router as rutas_usuarios
 
 LIMITE_CUERPO = 1_000_000
+LIMITE_ARCHIVO = MAX_ARCHIVO + 1024  # holgura: la ruta mide el tamaño exacto y da el mensaje
 CABECERAS = {"Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff",
              "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"}
 log = logging.getLogger("an.web")
@@ -62,12 +65,13 @@ def crear_app(pool=None):
         id_ = uuid.uuid4().hex[:12]
         request.state.usuario = None
         largo = request.headers.get("content-length")
+        subida = request.method == "POST" and RUTA_ARCHIVOS.match(request.url.path) is not None
         if largo is not None and not largo.isdigit():
             respuesta = JSONResponse({"detalle": "Content-Length inválido"}, 400)
         elif largo is None and request.method in ESCRITURA and "chunked" in request.headers.get("transfer-encoding", "").lower():
             respuesta = JSONResponse({"detalle": "Se requiere Content-Length"}, 411)
-        elif int(largo or 0) > LIMITE_CUERPO:
-            respuesta = JSONResponse({"detalle": "Cuerpo demasiado grande"}, 413)
+        elif int(largo or 0) > (LIMITE_ARCHIVO if subida else LIMITE_CUERPO):
+            respuesta = JSONResponse({"detalle": "El archivo pasa de 10 MB." if subida else "Cuerpo demasiado grande"}, 413)
         elif request.method in ESCRITURA and request.headers.get("origin") != _origen_esperado(request):
             respuesta = JSONResponse({"detalle": "Origen no permitido"}, 403)
             await run_in_threadpool(_usuario_del_rechazo, app.state.pool, request)
@@ -99,6 +103,7 @@ def crear_app(pool=None):
     app.include_router(rutas_areas)
     app.include_router(rutas_catalogos)
     app.include_router(rutas_edicion)
+    app.include_router(rutas_radiologia)
     app.include_router(rutas_exportes)
     app.include_router(rutas_trabajos)
     app.include_router(rutas_usuarios)

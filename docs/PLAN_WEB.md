@@ -305,15 +305,15 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 - **Objetivo:** hacer en el navegador todo lo que hace hoy la app Qt de Radiología, importando el cuadro mensual.
 - **Plan detallado:** pendiente
 - **Entregable:**
-  - [ ] Subir el cuadro mensual (`.xlsx`, ≤ 10 MB, `data_only=True`) a `archivo`
-  - [ ] Elegir semana; Resumen, Vista previa, Alertas, Equidad, Agendas (`.ics`) y Cambios
-  - [ ] Descargar `SEMANA … .xlsx` vía `exporte`
-  - [ ] Paridad con `an/radiologia/paginas.py`: lista de funciones con su equivalente web, revisada
+  - [x] Subir el cuadro mensual (`.xlsx`, ≤ 10 MB, `data_only=True`) a `archivo` (PR 1: API; `POST /api/areas/{area}/archivos`)
+  - [x] Elegir semana; Resumen, Vista previa, Alertas, Equidad, Agendas (`.ics`) y Cambios
+  - [x] Descargar `SEMANA … .xlsx` vía `exporte` (`POST …/semanas/{lunes}/exportes`; cada semana es un periodo `lunes/domingo` del área; `v2`, `v3`…; auditoría `exportacion`; «Cambios» compara con el último exporte)
+  - [x] Paridad con `an/radiologia/paginas.py`: lista de funciones con su equivalente web, revisada (tabla en el plan detallado; fuera: imprimir HTML, recarga por archivo, atajos, carpeta de salida)
 - **Aceptación:**
   - [ ] El libro de la semana del 19 al 25 de octubre sale igual (celdas) que el de la app Qt
-  - [ ] `tests/radiologia/test_generar_semana.py` sigue pasando
-  - [ ] Archivo que no es `.xlsx` o pasa de 10 MB se rechaza con mensaje en español
-  - [ ] Un usuario de Radiología no ve otras áreas (403/404)
+  - [x] `tests/radiologia/test_generar_semana.py` sigue pasando
+  - [x] Archivo que no es `.xlsx` o pasa de 10 MB se rechaza con mensaje en español
+  - [x] Un usuario de Radiología no ve otras áreas (403/404)
 - **Riesgo:** el cuadro guardado sin Excel trae fórmulas sin valor → se muestra el mensaje de `ErrorPlanilla` tal cual.
 
 **7c — Radiología automática (después de la Fase 8)**

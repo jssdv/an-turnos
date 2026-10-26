@@ -101,6 +101,8 @@ dc ps
 
 Los logs rotan (10 MB × 5 por contenedor). Un 500 muestra al usuario un id: se busca en `dc logs api`. Auditoría de uso en la tabla `auditoria` (usuario, ruta, código, IP, evento).
 
+**Subida de archivos de Radiología (tope de 10 MB).** La API acepta como máximo 10 MB (más 1 KB de holgura) en la subida del cuadro mensual y responde 413 «El archivo pasa de 10 MB.» si lo supera; el resto de las peticiones tienen tope de 1 MB. El `Caddyfile` no fija `request_body max_size`, así que Caddy deja pasar cualquier tamaño y el límite lo pone solo la API. Si algún día se agrega un límite en Caddy, debe ser ≥ 11 MB para la ruta de subida (`/api/areas/*/archivos`) o el usuario verá un 413 sin el mensaje de la aplicación. Un proxy o firewall corporativo con tope menor también cortaría la subida: probarla desde un PC de la clínica (§8). La API exige `Content-Length` en las escrituras (rechaza `chunked`): no usar herramientas que suban en trozos.
+
 ## 6. Qué revisar cada semana
 
 - `dc ps`: todo arriba; sin reinicios repetidos.
