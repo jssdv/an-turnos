@@ -2,12 +2,12 @@ import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Novedad } from "../api/tipos";
-import { Boton } from "../componentes/Boton";
-import { Campo, Seleccion } from "../componentes/Campo";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
-import { Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
 
 const TIPOS = ["Vacaciones", "Incapacidad", "Licencia", "Libre solicitado"];
 
@@ -32,23 +32,23 @@ export function Novedades() {
   return (
     <Pagina titulo="Ausencias" sub="Vacaciones, incapacidades, licencias y días libres concedidos." ayuda={<>Registra aquí cuándo alguien <strong>no puede trabajar</strong>. Al generar el cuadro, el sistema no le asigna turnos esos días. Si el cuadro ya existe, las alertas te avisan de los turnos que chocan con una ausencia.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
-        <Tarjeta titulo="Nueva ausencia">
+        <Seccion titulo="Nueva ausencia">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
-            <Seleccion etiqueta="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
+            <NativeSelect size="sm" label="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>
               {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </Seleccion>
-            <Seleccion etiqueta="Tipo" value={f.tipo} onChange={(x) => setF({ ...f, tipo: x.target.value })}>
+            </NativeSelect>
+            <NativeSelect size="sm" label="Tipo" value={f.tipo} onChange={(x) => setF({ ...f, tipo: x.target.value })}>
               {TIPOS.map((t) => <option key={t}>{t}</option>)}
-            </Seleccion>
-            <Campo etiqueta="Desde" type="date" required value={f.desde} onChange={(x) => setF({ ...f, desde: x.target.value })} />
-            <Campo etiqueta="Hasta" type="date" required value={f.hasta} onChange={(x) => setF({ ...f, hasta: x.target.value })} />
-            <Campo etiqueta="Nota" maxLength={300} value={f.nota} onChange={(x) => setF({ ...f, nota: x.target.value })} />
-            <Fila><Boton type="submit" variante="primario" disabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Boton></Fila>
+            </NativeSelect>
+            <Input value={String(f.desde)} label="Desde" type="date" isRequired onChange={(x) => setF({ ...f, desde: x })} />
+            <Input value={String(f.hasta)} label="Hasta" type="date" isRequired onChange={(x) => setF({ ...f, hasta: x })} />
+            <Input value={String(f.nota)} label="Nota" maxLength={300} onChange={(x) => setF({ ...f, nota: x })} />
+            <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
           </Formulario>
-        </Tarjeta>
+        </Seccion>
       )}
-      <Tarjeta titulo="Ausencias registradas">
+      <Seccion titulo="Ausencias registradas">
         <Tabla
           descripcion="Ausencias del área"
           cargando={!lista.datos && !lista.error}
@@ -56,10 +56,10 @@ export function Novedades() {
           columnas={["Persona", "Tipo", "Desde", "Hasta", "Nota", ""]}
           filas={(lista.datos ?? []).map((n) => [
             nombre.get(n.colab_id) ?? `#${n.colab_id}`, n.tipo, fechaCorta(n.desde), fechaCorta(n.hasta), n.nota,
-            editar ? <Boton variante="texto" disabled={ocupado} onClick={() => hacer(async () => { await enviar("DELETE", `${base}/novedades/${n.id}`); lista.recargar(); })}>Borrar</Boton> : null,
+            editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => hacer(async () => { await enviar("DELETE", `${base}/novedades/${n.id}`); lista.recargar(); })}>Borrar</Button> : null,
           ])}
         />
-      </Tarjeta>
+      </Seccion>
     </Pagina>
   );
 }

@@ -1,26 +1,24 @@
-"""Reglas de diseño del front (docs/PLAN_WEB.md §7): sin colores literales fuera de web/src/tokens.css, texto no menor al mínimo
+"""Reglas de diseño del front (docs/PLAN_WEB.md §7): sin colores literales fuera de web/src/tokens.css y styles/theme.css, texto no menor al mínimo
 y pares de tokens con contraste WCAG ≥ 4,5:1. Uso: python checks/diseno.py [--raiz DIR]. Sale 1 si algo falla."""
 import re
 import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
-MIN_PX = 11  # mínimo de texto de la web; la colección «Tipo» de FigCraft aún no existe
+MIN_PX = 11  # el mínimo que ya usa la app Qt (tema.py); la colección «Tipo» de FigCraft aún no existe
 MIN_CONTRASTE = 4.5
-# (texto, fondo) que el diseño usa de verdad. Excluidos: --lateral-tenue sobre --lateral (4,42:1; no se usa para texto) y los controles
-# deshabilitados (WCAG 1.4.3 los exime). Un par nuevo se añade aquí; los de las reglas CSS se comprueban solos.
-PARES = [
-    ("texto", "fondo"), ("texto", "superficie"), ("titulo", "superficie"), ("titulo", "superficie-sutil"), ("atenuado", "superficie"),
-    ("atenuado", "fondo"), ("atenuado", "superficie-sutil"), ("acento", "superficie"), ("acento", "acento-suave"), ("superficie", "acento"),
-    ("superficie", "acento-hover"), ("superficie", "error"), ("lateral-texto", "lateral"), ("lateral-texto", "lateral-sel"),
-    ("lateral-texto", "lateral-hover"), ("superficie", "lateral-sel"), ("superficie", "lateral-hover"),
-    ("warn-texto", "warn-fondo"), ("warn-texto", "warn-celda"), ("error-texto", "error-fondo"), ("ok-texto", "ok-fondo"),
-    ("info-texto", "info-fondo"), ("error", "superficie"), ("error", "error-fondo"), ("ok", "superficie"), ("info", "superficie"),
-    ("titulo", "turno-M"), ("titulo", "turno-T"), ("titulo", "turno-C"), ("titulo", "turno-NC"), ("titulo", "marca"),
-    ("lateral", "marca"), ("titulo", "warn-insignia"), ("warn-texto", "superficie"),
-]
+# Colores fijos de Untitled (styles/theme.css) que se cruzan con nuestros tokens; los nombres de tokens.css van sin `--`.
+FIJOS = {"white": "#FFFFFF", "neutral-900": "#171717"}  # neutral-900 de Tailwind = color-text-primary
+# (texto, fondo) que el diseño usa de verdad. Los controles deshabilitados quedan fuera (WCAG 1.4.3 los exime).
+PARES = [("white", "an-brand-600"), ("white", "an-brand-700"), ("an-brand-700", "white"),
+         ("neutral-900", "turno-M"), ("neutral-900", "turno-T"), ("neutral-900", "turno-C"), ("neutral-900", "turno-NC")]
 COLOR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(|:\s*(?:white|black)\b", re.I)
-IGNORAR = {"tokens.css", "esquema.d.ts"}
+IGNORAR = {"tokens.css", "theme.css", "esquema.d.ts"}  # theme.css: copiado de Untitled UI, define su paleta
+# Clases de Tailwind en .ts/.tsx: tamaño arbitrario (`text-[9px]`) y pares sin variante (`text-x bg-y`, no `hover:bg-y`) en una misma cadena.
+TW_TAM = re.compile(r"(?<![\w:-])text-\[([\d.]+(?:px|rem|em))\]")
+TW_TEXTO = re.compile(r"(?<![\w:\[-])text-([a-z][\w-]*)")
+TW_FONDO = re.compile(r"(?<![\w:\[-])bg-([a-z][\w-]*)")
+CADENA = re.compile(r'"([^"\n]*)"|`([^`]*)`')
 
 
 def luminancia(hexa):
@@ -39,7 +37,9 @@ def leer_tokens(css):
 
 
 def _fuentes(src):
-    return sorted(p for p in src.rglob("*") if p.suffix in (".css", ".ts", ".tsx") and p.name not in IGNORAR and "fuentes" not in p.parts)
+    # components/: copiado de Untitled UI (su diseño manda, como styles/theme.css); application/alerts es nuestro pero solo usa sus clases.
+    return sorted(p for p in src.rglob("*") if p.suffix in (".css", ".ts", ".tsx") and p.name not in IGNORAR
+                  and "fuentes" not in p.parts and "components" not in p.relative_to(src).parts[:1])
 
 
 def _reglas(css):
@@ -59,6 +59,7 @@ def revisar(raiz=RAIZ):
     if not tokens_css.exists():
         return [f"{tokens_css} no existe (python checks/tokens.py lo genera)"]
     tokens = leer_tokens(tokens_css.read_text(encoding="utf-8"))
+    tokens |= FIJOS | {k[3:]: v for k, v in tokens.items() if k.startswith("an-brand-")}  # clases bg-brand-600 = --an-brand-600
     out = []
     for a, b in PARES:
         for t in (a, b):
@@ -73,6 +74,17 @@ def revisar(raiz=RAIZ):
             if COLOR_LITERAL.search(linea) and not linea.lstrip().startswith(("//", "*", "/*")):
                 out.append(f"{rel}:{n}: color literal fuera de tokens.css: {linea.strip()[:70]}")
         if p.suffix != ".css":
+            for n, linea in enumerate(texto.splitlines(), 1):
+                for m in TW_TAM.finditer(linea):
+                    if _px(m.group(1)) < MIN_PX:
+                        out.append(f"{rel}:{n}: clase {m.group(0)} (mínimo {MIN_PX}px)")
+                for a, b in CADENA.findall(linea):
+                    cad = a or b
+                    col = [t for t in TW_TEXTO.findall(cad) if t in tokens]
+                    fon = [t for t in TW_FONDO.findall(cad) if t in tokens]
+                    for c_, f_ in ((c_, f_) for c_ in col for f_ in fon):
+                        if (c := contraste(tokens[c_], tokens[f_])) < MIN_CONTRASTE:
+                            out.append(f"{rel}:{n}: contraste {c:.2f}:1 con text-{c_} sobre bg-{f_}")
             continue
         for sel, props in _reglas(texto):
             tam = _px(props.get("font-size", "")) if "font-size" in props else None

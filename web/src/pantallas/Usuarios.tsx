@@ -3,13 +3,15 @@ import { Navigate, useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import { ErrorApi } from "../api/cliente";
 import type { Area, UsuarioClinica } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
-import { Campo, Seleccion } from "../componentes/Campo";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
 import { useSesion } from "../Sesion";
-import { Casilla, Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { Alert } from "@/components/application/alerts/alert";
+import { Badge } from "@/components/base/badges/badges";
 
 /** Usuarios de la clínica y su permiso por área (solo el administrador). Un solo usuario edita cada área; el resto ve. */
 export function Usuarios() {
@@ -61,22 +63,22 @@ export function Usuarios() {
   return (
     <Pagina titulo="Usuarios" sub="Quién ingresa a la clínica y qué puede hacer en cada área." ayuda={<>Cada persona puede tener, por área: <strong>Editar</strong> (genera y cambia el cuadro), <strong>Ver</strong> (solo consulta y exporta) o <strong>Sin acceso</strong>. Al crear un usuario se le asigna una contraseña temporal que deberá cambiar la primera vez que entre.</>} error={lista.error ?? areas.error} aviso={aviso}>
       {clave && (
-        <Aviso nivel="aviso" accion={<Boton onClick={() => setClave(null)}>Ya la copié</Boton>}>
+        <Alert color="warning" action={<Button color="secondary" size="sm" onPress={() => setClave(null)}>Ya la copié</Button>}>
           Contraseña temporal de {clave.para}: <strong>{clave.valor}</strong>. Se muestra una sola vez; la persona debe cambiarla al ingresar.
-        </Aviso>
+        </Alert>
       )}
       {choque && (
-        <Aviso nivel="aviso" accion={<Boton variante="primario" disabled={ocupado} onClick={() => reemplazar(choque.id, choque.area)}>Pasar al editor actual a «ver»</Boton>}>{choque.texto}</Aviso>
+        <Alert color="warning" action={<Button color="primary" size="sm" isDisabled={ocupado} onPress={() => reemplazar(choque.id, choque.area)}>Pasar al editor actual a «ver»</Button>}>{choque.texto}</Alert>
       )}
-      <Tarjeta titulo="Nuevo usuario">
+      <Seccion titulo="Nuevo usuario">
         <Formulario onSubmit={(x) => { x.preventDefault(); void crear(); }}>
-          <Campo etiqueta="Correo" type="email" required value={f.correo} onChange={(x) => setF({ ...f, correo: x.target.value })} />
-          <Campo etiqueta="Nombre" required maxLength={120} value={f.nombre} onChange={(x) => setF({ ...f, nombre: x.target.value })} />
-          <Casilla etiqueta="Administra la clínica" checked={f.es_admin} onChange={(x) => setF({ ...f, es_admin: x.target.checked })} />
-          <Fila><Boton type="submit" variante="primario" disabled={ocupado || !f.correo || !f.nombre.trim()}>Crear usuario</Boton></Fila>
+          <Input value={String(f.correo)} label="Correo" type="email" isRequired onChange={(x) => setF({ ...f, correo: x })} />
+          <Input value={String(f.nombre)} label="Nombre" isRequired maxLength={120} onChange={(x) => setF({ ...f, nombre: x })} />
+          <Checkbox label="Administra la clínica" isSelected={f.es_admin} onChange={(x) => setF({ ...f, es_admin: x })} />
+          <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.correo || !f.nombre.trim()}>Crear usuario</Button></Fila>
         </Formulario>
-      </Tarjeta>
-      <Tarjeta titulo="Usuarios y permisos">
+      </Seccion>
+      <Seccion titulo="Usuarios y permisos">
         <Tabla
           descripcion="Usuarios de la clínica"
           cargando={!lista.datos && !lista.error}
@@ -84,19 +86,19 @@ export function Usuarios() {
           columnas={["Usuario", "Estado", ...(areas.datos ?? []).map((a) => a.nombre), ""]}
           filas={(lista.datos ?? []).map((u) => [
             <>{u.nombre}<br />{u.correo}{u.es_admin && " · administra"}</>,
-            !u.activo ? "Inactivo" : u.debe_cambiar ? "Debe cambiar la contraseña" : "Activo",
+            <Badge size="sm" color={!u.activo ? "gray" : u.debe_cambiar ? "warning" : "success"}>{!u.activo ? "Inactivo" : u.debe_cambiar ? "Debe cambiar la contraseña" : "Activo"}</Badge>,
             ...(areas.datos ?? []).map((a) => (
-              <Seleccion key={a.id} etiqueta={`Permiso de ${u.nombre} en ${a.nombre}`} value={permisoDe(u, a.id)} disabled={ocupado || !u.activo} onChange={(x) => fijar(u, a.id, x.target.value)}>
+              <NativeSelect size="sm" key={a.id} label={`Permiso de ${u.nombre} en ${a.nombre}`} value={permisoDe(u, a.id)} disabled={ocupado || !u.activo} onChange={(x) => fijar(u, a.id, x.target.value)}>
                 <option value="">Sin acceso</option><option value="ver">Ver</option><option value="editar">Editar</option>
-              </Seleccion>
+              </NativeSelect>
             )),
             <Fila>
-              <Boton variante="texto" disabled={ocupado} onClick={() => restablecer(u)}>Restablecer contraseña</Boton>
-              {u.activo && u.id !== usuario.id && <Boton variante="texto" disabled={ocupado} onClick={() => desactivar(u)}>Desactivar</Boton>}
+              <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => restablecer(u)}>Restablecer contraseña</Button>
+              {u.activo && u.id !== usuario.id && <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => desactivar(u)}>Desactivar</Button>}
             </Fila>,
           ])}
         />
-      </Tarjeta>
+      </Seccion>
     </Pagina>
   );
 }

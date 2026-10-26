@@ -3,11 +3,10 @@ import { useNavigate } from "react-router";
 import { cambios } from "../api/cambios";
 import { ErrorApi } from "../api/cliente";
 import type { Periodo } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
-import { Campo } from "../componentes/Campo";
-import { Dialogo } from "../componentes/Dialogo";
-import e from "./Generar.module.css";
+import { Ventana } from "./comun";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { Alert } from "@/components/application/alerts/alert";
 
 type Accion = "publicar" | "restaurar" | "cerrar" | "reabrir";
 const TEXTO: Record<Accion, [string, string]> = {
@@ -59,29 +58,29 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
 
   return (
     <>
-      {cerrado ? <Boton onClick={() => abrir("reabrir")}>Reabrir</Boton> : (
+      {cerrado ? <Button color="secondary" size="sm" onPress={() => abrir("reabrir")}>Reabrir</Button> : (
         <>
-          <Boton onClick={() => abrir("publicar")}>Publicar</Boton>
-          <Boton onClick={() => abrir("restaurar")}>Restaurar</Boton>
-          <Boton onClick={() => abrir("cerrar")}>Cerrar periodo</Boton>
+          <Button color="secondary" size="sm" onPress={() => abrir("publicar")}>Publicar</Button>
+          <Button color="secondary" size="sm" onPress={() => abrir("restaurar")}>Restaurar</Button>
+          <Button color="secondary" size="sm" onPress={() => abrir("cerrar")}>Cerrar periodo</Button>
         </>
       )}
-      <Boton onClick={() => abrir("nuevo")}>Nuevo periodo</Boton>
-      <Dialogo abierto={accion !== null} alCambiar={(a) => !a && setAccion(null)}
+      <Button color="secondary" size="sm" onPress={() => abrir("nuevo")}>Nuevo periodo</Button>
+      <Ventana abierto={accion !== null} alCambiar={(a) => !a && setAccion(null)}
         titulo={accion === "nuevo" ? "Nuevo periodo" : accion ? TEXTO[accion][0] : ""}
         descripcion={accion === "nuevo" ? "Un periodo no puede compartir fechas con otro del área." : accion ? TEXTO[accion][1] : undefined}>
-        {error && <Aviso nivel="error">{error}</Aviso>}
+        {error && <Alert color="error">{error}</Alert>}
         {accion === "nuevo" && (
-          <div className={e.form}>
-            <Campo etiqueta="Desde" type="date" value={inicio} onChange={(x) => setInicio(x.target.value)} />
-            <Campo etiqueta="Hasta" type="date" value={fin} onChange={(x) => setFin(x.target.value)} />
+          <div className="flex flex-col gap-4">
+            <Input value={String(inicio)} label="Desde" type="date" onChange={(x) => setInicio(x)} />
+            <Input value={String(fin)} label="Hasta" type="date" onChange={(x) => setFin(x)} />
           </div>
         )}
-        <div className={e.fila}>
-          <Boton onClick={() => setAccion(null)}>Cancelar</Boton>
-          <Boton variante="primario" onClick={confirmar} disabled={enviando || (accion === "nuevo" && (!inicio || !fin))}>{enviando ? "Un momento…" : "Confirmar"}</Boton>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button color="secondary" size="sm" onPress={() => setAccion(null)}>Cancelar</Button>
+          <Button color="primary" size="sm" onPress={confirmar} isDisabled={enviando || (accion === "nuevo" && (!inicio || !fin))}>{enviando ? "Un momento…" : "Confirmar"}</Button>
         </div>
-      </Dialogo>
+      </Ventana>
     </>
   );
 }

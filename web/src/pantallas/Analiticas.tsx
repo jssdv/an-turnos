@@ -2,12 +2,10 @@ import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
 import { usar } from "../api/catalogos";
 import type { Area } from "../api/tipos";
-import { Campo } from "../componentes/Campo";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
-import { Pagina } from "./comun";
-import f from "./Formulario.module.css";
+import { Pagina, Seccion } from "./comun";
 import { fechaCorta, nombrePeriodo } from "./fechas";
+import { Input } from "@/components/base/input/input";
 
 interface Datos {
   ausentismo: { pct: number; por_tipo: Record<string, number>; por_persona: Record<string, Record<string, number>> };
@@ -42,49 +40,49 @@ export function Analiticas() {
 
   return (
     <Pagina titulo="Analíticas" sub="Cifras de lo ya registrado. Solo se consulta: aquí no se cambia nada." ayuda={<>Elige el rango de meses. Arriba ves el resumen: <strong>ausentismo</strong> (porcentaje de días perdidos por ausencias), cuántas personas faltaron <strong>a la vez</strong>, días con <strong>déficit</strong> (faltó gente en algún puesto) y cambios de turno. Las tablas de abajo muestran el detalle por persona y por periodo.</>} error={r.error}>
-      <Tarjeta titulo="Rango">
-        <div className={f.form}>
-          <Campo etiqueta="Desde (mes)" type="month" value={desde} onChange={(x) => setDesde(x.target.value)} />
-          <Campo etiqueta="Hasta (mes)" type="month" value={hasta} onChange={(x) => setHasta(x.target.value)} error={ok ? null : "El mes final es anterior al inicial"} />
+      <Seccion titulo="Rango">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] items-start gap-4">
+          <Input value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
+          <Input value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!!(ok ? null : "El mes final es anterior al inicial")} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
         </div>
-      </Tarjeta>
+      </Seccion>
       {!d || !total ? <p aria-busy="true">Cargando…</p> : (
         <>
-          <div className={f.cifras} role="list" aria-label="Resumen">
-            <div className={f.cifra} role="listitem"><strong>{n(d.ausentismo.pct)} %</strong><span>Ausentismo · {total.ausencias} días de ausencia</span></div>
-            <div className={f.cifra} role="listitem"><strong>{d.simultaneos.maximo}</strong><span>Ausentes a la vez (máximo){d.simultaneos.fecha_maximo ? ` · ${fechaCorta(d.simultaneos.fecha_maximo)}` : ""}</span></div>
-            <div className={f.cifra} role="listitem"><strong>{total.deficit}</strong><span>Días con déficit · {d.simultaneos.dias_riesgo.length} con ausentes en riesgo</span></div>
-            <div className={f.cifra} role="listitem"><strong>{total.cambios}</strong><span>Cambios de turno · {total.excepciones} con excepción</span></div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4" role="list" aria-label="Resumen">
+            <div className="flex flex-col gap-1 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{n(d.ausentismo.pct)} %</strong><span>Ausentismo · {total.ausencias} días de ausencia</span></div>
+            <div className="flex flex-col gap-1 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{d.simultaneos.maximo}</strong><span>Ausentes a la vez (máximo){d.simultaneos.fecha_maximo ? ` · ${fechaCorta(d.simultaneos.fecha_maximo)}` : ""}</span></div>
+            <div className="flex flex-col gap-1 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{total.deficit}</strong><span>Días con déficit · {d.simultaneos.dias_riesgo.length} con ausentes en riesgo</span></div>
+            <div className="flex flex-col gap-1 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{total.cambios}</strong><span>Cambios de turno · {total.excepciones} con excepción</span></div>
           </div>
-          <Tarjeta titulo="Ausentismo por persona (días)">
+          <Seccion titulo="Ausentismo por persona (días)">
             <Tabla descripcion="Ausencias por persona" vacio="Sin ausencias en el rango." columnas={["Persona", "Total", ...TIPOS]}
               filas={Object.entries(d.ausentismo.por_persona).sort().map(([p, t]) => [p, Object.values(t).reduce((s, x) => s + x, 0), ...TIPOS.map((x) => t[x] ?? 0)])} />
-          </Tarjeta>
-          <Tarjeta titulo="Cobertura por periodo">
+          </Seccion>
+          <Seccion titulo="Cobertura por periodo">
             <Tabla descripcion="Cobertura por periodo" vacio="Sin periodos en el rango." columnas={["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir"]}
               filas={d.cobertura.map((c) => [nombrePeriodo(c.periodo), c.dias_deficit, c.dias_exceso, c.puestos_sin_cubrir])} />
-          </Tarjeta>
-          <Tarjeta titulo="Cambios de turno por periodo">
+          </Seccion>
+          <Seccion titulo="Cambios de turno por periodo">
             <Tabla descripcion="Cambios por periodo" vacio="Sin cambios registrados." columnas={["Periodo", "Permutas", "Servicio", "Ajustes", "Excepciones"]}
               filas={Object.entries(d.cambios).map(([k, c]) => [nombrePeriodo(k), c.permuta, c.servicio, c.ajuste, c.excepciones])} />
-          </Tarjeta>
-          <Tarjeta titulo="Horas extra por periodo">
+          </Seccion>
+          <Seccion titulo="Horas extra por periodo">
             <Tabla descripcion="Horas extra" vacio="Sin periodos en el rango." columnas={["Periodo", "Ventana (sem.)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (ventana)", "Nocturnas (ventana)"]}
               filas={d.horas_extra.map((h) => [nombrePeriodo(h.periodo), h.ventana, n(h.mes.diurna), n(h.mes.nocturna), n(h.semanas.diurna), n(h.semanas.nocturna)])} />
-          </Tarjeta>
-          <Tarjeta titulo="Recargos (horas)">
+          </Seccion>
+          <Seccion titulo="Recargos (horas)">
             <Tabla descripcion="Recargos por persona" vacio="Sin recargos en el rango." columnas={["Persona", "Dominical/festivo", "Nocturno", "Equivalentes"]}
               filas={Object.entries(d.recargos).sort().map(([p, r2]) => [p, n(r2.festivo), n(r2.nocturna), n(r2.equivalentes)])} />
-          </Tarjeta>
-          <Tarjeta titulo="Equidad">
+          </Seccion>
+          <Seccion titulo="Equidad">
             <p>Diferencia entre quien más y quien menos tiene: {d.equidad.dispersion.noches} noches, {d.equidad.dispersion.domingos} domingos, {d.equidad.dispersion.festivos} festivos.</p>
             <Tabla descripcion="Equidad por persona" vacio="Sin personal." columnas={["Persona", "Noches", "Domingos", "Festivos"]}
               filas={Object.entries(d.equidad.por_persona).sort().map(([p, o]) => [p, o.noches, o.domingos, o.festivos])} />
-          </Tarjeta>
-          <Tarjeta titulo="Banco de horas (saldo al final del rango)">
+          </Seccion>
+          <Seccion titulo="Banco de horas (saldo al final del rango)">
             <Tabla descripcion="Saldos del banco" vacio="Sin saldos." columnas={["Persona", "Saldo (h)"]}
               filas={Object.entries(d.banco.saldos).sort().map(([p, s]) => [p, n(s)])} />
-          </Tarjeta>
+          </Seccion>
         </>
       )}
     </Pagina>
