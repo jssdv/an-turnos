@@ -6,7 +6,7 @@ import re
 import sys
 from pathlib import Path
 
-PERMISOS = {"contexto_area", "usuario_actual", "usuario_permitido_cambiar"}
+PERMISOS = {"contexto_area", "contexto_area_lectura", "usuario_actual", "usuario_permitido_cambiar"}
 SIN_PERMISO = {"entrar"}  # el ingreso no tiene sesión todavía
 VERBOS = {"get", "post", "put", "patch", "delete"}
 SQL = re.compile(r"^\s*(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|WITH)\b", re.I)  # una sentencia SQL empieza así

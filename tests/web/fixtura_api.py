@@ -86,3 +86,24 @@ def entorno(pool_max=10):
         su.execute(f'DROP SCHEMA "{nombre}" CASCADE')
         su.commit()
         su.close()
+
+
+def segunda_area(e, nombre="Cirugía"):
+    """Crea con `admin.crear_area` un segundo servicio de turnos en la clínica A (catálogo sembrado) con una persona y un periodo de 3 celdas.
+    Deja el id en `e.ar["A2"]` y el de su colaboradora en `e.colab["A2"]`."""
+    from an.web import admin
+    a2 = admin.crear_area(e.su, e.cl["A"], nombre)
+    e.ar["A2"] = a2
+    e.su.execute("SELECT set_config('app.clinica', %s, false), set_config('app.area', %s, false)", (str(e.cl["A"]), str(a2)))
+    p = Colaborador(0, "P-A2")
+    BD.postgres(Conexion(e.su)).guardar_colaborador(p)
+    e.colab["A2"] = p.id
+    e.su.execute("INSERT INTO periodo (clave, clinica_id, area_id) VALUES (%s, %s, %s)", (CLAVE_PERIODO, e.cl["A"], a2))
+    for d, t in ((5, "M"), (6, "T"), (7, "L")):
+        e.su.execute("INSERT INTO asignacion VALUES (%s, 'cambios', %s, %s, %s, 'solver', 0, %s, %s)",
+                     (CLAVE_PERIODO, p.id, date(2026, 10, d).isoformat(), t, e.cl["A"], a2))
+    e.su.commit()
+    e.su.execute("RESET app.clinica")
+    e.su.execute("RESET app.area")
+    e.su.commit()
+    return a2
