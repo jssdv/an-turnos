@@ -1,9 +1,16 @@
 import { Navigate, Outlet, Route, Routes } from "react-router";
 import { useSesion } from "./Sesion";
 import { CambiarClave } from "./pantallas/CambiarClave";
+import { Analiticas } from "./pantallas/Analiticas";
 import { Cuadro } from "./pantallas/Cuadro";
 import { Disposicion } from "./pantallas/Disposicion";
 import { Ingresar } from "./pantallas/Ingresar";
+import { Novedades } from "./pantallas/Novedades";
+import { Parametros } from "./pantallas/Parametros";
+import { Personal } from "./pantallas/Personal";
+import { Puestos } from "./pantallas/Puestos";
+import { Solicitudes } from "./pantallas/Solicitudes";
+import { Usuarios } from "./pantallas/Usuarios";
 
 /** Exige sesión; con `debe_cambiar` solo deja ver «Cambiar contraseña». */
 function Protegida() {
@@ -32,6 +39,13 @@ export default function App() {
           <Route index element={<Navigate to="cuadro" replace />} />
           <Route path="cuadro" element={<Cuadro />} />
           <Route path="cuadro/:periodo" element={<Cuadro />} />
+          <Route path="solicitudes" element={<Solicitudes />} />
+          <Route path="personal" element={<Personal />} />
+          <Route path="novedades" element={<Novedades />} />
+          <Route path="puestos" element={<Puestos />} />
+          <Route path="parametros" element={<Parametros />} />
+          <Route path="analiticas" element={<Analiticas />} />
+          <Route path="usuarios" element={<Usuarios />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

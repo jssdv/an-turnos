@@ -99,7 +99,8 @@ export interface paths {
         /** Ruta */
         get: operations["ruta_api_areas__area__turnos_get"];
         put?: never;
-        post?: never;
+        /** Crear Turno */
+        post: operations["crear_turno_api_areas__area__turnos_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -116,7 +117,8 @@ export interface paths {
         /** Ruta */
         get: operations["ruta_api_areas__area__puestos_get"];
         put?: never;
-        post?: never;
+        /** Crear Puesto */
+        post: operations["crear_puesto_api_areas__area__puestos_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -133,7 +135,8 @@ export interface paths {
         /** Ruta */
         get: operations["ruta_api_areas__area__colaboradores_get"];
         put?: never;
-        post?: never;
+        /** Crear Colaborador */
+        post: operations["crear_colaborador_api_areas__area__colaboradores_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -150,7 +153,8 @@ export interface paths {
         /** Ruta */
         get: operations["ruta_api_areas__area__novedades_get"];
         put?: never;
-        post?: never;
+        /** Crear Novedad */
+        post: operations["crear_novedad_api_areas__area__novedades_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -167,7 +171,8 @@ export interface paths {
         /** Ruta */
         get: operations["ruta_api_areas__area__solicitudes_get"];
         put?: never;
-        post?: never;
+        /** Crear Solicitud */
+        post: operations["crear_solicitud_api_areas__area__solicitudes_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -184,7 +189,8 @@ export interface paths {
         /** Ruta */
         get: operations["ruta_api_areas__area__tarifas_get"];
         put?: never;
-        post?: never;
+        /** Agregar Tarifa */
+        post: operations["agregar_tarifa_api_areas__area__tarifas_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -200,7 +206,8 @@ export interface paths {
         };
         /** Parametros */
         get: operations["parametros_api_areas__area__parametros_get"];
-        put?: never;
+        /** Guardar Parametros */
+        put: operations["guardar_parametros_api_areas__area__parametros_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -304,6 +311,145 @@ export interface paths {
         /** Analiticas */
         get: operations["analiticas_api_areas__area__analiticas_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/solicitudes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Borrar Solicitud */
+        delete: operations["borrar_solicitud_api_areas__area__solicitudes__id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/periodos/{id}/solicitudes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluacion */
+        get: operations["evaluacion_api_areas__area__periodos__id__solicitudes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/colaboradores/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Editar Colaborador */
+        put: operations["editar_colaborador_api_areas__area__colaboradores__id__put"];
+        post?: never;
+        /** Borrar Colaborador */
+        delete: operations["borrar_colaborador_api_areas__area__colaboradores__id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/novedades/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Borrar Novedad */
+        delete: operations["borrar_novedad_api_areas__area__novedades__id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/turnos/{codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Editar Turno */
+        put: operations["editar_turno_api_areas__area__turnos__codigo__put"];
+        post?: never;
+        /** Borrar Turno */
+        delete: operations["borrar_turno_api_areas__area__turnos__codigo__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/demandas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Leer Demandas */
+        get: operations["leer_demandas_api_areas__area__demandas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/puestos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Editar Puesto */
+        put: operations["editar_puesto_api_areas__area__puestos__id__put"];
+        post?: never;
+        /** Borrar Puesto */
+        delete: operations["borrar_puesto_api_areas__area__puestos__id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/puestos/{id}/demandas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reemplazar Demandas */
+        put: operations["reemplazar_demandas_api_areas__area__puestos__id__demandas_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -482,6 +628,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/usuarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar */
+        get: operations["listar_api_usuarios_get"];
+        put?: never;
+        /** Crear */
+        post: operations["crear_api_usuarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/usuarios/{id}/areas/{area}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Permiso */
+        put: operations["permiso_api_usuarios__id__areas__area__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/usuarios/{id}/desactivar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Desactivar */
+        post: operations["desactivar_api_usuarios__id__desactivar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/usuarios/{id}/clave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restablecer */
+        post: operations["restablecer_api_usuarios__id__clave_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -528,6 +743,63 @@ export interface components {
              */
             turno: string;
         };
+        /** ColaboradorIn */
+        ColaboradorIn: {
+            /** Nombre */
+            nombre: string;
+            /**
+             * Tipo
+             * @default regular
+             * @enum {string}
+             */
+            tipo: "regular" | "restringido" | "estudiante" | "refuerzo";
+            /**
+             * Horas Sem
+             * @default 42
+             */
+            horas_sem: number;
+            /**
+             * Pct
+             * @default 1
+             */
+            pct: number;
+            /** Permitidos */
+            permitidos?: string[] | null;
+            /** Puestos Permitidos */
+            puestos_permitidos?: number[] | null;
+            /**
+             * Estudio
+             * @default []
+             */
+            estudio: [
+                number,
+                "M" | "T"
+            ][];
+            /**
+             * Activo
+             * @default true
+             */
+            activo: boolean;
+        };
+        /** DemandaIn */
+        DemandaIn: {
+            /**
+             * Tipo Dia
+             * @enum {string}
+             */
+            tipo_dia: "LS" | "DF";
+            /** Inicio */
+            inicio: number;
+            /** Fin */
+            fin: number;
+            /** Personas */
+            personas: number;
+            /**
+             * Obligatorio
+             * @default true
+             */
+            obligatorio: boolean;
+        };
         /** Entrada */
         Entrada: {
             /** Correo */
@@ -539,6 +811,31 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** NovedadIn */
+        NovedadIn: {
+            /** Colab Id */
+            colab_id: number;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "Vacaciones" | "Incapacidad" | "Licencia" | "Libre solicitado";
+            /**
+             * Desde
+             * Format: date
+             */
+            desde: string;
+            /**
+             * Hasta
+             * Format: date
+             */
+            hasta: string;
+            /**
+             * Nota
+             * @default
+             */
+            nota: string;
         };
         /** NuevoPeriodo */
         NuevoPeriodo: {
@@ -552,6 +849,30 @@ export interface components {
              * Format: date
              */
             fin: string;
+        };
+        /** NuevoUsuario */
+        NuevoUsuario: {
+            /** Correo */
+            correo: string;
+            /** Nombre */
+            nombre: string;
+            /**
+             * Es Admin
+             * @default false
+             */
+            es_admin: boolean;
+        };
+        /** Pausa */
+        Pausa: {
+            /** Ini */
+            ini: number;
+            /** Min */
+            min: number;
+            /**
+             * Pagada
+             * @default false
+             */
+            pagada: boolean;
         };
         /** Pedido */
         Pedido: {
@@ -573,6 +894,114 @@ export interface components {
              * @default 0
              */
             semilla: number;
+        };
+        /** Permiso */
+        Permiso: {
+            /** Permiso */
+            permiso?: string | null;
+        };
+        /** PuestoIn */
+        PuestoIn: {
+            /** Numero */
+            numero: number;
+            /** Nombre */
+            nombre: string;
+            /**
+             * Color
+             * @default FFFFFF
+             */
+            color: string;
+            /**
+             * Activo
+             * @default true
+             */
+            activo: boolean;
+        };
+        /** SolicitudIn */
+        SolicitudIn: {
+            /** Colab Id */
+            colab_id: number;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "libre" | "quiero" | "evitar";
+            /**
+             * Desde
+             * Format: date
+             */
+            desde: string;
+            /**
+             * Hasta
+             * Format: date
+             */
+            hasta: string;
+            /**
+             * Turno
+             * @default
+             */
+            turno: string;
+            /**
+             * Prioridad
+             * @default normal
+             * @enum {string}
+             */
+            prioridad: "normal" | "alta";
+            /**
+             * Nota
+             * @default
+             */
+            nota: string;
+        };
+        /** TarifaIn */
+        TarifaIn: {
+            /**
+             * Concepto
+             * @enum {string}
+             */
+            concepto: "dominical" | "nocturno" | "extra_diurna" | "extra_nocturna" | "noche_inicio";
+            /** Valor */
+            valor: number;
+            /**
+             * Desde
+             * Format: date
+             */
+            desde: string;
+        };
+        /** TurnoIn */
+        TurnoIn: {
+            /** Codigo */
+            codigo: string;
+            /**
+             * Nombre
+             * @default
+             */
+            nombre: string;
+            /** Inicio */
+            inicio: number;
+            /** Fin */
+            fin: number;
+            /**
+             * Color
+             * @default FFFFFF
+             */
+            color: string;
+            pausa?: components["schemas"]["Pausa"] | null;
+            /**
+             * Dom Fest
+             * @default true
+             */
+            dom_fest: boolean;
+            /**
+             * Solver
+             * @default true
+             */
+            solver: boolean;
+            /**
+             * Activo
+             * @default true
+             */
+            activo: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -753,6 +1182,41 @@ export interface operations {
             };
         };
     };
+    crear_turno_api_areas__area__turnos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TurnoIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ruta_api_areas__area__puestos_get: {
         parameters: {
             query?: never;
@@ -766,6 +1230,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_puesto_api_areas__area__puestos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PuestoIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -815,6 +1314,41 @@ export interface operations {
             };
         };
     };
+    crear_colaborador_api_areas__area__colaboradores_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ColaboradorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ruta_api_areas__area__novedades_get: {
         parameters: {
             query?: never;
@@ -828,6 +1362,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_novedad_api_areas__area__novedades_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NovedadIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -877,6 +1446,41 @@ export interface operations {
             };
         };
     };
+    crear_solicitud_api_areas__area__solicitudes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ruta_api_areas__area__tarifas_get: {
         parameters: {
             query?: never;
@@ -908,6 +1512,41 @@ export interface operations {
             };
         };
     };
+    agregar_tarifa_api_areas__area__tarifas_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TarifaIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     parametros_api_areas__area__parametros_get: {
         parameters: {
             query?: never;
@@ -918,6 +1557,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    guardar_parametros_api_areas__area__parametros_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: number | string;
+                };
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1146,6 +1822,373 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_solicitud_api_areas__area__solicitudes__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluacion_api_areas__area__periodos__id__solicitudes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editar_colaborador_api_areas__area__colaboradores__id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ColaboradorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_colaborador_api_areas__area__colaboradores__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_novedad_api_areas__area__novedades__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editar_turno_api_areas__area__turnos__codigo__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                codigo: string;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TurnoIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_turno_api_areas__area__turnos__codigo__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                codigo: string;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leer_demandas_api_areas__area__demandas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editar_puesto_api_areas__area__puestos__id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PuestoIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_puesto_api_areas__area__puestos__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reemplazar_demandas_api_areas__area__puestos__id__demandas_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandaIn"][];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1510,6 +2553,159 @@ export interface operations {
         };
     };
     cancelar_api_trabajos__id__cancelar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_api_usuarios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    crear_api_usuarios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NuevoUsuario"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    permiso_api_usuarios__id__areas__area__put: {
+        parameters: {
+            query?: {
+                reemplazar?: boolean;
+            };
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Permiso"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    desactivar_api_usuarios__id__desactivar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restablecer_api_usuarios__id__clave_post: {
         parameters: {
             query?: never;
             header?: never;

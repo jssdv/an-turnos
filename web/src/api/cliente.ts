@@ -13,7 +13,7 @@ export function alVencerSesion(f: (() => void) | null) {
 }
 
 export async function pedir<T>(
-  metodo: "GET" | "POST",
+  metodo: "GET" | "POST" | "PUT" | "DELETE",
   ruta: string,
   opciones: { cuerpo?: unknown; revision?: number; sinAviso401?: boolean } = {},
 ): Promise<T> {
