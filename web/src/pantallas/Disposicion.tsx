@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, useNavigate, useParams } from "react-router";
 import { leer } from "../api/cliente";
 import type { Area } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
 import { SECCIONES } from "./Radiologia";
 import { Lateral } from "../componentes/Lateral";
 import { useSesion } from "../Sesion";
 import e from "./Disposicion.module.css";
+import { Button } from "@/components/base/buttons/button";
+import { Alert } from "@/components/application/alerts/alert";
 
 /** Marco con el menú lateral. `/areas` elige la primera área disponible. */
 export function Disposicion() {
@@ -21,15 +21,15 @@ export function Disposicion() {
     leer<Area[]>("/api/areas").then((x) => setAreas(x.filter((a) => a.tipo === "turnos"))).catch((x) => setError(x.message));
   }, []);
 
-  if (error) return <main className={e.principal}><Aviso nivel="error">{error}</Aviso></main>;
+  if (error) return <main className={e.principal}><Alert color="error">{error}</Alert></main>;
   if (!areas) return <main className={e.principal} aria-busy="true"><p className={e.vacio}>Cargando…</p></main>;
   const inicio = (a: Area) => `/areas/${a.id}/${a.tipo === "radiologia" ? "radiologia/resumen" : "cuadro"}`;
   if (!area) {
     const primera = areas.find((a) => a.tipo === "turnos") ?? areas[0];
-    return primera ? <Navigate to={inicio(primera)} replace /> : <main className={e.principal}><Aviso>No tienes áreas asignadas. Pide acceso a quien administra tu clínica.</Aviso></main>;
+    return primera ? <Navigate to={inicio(primera)} replace /> : <main className={e.principal}><Alert color="brand">No tienes áreas asignadas. Pide acceso a quien administra tu clínica.</Alert></main>;
   }
   const actual = areas.find((a) => a.id === Number(area));
-  if (!actual) return <main className={e.principal}><Aviso nivel="error">No encontramos esa área, o aún no está disponible en la web.</Aviso></main>;
+  if (!actual) return <main className={e.principal}><Alert color="error">No encontramos esa área, o aún no está disponible en la web.</Alert></main>;
 
   return (
     <div className={e.marco}>
@@ -49,14 +49,14 @@ export function Disposicion() {
                 {areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
               </select>
             )}
-            <Boton className={e["boton-lateral"]} onClick={salir}>Salir</Boton>
+            <Button color="secondary" size="sm" className={e["boton-lateral"]} onPress={salir}>Salir</Button>
           </>
         }
       />
       <main className={e.principal} id="contenido" tabIndex={-1}>
         {actual.permiso !== "editar" && (
           <div className={e.consulta} data-no-imprimir>
-            <Aviso>Modo consulta: puedes ver y exportar, pero no cambiar nada. Si necesitas editar, pídeselo a quien administra la clínica.</Aviso>
+            <Alert color="brand">Modo consulta: puedes ver y exportar, pero no cambiar nada. Si necesitas editar, pídeselo a quien administra la clínica.</Alert>
           </div>
         )}
         <Outlet context={actual} />

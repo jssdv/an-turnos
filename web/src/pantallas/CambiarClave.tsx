@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { ErrorApi, pedir } from "../api/cliente";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
-import { Campo } from "../componentes/Campo";
 import { useSesion } from "../Sesion";
 import e from "./Acceso.module.css";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { Alert } from "@/components/application/alerts/alert";
 
 export function CambiarClave() {
   const { usuario, recargar, salir } = useSesion();
@@ -45,13 +45,13 @@ export function CambiarClave() {
             {usuario.debe_cambiar ? "Tu contraseña es temporal: elige una nueva para continuar." : `Cuenta de ${usuario.correo}.`}
           </p>
         </div>
-        {error && <Aviso nivel="error">{error}</Aviso>}
+        {error && <Alert color="error">{error}</Alert>}
         <form className={e.form} onSubmit={enviar}>
-          <Campo etiqueta="Contraseña actual" ayuda={usuario.debe_cambiar ? "La temporal que te dio quien administra." : undefined} type="password" autoComplete="current-password" required autoFocus value={actual} onChange={(x) => setActual(x.target.value)} />
-          <Campo etiqueta="Contraseña nueva" ayuda="Al menos 10 caracteres. Una frase corta es fácil de recordar." type="password" autoComplete="new-password" required value={nueva} onChange={(x) => setNueva(x.target.value)} />
-          <Campo etiqueta="Repite la nueva" type="password" autoComplete="new-password" required value={repetida} error={distinta} onChange={(x) => setRepetida(x.target.value)} />
-          <Boton type="submit" variante="primario" disabled={enviando || !actual || !nueva || nueva !== repetida}>{enviando ? "Guardando…" : "Guardar contraseña"}</Boton>
-          <Boton variante="texto" onClick={salir}>Salir</Boton>
+          <Input value={String(actual)} label="Contraseña actual" hint={usuario.debe_cambiar ? "La temporal que te dio quien administra." : undefined} type="password" autoComplete="current-password" isRequired autoFocus onChange={(x) => setActual(x)} />
+          <Input value={String(nueva)} label="Contraseña nueva" hint="Al menos 10 caracteres. Una frase corta es fácil de recordar." type="password" autoComplete="new-password" isRequired onChange={(x) => setNueva(x)} />
+          <Input value={String(repetida)} hint={distinta} isInvalid={!!(distinta)} label="Repite la nueva" type="password" autoComplete="new-password" isRequired onChange={(x) => setRepetida(x)} />
+          <Button color="primary" size="sm" type="submit" isDisabled={enviando || !actual || !nueva || nueva !== repetida}>{enviando ? "Guardando…" : "Guardar contraseña"}</Button>
+          <Button color="link-color" size="sm" onPress={salir}>Salir</Button>
         </form>
       </div>
     </main>

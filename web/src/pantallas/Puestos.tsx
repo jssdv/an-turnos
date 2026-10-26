@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
 import { aHHMM, aMinutos, enviar, usar } from "../api/catalogos";
 import type { Area, Demanda, Puesto } from "../api/tipos";
-import { Boton } from "../componentes/Boton";
-import { Campo, Seleccion } from "../componentes/Campo";
 import { Tabla } from "../componentes/Tabla";
 import { Tarjeta } from "../componentes/Tarjeta";
-import { Casilla, Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
 
 const TIPO_DIA = { LS: "Lunes a sábado", DF: "Domingo y festivo" } as const;
 
@@ -52,39 +54,39 @@ export function Puestos() {
       <Tarjeta titulo="Puestos">
         <Tabla descripcion="Puestos del área" cargando={!puestos.datos && !puestos.error} vacio="Aún no hay puestos." columnas={["N.º", "Nombre", "Estado", "Reglas", ""]}
           filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, q.activo ? "Activo" : "Inactivo", (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
-            editar ? <Boton variante="texto" onClick={() => elegir(q)}>{sel?.id === q.id ? "Editando" : "Editar"}</Boton> : null])} />
+            editar ? <Button color="link-color" size="sm" onPress={() => elegir(q)}>{sel?.id === q.id ? "Editando" : "Editar"}</Button> : null])} />
       </Tarjeta>
       {editar && (
         <Tarjeta titulo={sel ? `Puesto ${sel.numero}` : "Nuevo puesto"}>
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
-            <Campo etiqueta="Número" type="number" min={1} max={99} required value={p.numero} onChange={(x) => setP({ ...p, numero: Number(x.target.value) })} />
-            <Campo etiqueta="Nombre" required maxLength={60} value={p.nombre} onChange={(x) => setP({ ...p, nombre: x.target.value })} />
-            <Campo etiqueta="Color en el cuadro" type="color" value={`#${p.color}`} onChange={(x) => setP({ ...p, color: x.target.value.slice(1).toUpperCase() })} />
-            <Casilla etiqueta="Activo" checked={p.activo} onChange={(x) => setP({ ...p, activo: x.target.checked })} />
+            <Input value={String(p.numero)} label="Número" type="number" isRequired onChange={(x) => setP({ ...p, numero: Number(x) })} />
+            <Input value={String(p.nombre)} label="Nombre" isRequired maxLength={60} onChange={(x) => setP({ ...p, nombre: x })} />
+            <Input value={String(`#${p.color}`)} label="Color en el cuadro" type="color" onChange={(x) => setP({ ...p, color: x.slice(1).toUpperCase() })} />
+            <Checkbox label="Activo" isSelected={p.activo} onChange={(x) => setP({ ...p, activo: x })} />
             <Fila>
-              <Boton type="submit" variante="primario" disabled={ocupado || !p.nombre.trim()}>{ocupado ? "Guardando…" : "Guardar"}</Boton>
-              <Boton onClick={() => elegir(null)}>Nuevo puesto</Boton>
-              {sel && <Boton variante="peligro" disabled={ocupado} onClick={borrar}>Eliminar</Boton>}
+              <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !p.nombre.trim()}>{ocupado ? "Guardando…" : "Guardar"}</Button>
+              <Button color="secondary" size="sm" onPress={() => elegir(null)}>Nuevo puesto</Button>
+              {sel && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
             </Fila>
           </Formulario>
         </Tarjeta>
       )}
       {editar && sel && (
-        <Tarjeta titulo={`Demanda del puesto ${sel.numero}`} acciones={<Boton onClick={() => setReglas([...reglas, { puesto_id: sel.id, tipo_dia: "LS", inicio: 360, fin: 1080, personas: 1, obligatorio: true }])}>Agregar regla</Boton>}>
+        <Tarjeta titulo={`Demanda del puesto ${sel.numero}`} acciones={<Button color="secondary" size="sm" onPress={() => setReglas([...reglas, { puesto_id: sel.id, tipo_dia: "LS", inicio: 360, fin: 1080, personas: 1, obligatorio: true }])}>Agregar regla</Button>}>
           {reglas.length === 0 && <p>Sin reglas: el puesto no pide gente.</p>}
           {reglas.map((r, i) => (
             <Formulario key={i} aria-label={`Regla ${i + 1}`} onSubmit={(x) => x.preventDefault()}>
-              <Seleccion etiqueta="Días" value={r.tipo_dia} onChange={(x) => cambiarRegla(i, { tipo_dia: x.target.value as Demanda["tipo_dia"] })}>
+              <NativeSelect size="sm" label="Días" value={r.tipo_dia} onChange={(x) => cambiarRegla(i, { tipo_dia: x.target.value as Demanda["tipo_dia"] })}>
                 {Object.entries(TIPO_DIA).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </Seleccion>
-              <Campo etiqueta="Desde" type="time" value={aHHMM(r.inicio)} onChange={(x) => cambiarRegla(i, { inicio: aMinutos(x.target.value) })} />
-              <Campo etiqueta="Hasta" type="time" value={aHHMM(r.fin)} onChange={(x) => cambiarRegla(i, { fin: aMinutos(x.target.value) })} />
-              <Campo etiqueta="Personas" type="number" min={0} max={50} value={r.personas} onChange={(x) => cambiarRegla(i, { personas: Number(x.target.value) })} />
-              <Casilla etiqueta="Obligatorio" checked={r.obligatorio} onChange={(x) => cambiarRegla(i, { obligatorio: x.target.checked })} />
-              <Boton variante="texto" onClick={() => setReglas(reglas.filter((_, j) => j !== i))}>Quitar</Boton>
+              </NativeSelect>
+              <Input value={String(aHHMM(r.inicio))} label="Desde" type="time" onChange={(x) => cambiarRegla(i, { inicio: aMinutos(x) })} />
+              <Input value={String(aHHMM(r.fin))} label="Hasta" type="time" onChange={(x) => cambiarRegla(i, { fin: aMinutos(x) })} />
+              <Input value={String(r.personas)} label="Personas" type="number" onChange={(x) => cambiarRegla(i, { personas: Number(x) })} />
+              <Checkbox label="Obligatorio" isSelected={r.obligatorio} onChange={(x) => cambiarRegla(i, { obligatorio: x })} />
+              <Button color="link-color" size="sm" onPress={() => setReglas(reglas.filter((_, j) => j !== i))}>Quitar</Button>
             </Formulario>
           ))}
-          <Fila><Boton variante="primario" disabled={ocupado} onClick={guardarReglas}>Guardar reglas</Boton></Fila>
+          <Fila><Button color="primary" size="sm" isDisabled={ocupado} onPress={guardarReglas}>Guardar reglas</Button></Fila>
         </Tarjeta>
       )}
     </Pagina>

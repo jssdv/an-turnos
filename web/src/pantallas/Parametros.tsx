@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
 import { aHHMM, aMinutos, enviar, usar } from "../api/catalogos";
 import type { Area, Tarifa, Turno } from "../api/tipos";
-import { Boton } from "../componentes/Boton";
-import { Campo, Seleccion } from "../componentes/Campo";
 import { Tabla } from "../componentes/Tabla";
 import { Tarjeta } from "../componentes/Tarjeta";
-import { Casilla, Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion } from "./comun";
 import { fechaCorta } from "./fechas";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
 
 const NUM: [string, string, number, number, string][] = [
   ["ventana_semanas", "Promedio de horas (semanas)", 1, 8, "Las 42 h semanales se miden como promedio de este número de semanas (art. 165 CST)."],
@@ -76,13 +78,13 @@ export function Parametros() {
       <Tarjeta titulo="Reglas" aria-busy={!params.datos}>
         {!params.datos ? !params.error && <p aria-busy="true">Cargando…</p> : (
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
-            <Seleccion etiqueta="Periodo" ayuda="Cómo se corta cada cuadro." disabled={!editar} value={v.periodo_modo ?? "mes"} onChange={(x) => setV({ ...v, periodo_modo: x.target.value })}>
+            <NativeSelect size="sm" label="Periodo" hint="Cómo se corta cada cuadro." disabled={!editar} value={v.periodo_modo ?? "mes"} onChange={(x) => setV({ ...v, periodo_modo: x.target.value })}>
               <option value="mes">Mes calendario</option><option value="semanas">Semanas desde un lunes</option>
-            </Seleccion>
+            </NativeSelect>
             {NUM.map(([k, etiqueta, lo, hi, ayuda]) => (
-              <Campo key={k} etiqueta={etiqueta} ayuda={ayuda} type="number" min={lo} max={hi} disabled={!editar} value={v[k] ?? ""} onChange={(x) => setV({ ...v, [k]: x.target.value })} />
+              <Input value={String(v[k] ?? "")} key={k} label={etiqueta} hint={`${ayuda} Entre ${lo} y ${hi}.`} type="number" isDisabled={!editar} onChange={(x) => setV({ ...v, [k]: x })} />
             ))}
-            {editar && <Fila><Boton type="submit" variante="primario" disabled={ocupado}>Guardar reglas</Boton></Fila>}
+            {editar && <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado}>Guardar reglas</Button></Fila>}
           </Formulario>
         )}
       </Tarjeta>
@@ -90,24 +92,24 @@ export function Parametros() {
       <Tarjeta titulo="Turnos">
         <Tabla descripcion="Turnos del área" cargando={!turnos.datos && !turnos.error} vacio="Sin turnos." columnas={["Código", "Nombre", "Horario", "Estado", ""]}
           filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, x.activo ? "Activo" : "Inactivo",
-            editar ? <Boton variante="texto" onClick={() => elegirTurno(x)}>Editar</Boton> : null])} />
+            editar ? <Button color="link-color" size="sm" onPress={() => elegirTurno(x)}>Editar</Button> : null])} />
         {editar && (
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardarTurno(); }}>
-            <Campo etiqueta="Código" required maxLength={6} disabled={!nuevo} value={t.codigo} onChange={(x) => setT({ ...t, codigo: x.target.value })} />
-            <Campo etiqueta="Nombre" maxLength={60} value={t.nombre} onChange={(x) => setT({ ...t, nombre: x.target.value })} />
-            <Campo etiqueta="Entra" type="time" value={aHHMM(t.inicio)} onChange={(x) => setT({ ...t, inicio: aMinutos(x.target.value) })} />
-            <Campo etiqueta="Sale" type="time" value={aHHMM(t.fin)} onChange={(x) => setT({ ...t, fin: aMinutos(x.target.value) })} />
-            <Campo etiqueta="Color en el cuadro" type="color" value={`#${t.color}`} onChange={(x) => setT({ ...t, color: x.target.value.slice(1).toUpperCase() })} />
-            <Campo etiqueta="Pausa (min, 0 = sin pausa)" type="number" min={0} max={240} value={t.pmin} onChange={(x) => setT({ ...t, pmin: Number(x.target.value) })} />
-            {t.pmin > 0 && <Campo etiqueta="Pausa empieza (min desde la entrada)" type="number" min={0} max={1439} value={t.pini} onChange={(x) => setT({ ...t, pini: Number(x.target.value) })} />}
-            {t.pmin > 0 && <Casilla etiqueta="Pausa pagada" checked={t.ppag} onChange={(x) => setT({ ...t, ppag: x.target.checked })} />}
-            <Casilla etiqueta="Permitido en domingo y festivo" checked={t.dom_fest} onChange={(x) => setT({ ...t, dom_fest: x.target.checked })} />
-            <Casilla etiqueta="Lo usa el solver" checked={t.solver} onChange={(x) => setT({ ...t, solver: x.target.checked })} />
-            <Casilla etiqueta="Activo" checked={t.activo} onChange={(x) => setT({ ...t, activo: x.target.checked })} />
+            <Input value={String(t.codigo)} label="Código" isRequired maxLength={6} isDisabled={!nuevo} onChange={(x) => setT({ ...t, codigo: x })} />
+            <Input value={String(t.nombre)} label="Nombre" maxLength={60} onChange={(x) => setT({ ...t, nombre: x })} />
+            <Input value={String(aHHMM(t.inicio))} label="Entra" type="time" onChange={(x) => setT({ ...t, inicio: aMinutos(x) })} />
+            <Input value={String(aHHMM(t.fin))} label="Sale" type="time" onChange={(x) => setT({ ...t, fin: aMinutos(x) })} />
+            <Input value={String(`#${t.color}`)} label="Color en el cuadro" type="color" onChange={(x) => setT({ ...t, color: x.slice(1).toUpperCase() })} />
+            <Input value={String(t.pmin)} label="Pausa (min, 0 = sin pausa)" type="number" onChange={(x) => setT({ ...t, pmin: Number(x) })} />
+            {t.pmin > 0 && <Input value={String(t.pini)} label="Pausa empieza (min desde la entrada)" type="number" onChange={(x) => setT({ ...t, pini: Number(x) })} />}
+            {t.pmin > 0 && <Checkbox label="Pausa pagada" isSelected={t.ppag} onChange={(x) => setT({ ...t, ppag: x })} />}
+            <Checkbox label="Permitido en domingo y festivo" isSelected={t.dom_fest} onChange={(x) => setT({ ...t, dom_fest: x })} />
+            <Checkbox label="Lo usa el solver" isSelected={t.solver} onChange={(x) => setT({ ...t, solver: x })} />
+            <Checkbox label="Activo" isSelected={t.activo} onChange={(x) => setT({ ...t, activo: x })} />
             <Fila>
-              <Boton type="submit" variante="primario" disabled={ocupado || !t.codigo.trim()}>Guardar turno</Boton>
-              <Boton onClick={() => elegirTurno(null)}>Nuevo turno</Boton>
-              {!nuevo && <Boton variante="peligro" disabled={ocupado} onClick={borrarTurno}>Eliminar</Boton>}
+              <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !t.codigo.trim()}>Guardar turno</Button>
+              <Button color="secondary" size="sm" onPress={() => elegirTurno(null)}>Nuevo turno</Button>
+              {!nuevo && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrarTurno}>Eliminar</Button>}
             </Fila>
           </Formulario>
         )}
@@ -118,10 +120,10 @@ export function Parametros() {
           filas={[...(tarifas.datos ?? [])].sort((a, b) => a[0].localeCompare(b[0]) || a[2].localeCompare(b[2])).map(([c, valor, d]) => [c, valor, fechaCorta(d)])} />
         {editar && (
           <Formulario onSubmit={(x) => { x.preventDefault(); void agregarTarifa(); }}>
-            <Seleccion etiqueta="Concepto" value={tar.concepto} onChange={(x) => setTar({ ...tar, concepto: x.target.value })}>{CONCEPTOS.map((c) => <option key={c}>{c}</option>)}</Seleccion>
-            <Campo etiqueta="Valor (% o minutos)" type="number" min={0} max={5000} required value={tar.valor} onChange={(x) => setTar({ ...tar, valor: x.target.value })} />
-            <Campo etiqueta="Rige desde" type="date" required value={tar.desde} onChange={(x) => setTar({ ...tar, desde: x.target.value })} />
-            <Fila><Boton type="submit" variante="primario" disabled={ocupado || !tar.valor || !tar.desde}>Agregar tarifa</Boton></Fila>
+            <NativeSelect size="sm" label="Concepto" value={tar.concepto} onChange={(x) => setTar({ ...tar, concepto: x.target.value })}>{CONCEPTOS.map((c) => <option key={c}>{c}</option>)}</NativeSelect>
+            <Input value={String(tar.valor)} label="Valor (% o minutos)" type="number" isRequired onChange={(x) => setTar({ ...tar, valor: x })} />
+            <Input value={String(tar.desde)} label="Rige desde" type="date" isRequired onChange={(x) => setTar({ ...tar, desde: x })} />
+            <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !tar.valor || !tar.desde}>Agregar tarifa</Button></Fila>
           </Formulario>
         )}
       </Tarjeta>

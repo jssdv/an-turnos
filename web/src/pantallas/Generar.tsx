@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { ErrorApi } from "../api/cliente";
 import type { PedidoGenerar, Periodo, Trabajo } from "../api/tipos";
 import { trabajos, trabajosSimulados } from "../api/trabajos";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
-import { Seleccion, Campo } from "../componentes/Campo";
-import { Dialogo } from "../componentes/Dialogo";
-import { Progreso } from "../componentes/Progreso";
+import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
+import { Ventana } from "./comun";
 import e from "./Generar.module.css";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
 
 const CADA_MS = 1500;
 const TERMINALES = new Set(["listo", "fallido", "cancelado", "conflicto"]);
@@ -92,41 +93,41 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
 
   return (
     <>
-      <Boton variante="primario" onClick={abrir} disabled={bloqueado} title={bloqueado ? "El periodo está cerrado" : undefined}>Generar</Boton>
-      <Dialogo
+      <span title={bloqueado ? "El periodo está cerrado" : undefined}><Button color="primary" size="sm" onPress={abrir} isDisabled={bloqueado}>Generar</Button></span>
+      <Ventana
         abierto={abierto}
         alCambiar={setAbierto}
         bloqueado={corriendo}
         titulo="Generar cuadro"
         descripcion="Calcula un cuadro nuevo con las reglas actuales. Puede tardar unos segundos; mientras corre no se puede editar este periodo."
       >
-        {trabajosSimulados && <Aviso>Modo simulado: no se llama al servidor.</Aviso>}
-        {error && <Aviso nivel="error">{error}</Aviso>}
+        {trabajosSimulados && <Alert color="brand">Modo simulado: no se llama al servidor.</Alert>}
+        {error && <Alert color="error">{error}</Alert>}
         {!trabajo && (
           <div className={e.form}>
-            <Seleccion etiqueta="Alcance" value={modo} onChange={(x) => setModo(x.target.value as PedidoGenerar["modo"])}>
+            <NativeSelect size="sm" label="Alcance" value={modo} onChange={(x) => setModo(x.target.value as PedidoGenerar["modo"])}>
               <option value="respetar">Mes completo, respetando lo editado a mano</option>
               <option value="cero">Mes completo, desde cero</option>
               <option value="semana">Una semana</option>
-            </Seleccion>
-            {modo === "semana" && <Campo etiqueta="Lunes de la semana" type="date" value={lunes} onChange={(x) => setLunes(x.target.value)} />}
+            </NativeSelect>
+            {modo === "semana" && <Input value={String(lunes)} label="Lunes de la semana" type="date" onChange={(x) => setLunes(x)} />}
           </div>
         )}
         {trabajo && !fin && (
-          <Progreso
-            valor={p ? p.segundos / p.limite : 0}
-            etiqueta={trabajo.estado === "en_cola" ? "En cola…" : "Generando…"}
-            detalle={p ? `${Math.round(p.segundos)} s de ${p.limite} s · ${p.soluciones} soluciones${p.objetivo !== null ? ` · objetivo ${p.objetivo}` : ""}` : "Esperando turno del servidor"}
-          />
+          <div className="flex flex-col gap-2" aria-live="polite">
+            <p className="text-sm font-medium text-secondary">{trabajo.estado === "en_cola" ? "En cola…" : "Generando…"}</p>
+            <ProgressBar value={p ? Math.min(100, (p.segundos / p.limite) * 100) : 0} labelPosition="right" />
+            <p className="text-xs text-tertiary">{p ? `${Math.round(p.segundos)} s de ${p.limite} s · ${p.soluciones} soluciones${p.objetivo !== null ? ` · objetivo ${p.objetivo}` : ""}` : "Esperando turno del servidor"}</p>
+          </div>
         )}
-        {fin && <Aviso nivel={fin[0]}>{trabajo?.error ?? (trabajo?.estado === "listo" ? textoListo(trabajo) : fin[1])}</Aviso>}
+        {fin && <Alert color={COLOR_NIVEL[fin[0]]}>{trabajo?.error ?? (trabajo?.estado === "listo" ? textoListo(trabajo) : fin[1])}</Alert>}
         <div className={e.fila}>
-          {!trabajo && <Boton onClick={() => setAbierto(false)}>Cerrar</Boton>}
-          {!trabajo && <Boton variante="primario" onClick={iniciar} disabled={enviando || (modo === "semana" && !lunes)}>{enviando ? "Iniciando…" : "Iniciar"}</Boton>}
-          {corriendo && <Boton variante="peligro" onClick={cancelar} disabled={cancelando}>{cancelando ? "Cancelando…" : "Cancelar"}</Boton>}
-          {fin && <Boton variante="primario" onClick={() => setAbierto(false)}>{trabajo?.estado === "listo" ? "Ver cuadro" : "Cerrar"}</Boton>}
+          {!trabajo && <Button color="secondary" size="sm" onPress={() => setAbierto(false)}>Cerrar</Button>}
+          {!trabajo && <Button color="primary" size="sm" onPress={iniciar} isDisabled={enviando || (modo === "semana" && !lunes)}>{enviando ? "Iniciando…" : "Iniciar"}</Button>}
+          {corriendo && <Button color="primary-destructive" size="sm" onPress={cancelar} isDisabled={cancelando}>{cancelando ? "Cancelando…" : "Cancelar"}</Button>}
+          {fin && <Button color="primary" size="sm" onPress={() => setAbierto(false)}>{trabajo?.estado === "listo" ? "Ver cuadro" : "Cerrar"}</Button>}
         </div>
-      </Dialogo>
+      </Ventana>
     </>
   );
 }
