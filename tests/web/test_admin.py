@@ -70,7 +70,7 @@ def test_un_solo_editor_y_correo_unico():
         admin.dar_permiso(c, u1, ar, "editar")
         admin.dar_permiso(c, u2, ar, "ver")
         falla(lambda: admin.dar_permiso(c, u2, ar, "editar"), "ya tiene un usuario que edita")
-        falla(lambda: admin.crear_usuario(c, cl, "U1@a.co", "Otro"), "ya existe un usuario")
+        falla(lambda: admin.crear_usuario(c, cl, "U1@a.co", "Otro"), "no se pudo crear el usuario")
         falla(lambda: admin.dar_permiso(c, u1, ar, "dueño"), "permiso")
         otra = admin.crear_clinica(c, "B")
         falla(lambda: admin.dar_permiso(c, u1, admin.crear_area(c, otra, "X"), "ver"), "clínicas distintas")
@@ -92,7 +92,7 @@ def test_linea_de_comandos_imprime_ids_y_clave_una_vez():
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
             assert admin.main(["crear-usuario", "--clinica", cl, "--correo", "c@a.co", "--nombre", "Otro"], conn=c) == 1
-        assert "ya existe un usuario" in err.getvalue()
+        assert "no se pudo crear el usuario" in err.getvalue()
 
 
 def test_quitar_permiso_desactivar_y_restablecer_clave():
