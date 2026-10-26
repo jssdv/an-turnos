@@ -18,7 +18,7 @@ export function Disposicion() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    leer<Area[]>("/api/areas").then(setAreas).catch((x) => setError(x.message));
+    leer<Area[]>("/api/areas").then((x) => setAreas(x.filter((a) => a.tipo === "turnos"))).catch((x) => setError(x.message));
   }, []);
 
   if (error) return <main className={e.principal}><Aviso nivel="error">{error}</Aviso></main>;
@@ -29,7 +29,7 @@ export function Disposicion() {
     return primera ? <Navigate to={inicio(primera)} replace /> : <main className={e.principal}><Aviso>No tienes áreas asignadas. Pide acceso a quien administra tu clínica.</Aviso></main>;
   }
   const actual = areas.find((a) => a.id === Number(area));
-  if (!actual) return <main className={e.principal}><Aviso nivel="error">No encontramos esa área.</Aviso></main>;
+  if (!actual) return <main className={e.principal}><Aviso nivel="error">No encontramos esa área, o aún no está disponible en la web.</Aviso></main>;
 
   return (
     <div className={e.marco}>

@@ -19,6 +19,7 @@ from .rutas_catalogos import router as rutas_catalogos
 from .rutas_radiologia import MAX_ARCHIVO, RUTA_ARCHIVOS
 from .rutas_radiologia import router as rutas_radiologia
 from .rutas_edicion import router as rutas_edicion
+from .rutas_exportes import router as rutas_exportes
 from .rutas_trabajos import router as rutas_trabajos
 from .rutas_usuarios import router as rutas_usuarios
 
@@ -103,6 +104,7 @@ def crear_app(pool=None):
     app.include_router(rutas_catalogos)
     app.include_router(rutas_edicion)
     app.include_router(rutas_radiologia)
+    app.include_router(rutas_exportes)
     app.include_router(rutas_trabajos)
     app.include_router(rutas_usuarios)
     return app
