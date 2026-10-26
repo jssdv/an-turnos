@@ -41,6 +41,12 @@ export interface Colaborador {
   nombre: string;
   tipo: string;
   activo: boolean;
+  horas_sem: number;
+  pct: number;
+  permitidos: string[] | null; // códigos de turno; null = todos
+  puestos_permitidos: number[] | null; // ids de puesto; null = todos
+  puesto_fijo: number | null;
+  estudio: [number, "M" | "T"][];
 }
 export interface Turno {
   codigo: string;
@@ -50,8 +56,13 @@ export interface Turno {
   inicio: number;
   fin: number;
   activo: boolean;
+  dom_fest: boolean;
+  solver: boolean;
+  pausas: { ini: number; min: number; pagada: boolean }[];
 }
 export interface Novedad {
+  id: number;
+  nota: string;
   colab_id: number;
   tipo: string;
   desde: string;
@@ -130,4 +141,47 @@ export interface Cupo {
   colab_id: number;
   usadas: number;
   limite: number;
+}
+
+/** Catálogos del área (an/web/rutas_catalogos.py). */
+export interface Solicitud {
+  id: number;
+  colab_id: number;
+  tipo: "libre" | "quiero" | "evitar";
+  desde: string;
+  hasta: string;
+  turno: string;
+  prioridad: "normal" | "alta";
+  nota: string;
+}
+export interface EstadoSolicitud {
+  id: number;
+  estado: "cumplida" | "parcial" | "no cumplida" | "fuera";
+  motivo: string;
+}
+export interface Puesto {
+  id: number;
+  numero: number;
+  nombre: string;
+  color: string;
+  activo: boolean;
+}
+export interface Demanda {
+  id?: number;
+  puesto_id: number;
+  tipo_dia: "LS" | "DF";
+  inicio: number; // minutos desde las 00:00
+  fin: number;
+  personas: number;
+  obligatorio: boolean;
+}
+export type Tarifa = [string, number, string]; // [concepto, valor, desde]
+export interface UsuarioClinica {
+  id: number;
+  correo: string;
+  nombre: string;
+  es_admin: boolean;
+  activo: boolean;
+  debe_cambiar: boolean;
+  permisos: { area_id: number; permiso: "ver" | "editar" }[];
 }
