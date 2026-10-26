@@ -80,3 +80,14 @@ jobs:
           python-version: "3.13"
       - run: python checks/diseno.py
         working-directory: .
+
+  imagenes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target servidor -t an-servidor:ci .
+      - run: docker build --target caddy -t an-caddy:ci .
+      - run: docker build -t an-respaldo:ci deploy/respaldo
+      - run: |
+          cp .env.example .env
+          docker compose -f docker-compose.prod.yml --env-file .env config -q
