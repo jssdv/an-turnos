@@ -11,7 +11,7 @@ from an.turnos import flujo
 from an.turnos.pg import Conexion
 
 from . import conexion
-from .deps import Contexto, contexto_area, usuario_actual
+from .deps import Contexto, contexto_area, leer_revision, usuario_actual
 
 router = APIRouter(prefix="/api")
 YA_HAY = "Ya hay un cuadro generándose en tu clínica."
@@ -25,18 +25,9 @@ class Pedido(BaseModel):
     semilla: int = 0
 
 
-def _revision(if_match):
-    if if_match is None:
-        raise HTTPException(428, "Falta If-Match con la revisión del periodo")
-    try:
-        return int(if_match.strip().removeprefix("W/").strip('"'))
-    except ValueError:
-        raise HTTPException(422, "If-Match debe ser la revisión del periodo (un entero)")
-
-
 @router.post("/areas/{area}/periodos/{id}/generar", status_code=202)
 def generar(id: int, datos: Pedido = Pedido(), if_match: str | None = Header(None), ctx: Contexto = Depends(contexto_area, scope="function")):
-    revision = _revision(if_match)
+    revision = leer_revision(if_match)
     f = ctx.conn.execute("SELECT clave, revision FROM periodo WHERE id = ?", (id,)).fetchone()
     if not f:
         raise HTTPException(404, "Periodo no encontrado")
