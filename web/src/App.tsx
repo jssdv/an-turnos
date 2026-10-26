@@ -17,7 +17,7 @@ import { Usuarios } from "./pantallas/Usuarios";
 /** Exige sesión; con `debe_cambiar` solo deja ver «Cambiar contraseña». */
 function Protegida() {
   const { usuario } = useSesion();
-  if (usuario === undefined) return <p className="solo-lectores" role="status">Cargando…</p>;
+  if (usuario === undefined) return <p className="sr-only" role="status">Cargando…</p>;
   if (usuario === null) return <Navigate to="/ingresar" replace />;
   if (usuario.debe_cambiar) return <Navigate to="/cambiar-clave" replace />;
   return <Outlet />;

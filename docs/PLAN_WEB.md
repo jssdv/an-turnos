@@ -53,7 +53,7 @@ Tres contenedores de aplicación (Caddy, API, trabajador; API y trabajador usan 
 | Acceso a datos | **psycopg 3** con SQL plano a través de la clase `BD` existente | `BD` ya concentra todo el SQL (~109 llamadas en `db.py` y `cambios.py`); se porta, no se reescribe. Sin ORM |
 | Migraciones | Archivos `an/web/migraciones/NNN_*.sql` + aplicador de ~20 líneas con tabla `esquema_version` | Lo mínimo; regla de App_Alianzas: una migración publicada no se edita |
 | Cola | **Tabla `trabajo` en PostgreSQL** con `FOR UPDATE SKIP LOCKED` | Ver abajo |
-| Front | **React 19 + Vite + TypeScript**, `react-router`, `@base-ui/react` (diálogos, menús, selects accesibles), CSS con variables en `:root` + CSS Modules | Mismo React/Vite que App_Alianzas. Sin Tailwind: los tokens ya son variables CSS y los componentes son pocos |
+| Front | **React 19 + Vite + TypeScript**, `react-router`, **Tailwind CSS v4 + React Aria con componentes de Untitled UI** (MIT, copiados a `web/src/components/`) | Desde el 26/10/2026 ([spec](superpowers/specs/2026-10-26-untitled-ui-design.md)); antes CSS Modules + `@base-ui/react` («Sin Tailwind», decisión revertida) |
 | Tipos API→front | `openapi-typescript` (dev) genera los tipos desde el OpenAPI de FastAPI | Sin duplicar tipos a mano |
 | Gráficos | Componentes SVG propios (`Barras`, `Linea`) | `graficos.py` son 107 líneas; no hace falta Recharts |
 | Auth | Propia: `hashlib.scrypt` (stdlib) + sesiones con hash SHA-256 | Mismo diseño que App_Alianzas `docs/seguridad.md` |
@@ -74,7 +74,7 @@ Coste de B: el equipo mantiene un servidor en Python y otro (Alianzas) en Node. 
 - el trabajador toma con `UPDATE … WHERE id = (SELECT id … WHERE estado='en_cola' ORDER BY creado FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *`, sondeando cada segundo;
 - un trabajador para el piloto; si hay espera entre clínicas, se levantan más réplicas del mismo contenedor sin cambiar código.
 
-**Descartadas:** A (arriba); Celery/RQ (piden Redis; la tabla cubre el caso); WebSocket/SSE (el sondeo cada 1,5 s cubre el progreso; sin tiempo real); ORM SQLAlchemy/Alembic (la `BD` existente ya es la capa de datos); Tailwind/shadcn (ver tabla); Tauri/instalador (decisión 1).
+**Descartadas:** A (arriba); Celery/RQ (piden Redis; la tabla cubre el caso); WebSocket/SSE (el sondeo cada 1,5 s cubre el progreso; sin tiempo real); ORM SQLAlchemy/Alembic (la `BD` existente ya es la capa de datos); shadcn (se eligió Untitled UI, ver tabla); Tauri/instalador (decisión 1).
 
 ### Cambios al núcleo (los únicos)
 
@@ -349,10 +349,12 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 
 ## 7. Diseño: de FigCraft a componentes
 
-1. **Fuente:** un solo archivo manda (pregunta 4 de §10; recomendación: FigCraft). `An_UI.figcraft` es un zip con `document.json`; sus variables están en `variables` (hoy solo la colección «Color», con los mismos nombres que `tema.C`). Se añaden en el archivo las colecciones «Espacio», «Radio» y «Tipo».
-2. **Exportación:** `checks/tokens.py` (stdlib) lee `document.json` y escribe `web/src/tokens.css` (`:root { --fondo: #F5F7FA; … }`). Con `--verificar` falla si `tokens.css` o `tema.C` no coinciden con el archivo. Mientras Qt exista, `tema.C` se compara, no se genera.
-3. **Componentes base, en este orden:** `Boton` (primario, secundario, peligro), `Campo` (texto, número, fecha, select), `Tarjeta`, `Tabla` (con estado vacío), `Ficha` (celda de turno: color del turno, marca de cambiado, novedad, faltante), `Planilla` (grilla que usa `Ficha`), `Aviso` (banner y toast), `Dialogo`, `Lateral` (menú del área con insignias), `Progreso`. Todas las áreas usan estos; ninguna trae estilos propios (regla de `NUCLEO.md`).
-4. **Verificación:** `checks/diseno.py` falla con colores literales fuera de `tokens.css`, texto por debajo del mínimo de la colección «Tipo» y pares de tokens sin contraste 4,5:1 (mismo enfoque que `check:diseno` de App_Alianzas). Capturas de cada pantalla (navegador sin cabeza) se guardan junto a las de `docs/diseno/` y se revisan a ojo en cada fase; no hay comparación automática de píxeles al inicio.
+> Rehecho el 26/10/2026 con la migración a Untitled UI ([spec](superpowers/specs/2026-10-26-untitled-ui-design.md), [plan](superpowers/plans/2026-10-26-untitled-ui.md)).
+
+1. **Fuente:** `docs/diseno/An_UI.figcraft`, colección «Color»: escala de marca `brand_25 … brand_950` (verde azulado, 600 = `#0B7A75`) y colores de turno `turno_M/T/C/NC`. El resto del aspecto (neutros, tipografía, sombras) es el tema de Untitled UI.
+2. **Exportación:** `checks/tokens.py` escribe `web/src/tokens.css` (`--an-brand-*`, `--turno-*`); `web/src/styles/theme.css` (copiado de Untitled, sin modo oscuro) toma la marca de ahí. `--verificar` falla si no coinciden.
+3. **Componentes:** los de Untitled UI en `web/src/components/` (misma ruta que en `untitleduico/react@1d410cb`; se copian solo los que se usan). Propios: `componentes/Tabla` (columnas, filas, carga y vacío sobre la tabla de Untitled), `componentes/Planilla` y `Ficha` (grilla de turnos), y en `pantallas/comun.tsx` `Pagina`, `Seccion`, `Ayuda`, `Formulario`, `Fila`, `Grupo` y `Ventana` (modal con título). Sin CSS Modules.
+4. **Verificación:** `checks/diseno.py` falla con colores literales fuera de `tokens.css`/`styles/theme.css`, texto < 11 px (también `text-[Npx]` en clases), pares de marca y turnos con contraste < 4,5:1 y pares `text-*`/`bg-*` sin contraste en una misma cadena. `web/src/components/` (código de Untitled) queda fuera.
 
 ## 8. Rendimiento y pruebas
 
