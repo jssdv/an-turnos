@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { alVencerSesion, ErrorApi, pedir } from "./api/cliente";
+import { borrador } from "./api/cambios";
 import type { Usuario } from "./api/tipos";
 
 interface Valor {
@@ -53,6 +54,7 @@ export function Sesion({ children }: { children: ReactNode }) {
     },
     salir: async () => {
       await pedir("POST", "/api/auth/salir", { cuerpo: {}, sinAviso401: true }).catch(() => undefined);
+      borrador.borrar();
       setUsuario(null);
       ir("/ingresar", { replace: true });
     },

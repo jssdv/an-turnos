@@ -10,6 +10,8 @@ x-servidor: &servidor
   security_opt: ["no-new-privileges:true"]
   cap_drop: [ALL]
   logging: {driver: json-file, options: {max-size: "10m", max-file: "5"}}
+  mem_limit: ${AN_MEM_SERVIDOR:-2g}   # un archivo hostil no debe poder tumbar el servidor entero (hallazgo I-1)
+  pids_limit: 256
   environment: &entorno
     AN_PG_URL: postgresql://an_app@db:5432/an
     PGPASSWORD: ${AN_APP_CLAVE:?falta AN_APP_CLAVE en .env}
@@ -49,7 +51,7 @@ services:
   api:
     <<: *servidor
     # Caddy es el único que puede fijar la IP del cliente (X-Forwarded-For); a cualquier otro origen se le ignora.
-    command: ["uvicorn", "an.web.app:crear_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "172.29.8.2"]
+    command: ["uvicorn", "an.web.app:crear_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--proxy-headers", "--forwarded-allow-ips", "172.29.8.2"]
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 3)"]
       interval: 10s
@@ -65,12 +67,16 @@ services:
     build: {context: ., target: caddy}
     image: an-caddy:local
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
     logging: {driver: json-file, options: {max-size: "10m", max-file: "5"}}
     ports: ["${AN_PUERTO_HTTP:-80}:80", "${AN_PUERTO_HTTPS:-443}:443"]
     environment:
       AN_DOMINIO: ${AN_DOMINIO}
     volumes: [caddy_datos:/data, caddy_config:/config]
     networks:
+      publica:
       interna: {ipv4_address: 172.29.8.2}
     depends_on:
       api: {condition: service_healthy}
@@ -108,7 +114,9 @@ services:
       db: {condition: service_healthy}
 
 networks:
+  publica: {}  # solo Caddy: sale a internet (certificados) y publica 80/443
   interna:
+    internal: true  # API, trabajador y base no tienen salida a internet ni puertos publicados
     ipam:
       config: [{subnet: 172.29.8.0/24, ip_range: 172.29.8.128/25}]  # lo dinámico cae en .128+; .2 queda para Caddy
 

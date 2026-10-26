@@ -26,12 +26,12 @@ export interface EquidadMeses {
 export const base = (area: number) => `/api/areas/${area}`;
 export const rutaSemana = (area: number, archivo: number, lunes: string) => `${base(area)}/archivos/${archivo}/semanas/${lunes}`;
 
-/** El cuerpo va crudo (sin multipart): el nombre viaja en la consulta. Los errores traen el mensaje en español de la API. */
+/** El cuerpo va crudo (sin multipart): el nombre viaja en una cabecera (no en la URL, que queda en los registros). Los errores traen el mensaje en español de la API. */
 export async function subirCuadro(area: number, archivo: File): Promise<Archivo> {
   let r: Response;
   try {
-    r = await fetch(`${base(area)}/archivos?nombre=${encodeURIComponent(archivo.name)}`, {
-      method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: archivo,
+    r = await fetch(`${base(area)}/archivos`, {
+      method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Nombre-Archivo": encodeURIComponent(archivo.name) }, body: archivo,
     });
   } catch {
     throw new ErrorApi(0, "No hay conexión con el servidor. Revisa la red e inténtalo de nuevo.");

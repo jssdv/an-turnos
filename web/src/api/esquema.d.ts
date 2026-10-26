@@ -577,6 +577,203 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/areas/{area}/archivos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Archivos */
+        get: operations["listar_archivos_api_areas__area__archivos_get"];
+        put?: never;
+        /** Subir Archivo */
+        post: operations["subir_archivo_api_areas__area__archivos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/archivos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Borrar Archivo */
+        delete: operations["borrar_archivo_api_areas__area__archivos__id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/archivos/{id}/semanas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Semanas */
+        get: operations["semanas_api_areas__area__archivos__id__semanas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/archivos/{id}/semanas/{lunes}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Semana */
+        get: operations["semana_api_areas__area__archivos__id__semanas__lunes__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/archivos/{id}/semanas/{lunes}/previa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Previa */
+        get: operations["previa_api_areas__area__archivos__id__semanas__lunes__previa_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/equidad-meses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Equidad Meses */
+        get: operations["equidad_meses_api_areas__area__equidad_meses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/archivos/{id}/semanas/{lunes}/agenda/{indice}.ics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agenda Ics */
+        get: operations["agenda_ics_api_areas__area__archivos__id__semanas__lunes__agenda__indice__ics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/archivos/{id}/semanas/{lunes}/agendas.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agendas Zip */
+        get: operations["agendas_zip_api_areas__area__archivos__id__semanas__lunes__agendas_zip_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/archivos/{id}/semanas/{lunes}/exportes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportes Semana
+         * @description Versiones guardadas de la semana; se descargan con `/periodos/{periodo_id}/exportes/{id}/descargar`.
+         */
+        get: operations["exportes_semana_api_areas__area__archivos__id__semanas__lunes__exportes_get"];
+        put?: never;
+        /**
+         * Exportar Libro
+         * @description Guarda el libro de la semana en `exporte` (tipo `semana`) y lo marca contra la versión anterior, como «Generar» en Qt. Exige `editar` (el exporte pasa a ser la versión contra la que se marcan los cambios). Nunca sobrescribe: `v2`, `v3`…
+         *     Cada semana es un periodo del área (`lunes/domingo`) para colgar sus exportes.
+         */
+        post: operations["exportar_libro_api_areas__area__archivos__id__semanas__lunes__exportes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/periodos/{id}/exportes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar */
+        get: operations["listar_api_areas__area__periodos__id__exportes_get"];
+        put?: never;
+        /** Crear */
+        post: operations["crear_api_areas__area__periodos__id__exportes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/periodos/{id}/exportes/{exporte}/descargar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Descargar */
+        get: operations["descargar_api_areas__area__periodos__id__exportes__exporte__descargar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/areas/{area}/periodos/{id}/generar": {
         parameters: {
             query?: never;
@@ -836,6 +1033,14 @@ export interface components {
              * @default
              */
             nota: string;
+        };
+        /** NuevoExporte */
+        NuevoExporte: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "cuadro" | "puestos" | "horas";
         };
         /** NuevoPeriodo */
         NuevoPeriodo: {
@@ -2457,6 +2662,463 @@ export interface operations {
             };
             path: {
                 id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_archivos_api_areas__area__archivos_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subir_archivo_api_areas__area__archivos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_archivo_api_areas__area__archivos__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    semanas_api_areas__area__archivos__id__semanas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    semana_api_areas__area__archivos__id__semanas__lunes__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+                id: number;
+                lunes: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    previa_api_areas__area__archivos__id__semanas__lunes__previa_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+                id: number;
+                lunes: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    equidad_meses_api_areas__area__equidad_meses_get: {
+        parameters: {
+            query: {
+                archivos: string;
+            };
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agenda_ics_api_areas__area__archivos__id__semanas__lunes__agenda__indice__ics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+                id: number;
+                lunes: string;
+                indice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agendas_zip_api_areas__area__archivos__id__semanas__lunes__agendas_zip_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+                id: number;
+                lunes: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exportes_semana_api_areas__area__archivos__id__semanas__lunes__exportes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+                id: number;
+                lunes: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exportar_libro_api_areas__area__archivos__id__semanas__lunes__exportes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: number;
+                id: number;
+                lunes: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_api_areas__area__periodos__id__exportes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_api_areas__area__periodos__id__exportes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NuevoExporte"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    descargar_api_areas__area__periodos__id__exportes__exporte__descargar_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                exporte: number;
                 area: number;
             };
             cookie?: never;
