@@ -5,7 +5,6 @@ WORKDIR /app
 COPY requirements-web.txt requirements-servidor.txt ./
 RUN pip install -r requirements-servidor.txt
 COPY an ./an
-COPY web/sembrar_demo.py ./web/sembrar_demo.py
 RUN useradd --system --uid 10001 an
 USER an
 EXPOSE 8000

@@ -7,6 +7,9 @@ x-servidor: &servidor
   image: an-servidor:local
   restart: unless-stopped
   networks: [interna]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  logging: {driver: json-file, options: {max-size: "10m", max-file: "5"}}
   environment: &entorno
     AN_PG_URL: postgresql://an_app@db:5432/an
     PGPASSWORD: ${AN_APP_CLAVE:?falta AN_APP_CLAVE en .env}
@@ -62,6 +65,7 @@ services:
     build: {context: ., target: caddy}
     image: an-caddy:local
     restart: unless-stopped
+    logging: {driver: json-file, options: {max-size: "10m", max-file: "5"}}
     ports: ["${AN_PUERTO_HTTP:-80}:80", "${AN_PUERTO_HTTPS:-443}:443"]
     environment:
       AN_DOMINIO: ${AN_DOMINIO}
