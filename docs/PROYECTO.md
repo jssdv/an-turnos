@@ -18,13 +18,11 @@ Hoy el cuadro mensual de turnos se arma a mano en Excel y de ahí sale, también
 |---|---|---|
 | Núcleo | `an/radiologia/generar_semana.py` | Lee la hoja `Cambios …` del cuadro mensual, interpreta los códigos y arma la planilla semanal con el formato de `plantilla_semana.xlsx`. |
 | Análisis | `an/radiologia/analisis.py` | Reglas de descanso, revisión del cuadro (cruces, nombres, códigos), equidad del mes y de varios meses, agendas `.ics` y texto, comparación entre versiones, versión imprimible. |
-| App | `an/radiologia/paginas.py` (sobre `an/nucleo/`) | Ventana PySide6 con panel de resumen (indicadores y cobertura de la semana), vista previa con los colores del Excel, alertas, equidad, agendas y cambios. Recarga sola al guardar el Excel; arrastrar y soltar; atajos de teclado. Guarda `SEMANA … .xlsx` sin sobrescribir. |
-| Distribución | `empaquetar.sh` | Carpeta portátil para Windows (Python embeddable + librerías), sin instalar nada. En Mac: `An.command`. |
+| App | Web (`an/web/rutas_radiologia.py` + `web/`) | Sube el cuadro mensual y muestra resumen, vista previa, alertas, equidad, agendas y cambios por semana. La app de escritorio PySide6 se retiró el 26/10/2026 (etiqueta `qt-final`). |
 
 **Limitaciones que condicionan lo que sigue:**
 - Las reglas del negocio están **escritas dentro del código**: `CODIGOS`, `FILAS_ECO`, `SLOTS` e `IGNORAR`. Para editar el cuadro o extender la herramienta a otros servicios, deben pasar a ser **datos**.
 - El cuadro mensual debe tener fechas completas en la fila 3 y haber sido guardado desde Excel, porque se leen los valores ya calculados.
-- No se ha probado aún en el PC corporativo (`dist/PruebaPC.zip`). **Es un bloqueo para todo lo demás.**
 
 ## 3. Principios de diseño
 
@@ -156,7 +154,7 @@ Hoy el cuadro mensual de turnos se arma a mano en Excel y de ahí sale, también
 
 ## 8. Decisiones ya tomadas
 
-- Interfaz en Qt (PySide6), distribuida como carpeta portátil sin `.exe` (Python embeddable). En Mac se usa `An.command`.
+- Interfaz en Qt (PySide6), distribuida como carpeta portátil (retirada el 26/10/2026, etiqueta `qt-final`; hoy la interfaz es la web).
 - La fila 3 del cuadro mensual lleva fechas completas; las semanas se ubican por fecha exacta.
 - En la planilla semanal:
   - contingencia, vacaciones, asignación de estudios y notas libres se llenan a mano;
@@ -187,8 +185,8 @@ Marca `[x]` al terminar cada paso. Cada etapa empieza con su diseño (`docs/etap
 - [x] 0.4 Revisión del cuadro, equidad de varios meses y versión para imprimir
 - [x] 0.5 Paquete portátil para Windows (`empaquetar.sh`) y lanzador para Mac
 - [x] 0.5b Interfaz renovada, carpeta ordenada (hoy `an/`, `tests/`, `ejemplos/`) y recarga automática
-- [ ] 0.6 Probar `dist/PruebaPC.zip` en el PC corporativo (abrir la ventana y el diálogo de archivos) — **bloqueante**
-- [ ] 0.7 Probar `dist/PlanillaSemanal.zip` en el PC corporativo con un cuadro real
+- [x] 0.6 ~~Probar `dist/PruebaPC.zip` en el PC corporativo~~ — obsoleto: la app de escritorio se retiró; la web solo pide navegador
+- [x] 0.7 ~~Probar `dist/PlanillaSemanal.zip`~~ — obsoleto (ver 0.6)
 - [ ] 0.8 Poner fechas completas en la fila 3 del cuadro mensual real y adoptarlo como plantilla para los meses siguientes
 - [ ] 0.9 Usar la app en paralelo al proceso manual durante 2 a 4 semanas y anotar las diferencias
 
@@ -217,7 +215,7 @@ Marca `[x]` al terminar cada paso. Cada etapa empieza con su diseño (`docs/etap
 ### Etapa 3 — Propuesta automática
 - [ ] 3.1 Sesiones con quien coordina para escribir todas las reglas, incluidas las implícitas
 - [ ] 3.2 Diseño detallado del modelo de optimización (`docs/etapa-3-motor.md`)
-- [ ] 3.3 Agregar OR-Tools al paquete portátil y comprobar que corre en el PC corporativo
+- [x] 3.3 ~~OR-Tools en el paquete portátil~~ — obsoleto: el solver corre en el servidor
 - [ ] 3.4 Reglas obligatorias: cobertura, rotación de urgencias TURG → NURG → LP, competencias, ausencias, descanso y horas máximas
 - [ ] 3.5 Objetivo de equidad: noches, fines de semana, festivos y disponibilidades (con lo acumulado de meses anteriores) y cercanía a la jornada
 - [ ] 3.6 Fijar celdas, regenerar por semana o por servicio, y explicar por qué no hay solución cuando no la hay

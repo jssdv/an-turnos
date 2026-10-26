@@ -4,11 +4,11 @@ La dirección general, los principios y las preguntas abiertas están en la [vis
 
 [← Volver al inicio](../README.md) · [Visión](VISION.md) · [Reglas](REGLAS.md) · [Arquitectura](ARQUITECTURA.md)
 
-Estado a oct-2026. v1 está construida; falta validarla con la coordinación y en el PC corporativo.
+Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La app de escritorio se retiró el 26/10/2026 (etiqueta `qt-final`): la versión vigente es la web.
 
 ## Antes de seguir creciendo
 
-1. Probar `PruebaPC.zip` en el PC corporativo (Qt + OR-Tools, sin permisos de administrador).
+1. Abrir la web en el navegador del PC de la clínica.
 2. Cargar el personal real y generar un mes completo con novedades reales; revisar con la coordinadora.
 3. Resolver los puntos **[confirmar]** de [REGLAS.md](REGLAS.md): horarios de turno, pausas, puesto de la restringida, tope de noches seguidas, régimen legal con jurídico.
 4. Comparar los totales del reporte de horas con una liquidación manual.
@@ -38,7 +38,7 @@ Puestos editables con demanda por tramos, cobertura derivada, reparto por tramo 
 
 ## Siguientes (en orden de valor)
 
-1. **Probar en el PC corporativo y en Windows** (Qt, OR-Tools y la interfaz).
+1. **Probar la web en el navegador del PC de la clínica.**
 2. **Copia de seguridad y restauración** de `turnos.db`.
 3. **Registro de cambios** (quién, cuándo y por qué) en ediciones y cierres.
 4. **Excel del banco de horas** para RR. HH.
