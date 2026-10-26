@@ -18,6 +18,7 @@ Datos del personal de una clínica (nombres, turnos, ausencias, solicitudes; pot
 | Edición concurrente / pérdida de datos | `If-Match` con la revisión del periodo y bloqueo `FOR UPDATE`. |
 | Pérdida del servidor | Respaldo nocturno cifrado fuera del servidor con restauración probada (`docs/operacion.md`). |
 | Robo del respaldo | Cifrado con `age` (clave pública en el servidor, privada fuera). |
+| Respaldo falsificado o manipulado | Cada respaldo se firma (`ssh-keygen -Y sign`, clave de firma propia); `restaurar.sh` verifica firma y sha256 antes de descifrar, en un equipo de confianza. |
 
 ## Cadena de una petición (`an/web/app.py`, middleware `cadena`)
 
@@ -46,7 +47,7 @@ Solo Caddy publica puertos (80/443; HTTPS automático). API y trabajador: usuari
 
 - Nada real en Git: `.env`, `*.key` y `respaldos/` están en `.gitignore`; `.env.example` solo trae marcadores. La clave de `an_app` y la del dueño entran por `.env` (permisos 600), y a los procesos por `PGPASSWORD`.
 - Claves temporales de usuarios: `secrets.token_urlsafe(12)`, se muestran una sola vez y obligan a cambiarlas.
-- La clave privada `age` del respaldo no vive en el servidor.
+- La clave privada `age` del respaldo no vive en el servidor; en él solo está la clave de firma (firma, no abre). La restauración corre en un equipo de confianza y verifica la firma antes de tocar nada.
 - Rotar: cambiar `AN_APP_CLAVE` en `.env` y `docker compose … up -d` (el servicio `migrar` ejecuta `an.web.roles` y la actualiza). Cambiar `AN_ADMIN_CLAVE` exige además `ALTER ROLE an_admin PASSWORD …` dentro del contenedor `db`.
 
 ## Lo que NO cubre
