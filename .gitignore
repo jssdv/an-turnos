@@ -11,3 +11,4 @@ cambios.log
 .env
 *.key
 respaldos/
+deploy/respaldo.recipients
