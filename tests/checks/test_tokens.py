@@ -30,7 +30,8 @@ def test_verificar_falla_si_tokens_css_cambia():
         css = Path(d) / "tokens.css"
         assert tokens.main(["--css", str(css)]) == 0
         assert tokens.main(["--verificar", "--css", str(css)]) == 0
-        css.write_text(css.read_text().replace("#F5F7FA", "#000000"))
+        fondo = tokens.leer_variables(FIGCRAFT)["fondo"]  # el valor vigente, no uno fijo: la paleta cambia en FigCraft
+        css.write_text(css.read_text().replace(fondo, "#000000"))
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
             assert tokens.main(["--verificar", "--css", str(css)]) == 1
