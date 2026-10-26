@@ -190,7 +190,7 @@ export function Agendas({ area, archivo, lunes, agendas }: { area: number; archi
           {actual ? <pre className={r.texto}>{agendas[actual]}</pre> : <p className={r.vacio}>Nadie tiene turnos esta semana.</p>}
           <div className={r.fila}>
             <Boton onClick={() => location.assign(`${ruta}/agendas.zip`)}>Exportar agendas</Boton>
-            {actual && <Boton onClick={() => location.assign(`${ruta}/agenda.ics?medico=${encodeURIComponent(actual)}`)}>Descargar .ics</Boton>}
+            {actual && <Boton onClick={() => location.assign(`${ruta}/agenda/${Object.keys(agendas).indexOf(actual)}.ics`)}>Descargar .ics</Boton>}
             <Boton onClick={() => copiar(Object.values(agendas).join("\n\n"), `${Object.keys(agendas).length} agendas copiadas.`)}>Copiar todas</Boton>
             {actual && <Boton onClick={() => copiar(agendas[actual], "Agenda copiada.")}>Copiar esta agenda</Boton>}
           </div>

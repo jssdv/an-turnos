@@ -23,7 +23,8 @@ def con_area_radiologia(e):
 
 
 def subir(cli, area, datos, nombre="cuadro.xlsx"):
-    return cli.post(f"/api/areas/{area}/archivos?nombre={nombre}", content=datos, headers=CABECERAS)
+    from urllib.parse import quote
+    return cli.post(f"/api/areas/{area}/archivos", content=datos, headers={**CABECERAS, "X-Nombre-Archivo": quote(nombre)})
 
 
 def test_subir_y_listar():
@@ -202,11 +203,12 @@ def test_agendas_ics_y_zip():
             return
         cli, id_, area = con_cuadro(e)
         base = f"/api/areas/{area}/archivos/{id_}/semanas/2026-10-05"
-        r = cli.get(f"{base}/agenda.ics?medico={urllib.parse.quote(MEDICO)}")
+        r = cli.get(f"{base}/agenda/0.ics")
         assert r.status_code == 200 and r.headers["content-type"].startswith("text/calendar") and r.text.startswith("BEGIN:VCALENDAR")
         assert r.text.count("BEGIN:VEVENT") >= 1
         assert 'filename="Prueba Uno, Ana.ics"' in r.headers["content-disposition"]
-        assert cli.get(f"{base}/agenda.ics?medico=Nadie").status_code == 404
+        assert cli.get(f"{base}/agenda/9.ics").status_code == 404
+        assert cli.get(f"{base}/agenda.ics?medico={urllib.parse.quote(MEDICO)}").status_code in (404, 405)  # el nombre ya no viaja en la URL
         z = zipfile.ZipFile(io.BytesIO(cli.get(f"{base}/agendas.zip").content))
         assert sorted(z.namelist()) == [f"{MEDICO}.ics", f"{MEDICO}.txt"]
         assert z.read(f"{MEDICO}.ics").decode().count("BEGIN:VEVENT") == r.text.count("BEGIN:VEVENT")
@@ -413,3 +415,14 @@ def test_nombre_con_formula_sale_como_texto():
     textos = [c for hoja in wb for fila in hoja.iter_rows() for c in fila if isinstance(c.value, str) and "HYPERLINK" in c.value]
     assert textos, "el nombre debería aparecer en el libro"
     assert not formulas, formulas
+
+
+def test_nombre_del_archivo_no_va_en_la_url():
+    with entorno() as e:
+        if e is None:
+            return
+        con_area_radiologia(e)
+        cli = e.cliente()
+        e.entrar(cli, "editor@a.co")
+        r = cli.post(f"/api/areas/{e.rad['A']}/archivos?nombre=viejo.xlsx", content=cuadro_minimo(), headers=CABECERAS)
+        assert r.status_code == 422 and r.json()["detalle"] == "Sube un archivo .xlsx."  # sin cabecera no hay nombre

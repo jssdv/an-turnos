@@ -54,7 +54,7 @@ Hacer un respaldo (§4) antes de cada actualización que traiga migraciones. Si 
 
 ## 4. Respaldo y restauración
 
-**Qué hace:** `pg_dump -Fc` de toda la base, cifrado con `age` para la(s) clave(s) pública(s) de un archivo; deja `an-AAAAMMDD-HHMMSS.dump.age` y su `.cifras` (filas y hash por tabla). Conserva `AN_RESPALDO_DIAS` días. Si la base cambia mientras respalda, repite (hasta 3 veces) y avisa. Sale con error ≠ 0 ante cualquier fallo.
+**Qué hace:** `pg_dump -Fc` de toda la base, cifrado con `age` para la(s) clave(s) pública(s) de un archivo; deja `an-AAAAMMDD-HHMMSS.dump.age` y su `.cifras` (filas y hash por tabla). Conserva `AN_RESPALDO_DIAS` días. **Riesgo:** el `.cifras` queda **en claro** junto al respaldo y revela cuántas filas y qué hash tiene cada tabla (p. ej. cuántos usuarios o cambios hay); trátalo como información interna: mismos permisos y mismo destino que el `.dump.age`, y no lo publiques aparte. Cifrarlo exigiría cambiar `respaldar.sh`, `restaurar.sh` y `probar_respaldo.sh` a la vez; queda pendiente. Si la base cambia mientras respalda, repite (hasta 3 veces) y avisa. Sale con error ≠ 0 ante cualquier fallo.
 
 **Preparar (una vez, 👤):** genera el par de claves en un equipo de confianza (no el servidor):
 
@@ -99,9 +99,17 @@ dc logs caddy | tail                   # accesos y certificados
 dc ps
 ```
 
+**Qué queda en los registros y por cuánto.** Los registros de Docker (`json-file`) rotan por tamaño: 10 MB × 5 por contenedor, y se pierden al recrear el contenedor. Uvicorn corre con `--no-access-log` (la API no escribe cada URL); Caddy sí registra cada petición en `dc logs caddy`. Ninguna URL lleva nombres de personas ni de archivos: el nombre del cuadro subido viaja en la cabecera `X-Nombre-Archivo` y la agenda de un médico se pide por su posición (`/agenda/3.ics`). La auditoría (tabla `auditoria`) sí guarda el nombre del archivo subido (evento `archivo_subido id=… nombre=…`); no se purga sola. No envíes los registros de Caddy fuera del servidor sin revisarlos.
+
 Los logs rotan (10 MB × 5 por contenedor). Un 500 muestra al usuario un id: se busca en `dc logs api`. Auditoría de uso en la tabla `auditoria` (usuario, ruta, código, IP, evento).
 
 **Subida de archivos de Radiología (tope de 10 MB).** La API acepta como máximo 10 MB (más 1 KB de holgura) en la subida del cuadro mensual y responde 413 «El archivo pasa de 10 MB.» si lo supera; el resto de las peticiones tienen tope de 1 MB. El `Caddyfile` no fija `request_body max_size`, así que Caddy deja pasar cualquier tamaño y el límite lo pone solo la API. Si algún día se agrega un límite en Caddy, debe ser ≥ 11 MB para la ruta de subida (`/api/areas/*/archivos`) o el usuario verá un 413 sin el mensaje de la aplicación. Un proxy o firewall corporativo con tope menor también cortaría la subida: probarla desde un PC de la clínica (§8). La API exige `Content-Length` en las escrituras (rechaza `chunked`): no usar herramientas que suban en trozos.
+
+**Límites de recursos.** La API y el trabajador corren con `mem_limit` (2 GB; `AN_MEM_SERVIDOR` en `.env` para cambiarlo) y `pids_limit: 256`, para que un archivo hostil no tumbe el servidor entero. El cuadro mensual de Radiología se rechaza si su hoja usa más de 500 filas u 80 columnas, o si descomprime a más de 10 MB; los ya guardados que lo superen responden 422 con el motivo. El trabajador resuelve con `AN_SOLVER_WORKERS` hilos: con 2 GB no subas la cuenta sin subir también el límite.
+
+**Redes.** Caddy es el único en la red `publica` y el único con puertos publicados; API, trabajador, base y respaldo viven en `interna` (`internal: true`: sin salida a internet). Caddy corre sin capacidades salvo `NET_BIND_SERVICE` y con `no-new-privileges`.
+
+**IPv6.** No publiques un registro DNS AAAA para el dominio salvo que actives IPv6 en Docker con `"userland-proxy": false` en `/etc/docker/daemon.json`. Con IPv6 sin activar, las conexiones que llegan por `docker-proxy` aparecen con la IP de la puerta de enlace: el bloqueo de ingreso por intentos (correo, IP) y la auditoría contarían a todos los usuarios como una sola IP.
 
 ## 6. Qué revisar cada semana
 

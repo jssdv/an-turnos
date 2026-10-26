@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
 
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -73,8 +73,9 @@ def _guardar(ctx, area, nombre, datos, request):
 
 
 @router.post("/areas/{area}/archivos", status_code=201)
-async def subir_archivo(area: int, request: Request, nombre: str = "", ctx: Contexto = Depends(contexto_area, scope="function")):
-    datos = await request.body()  # crudo (sin multipart): el nombre va en la consulta
+async def subir_archivo(area: int, request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
+    datos = await request.body()  # crudo (sin multipart): el nombre va en la cabecera, no en la URL (los registros guardan las URL)
+    nombre = unquote(request.headers.get("x-nombre-archivo", ""))
     return await run_in_threadpool(_guardar, ctx, area, nombre, datos, request)
 
 
@@ -206,13 +207,14 @@ def _descarga(contenido, tipo, nombre):
     return Response(contenido, media_type=tipo, headers={"Content-Disposition": f"attachment; filename=\"{ascii_}\"; filename*=UTF-8''{quote(nombre)}"})
 
 
-@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}/agenda.ics")
-def agenda_ics(area: int, id: int, lunes: str, medico: str, ctx: Contexto = Depends(contexto_area, scope="function")):
+@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}/agenda/{indice}.ics")
+def agenda_ics(area: int, id: int, lunes: str, indice: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     ws = _cuadro(ctx, area, id)
     lunes = _lunes(ws, lunes)
     agendas = analisis.agenda_por_medico(_calcular(ctx, ws, lunes)[2])
-    if medico not in agendas:
+    if not 0 <= indice < len(agendas):  # el médico va por posición (el orden de `agendas` en la semana), no por nombre: así no queda en los registros
         raise HTTPException(404, "Ese médico no tiene turnos esa semana")
+    medico = list(agendas)[indice]
     return _descarga(analisis.ics(medico, agendas[medico]).encode("utf-8"), "text/calendar; charset=utf-8", analisis.nombre_archivo(medico) + ".ics")
 
 
