@@ -1,0 +1,118 @@
+# Producción: Caddy (HTTPS) → API; trabajador del solver; PostgreSQL 16 sin puerto público. Guía: docs/operacion.md.
+#   cp .env.example .env   (y reemplaza los CAMBIAR_…)
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Solo Caddy publica puertos. API y trabajador entran como `an_app` (RLS aplica); `migrar`, `admin` y `respaldo` usan el rol dueño `an_admin`.
+x-servidor: &servidor
+  build: {context: ., target: servidor}
+  image: an-servidor:local
+  restart: unless-stopped
+  networks: [interna]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  logging: {driver: json-file, options: {max-size: "10m", max-file: "5"}}
+  environment: &entorno
+    AN_PG_URL: postgresql://an_app@db:5432/an
+    PGPASSWORD: ${AN_APP_CLAVE:?falta AN_APP_CLAVE en .env}
+    AN_ORIGEN: https://${AN_DOMINIO:?falta AN_DOMINIO en .env}${AN_ORIGEN_PUERTO:-}
+    AN_SOLVER_WORKERS: ${AN_SOLVER_WORKERS:-4}
+  depends_on:
+    migrar: {condition: service_completed_successfully}
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    networks: [interna]
+    environment:
+      POSTGRES_USER: an_admin
+      POSTGRES_PASSWORD: ${AN_ADMIN_CLAVE:?falta AN_ADMIN_CLAVE en .env}
+      POSTGRES_DB: an
+    volumes: [an_pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U an_admin -d an"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrar:
+    <<: *servidor
+    restart: "no"
+    command: ["sh", "-c", "python -m an.web.roles && python -m an.web.esquema"]
+    environment:
+      <<: *entorno
+      AN_PG_URL: postgresql://an_admin@db:5432/an
+      PGPASSWORD: ${AN_ADMIN_CLAVE}
+      AN_APP_CLAVE: ${AN_APP_CLAVE}
+    depends_on:
+      db: {condition: service_healthy}
+
+  api:
+    <<: *servidor
+    # Caddy es el único que puede fijar la IP del cliente (X-Forwarded-For); a cualquier otro origen se le ignora.
+    command: ["uvicorn", "an.web.app:crear_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "172.29.8.2"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  trabajador:
+    <<: *servidor
+    command: ["python", "-m", "an.web.trabajador"]
+    stop_grace_period: 30s
+
+  caddy:
+    build: {context: ., target: caddy}
+    image: an-caddy:local
+    restart: unless-stopped
+    logging: {driver: json-file, options: {max-size: "10m", max-file: "5"}}
+    ports: ["${AN_PUERTO_HTTP:-80}:80", "${AN_PUERTO_HTTPS:-443}:443"]
+    environment:
+      AN_DOMINIO: ${AN_DOMINIO}
+    volumes: [caddy_datos:/data, caddy_config:/config]
+    networks:
+      interna: {ipv4_address: 172.29.8.2}
+    depends_on:
+      api: {condition: service_healthy}
+
+  # Herramientas (perfil aparte): docker compose -f docker-compose.prod.yml --profile herramientas run --rm admin <comando>
+  admin:
+    <<: *servidor
+    profiles: [herramientas]
+    restart: "no"
+    entrypoint: ["python", "-m", "an.web.admin"]
+    environment:
+      <<: *entorno
+      AN_PG_URL: postgresql://an_admin@db:5432/an
+      PGPASSWORD: ${AN_ADMIN_CLAVE}
+
+  respaldo:
+    profiles: [herramientas]
+    build: {context: deploy/respaldo}
+    image: an-respaldo:local
+    restart: "no"
+    networks: [interna]
+    environment:
+      PGHOST: db
+      PGUSER: an_admin
+      PGDATABASE: an
+      PGPASSWORD: ${AN_ADMIN_CLAVE}
+      AN_RESPALDO_DIAS: ${AN_RESPALDO_DIAS:-30}
+    volumes:
+      - ${AN_RESPALDO_DESTINO:-./respaldos}:/respaldos
+      - ${AN_RESPALDO_RECIPIENTS:-./deploy/respaldo.recipients}:/recipients:ro
+      - ./deploy/cifras.sql:/cifras.sql:ro
+      - ./deploy/respaldar.sh:/respaldar.sh:ro
+    entrypoint: ["sh", "/respaldar.sh"]
+    depends_on:
+      db: {condition: service_healthy}
+
+networks:
+  interna:
+    ipam:
+      config: [{subnet: 172.29.8.0/24, ip_range: 172.29.8.128/25}]  # lo dinámico cae en .128+; .2 queda para Caddy
+
+volumes:
+  an_pg:
+  caddy_datos:
+  caddy_config:

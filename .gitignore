@@ -7,3 +7,7 @@ turnos.db
 ~$*
 usuarios.json
 cambios.log
+.env
+*.key
+respaldos/
+deploy/respaldo.recipients

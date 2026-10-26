@@ -1,0 +1,15 @@
+.git
+.venv
+.env
+*.key
+respaldos
+dist
+turnos.db
+usuarios.json
+errores.log
+web/node_modules
+web/dist
+tests
+docs
+ejemplos
+**/__pycache__
