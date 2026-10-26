@@ -40,3 +40,6 @@ export async function subirCuadro(area: number, archivo: File): Promise<Archivo>
   if (!r.ok) throw new ErrorApi(r.status, typeof datos?.detalle === "string" ? datos.detalle : "No se pudo subir el archivo");
   return datos as Archivo;
 }
+
+export interface Exporte { id: number; periodo_id: number; numero: number; nombre_archivo: string; bytes: number; creado: string; creado_por: string | null; cambios: number }
+export const rutaDescarga = (area: number, e: Pick<Exporte, "id" | "periodo_id">) => `${base(area)}/periodos/${e.periodo_id}/exportes/${e.id}/descargar`;
