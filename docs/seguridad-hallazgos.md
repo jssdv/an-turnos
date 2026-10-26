@@ -24,3 +24,21 @@ Registro de la auditoría con la skill `security-audit` (alcance: este repositor
 - **Pendiente conocido «IP real detrás de Caddy»: cerrado.** Caddy tiene IP fija; uvicorn confía en `X-Forwarded-For` solo de esa IP (`--proxy-headers --forwarded-allow-ips`). Pruebas: `tests/web/test_proxy.py` y, en la pila local, un `X-Forwarded-For` falsificado desde fuera no cambia la IP auditada.
 - **Sin hallazgos de aislamiento entre clínicas** en la revisión de rutas (`rutas_usuarios`, `rutas_trabajos`, `deps.contexto_area`) ni de las funciones `SECURITY DEFINER` (todas con `search_path` fijo, `REVOKE … FROM PUBLIC`). `checks/rls.py` y `checks/reglas.py` siguen en verde.
 - **No revisado a fondo:** `rutas_catalogos.py`/`rutas_edicion.py` línea por línea (las cubre `checks/reglas.py`: permiso de área y sin SQL armado), la migración de datos, y Radiología (ramas aún sin fusionar).
+
+
+# Ronda R2 — revisión independiente (solo lectura) y su corrección
+
+Un revisor externo encontró 1 hallazgo importante y 9 menores. Se corrigen en `docs/superpowers/plans/2026-10-29-seguridad-fix.md` (cada uno con una prueba que falló primero).
+
+| ID | Sev. | Hallazgo | Corrección | Estado |
+|---|---|---|---|---|
+| I-1 | Importante | Un `.xlsx` de 5 KB con una celda en `E1048576` hacía recorrer un millón de filas (cientos de MB por petición) y quedaba guardado. | `cargar_mensual` rechaza hojas con > 500 filas o > 80 columnas (422 al subir y al leer los ya guardados); `MAX_DESCOMPRIMIDO` 10 MB; `mem_limit` y `pids_limit` en API y trabajador. | Corregido |
+| M-1 | Media | Nombres que empiezan por `= + - @` se publicaban como fórmula en los Excel. | `an/nucleo/xlsx.poner_texto` fuerza tipo texto en las salidas de Radiología y Esterilización. | Corregido |
+| M-2 | Media | Un usuario `ver` escribía en `exporte` y `periodo` (Radiología) y sin tope (ambas áreas). | Exportar en Radiología exige `editar`; en Esterilización `ver` puede, con tope de 20 por periodo en 24 h (429). | Corregido |
+| M-3 | Media | Nombres de médicos y de archivos en la URL, y por tanto en los registros. | Cabecera `X-Nombre-Archivo`; agenda por posición; `--no-access-log`; retención documentada. | Corregido |
+| M-4 | Media | Respaldos sin firma; la restauración corre como superusuario; la clave privada puede estar en el servidor. | **Pendiente, a decidir.** Requiere elegir esquema de firma y procedimiento. Propuesta: firmar cada `.dump.age` con `minisign` o `ssh-keygen -Y sign` desde el servidor (clave de firma distinta de la de cifrado), verificar la firma antes de restaurar y descifrar/restaurar solo en un equipo de confianza, nunca en el servidor. | Pendiente |
+| M-5 | Media | Caddy sin `cap_drop`/`no-new-privileges`; red `interna` con salida. | Caddy con `cap_drop: [ALL]` + `NET_BIND_SERVICE` y `no-new-privileges`; red `publica` (Caddy) y `interna` con `internal: true`. | Corregido |
+| M-6 | Media | Con IPv6 sin activar en Docker, las conexiones llegan con la IP de la puerta de enlace y el bloqueo por intentos cuenta a todos como una IP. | Documentado en `docs/operacion.md`: no publicar AAAA salvo con IPv6 en Docker y `userland-proxy: false`. | Documentado |
+| M-7 | Media | El correo único global revela correos de otras clínicas al crear un usuario. | **Pendiente, decisión de producto.** Opciones: mensaje genérico, o unicidad por `(clinica_id, correo)` con cambios en `app_buscar_usuario`. | Pendiente |
+| M-8 | Media | El borrador del cambio en `sessionStorage` no estaba ligado al usuario ni se borraba al salir (el `motivo` puede llevar datos de salud). | Se guarda con el id de usuario, se descarta si es otro y se borra al salir. | Corregido |
+| M-9 | Baja | (a) claves `CAMBIAR_…` aceptadas; (b) subida y borrado de archivos sin evento de auditoría; (c) `.cifras` en claro junto al respaldo. | (a) `roles.py` las rechaza; (b) eventos `archivo_subido` / `archivo_borrado`; (c) riesgo documentado, cifrado pendiente (toca tres scripts). | Corregido / documentado |

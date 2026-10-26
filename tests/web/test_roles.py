@@ -32,3 +32,9 @@ def test_crear_rol_app_idempotente_y_sin_privilegios():
         su.execute(f'DROP ROLE IF EXISTS "{rol}"')  # sql-ok: nombre generado aquí
         su.commit()
         su.close()
+
+
+def test_rechaza_claves_de_ejemplo():
+    from an.web.roles import crear_rol_app
+    with pytest.raises(ValueError, match="CAMBIAR_"):
+        crear_rol_app(None, "CAMBIAR_clave_de_an_app")
