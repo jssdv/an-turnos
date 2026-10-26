@@ -2,7 +2,6 @@ import type { Borrador } from "../api/cambios";
 import type { Cupo, Turno } from "../api/tipos";
 import { fechaCorta } from "./fechas";
 import { Ventana } from "./comun";
-import e from "./Generar.module.css";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -45,7 +44,7 @@ export function RegistrarCambio({ borrador: b, alCambiar, nombres, turnos, actua
   return (
     <Ventana abierto alCambiar={(a) => { if (!a) alCambiar(null); }} titulo="Registrar cambio" descripcion={resumen}>
       {error && <Alert color="error">{error}</Alert>}
-      <div className={e.form}>
+      <div className="flex flex-col gap-4">
         {b.celdas.length === 2 && (
           <NativeSelect size="sm" label="Qué hacer" value={b.modo} onChange={(x) => set({ modo: x.target.value as Borrador["modo"] })}>
             <option value="intercambio">Intercambiar las dos celdas</option>
@@ -69,7 +68,7 @@ export function RegistrarCambio({ borrador: b, alCambiar, nombres, turnos, actua
         <Input value={String(b.motivo)} label="Motivo" maxLength={500} onChange={(x) => set({ motivo: x })}
           hint={tipo === "servicio" ? "Obligatorio en un cambio de servicio" : undefined} />
       </div>
-      <div className={e.fila}>
+      <div className="flex flex-wrap justify-end gap-2">
         <Button color="secondary" size="sm" onPress={() => alCambiar(null)}>Cancelar</Button>
         <Button color="primary" size="sm" onPress={alEnviar} isDisabled={enviando || sinMotivo}>
           {enviando ? "Guardando…" : agotados.length ? "Aprobar como excepción" : "Registrar"}

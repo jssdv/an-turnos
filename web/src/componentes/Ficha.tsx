@@ -1,5 +1,5 @@
 import { memo } from "react";
-import e from "./Ficha.module.css";
+import { cx } from "@/utils/cx";
 
 export interface FichaProps {
   codigo: string; // «L» = libre
@@ -18,12 +18,14 @@ export const Ficha = memo(function Ficha({ codigo, color, cambiada, novedad, fal
   const propio = !libre && !CON_TOKEN.has(codigo) && color ? { background: `#${color}` } : undefined;
   return (
     <span
-      className={`${e.ficha} ${libre ? e.libre : ""} ${novedad ? e.novedad : ""} ${faltante ? e.faltante : ""}`}
+      className={cx("relative inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-sm bg-secondary px-[3px] text-[11px] font-bold text-primary",
+        "data-[turno=M]:bg-(--turno-M) data-[turno=T]:bg-(--turno-T) data-[turno=C]:bg-(--turno-C) data-[turno=NC]:bg-(--turno-NC)",
+        libre && "bg-transparent font-medium text-tertiary", novedad && "bg-utility-yellow-50 font-semibold text-utility-yellow-700", faltante && "ring-2 ring-error")}
       data-turno={CON_TOKEN.has(codigo) ? codigo : undefined}
       style={propio}
     >
       {novedad ?? codigo}
-      {cambiada && <span className={e.marca} aria-hidden="true" />}
+      {cambiada && <span className="absolute top-0 right-0 size-0 rounded-tr-sm border-t-[7px] border-l-[7px] border-t-fg-primary border-l-transparent" aria-hidden="true" />}
     </span>
   );
 });
