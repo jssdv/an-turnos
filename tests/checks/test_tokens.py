@@ -1,5 +1,5 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
-"""Pruebas de checks/tokens.py: tokens de FigCraft a CSS y verificación contra tema.C. Imprime OK."""
+"""Pruebas de checks/tokens.py: tokens de FigCraft a CSS y su verificación. Imprime OK."""
 import contextlib
 import io
 import tempfile
@@ -9,7 +9,6 @@ from checks import tokens
 
 RAIZ = Path(__file__).resolve().parents[2]
 FIGCRAFT = RAIZ / "docs" / "diseno" / "An_UI.figcraft"
-TEMA = RAIZ / "an" / "nucleo" / "tema.py"
 
 
 def test_a_hex():
@@ -19,10 +18,6 @@ def test_a_hex():
 
 def test_css_formato():
     assert tokens.css({"superficie_sutil": "#F3F5F8"}) == ":root {\n  --superficie-sutil: #F3F5F8;\n}\n"
-
-
-def test_figcraft_coincide_con_tema():
-    assert tokens.leer_variables(FIGCRAFT) == tokens.leer_tema(TEMA)
 
 
 def test_verificar_falla_si_tokens_css_cambia():

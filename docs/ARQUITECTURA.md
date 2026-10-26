@@ -2,6 +2,8 @@
 
 [← Volver al inicio](../README.md) · [Reglas](REGLAS.md) · [Hoja de ruta](HOJA_DE_RUTA.md)
 
+> La app de escritorio (PySide6) se retiró el 26/10/2026; su código queda en la etiqueta git `qt-final`. Hoy la interfaz es la web ([PLAN_WEB.md](PLAN_WEB.md)).
+
 Principios: núcleo en Python puro y sin interfaz; reglas y tarifas como **datos**, no código; Excel como formato de intercambio; todo portátil y sin permisos de administrador; el solver propone y la persona decide.
 
 ## Vista general
@@ -9,7 +11,7 @@ Principios: núcleo en Python puro y sin interfaz; reglas y tarifas como **datos
 ```mermaid
 flowchart TB
     subgraph UI[Interfaz]
-        app[an/turnos/paginas.py<br/>sobre an/nucleo · PySide6]
+        app[web/ React<br/>an/web API FastAPI]
     end
     subgraph Nucleo[Núcleo sin interfaz]
         flujo[flujo.py]
@@ -46,7 +48,6 @@ flowchart TB
 | `recargos.py` | Horas por categoría y ventana del art. 165 |
 | `flujo.py` | Orquestación (`cero`, `respetar`, `semana`) y acumulado de equidad |
 | `exportar.py` | Tres libros Excel sin sobrescribir |
-| `paginas.py`, `ui_puestos.py` (en `an/turnos/`) | Secciones PySide6 de esta área; puestos y dotación. Ventana, tema y helpers de tablas viven en `an/nucleo/` (ver `NUCLEO.md`). El solver y la verificación corren en `QThread` |
 
 ## Datos (SQLite)
 
@@ -82,27 +83,13 @@ El cuadro no está atado al mes: se identifica por un **periodo** con inicio y f
 
 `original` se congela al generar desde cero o al publicar. Las ediciones manuales y las regeneraciones parciales solo tocan `cambios`. La grilla marca en amarillo lo distinto y el Excel trae las hojas `Cuadro`, `Original` y `Cambios`.
 
-## Empaquetado
-
-`empaquetar.sh` baja el Python embebido oficial y las ruedas de Windows (PySide6, openpyxl, OR-Tools) y arma una carpeta con un `.bat`. Pesa unos 400 MB descomprimida (144 MB en zip). El modo `prueba` valida Qt y OR-Tools en el PC destino.
-
 ## Interfaz y tecnología
 
-**Decisión: seguir en Python con PySide6 (Qt).** El solver (OR-Tools), las reglas y los recargos ya son Python y se prueban sin pantalla. Cambiar de lenguaje obligaría a dividir el sistema en dos o a reescribir el núcleo, sin ganancia clara para este uso.
-
-| Opción | Qué aporta | Por qué no por ahora |
-|---|---|---|
-| **PySide6 (actual)** | Interfaz nativa y madura sobre Qt 6; se empaqueta como carpeta portátil | Exige cuidar el diseño a mano, que es lo que se está haciendo |
-| Electron / Tauri | Interfaz web con más libertad visual | Obliga a comunicar la interfaz con un proceso Python para el solver; Electron pesa más y Tauri depende de WebView2 |
-| Flet / NiceGUI | Pocas líneas para una interfaz web | NiceGUI funciona como servidor local con navegador, poco natural para escritorio; Flet cubre bien web y móvil, que hoy no se necesitan |
-
-Cuándo volver a evaluar: si el producto pasa a ser **multiusuario o web** (varias personas, varios servicios, aprobaciones). Entonces el núcleo Python seguiría igual detrás de una API y la interfaz sería otra.
-
-Fuentes consultadas: [comparativa de librerías GUI de Python (Unite.ai)](https://www.unite.ai/?p=385304) y [alternativas a Electron en 2026 (TeamDev)](https://teamdev.com/mobrowser/blog/top-5-electron-alternatives-in-2026/).
+La interfaz es web: API FastAPI (`an/web/`) sobre PostgreSQL y front React (`web/`); el solver corre en un trabajador aparte. Decisiones y fases en [PLAN_WEB.md](PLAN_WEB.md). La comparación anterior entre PySide6, Electron y Flet quedó superada por esa decisión.
 
 ### Principios de diseño de la interfaz
 
-La hoja de estilo (`an/nucleo/tema.py`, la misma para todas las áreas; ver `NUCLEO.md` por las diferencias con este diseño original) parte de **tokens** (color, radio, ritmo de 8 px) y se aplica a todo por igual:
+El diseño de la web (colores desde `docs/diseno/An_UI.figcraft`, ver [PLAN_WEB.md](PLAN_WEB.md) §7) parte de **tokens** (color, radio, ritmo de 8 px) y se aplica a todo por igual:
 
 - **Contraste y foco:** el texto cumple 4.5:1 sobre sus fondos; todos los controles muestran un anillo de foco visible al navegar con teclado.
 - **Jerarquía de acciones:** una acción primaria por pantalla (relleno), secundarias con borde, destructivas en rojo y siempre con confirmación.

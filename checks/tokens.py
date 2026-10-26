@@ -1,5 +1,4 @@
-"""Tokens de color: FigCraft (An_UI.figcraft) → web/src/tokens.css, y verificación contra an/nucleo/tema.py (C)."""
-import ast
+"""Tokens de color: FigCraft (An_UI.figcraft) → web/src/tokens.css; con --verificar, falla si tokens.css no coincide."""
 import json
 import sys
 import zipfile
@@ -7,7 +6,6 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
 FIGCRAFT = RAIZ / "docs" / "diseno" / "An_UI.figcraft"
-TEMA = RAIZ / "an" / "nucleo" / "tema.py"
 CSS = RAIZ / "web" / "src" / "tokens.css"
 
 
@@ -23,13 +21,6 @@ def leer_variables(ruta):
     modo = col["modes"][0]["id"]
     return {x["name"]: a_hex(**{k: x["values"][modo]["value"][k] for k in "rgba"})
             for x in v["variables"] if x["collection"] == col["id"]}
-
-
-def leer_tema(ruta):
-    for n in ast.walk(ast.parse(Path(ruta).read_text(encoding="utf-8"))):
-        if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", None) == "C":
-            return {k.arg: ast.literal_eval(k.value) for k in n.value.keywords}
-    raise ValueError("no se encontró C en tema.py")
 
 
 def css(tokens):
@@ -48,7 +39,7 @@ def main(argv):
         ruta.parent.mkdir(parents=True, exist_ok=True)
         ruta.write_text(css(tokens), encoding="utf-8")
         return 0
-    dif = _diferencias(tokens, leer_tema(TEMA), "tema.C")
+    dif = []
     if not ruta.exists():
         dif.append(f"{ruta} no existe")
     elif ruta.read_text(encoding="utf-8") != css(tokens):

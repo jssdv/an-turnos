@@ -2,7 +2,7 @@
 
 > Diseño y plan por fases para llevar An al navegador. Estado: **propuesta para aprobar** (25/10/2026). No hay código web todavía.
 > Cada fase tiene, antes de programarla, su plan de tareas en `docs/superpowers/plans/AAAA-MM-DD-web-fase-N.md`.
-> Contexto: [NUCLEO.md](NUCLEO.md), [ARQUITECTURA.md](ARQUITECTURA.md), [VISION.md](VISION.md), [PROYECTO.md](PROYECTO.md), [RADIOLOGIA.md](RADIOLOGIA.md).
+> Contexto: [ARQUITECTURA.md](ARQUITECTURA.md), [VISION.md](VISION.md), [PROYECTO.md](PROYECTO.md), [RADIOLOGIA.md](RADIOLOGIA.md).
 
 ## 0. Progreso
 
@@ -223,7 +223,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
   - [x] Pantalla Generar con barra de progreso y Cancelar (conectada a las rutas reales de la Fase 3; la simulación queda solo para pruebas)
 - **Aceptación:**
   - [ ] Con la base migrada de la Fase 2, la grilla muestra las mismas celdas que la app Qt para octubre 2026 (prueba que compara la API con `bd.asignaciones`)
-  - [x] Capturas del navegador junto a `docs/diseno/esterilizacion_cuadro.png` (`docs/diseno/web_*.png`)
+  - [x] Capturas del navegador (`docs/diseno/web_*.png`)
   - [x] Navegación completa con teclado y foco visible
   - [ ] Cuadro de un mes carga en < 1 s en el PC de referencia (medido en el Mac de desarrollo: ver §8; falta el PC de la clínica)
   - [ ] Acceso probado desde un PC de la clínica (red, dominio, certificado)
@@ -340,7 +340,7 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
   - [ ] 👤 Acuerdo de tratamiento firmado
   - [ ] Auditoría de seguridad: ronda R1 manual (0 hallazgos altos, ver `docs/seguridad-hallazgos.md`) con cobertura reducida; falta repetirla con escáneres instalados 👤
   - [ ] Capacitación y 2–4 semanas en paralelo con el proceso actual
-  - [ ] Qt retirado y etiqueta `qt-final` (si la decisión 3 de §10 se mantiene)
+  - [x] Qt retirado y etiqueta `qt-final` (26/10/2026, [spec](superpowers/specs/2026-10-26-retiro-qt-design.md))
 - **Aceptación:**
   - [x] Restauración de un respaldo en un contenedor limpio con cifras iguales (`deploy/restaurar.sh`; falta repetirla en el servidor real 👤)
   - [ ] Un mes real publicado desde la web

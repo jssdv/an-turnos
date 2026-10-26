@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
-MIN_PX = 11  # el mínimo que ya usa la app Qt (tema.py); la colección «Tipo» de FigCraft aún no existe
+MIN_PX = 11  # mínimo de texto de la web; la colección «Tipo» de FigCraft aún no existe
 MIN_CONTRASTE = 4.5
 # (texto, fondo) que el diseño usa de verdad. Excluidos: --lateral-tenue sobre --lateral (4,42:1; no se usa para texto) y los controles
 # deshabilitados (WCAG 1.4.3 los exime). Un par nuevo se añade aquí; los de las reglas CSS se comprueban solos.
