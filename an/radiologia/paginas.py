@@ -15,25 +15,11 @@ from ..nucleo.widgets import Tarjeta, abrir, llenar, ocupado, poner_nivel, tabla
 from . import analisis
 from . import generar_semana as gs
 
-MESES = analisis.MESES_CORTOS
-PESTANAS_PREVIA = {"Ecografía - ECO": "Ecografía", "Lectura - Neuro": "Neuro", "Lectura - MSK": "MSK",
-                   "Lectura - Abdomen": "Abdomen", "Lectura - CARDIO-TORAX AMBULATO": "Tórax y Corazón",
-                   "Lectura - Mamografia-Densitomet": "Mamografía y Densito", "Cambios": "Cambios"}
+from .analisis import COBERTURA, PESTANAS_PREVIA, semana_texto
 SECCIONES = ["Resumen", "Vista previa", "Alertas", "Equidad y horas", "Agendas", "Cambios"]
 INICIO, PREVIA, ALERTAS, EQUIDAD, AGENDAS, CAMBIOS = range(len(SECCIONES))
-# Servicios en el orden de la tabla de cobertura
-COBERTURA = ["URG", "ECO1", "ECO2", "ECO3", "ECO4", "ECO5", "PM", "CJ1", "CJ2",
-             "NEURO", "MSK", "ABD", "TORAX", "CARDIO", "MAMA", "DENSITO"]
-
-
 
 # ---------------------------------------------------------------- utilidades
-def semana_texto(lunes):
-    dom = lunes + timedelta(6)
-    ini = f"{lunes.day}" if lunes.month == dom.month else f"{lunes.day} {MESES[lunes.month - 1]}"
-    return f"{ini} – {dom.day} {MESES[dom.month - 1]} {dom.year}"
-
-
 def color_qt(color, tema):
     h = analisis.color_hex(color, tema)
     return QColor(h) if h else None
