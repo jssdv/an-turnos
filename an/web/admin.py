@@ -43,7 +43,7 @@ def crear_usuario(conn, clinica_id, correo, nombre, es_admin=False):
                            (correo.strip().lower(), nombre, auth.hash_clave(clave), es_admin, clinica_id)).fetchone()[0]
     except psycopg.errors.UniqueViolation:
         conn.rollback()
-        raise ErrorAdmin("ya existe un usuario con ese correo")
+        raise ErrorAdmin("no se pudo crear el usuario con ese correo; usa otro")
     conn.commit()
     return uid, clave
 

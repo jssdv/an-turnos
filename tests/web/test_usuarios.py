@@ -41,6 +41,19 @@ def test_crear_usuario_y_primer_ingreso():
         assert not e.su.execute("SELECT 1 FROM auditoria WHERE ruta LIKE %s", (f"%{temporal}%",)).fetchone()
 
 
+def test_correo_repetido_no_revela_otras_clinicas():
+    """M-7: el mismo error exista el correo en mi clínica o en otra; sin nombre de clínica ni pista de dónde está."""
+    with entorno() as e:
+        if e is None:
+            return
+        admin = sesion(e, "admin@a.co")
+        propio = admin.post("/api/usuarios", headers=H, json=dict(correo="lector@a.co", nombre="X"))
+        ajeno = admin.post("/api/usuarios", headers=H, json=dict(correo="editor@b.co", nombre="X"))
+        assert propio.status_code == ajeno.status_code == 409
+        assert propio.json() == ajeno.json()
+        assert "clínica" not in ajeno.text.lower() and "existe" not in ajeno.text.lower()
+
+
 def test_permisos_un_solo_editor_y_reemplazo():
     with entorno() as e:
         if e is None:
