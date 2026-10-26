@@ -8,6 +8,7 @@ import { Ingresar } from "./pantallas/Ingresar";
 import { Novedades } from "./pantallas/Novedades";
 import { Parametros } from "./pantallas/Parametros";
 import { Personal } from "./pantallas/Personal";
+import { Radiologia } from "./pantallas/Radiologia";
 import { Puestos } from "./pantallas/Puestos";
 import { Solicitudes } from "./pantallas/Solicitudes";
 import { Usuarios } from "./pantallas/Usuarios";
@@ -46,6 +47,8 @@ export default function App() {
           <Route path="parametros" element={<Parametros />} />
           <Route path="analiticas" element={<Analiticas />} />
           <Route path="usuarios" element={<Usuarios />} />
+          <Route path="radiologia" element={<Navigate to="resumen" replace />} />
+          <Route path="radiologia/:seccion" element={<Radiologia />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
