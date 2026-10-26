@@ -20,17 +20,20 @@ export interface Periodo {
   revision: number;
   publicado_en: string | null;
   cerrado_en: string | null;
+  /** Ids de otros periodos del área que comparten fechas con este. */
+  solapa_con?: number[];
 }
 export interface Celda {
   colab_id: number;
   fecha: string; // ISO
   turno: string;
-  /** Editada a mano. La API de hoy no lo envía; cuando lo haga (Fase 5) la marca aparece sola. */
+  /** Editada a mano. */
   fijo?: boolean;
 }
 export interface Cuadro {
   clave: string;
   version: string;
+  revision?: number;
   celdas: Celda[];
 }
 export interface Colaborador {
@@ -94,4 +97,37 @@ export interface PedidoGenerar {
   modo: "cero" | "respetar" | "semana";
   lunes?: string;
   tiempo?: number; // segundos del solver (1–300)
+}
+
+/** Edición del cuadro (an/web/rutas_edicion.py). */
+export type TipoCambio = "permuta" | "servicio" | "ajuste";
+export interface CuerpoCambio {
+  tipo: TipoCambio;
+  celdas: { colab_id: number; fecha: string; turno: string }[];
+  motivo: string;
+  excepcion: boolean;
+}
+export interface RespuestaCambio {
+  revision: number;
+  ids?: number[];
+  anulado?: boolean;
+  alertas_nuevas: string[];
+}
+export interface CambioRegistrado {
+  id: number;
+  tipo: TipoCambio;
+  registrado_en: string;
+  usuario: string;
+  colab_a: number;
+  colab_b: number | null;
+  motivo: string;
+  excepcion: boolean;
+  anulado_en: string | null;
+  anulado_por: string | null;
+  celdas: { colab_id: number; fecha: string; antes: string; despues: string }[];
+}
+export interface Cupo {
+  colab_id: number;
+  usadas: number;
+  limite: number;
 }

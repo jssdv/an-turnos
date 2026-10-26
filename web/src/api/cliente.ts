@@ -1,6 +1,7 @@
 /** Cliente HTTP mínimo: cookie de sesión, errores `{"detalle": …}` y `If-Match` en escrituras de un periodo. */
 export class ErrorApi extends Error {
-  constructor(public estado: number, mensaje: string, public campos?: string[]) {
+  /** `detalle` = el cuerpo de `detalle` tal cual lo envía la API (p. ej. la revisión vigente en un 409). */
+  constructor(public estado: number, mensaje: string, public campos?: string[], public detalle?: unknown) {
     super(mensaje);
   }
 }
@@ -34,7 +35,7 @@ export async function pedir<T>(
     if (r.status === 401 && !opciones.sinAviso401) alVencer?.();
     const d = datos?.detalle;
     const texto = typeof d === "string" ? d : typeof d?.mensaje === "string" ? d.mensaje : "";  // 409 de revisión: {mensaje, revision}
-    throw new ErrorApi(r.status, texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "No se pudo completar la operación", datos?.campos);
+    throw new ErrorApi(r.status, texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "No se pudo completar la operación", datos?.campos, d);
   }
   return datos as T;
 }

@@ -52,8 +52,11 @@ def parametros(ctx: Contexto = Depends(contexto_area, scope="function")):
 
 @router.get("/areas/{area}/periodos")
 def periodos(ctx: Contexto = Depends(contexto_area, scope="function")):
-    return [dict(id=f["id"], clave=f["clave"], revision=f["revision"], publicado_en=f["publicado_en"], cerrado_en=f["cerrado_en"])
-            for f in ctx.conn.execute("SELECT id, clave, revision, publicado_en, cerrado_en FROM periodo ORDER BY clave")]
+    filas = ctx.conn.execute("SELECT id, clave, revision, publicado_en, cerrado_en FROM periodo ORDER BY clave").fetchall()
+    rangos = {f["id"]: flujo.desde_clave(f["clave"]) for f in filas}
+    return [dict(id=f["id"], clave=f["clave"], revision=f["revision"], publicado_en=f["publicado_en"], cerrado_en=f["cerrado_en"],
+                 solapa_con=[o["id"] for o in filas if o["id"] != f["id"] and rangos[o["id"]][0] <= rangos[f["id"]][1] and rangos[f["id"]][0] <= rangos[o["id"]][1]])
+            for f in filas]
 
 
 def _periodo(ctx, id_):
@@ -67,8 +70,10 @@ def _periodo(ctx, id_):
 @router.get("/areas/{area}/periodos/{id}/cuadro")
 def cuadro(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, _, _ = _periodo(ctx, id)
-    return {"clave": clave, "version": "cambios",
-            "celdas": [dict(colab_id=c, fecha=f, turno=t) for (c, f), t in sorted(ctx.bd.asignaciones(clave).items())]}
+    revision = ctx.conn.execute("SELECT revision FROM periodo WHERE id = ?", (id,)).fetchone()[0]  # antes que las celdas: una revisión vieja solo da un 409 inofensivo
+    fijos = ctx.bd.fijos(clave)
+    return {"clave": clave, "version": "cambios", "revision": revision,
+            "celdas": [dict(colab_id=c, fecha=f, turno=t, fijo=(c, f) in fijos) for (c, f), t in sorted(ctx.bd.asignaciones(clave).items())]}
 
 
 @router.get("/areas/{area}/periodos/{id}/alertas")
