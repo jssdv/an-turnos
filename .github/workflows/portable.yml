@@ -29,13 +29,14 @@ jobs:
         shell: pwsh
         run: |
           $env:AN_DATOS = "$env:RUNNER_TEMP\an_datos"
-          $p = Start-Process dist/An/An.exe -PassThru
+          $p = Start-Process dist/An/An.exe -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP\out.txt" -RedirectStandardError "$env:RUNNER_TEMP\err.txt"
           $ok = $false
           foreach ($i in 1..60) {
             Start-Sleep 2
             try { Invoke-WebRequest http://localhost:8765/api/areas -UseBasicParsing | Out-Null } catch { if ($_.Exception.Response.StatusCode -eq 401) { $ok = $true; break } }
           }
           Stop-Process $p -Force
+          Get-Content "$env:RUNNER_TEMP\out.txt", "$env:RUNNER_TEMP\err.txt" -ErrorAction SilentlyContinue | Select-Object -Last 60
           if (-not $ok) { throw "El ejecutable no respondió" }
       - run: Compress-Archive dist/An An-windows.zip
       - uses: actions/upload-artifact@v4
