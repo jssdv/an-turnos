@@ -37,7 +37,9 @@ def leer_tokens(css):
 
 
 def _fuentes(src):
-    return sorted(p for p in src.rglob("*") if p.suffix in (".css", ".ts", ".tsx") and p.name not in IGNORAR and "fuentes" not in p.parts)
+    # components/: copiado de Untitled UI (su diseño manda, como styles/theme.css); application/alerts es nuestro pero solo usa sus clases.
+    return sorted(p for p in src.rglob("*") if p.suffix in (".css", ".ts", ".tsx") and p.name not in IGNORAR
+                  and "fuentes" not in p.parts and "components" not in p.relative_to(src).parts[:1])
 
 
 def _reglas(css):
