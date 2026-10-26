@@ -6,7 +6,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from an.turnos import flujo, solicitudes
+from an.turnos import demanda, flujo, solicitudes
 from an.turnos.dominio import PRIORIDADES, TIPOS_COLAB, TIPOS_NOVEDAD, TIPOS_SOLICITUD, Colaborador, Demanda, Novedad, Puesto, Solicitud, Turno
 
 from .deps import Contexto, contexto_area
@@ -273,9 +273,24 @@ def borrar_puesto(id: int, request: Request, ctx: Contexto = Depends(contexto_ar
 @router.put("/puestos/{id}/demandas")
 def reemplazar_demandas(id: int, datos: list[DemandaIn], request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
     _puesto_existe(ctx.bd, id)
-    ctx.bd.reemplazar_demandas(id, [Demanda(id, d.tipo_dia, d.inicio, d.fin, d.personas, d.obligatorio) for d in datos])
+    for d in datos:  # mismas reglas que la pestaña de Qt
+        if d.inicio == d.fin:
+            raise HTTPException(422, "El puesto no puede empezar y terminar a la misma hora.")
+        if d.inicio % 30 or d.fin % 30:
+            raise HTTPException(422, "Las horas deben ser múltiplos de 30 minutos.")
+    reglas = [Demanda(id, d.tipo_dia, d.inicio, d.fin, d.personas, d.obligatorio) for d in datos]
+    ctx.bd.reemplazar_demandas(id, reglas)
+    avisos, vistos = [], set()
+    for d in reglas:
+        tramos = {(d.tipo_dia, o * demanda.TRAMOS_DIA + t) for o, t in demanda.tramos_ventana(d.inicio, d.fin)}
+        if vistos & tramos and not avisos:
+            avisos.append("Las reglas solapadas se suman.")
+        vistos |= tramos
+    if huecos := demanda.huecos_sin_turno([d for d in reglas if d.obligatorio], ctx.bd.turnos()):
+        hhmm = lambda m: f"{m // 60 % 24:02d}:{m % 60:02d}"
+        avisos.append("Ningún turno cubre " + ", ".join(f"{hhmm(a)}–{hhmm(b)}" for a, b in huecos[:3]) + ".")
     _evento(request, "demandas_reemplazadas")
-    return {"ok": True}
+    return {"ok": True, "avisos": avisos}
 
 
 # --- parámetros y tarifas -----------------------------------------------------------------------

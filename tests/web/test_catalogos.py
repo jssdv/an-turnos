@@ -122,6 +122,12 @@ def test_puestos_y_demandas():
         assert (p["numero"], p["nombre"], p["activo"]) == (51, "Nuevo 2", False)
         d = [dict(tipo_dia="LS", inicio=360, fin=720, personas=2, obligatorio=True), dict(tipo_dia="DF", inicio=360, fin=720, personas=1, obligatorio=False)]
         assert cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=[{**d[0], "tipo_dia": "XX"}]).status_code == 422
+        assert cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=[{**d[0], "fin": 360}]).status_code == 422  # empieza y termina igual
+        assert cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=[{**d[0], "inicio": 365}]).status_code == 422  # no es múltiplo de 30
+        r = cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=d)
+        assert r.status_code == 200 and r.json() == {"ok": True, "avisos": []}
+        r = cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=[d[0], {**d[0], "inicio": 600, "fin": 780}])
+        assert r.json()["avisos"] == ["Las reglas solapadas se suman."]
         assert cli.put(base(e, f"/puestos/{i}/demandas"), headers=H, json=d).status_code == 200
         assert [(x["tipo_dia"], x["personas"], x["obligatorio"]) for x in cli.get(base(e, "/demandas")).json() if x["puesto_id"] == i] == [("LS", 2, True), ("DF", 1, False)]
         assert cli.put(base(e, "/puestos/9999/demandas"), headers=H, json=d).status_code == 404
