@@ -1,0 +1,5 @@
+.progreso { display: flex; flex-direction: column; gap: var(--e2); }
+.fila { display: flex; justify-content: space-between; font-weight: 600; color: var(--titulo); }
+.pista { height: 10px; border-radius: 5px; background: var(--superficie-sutil); border: 1px solid var(--borde); overflow: hidden; }
+.barra { height: 100%; background: var(--acento); transition: width 0.4s linear; }
+.detalle { color: var(--atenuado); font-size: 12px; }

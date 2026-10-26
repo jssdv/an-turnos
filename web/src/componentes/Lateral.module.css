@@ -1,0 +1,14 @@
+.lateral { background: var(--lateral); color: var(--lateral-texto); display: flex; flex-direction: column; gap: var(--e4); padding: var(--e4) var(--e3); width: 232px; flex-shrink: 0; height: 100%; }
+.marca { display: flex; align-items: center; gap: var(--e3); padding: var(--e1) var(--e2); }
+.logo { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--marca); color: var(--lateral); font-family: var(--fuente-titulo); font-weight: 600; font-size: 15px; }
+.nombre { font-family: var(--fuente-titulo); font-weight: 600; font-size: 17px; color: var(--superficie); }
+.area { font-size: 12px; font-weight: 500; color: var(--lateral-texto); }
+.campo { font-size: 11px; font-weight: 600; letter-spacing: 0.6px; color: var(--lateral-texto); padding: var(--e2); }
+.lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.enlace { display: flex; align-items: center; justify-content: space-between; padding: 9px var(--e3); border-radius: var(--radio); color: var(--lateral-texto); text-decoration: none; border-left: 3px solid transparent; }
+.enlace:hover { background: var(--lateral-hover); }
+.enlace:focus-visible { outline-color: var(--marca); }
+.activo { background: var(--lateral-sel); color: var(--superficie); font-weight: 600; border-left-color: var(--marca); }
+.insignia { background: var(--warn-insignia); color: var(--titulo); border-radius: 9px; padding: 0 7px; font-size: 11px; font-weight: 700; }
+.usuario { margin-top: auto; background: var(--lateral-hover); border-radius: var(--radio); padding: var(--e3); display: flex; flex-direction: column; gap: var(--e2); }
+.usuarioNombre { font-weight: 600; color: var(--superficie); }

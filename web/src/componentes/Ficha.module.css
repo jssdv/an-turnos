@@ -1,0 +1,9 @@
+.ficha { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 3px; border-radius: var(--radio-s); font-size: 11px; font-weight: 700; color: var(--titulo); background: var(--superficie-sutil); }
+.ficha[data-turno="M"] { background: var(--turno-M); }
+.ficha[data-turno="T"] { background: var(--turno-T); }
+.ficha[data-turno="C"] { background: var(--turno-C); }
+.ficha[data-turno="NC"] { background: var(--turno-NC); }
+.libre { background: transparent; color: var(--atenuado); font-weight: 500; }
+.novedad { background: var(--warn-fondo); color: var(--warn-texto); font-weight: 600; }
+.faltante { box-shadow: 0 0 0 2px var(--error); }
+.marca { position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 7px solid var(--titulo); border-left: 7px solid transparent; border-top-right-radius: var(--radio-s); }

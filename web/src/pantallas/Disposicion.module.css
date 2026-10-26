@@ -1,0 +1,4 @@
+.marco { display: flex; height: 100%; }
+.principal { flex: 1; min-width: 0; overflow: auto; padding: var(--e5) var(--e5) var(--e6); outline: none; }
+.boton-lateral { width: 100%; background: transparent; border-color: var(--lateral-tenue); color: var(--lateral-texto); }
+.vacio { padding: var(--e6); color: var(--atenuado); }

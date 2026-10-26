@@ -12,7 +12,7 @@
 - [x] **Fase 1** — API sobre el núcleo + pruebas · [plan](superpowers/plans/2026-10-26-web-fase-1.md)
 - [x] **Fase 2** — Migración de `turnos.db` · [plan](superpowers/plans/2026-10-26-web-fase-2.md)
 - [x] **Fase 3** — Trabajador del solver · [plan](superpowers/plans/2026-10-26-web-fase-3.md)
-- [ ] **Fase 4** — Planilla piloto en React · plan pendiente
+- [ ] **Fase 4** — Planilla piloto en React · [plan](superpowers/plans/2026-10-26-web-fase-4.md) (entregables hechos; falta de la aceptación: la base migrada de la Fase 2 y el PC de la clínica)
 - [ ] **Fase 5** — Edición con revisiones y auditoría · plan pendiente
 - [ ] **Fase 6** — Exportes · plan pendiente
 - [ ] **Fase 7a** — Servicios tradicionales · plan pendiente
@@ -214,18 +214,18 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 4 — Planilla piloto en React (solo lectura)
 - **Objetivo:** ver el cuadro de Esterilización en el navegador con el aspecto del diseño.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-26-web-fase-4.md](superpowers/plans/2026-10-26-web-fase-4.md)
 - **Entregable:**
-  - [ ] `web/` (Vite + React + TS) con tokens generados (§7) y trabajo de CI que corre `tsc` y el build
-  - [ ] Componentes base (§7 paso 3) y `checks/diseno.py`
-  - [ ] Pantallas Ingresar y Cambiar contraseña
-  - [ ] Pantalla Cuadro: grilla con fichas por turno, marca de cambiado, cobertura, alertas
-  - [ ] Pantalla Generar con barra de progreso y Cancelar
+  - [x] `web/` (Vite + React + TS) con tokens generados (§7) y trabajo de CI que corre `tsc` y el build
+  - [x] Componentes base (§7 paso 3) y `checks/diseno.py`
+  - [x] Pantallas Ingresar y Cambiar contraseña
+  - [x] Pantalla Cuadro: grilla con fichas por turno, marca de cambiado, cobertura, alertas
+  - [x] Pantalla Generar con barra de progreso y Cancelar (conectada a las rutas reales de la Fase 3; la simulación queda solo para pruebas)
 - **Aceptación:**
   - [ ] Con la base migrada de la Fase 2, la grilla muestra las mismas celdas que la app Qt para octubre 2026 (prueba que compara la API con `bd.asignaciones`)
-  - [ ] Capturas del navegador junto a `docs/diseno/esterilizacion_cuadro.png` revisadas
-  - [ ] Navegación completa con teclado y foco visible
-  - [ ] Cuadro de un mes carga en < 1 s en el PC de referencia (medido)
+  - [x] Capturas del navegador junto a `docs/diseno/esterilizacion_cuadro.png` (`docs/diseno/web_*.png`)
+  - [x] Navegación completa con teclado y foco visible
+  - [ ] Cuadro de un mes carga en < 1 s en el PC de referencia (medido en el Mac de desarrollo: ver §8; falta el PC de la clínica)
   - [ ] Acceso probado desde un PC de la clínica (red, dominio, certificado)
 - **Riesgo:** la grilla de un mes (≈ 40 personas × 31 días) es lenta con fichas → medir primero; virtualizar solo si supera el umbral.
 
@@ -336,7 +336,7 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 | Solver, un mes completo (p50/p95) | Trabajador en el VPS | > 60 s | 20,2 s en las 3 corridas (13 personas, octubre 2026): agota el límite de `tiempo=20` en vez de converger. **Fase 3 (26/10/2026, `checks/medir_solver.py`, mismo Mac):** primera solución a los 0,2 s (8 hilos) / 0,4 s (4) / 0,5 s (2) / 2,1 s (1); no converge a óptimo: sigue mejorando hasta el límite (objetivo final con `tiempo=20`: 2265 con 8 hilos, 2730 con 4; con `tiempo=60`: 975 / 600 / 865 con 8 / 4 / 2 hilos, sin faltantes). Con 1 hilo la solución es mala (60 s: objetivo 1,3 M y 84 tramos sin cubrir), con 2 o más es parecida. Falta repetirlo en el VPS real |
 | `GET` del cuadro de un mes | API | > 300 ms | n/a hasta Fase 1 |
 | Edición de una celda, ida y vuelta con alertas | API + navegador | > 500 ms | n/a hasta Fase 5 |
-| Pintar la grilla de un mes | Navegador del PC de la clínica | > 1 s | n/a hasta Fase 4 |
+| Pintar la grilla de un mes | Navegador del PC de la clínica | > 1 s | 70–120 ms de datos recibidos a grilla maquetada (40 personas × 31 días = 1240 fichas, build de producción, Mac M5, navegador integrado, Fase 4). En modo desarrollo con StrictMode ≈ 1,9 s: no se mide así. Sin virtualizar; falta repetir en el PC de la clínica |
 
 Candidatos, solo si una medida pasa su umbral: pista al solver con la solución previa (`AddHint`), `num_workers` según núcleos, dividir por semana (`modo="semana"` ya existe), índices y escritura por lotes (`executemany`) en `BD`, virtualizar la grilla, cargar solo el rango visible.
 

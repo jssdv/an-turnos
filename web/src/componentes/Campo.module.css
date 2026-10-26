@@ -1,0 +1,6 @@
+.campo { display: flex; flex-direction: column; gap: var(--e1); }
+.etiqueta { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--atenuado); }
+.control { min-height: 36px; padding: 0 var(--e3); background: var(--superficie); border: 1px solid var(--borde-campo); border-radius: var(--radio); }
+.control[aria-invalid="true"] { border-color: var(--error); }
+.error { color: var(--error); font-size: 12px; min-height: 16px; }
+.ayuda { color: var(--atenuado); font-size: 12px; min-height: 16px; }
