@@ -440,23 +440,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/areas/{area}/puestos/{id}/demandas": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Reemplazar Demandas */
-        put: operations["reemplazar_demandas_api_areas__area__puestos__id__demandas_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/areas/{area}/requerimiento": {
         parameters: {
             query?: never;
@@ -468,9 +451,30 @@ export interface paths {
         get: operations["leer_requerimiento_api_areas__area__requerimiento_get"];
         /**
          * Guardar Requerimiento
-         * @description Personas por franja (M/T/N) y día de la semana de un área sin puestos.
+         * @description Personas por ventana horaria (la de cada turno) y día de la semana de un área sin puestos.
          */
         put: operations["guardar_requerimiento_api_areas__area__requerimiento_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/puestos/{id}/requerimiento": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Leer Requerimiento Puesto */
+        get: operations["leer_requerimiento_puesto_api_areas__area__puestos__id__requerimiento_get"];
+        /**
+         * Guardar Requerimiento Puesto
+         * @description Lo mismo que el de un área sin puestos, para un puesto (obligatorio o deseable en todas sus filas).
+         */
+        put: operations["guardar_requerimiento_puesto_api_areas__area__puestos__id__requerimiento_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1001,25 +1005,6 @@ export interface components {
              */
             activo: boolean;
         };
-        /** DemandaIn */
-        DemandaIn: {
-            /**
-             * Tipo Dia
-             * @enum {string}
-             */
-            tipo_dia: "LS" | "DF";
-            /** Inicio */
-            inicio: number;
-            /** Fin */
-            fin: number;
-            /** Personas */
-            personas: number;
-            /**
-             * Obligatorio
-             * @default true
-             */
-            obligatorio: boolean;
-        };
         /** Entrada */
         Entrada: {
             /** Correo */
@@ -1149,11 +1134,10 @@ export interface components {
         RequerimientoIn: {
             /** Dia */
             dia: number;
-            /**
-             * Franja
-             * @enum {string}
-             */
-            franja: "M" | "T" | "N";
+            /** Inicio */
+            inicio: number;
+            /** Fin */
+            fin: number;
             /** Personas */
             personas: number;
             /**
@@ -2419,42 +2403,6 @@ export interface operations {
             };
         };
     };
-    reemplazar_demandas_api_areas__area__puestos__id__demandas_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                area: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DemandaIn"][];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     leer_requerimiento_api_areas__area__requerimiento_get: {
         parameters: {
             query?: never;
@@ -2491,6 +2439,74 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequerimientoIn"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leer_requerimiento_puesto_api_areas__area__puestos__id__requerimiento_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    guardar_requerimiento_puesto_api_areas__area__puestos__id__requerimiento_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
                 area: number;
             };
             cookie?: never;

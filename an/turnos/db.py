@@ -2,9 +2,10 @@
 import json
 import os
 import sqlite3
+import weakref
 from datetime import date, datetime, timezone
 
-from .demanda import VENTANA_FRANJA, cobertura_derivada, franjas_de
+from .demanda import cobertura_derivada, franjas_de
 from .dominio import (COBERTURA_BASE, AsignacionPuesto, Colaborador, Contexto, Demanda, Novedad, Puesto, Solicitud, Turno, festivos,
                      turnos_base)
 
@@ -77,6 +78,7 @@ class BD:
             self.dialecto = "postgres"
             self.ruta = None
             self.c, self._limpiar = esquema_temporal()
+            weakref.finalize(self, self._limpiar)  # sin esto cada BD() de prueba retiene su conexión hasta salir del proceso (CI: too many clients)
             self.sembrar()
             return
         self.c = sqlite3.connect(ruta)
@@ -342,15 +344,21 @@ class BD:
     def usa_puestos(self):
         return self.param("usa_puestos", "1") != "0"
 
-    def requerimiento(self):
-        """[{dia, franja, personas, obligatorio}] del área sin puestos; dia 0 = lunes … 6 = domingo, 7 = festivo."""
-        franja = {v: k for k, v in VENTANA_FRANJA.items()}
-        return [dict(dia=7 if d.tipo_dia == "F" else int(d.tipo_dia), franja=franja[d.inicio, d.fin], personas=d.personas,
-                     obligatorio=d.obligatorio) for d in self.demandas() if d.puesto_id == 0 and (d.inicio, d.fin) in franja]
+    def requerimiento(self, puesto_id=0):
+        """[{dia, inicio, fin, personas, obligatorio}] de un puesto (0 = área sin puestos); dia 0 = lunes … 6 = domingo, 7 = festivo.
+        Cada fila es una ventana horaria (la de un turno): las ventanas que se solapan suman. Las reglas LS/DF se leen día por día
+        (LS = lunes a sábado, DF = domingo y festivo)."""
+        dias = {"LS": "012345", "DF": "6F"}
+        out = {}
+        for d in self.demandas(puesto_id) if puesto_id else [d for d in self.demandas() if d.puesto_id == 0]:
+            for t in dias.get(d.tipo_dia, d.tipo_dia):
+                k = (7 if t == "F" else int(t), d.inicio, d.fin, d.obligatorio)
+                out[k] = out.get(k, 0) + d.personas
+        return [dict(dia=k[0], inicio=k[1], fin=k[2], personas=n, obligatorio=k[3]) for k, n in out.items()]
 
-    def guardar_requerimiento(self, filas):
-        self.reemplazar_demandas(0, [Demanda(0, "F" if f["dia"] == 7 else str(f["dia"]), *VENTANA_FRANJA[f["franja"]], f["personas"],
-                                             f["obligatorio"]) for f in filas if f["personas"]])
+    def guardar_requerimiento(self, filas, puesto_id=0):
+        self.reemplazar_demandas(puesto_id, [Demanda(puesto_id, "F" if f["dia"] == 7 else str(f["dia"]), f["inicio"], f["fin"], f["personas"], f["obligatorio"])
+                                             for f in filas if f["personas"]])
 
     def puestos_fijos(self, periodo):
         """{(colab_id, fecha): puesto_id} fijados a mano."""
