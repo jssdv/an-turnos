@@ -53,6 +53,13 @@ def test_tema_de_untitled_admite_colores():
     assert diseno.revisar(d) == []
 
 
+def test_componentes_de_untitled_quedan_fuera():
+    d = _arbol()
+    (d / "web" / "src" / "components" / "base").mkdir(parents=True)
+    (d / "web" / "src" / "components" / "base" / "x.tsx").write_text('const c = "text-[10px]"; const b = "#fff";', encoding="utf-8")
+    assert diseno.revisar(d) == []
+
+
 def test_clases_tailwind():
     assert any("text-[9px]" in x for x in diseno.revisar(_arbol(tsx='const c = "text-[9px]";')))
     assert diseno.revisar(_arbol(tsx='const c = "text-white bg-brand-600 hover:bg-brand-700 text-[12px]";')) == []
