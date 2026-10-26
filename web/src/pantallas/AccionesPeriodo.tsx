@@ -4,7 +4,6 @@ import { cambios } from "../api/cambios";
 import { ErrorApi } from "../api/cliente";
 import type { Periodo } from "../api/tipos";
 import { Ventana } from "./comun";
-import e from "./Generar.module.css";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Alert } from "@/components/application/alerts/alert";
@@ -72,12 +71,12 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
         descripcion={accion === "nuevo" ? "Un periodo no puede compartir fechas con otro del área." : accion ? TEXTO[accion][1] : undefined}>
         {error && <Alert color="error">{error}</Alert>}
         {accion === "nuevo" && (
-          <div className={e.form}>
+          <div className="flex flex-col gap-4">
             <Input value={String(inicio)} label="Desde" type="date" onChange={(x) => setInicio(x)} />
             <Input value={String(fin)} label="Hasta" type="date" onChange={(x) => setFin(x)} />
           </div>
         )}
-        <div className={e.fila}>
+        <div className="flex flex-wrap justify-end gap-2">
           <Button color="secondary" size="sm" onPress={() => setAccion(null)}>Cancelar</Button>
           <Button color="primary" size="sm" onPress={confirmar} isDisabled={enviando || (accion === "nuevo" && (!inicio || !fin))}>{enviando ? "Un momento…" : "Confirmar"}</Button>
         </div>

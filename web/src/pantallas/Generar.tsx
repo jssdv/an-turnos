@@ -4,7 +4,6 @@ import type { PedidoGenerar, Periodo, Trabajo } from "../api/tipos";
 import { trabajos, trabajosSimulados } from "../api/trabajos";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
 import { Ventana } from "./comun";
-import e from "./Generar.module.css";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -104,7 +103,7 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
         {trabajosSimulados && <Alert color="brand">Modo simulado: no se llama al servidor.</Alert>}
         {error && <Alert color="error">{error}</Alert>}
         {!trabajo && (
-          <div className={e.form}>
+          <div className="flex flex-col gap-4">
             <NativeSelect size="sm" label="Alcance" value={modo} onChange={(x) => setModo(x.target.value as PedidoGenerar["modo"])}>
               <option value="respetar">Mes completo, respetando lo editado a mano</option>
               <option value="cero">Mes completo, desde cero</option>
@@ -121,7 +120,7 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
           </div>
         )}
         {fin && <Alert color={COLOR_NIVEL[fin[0]]}>{trabajo?.error ?? (trabajo?.estado === "listo" ? textoListo(trabajo) : fin[1])}</Alert>}
-        <div className={e.fila}>
+        <div className="flex flex-wrap justify-end gap-2">
           {!trabajo && <Button color="secondary" size="sm" onPress={() => setAbierto(false)}>Cerrar</Button>}
           {!trabajo && <Button color="primary" size="sm" onPress={iniciar} isDisabled={enviando || (modo === "semana" && !lunes)}>{enviando ? "Iniciando…" : "Iniciar"}</Button>}
           {corriendo && <Button color="primary-destructive" size="sm" onPress={cancelar} isDisabled={cancelando}>{cancelando ? "Cancelando…" : "Cancelar"}</Button>}
