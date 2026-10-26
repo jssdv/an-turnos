@@ -51,10 +51,12 @@ def main(nombre="f4_demo", personas=40):
         uid = su.execute("INSERT INTO usuario (correo, nombre, hash_clave, debe_cambiar, clinica_id) VALUES (%s, %s, %s, %s, %s) RETURNING id",
                          (correo, correo.split("@")[0].capitalize(), auth.hash_clave(CLAVE), debe, cl)).fetchone()[0]
         su.execute("INSERT INTO usuario_area (usuario_id, area_id, permiso, clinica_id) VALUES (%s, %s, %s, %s)", (uid, ar, perm, cl))
+    su.execute("INSERT INTO usuario (correo, nombre, hash_clave, debe_cambiar, es_admin, clinica_id) VALUES ('admin@demo.co', 'Admin', %s, false, true, %s)",
+               (auth.hash_clave(CLAVE), cl))  # administra la clínica; sin permiso propio en el área (ve todo)
     su.commit()
     sep = "&" if "?" in url else "?"
     print(f"AN_PG_URL='{url}{sep}options=-csearch_path%3D{nombre}' AN_ROL=an_app AN_ORIGEN=http://localhost:5173")
-    print(f"usuarios: editor@demo.co / lector@demo.co / nuevo@demo.co (debe cambiar la clave) · clave {CLAVE} · clínica {cl} · área {ar}", file=sys.stderr)
+    print(f"usuarios: editor@demo.co / lector@demo.co / admin@demo.co (administra) / nuevo@demo.co (debe cambiar la clave) · clave {CLAVE} · clínica {cl} · área {ar}", file=sys.stderr)
 
 
 if __name__ == "__main__":

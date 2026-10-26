@@ -13,7 +13,7 @@
 - [x] **Fase 2** — Migración de `turnos.db` · [plan](superpowers/plans/2026-10-26-web-fase-2.md)
 - [x] **Fase 3** — Trabajador del solver · [plan](superpowers/plans/2026-10-26-web-fase-3.md)
 - [ ] **Fase 4** — Planilla piloto en React · [plan](superpowers/plans/2026-10-26-web-fase-4.md) (entregables hechos; falta de la aceptación: la base migrada de la Fase 2 y el PC de la clínica)
-- [ ] **Fase 5** — Edición con revisiones y auditoría · [plan](superpowers/plans/2026-10-27-web-fase-5.md) (PR 1 hecho: API de edición y edición del cuadro; falta PR 2: Solicitudes, catálogos, Analíticas, Usuarios)
+- [x] **Fase 5** — Edición con revisiones y auditoría · [plan](superpowers/plans/2026-10-27-web-fase-5.md) (PR 1: edición del cuadro; PR 2: catálogos, Analíticas, Usuarios y paridad. Pendiente de probar: el arrastre con un ratón real)
 - [ ] **Fase 6** — Exportes · plan pendiente
 - [ ] **Fase 7a** — Servicios tradicionales · plan pendiente
 - [ ] **Fase 7b** — Radiología en la web, con lo que hace hoy (importando el cuadro mensual) · plan pendiente
@@ -231,17 +231,17 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 5 — Edición con revisiones y auditoría
 - **Objetivo:** editar en la web con el mismo registro de cambios que Qt.
-- **Plan detallado:** [2026-10-27-web-fase-5.md](superpowers/plans/2026-10-27-web-fase-5.md) (PR 1 = Tareas 1–8, PR 2 = 9–13)
+- **Plan detallado:** [2026-10-27-web-fase-5.md](superpowers/plans/2026-10-27-web-fase-5.md) (PR 1 = Tareas 1–8, PR 2 = 9–15)
 - **Entregable:**
   - [x] Edición de celda, arrastrar para permutar y lote (el arrastre y la selección múltiple no se probaron en navegador)
   - [x] Diálogo permuta / cambio de servicio / ajuste
   - [x] Pestaña de cambios con Anular (tarjeta bajo las alertas)
-  - [ ] Solicitudes
-  - [ ] Personal, Novedades, Puestos y Parámetros
+  - [x] Solicitudes
+  - [x] Personal, Novedades, Puestos y Parámetros (Parámetros incluye turnos y tarifas)
   - [x] Publicar y Cerrar periodo (y Restaurar, Reabrir, Nuevo periodo sin solapes)
-  - [ ] Analíticas (lectura)
-  - [ ] Usuarios y permisos por área para el administrador de la clínica
-  - [ ] Lista de funciones de `paginas.py` con su equivalente web, revisada
+  - [x] Analíticas (lectura; tablas y cifras, sin los gráficos de Qt)
+  - [x] Usuarios y permisos por área para el administrador de la clínica
+  - [x] Lista de funciones de `paginas.py` con su equivalente web, revisada (tabla bajo la Fase 5)
 - **Aceptación:**
   - [x] Dos pestañas editan el mismo periodo: la segunda recibe 409 y ve el cuadro actualizado sin perder lo que escribió
   - [x] Cupo de permutas y `EditadoDespues` responden igual que en `test_cambios.py`
@@ -249,6 +249,30 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
   - [x] Usuario con permiso `ver` recibe 403 en toda escritura
   - [x] Un segundo usuario con permiso `editar` en la misma área se rechaza (un solo editor por área)
   - [x] Sesión vencida a mitad de una edición: 401, la interfaz pide ingresar y conserva el cambio pendiente
+- **Paridad con `an/turnos/paginas.py`** (revisada al cerrar la fase):
+
+| Función en Qt | En la web | Estado |
+|---|---|---|
+| Selector de periodo, modo mes/semanas (`_cabecera`, `_mover_periodo`, `_ir_al_periodo`) | Selector de periodo + «Nuevo periodo» con fechas libres y sin solapes | Hecho |
+| `_ver_cuadro`, alertas, leyenda, horas por persona | Pantalla Cuadro | Hecho (Fase 4) |
+| `_celda_editada`, `_pedir_tipo`, `_aplicar` | Diálogo «Registrar cambio» (doble clic / Enter) | Hecho |
+| `_mover_celda` (arrastrar) | Arrastrar y soltar, o seleccionar dos celdas + Enter | Hecho; arrastre sin probar con ratón real |
+| `_menu_lote` | Selección múltiple (Mayús / Ctrl) + Enter | Hecho |
+| Escribir el código directo en la celda | — | Fuera: el diálogo pide el tipo de cambio de todos modos |
+| `deshacer` (Ctrl+Z) | «Anular» en la lista de cambios | Cambia de forma, mismo efecto |
+| Vista «Original» (solo lectura) | — | Fuera: publicar/restaurar cubren el uso; se retoma si la clínica la pide |
+| `generar`, `generar_semana`, cancelar | Diálogo Generar con cola y progreso | Hecho (Fases 3–4) |
+| `publicar`, `restaurar`, `_alternar_cierre` | Botones Publicar, Restaurar, Cerrar/Reabrir | Hecho |
+| `exportar` | — | Fase 6 |
+| Pestañas Personal, Novedades, Solicitudes | Pantallas del mismo nombre | Hecho |
+| Pestaña Puestos y demandas (`ui_puestos`) | Pantalla Puestos | Hecho |
+| Dotación mínima (`dotacion.verificar_minimo`, `TrabajoDotacion`) | — | Fuera: falta el trabajo `dotacion` en la cola (§4); sin fecha |
+| Pestaña Horas (`_ver_horas`) | Columna «Horas» del cuadro; `GET …/horas` | Parcial: no hay tabla detallada |
+| Pestaña Analíticas | Pantalla Analíticas | Hecho, sin gráficos |
+| Pestaña Banco de horas (saldos, movimientos) | Solo el saldo en Analíticas | Fuera: registrar/borrar movimientos no estaba en la lista de la fase |
+| Pestaña Parámetros (reglas, turnos, tarifas) | Pantalla Parámetros | Hecho |
+| Usuarios locales (`usuarios.json`) | Pantalla Usuarios (administrador) | Hecho |
+
 - **Riesgo:** paridad con Qt incompleta → se revisa la lista de funciones al cerrar la fase.
 
 ### Fase 6 — Exportes
