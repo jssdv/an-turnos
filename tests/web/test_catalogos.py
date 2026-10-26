@@ -144,6 +144,7 @@ def test_parametros_todo_o_nada_y_tarifas():
         assert cli.put(base(e, "/parametros"), headers=H, json={"periodo_modo": "dias"}).status_code == 422
         assert cli.put(base(e, "/parametros"), headers=H, json={"ventana_semanas": "5"}).status_code == 422
         assert cli.get(base(e, "/parametros")).json()["ventana_semanas"] == "3"  # nada se guardó
+        assert cli.get(base(e, "/parametros")).json()["max_noches_seguidas"] == "2"  # sin guardar: el defecto del núcleo, no vacío
         assert cli.put(base(e, "/parametros"), headers=H, json={"ventana_semanas": 5, "limite_permutas": 1, "periodo_modo": "semanas"}).status_code == 200
         p = cli.get(base(e, "/parametros")).json()
         assert (p["ventana_semanas"], p["limite_permutas"], p["periodo_modo"]) == ("5", "1", "semanas")

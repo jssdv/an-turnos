@@ -52,6 +52,7 @@ export function Cambios({ area, periodo, revision, nombres, puedeAnular, alAnula
       {!lista ? <p aria-busy="true">Cargando…</p> : (
         <Tabla
           descripcion="Cambios registrados en el periodo"
+          cargando={!lista && !error}
           vacio="Aún no hay cambios registrados en este periodo."
           columnas={["Cuándo", "Quién", "Clase", "Celdas", "Motivo", ""]}
           filas={lista.map((c) => [

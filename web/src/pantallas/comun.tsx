@@ -1,14 +1,16 @@
 import { useState, type ReactNode } from "react";
 import { mensaje } from "../api/catalogos";
 import { Aviso } from "../componentes/Aviso";
+import { Ayuda } from "../componentes/Ayuda";
 import e from "./Cuadro.module.css";
 import f from "./Formulario.module.css";
 
 /** Marco de una pantalla de catálogo: título, aviso de resultado y errores de lectura. */
-export function Pagina({ titulo, sub, error, aviso, children }: { titulo: string; sub?: string; error?: string | null; aviso?: { nivel: "ok" | "aviso" | "error"; texto: string } | null; children: ReactNode }) {
+export function Pagina({ titulo, sub, ayuda, error, aviso, children }: { titulo: string; sub?: string; ayuda?: ReactNode; error?: string | null; aviso?: { nivel: "ok" | "aviso" | "error"; texto: string } | null; children: ReactNode }) {
   return (
     <div className={e.pagina}>
       <div><h1 className={e.titulo}>{titulo}</h1>{sub && <p className={e.sub}>{sub}</p>}</div>
+      {ayuda && <Ayuda titulo="¿Cómo se usa esta sección?" clave={titulo}>{ayuda}</Ayuda>}
       {error && <Aviso nivel="error">{error}</Aviso>}
       {aviso && <Aviso nivel={aviso.nivel}>{aviso.texto}</Aviso>}
       {children}

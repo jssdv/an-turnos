@@ -5,6 +5,7 @@ import { ErrorApi, leer } from "../api/cliente";
 import { useSesion } from "../Sesion";
 import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Turno } from "../api/tipos";
 import { Aviso } from "../componentes/Aviso";
+import { Ayuda } from "../componentes/Ayuda";
 import { Boton } from "../componentes/Boton";
 import { Seleccion } from "../componentes/Campo";
 import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
@@ -25,6 +26,15 @@ interface Datos {
   turnos: Turno[];
   novedades: Novedad[];
   analiticas: Analiticas;
+}
+/** Junta alertas de texto idéntico (p. ej. el mismo turno prohibido en dos celdas) para no repetir la misma línea. */
+function agrupar(alertas: Alerta[]) {
+  const g = new Map<string, { alerta: Alerta; veces: number }>();
+  for (const a of alertas) {
+    const x = g.get(a.texto);
+    if (x) x.veces++; else g.set(a.texto, { alerta: a, veces: 1 });
+  }
+  return [...g.values()];
 }
 const SIGLA_NOVEDAD: Record<string, string> = { Vacaciones: "V", Incapacidad: "I", Licencia: "Li", "Libre solicitado": "LS" };
 
@@ -182,8 +192,10 @@ export function Cuadro() {
         <div>
           <h1 className={e.titulo}>Cuadro de {mesDe(actual.clave)}</h1>
           <p className={e.sub}>
-            {dias.length} días · revisión {actual.revision}
-            {deficit && ` · ${deficit.dias_deficit} días con déficit, ${deficit.puestos_sin_cubrir} puestos sin cubrir`}
+            {dias.length} días · versión {actual.revision}
+            {deficit && (deficit.dias_deficit || deficit.puestos_sin_cubrir
+              ? ` · ${deficit.dias_deficit} días con falta de personal, ${deficit.puestos_sin_cubrir} puestos sin cubrir`
+              : " · todos los puestos cubiertos")}
           </p>
         </div>
         <div className={e.acciones} data-no-imprimir>
@@ -197,6 +209,16 @@ export function Cuadro() {
           {area.permiso === "editar" && <Generar area={area.id} periodo={actual} bloqueado={!!actual.cerrado_en} alTerminar={() => setRecarga((n) => n + 1)} />}
         </div>
       </div>
+
+      {datos && area.permiso === "editar" && <Pasos hay={datos.cuadro.celdas.length > 0} alertas={datos.alertas} publicado={!!actual.publicado_en} />}
+
+      <Ayuda titulo="¿Cómo se usa el cuadro?" clave="cuadro">
+        Cada fila es una persona y cada columna un día; los colores son los turnos (la leyenda está debajo).
+        {puedeEditar
+          ? " Haz clic en una celda para cambiar el turno, o arrastra una celda sobre otra para intercambiarlas. Todo cambio queda registrado con su motivo y se puede anular."
+          : " Puedes exportarlo a Excel o imprimirlo."}
+        {" "}Las celdas con borde rojo tienen una alerta: revísalas en la lista de abajo.
+      </Ayuda>
 
       {actual.solapa_con && actual.solapa_con.length > 0 && (
         <Aviso nivel="aviso">Este periodo comparte fechas con otro del área; una persona puede quedar con dos turnos el mismo día. Cierra o revisa uno de los dos.</Aviso>
@@ -262,19 +284,31 @@ export function Cuadro() {
           {datos.alertas.length === 0 ? (
             <p className={e.vacio}>Sin alertas: el cuadro cumple las reglas.</p>
           ) : (
-            <ul className={e.alertas}>
-              {datos.alertas.map((a, i) => (
-                <li key={i} className={e.alerta}>
-                  <span className={`${e.chip} ${a.nivel === "error" ? e["chip-error"] : e["chip-aviso"]}`}>{a.nivel === "error" ? "Error" : "Aviso"}</span>
-                  <span className={e.texto}>{a.texto}</span>
-                  {a.fecha && (
-                    <Boton variante="texto" onClick={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
-                      {a.colab_id ? "Ir a la celda" : `Ir al ${fechaCorta(a.fecha)}`}
-                    </Boton>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <>
+              <p className={e.sub}>Corrige primero las rojas; las amarillas son recomendaciones.</p>
+              {(["error", "aviso"] as const).map((nivel) => {
+                const grupo = agrupar(datos.alertas.filter((a) => (a.nivel === "error") === (nivel === "error")));
+                if (!grupo.length) return null;
+                const errores = nivel === "error";
+                return (
+                  <details key={nivel} className={e.grupo} open={errores || !datos.alertas.some((a) => a.nivel === "error")}>
+                    <summary><span className={`${e.chip} ${errores ? e["chip-error"] : e["chip-aviso"]}`}>{errores ? "Por corregir" : "Para revisar"} · {grupo.length}</span></summary>
+                    <ul className={e.alertas}>
+                      {grupo.map(({ alerta: a, veces }) => (
+                        <li key={a.texto} className={e.alerta}>
+                          <span className={e.texto}>{a.texto}{veces > 1 && <span className={e.veces}> (×{veces})</span>}</span>
+                          {a.fecha && (
+                            <Boton variante="texto" onClick={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
+                              {a.colab_id ? "Ir a la celda" : `Ir al ${fechaCorta(a.fecha)}`}
+                            </Boton>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                );
+              })}
+            </>
           )}
         </Tarjeta>
       )}
@@ -287,5 +321,27 @@ export function Cuadro() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Guía de tres pasos del periodo: generar → revisar alertas → publicar. Solo informa; las acciones están arriba. */
+function Pasos({ hay, alertas, publicado }: { hay: boolean; alertas: Alerta[]; publicado: boolean }) {
+  // Mismas cuentas que la lista de alertas (agrupada), para que los números coincidan.
+  const errores = agrupar(alertas.filter((a) => a.nivel === "error")).length, avisos = agrupar(alertas.filter((a) => a.nivel !== "error")).length;
+  const pasos = [
+    { titulo: "Generar", hecho: hay, texto: hay ? "Hecho: el cuadro está armado." : "Usa «Generar» para que el sistema arme el cuadro." },
+    { titulo: "Revisar alertas", hecho: hay && !errores, texto: errores ? `${errores} por corregir · ${avisos} para revisar` : avisos ? `Sin errores · ${avisos} recomendaciones` : "Sin alertas." },
+    { titulo: "Publicar", hecho: publicado, texto: publicado ? "Publicado: el equipo ve esta versión." : "Cuando esté listo, publícalo para el equipo." },
+  ];
+  const actual = pasos.findIndex((p) => !p.hecho);
+  return (
+    <ol className={e.pasos} aria-label="Pasos del periodo" data-no-imprimir>
+      {pasos.map((p, i) => (
+        <li key={p.titulo} className={p.hecho ? e.hecho : i === actual ? e.actual : undefined} aria-current={i === actual ? "step" : undefined}>
+          <span className={e.numero} aria-hidden="true">{p.hecho ? "✓" : i + 1}</span>
+          <span><strong>{i + 1}. {p.titulo}</strong><span className={e.paso}>{p.texto}</span></span>
+        </li>
+      ))}
+    </ol>
   );
 }
