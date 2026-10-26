@@ -230,7 +230,7 @@ def test_exporte_numera_sin_sobrescribir_y_audita():
     with entorno() as e:
         if e is None:
             return
-        cli, id_, area = con_cuadro(e)
+        cli, id_, area = con_cuadro(e, "editor@a.co")
         a = exportar(cli, area, id_, "2026-10-19")
         b = exportar(cli, area, id_, "2026-10-19")
         assert (a.status_code, a.json()["nombre_archivo"], a.json()["numero"]) == (201, "SEMANA 19 AL 25 DE OCTUBRE.xlsx", 1), a.text
@@ -250,7 +250,7 @@ def test_cambios_contra_la_version_guardada():
     with entorno() as e:
         if e is None:
             return
-        cli, id_, area = con_cuadro(e)
+        cli, id_, area = con_cuadro(e, "editor@a.co")
         editor = e.cliente()
         e.entrar(editor, "editor@a.co")
         base = f"/api/areas/{area}/archivos"
@@ -327,3 +327,89 @@ def test_libro_igual_a_qt():
         gs.generar(tmp / "mensual.xlsx", date(2026, 10, 19), tmp / "qt.xlsx")
         malas = _diferencias(openpyxl.load_workbook(io.BytesIO(r.content)), openpyxl.load_workbook(tmp / "qt.xlsx"))
         assert not malas, malas[:20]
+
+
+# ---------------------------------------------------------------- revisión de seguridad
+def test_rechaza_cuadro_con_celda_lejana():
+    from fixtura_radiologia import cuadro_con_celda_lejana
+    with entorno() as e:
+        if e is None:
+            return
+        con_area_radiologia(e)
+        cli = e.cliente()
+        e.entrar(cli, "editor@a.co")
+        datos = cuadro_con_celda_lejana()
+        assert len(datos) < 20_000
+        r = subir(cli, e.rad["A"], datos)
+        assert r.status_code == 422 and "filas" in r.json()["detalle"], r.text
+        assert cli.get(f"/api/areas/{e.rad['A']}/archivos").json() == []
+
+
+def test_archivo_guardado_enorme_da_error_sin_memoria():
+    import tracemalloc
+    from fixtura_radiologia import cuadro_con_celda_lejana
+    with entorno() as e:
+        if e is None:
+            return
+        con_area_radiologia(e)
+        cli = e.cliente()
+        e.entrar(cli, "editor@a.co")
+        id_ = e.su.execute("INSERT INTO archivo (clinica_id, area_id, nombre, contenido) VALUES (%s, %s, 'viejo.xlsx', %s) RETURNING id",
+                           (e.cl["A"], e.rad["A"], cuadro_con_celda_lejana())).fetchone()[0]
+        e.su.commit()
+        tracemalloc.start()
+        r = cli.get(f"/api/areas/{e.rad['A']}/archivos/{id_}/semanas")
+        pico = tracemalloc.get_traced_memory()[1]
+        tracemalloc.stop()
+        assert r.status_code == 422 and "filas" in r.json()["detalle"], r.text
+        assert pico < 50 * 1024 * 1024, pico
+
+
+def test_zip_de_mas_de_10_mb_descomprimido():
+    with entorno() as e:
+        if e is None:
+            return
+        con_area_radiologia(e)
+        cli = e.cliente()
+        e.entrar(cli, "editor@a.co")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("relleno.bin", bytes(11 * 1024 * 1024))
+        r = subir(cli, e.rad["A"], buf.getvalue())
+        assert r.status_code == 422 and r.json()["detalle"] == "El archivo es demasiado grande al abrirlo."
+
+
+def test_ver_no_exporta_en_radiologia():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, id_, area = con_cuadro(e)
+        r = exportar(cli, area, id_, "2026-10-19")
+        assert r.status_code == 403, r.text
+        assert e.su.execute("SELECT count(*) FROM exporte").fetchone()[0] == 0
+        assert e.su.execute("SELECT count(*) FROM periodo WHERE area_id = %s", (area,)).fetchone()[0] == 0
+
+
+def test_subida_y_borrado_dejan_evento():
+    with entorno() as e:
+        if e is None:
+            return
+        con_area_radiologia(e)
+        cli = e.cliente()
+        e.entrar(cli, "editor@a.co")
+        id_ = subir(cli, e.rad["A"], cuadro_minimo()).json()["id"]
+        cli.delete(f"/api/areas/{e.rad['A']}/archivos/{id_}", headers={"Origin": ORIGEN})
+        ev = [f[0] for f in e.su.execute("SELECT evento FROM auditoria WHERE evento LIKE 'archivo_%' ORDER BY id")]
+        assert ev == [f"archivo_subido id={id_} nombre=cuadro.xlsx", f"archivo_borrado id={id_}"], ev
+
+
+def test_nombre_con_formula_sale_como_texto():
+    from datetime import date
+    from an.radiologia import generar_semana as gs
+    hostil = '=HYPERLINK("https://x","Ver")'
+    ws = gs.cargar_mensual(io.BytesIO(cuadro_minimo(medico=hostil)))
+    wb, *_ = gs.construir(ws, date(2026, 10, 19))
+    formulas = [c.coordinate for hoja in wb for fila in hoja.iter_rows() for c in fila if c.data_type == "f" and "HYPERLINK" in str(c.value)]
+    textos = [c for hoja in wb for fila in hoja.iter_rows() for c in fila if isinstance(c.value, str) and "HYPERLINK" in c.value]
+    assert textos, "el nombre debería aparecer en el libro"
+    assert not formulas, formulas

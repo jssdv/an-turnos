@@ -91,3 +91,16 @@ if ORIGEN.exists():
     assert g.ruta_libre(tmp, lunes).name == "SEMANA 12 AL 18 DE OCTUBRE v2.xlsx"
     assert a.version_anterior(tmp, lunes).name == "SEMANA 12 AL 18 DE OCTUBRE.xlsx"
 print("OK")
+
+# --- celdas que empiezan por = + - @ salen como texto, no como fórmula (M-1) ------
+from an.nucleo.xlsx import poner_texto
+_wb = openpyxl.Workbook()
+_ws = _wb.active
+_f = '=HYPERLINK("https://x","Ver")'
+poner_texto(_ws.cell(1, 1), _f)
+poner_texto(_ws.cell(2, 1), "Pérez, Ana")
+assert _ws.cell(1, 1).data_type == "s" and _ws.cell(2, 1).data_type == "s"
+import io as _io
+_b = _io.BytesIO(); _wb.save(_b)
+assert openpyxl.load_workbook(_io.BytesIO(_b.getvalue())).active["A1"].data_type == "s"
+print("OK poner_texto")
