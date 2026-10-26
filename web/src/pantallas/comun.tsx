@@ -1,21 +1,63 @@
-import { useState, type ReactNode } from "react";
+import { useState, type HTMLAttributes, type ReactNode } from "react";
+import { HelpCircle } from "@untitledui/icons";
+import { cx } from "@/utils/cx";
 import { mensaje } from "../api/catalogos";
-import { Ayuda } from "../componentes/Ayuda";
-import e from "./Cuadro.module.css";
 import f from "./Formulario.module.css";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 
-/** Marco de una pantalla de catálogo: título, aviso de resultado y errores de lectura. */
+/** Encabezado de pantalla (título, subtítulo, ayuda y avisos) y su contenido. */
 export function Pagina({ titulo, sub, ayuda, error, aviso, children }: { titulo: string; sub?: string; ayuda?: ReactNode; error?: string | null; aviso?: { nivel: "ok" | "aviso" | "error"; texto: string } | null; children: ReactNode }) {
   return (
-    <div className={e.pagina}>
-      <div><h1 className={e.titulo}>{titulo}</h1>{sub && <p className={e.sub}>{sub}</p>}</div>
-      {ayuda && <Ayuda titulo="¿Cómo se usa esta sección?" clave={titulo}>{ayuda}</Ayuda>}
+    <div className="flex max-w-[1500px] flex-col gap-5">
+      <header>
+        <h1 className="text-display-xs font-semibold text-primary">{titulo}</h1>
+        {sub && <p className="mt-1 text-md text-tertiary">{sub}</p>}
+      </header>
+      {ayuda && <Ayuda clave={titulo}>{ayuda}</Ayuda>}
       {error && <Alert color="error">{error}</Alert>}
       {aviso && <Alert color={COLOR_NIVEL[aviso.nivel]}>{aviso.texto}</Alert>}
       {children}
     </div>
+  );
+}
+
+/** Bloque de contenido con título y acciones a la derecha (tarjeta de Untitled UI). */
+export function Seccion({ titulo, acciones, children, className, ...r }: { titulo?: ReactNode; acciones?: ReactNode } & HTMLAttributes<HTMLElement>) {
+  return (
+    <section className={cx("rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset", className)} {...r}>
+      {(titulo || acciones) && (
+        <header className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-primary">{titulo}</h2>
+          {acciones}
+        </header>
+      )}
+      {children}
+    </section>
+  );
+}
+
+const recordar = (clave: string, abierta?: boolean) => {
+  try {
+    if (abierta === undefined) return localStorage.getItem(clave) !== "cerrada";
+    localStorage.setItem(clave, abierta ? "abierta" : "cerrada");
+  } catch { /* almacenamiento bloqueado: se muestra abierta */ }
+  return true;
+};
+
+/** Recuadro «¿Cómo se usa?». Abierto la primera vez; si se cierra, este navegador lo recuerda. */
+export function Ayuda({ titulo = "¿Cómo se usa esta sección?", clave, children }: { titulo?: string; clave: string; children: ReactNode }) {
+  const [abierta] = useState(() => recordar(`ayuda/${clave}`));
+  return (
+    <details className="group rounded-xl bg-utility-brand-50 px-4 py-3 text-sm text-utility-brand-700 ring-1 ring-utility-brand-200 ring-inset" open={abierta}
+      onToggle={(x) => recordar(`ayuda/${clave}`, x.currentTarget.open)}>
+      <summary className="flex cursor-pointer list-none items-center gap-3 font-semibold">
+        <HelpCircle aria-hidden="true" className="size-5 shrink-0" />{titulo}
+        <span className="ml-auto text-xs font-semibold group-open:hidden">Mostrar</span>
+        <span className="ml-auto hidden text-xs font-semibold group-open:inline">Ocultar</span>
+      </summary>
+      <div className="mt-2 ml-8 max-w-[80ch] leading-relaxed">{children}</div>
+    </details>
   );
 }
 

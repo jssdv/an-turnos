@@ -1,10 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { usar } from "../api/catalogos";
 import { base, rutaSemana, type Alertas as TAlertas, type Archivo, type Equidad as TEquidad, type EquidadMeses, type Hoja, type Semana } from "../api/radiologia";
-import { Tarjeta } from "../componentes/Tarjeta";
 import r from "./Radiologia.module.css";
 import { Button } from "@/components/base/buttons/button";
 import { Alert } from "@/components/application/alerts/alert";
+import { Seccion } from "./comun";
 
 const num = (v: number | null | undefined) => (v ?? "");
 
@@ -25,13 +25,13 @@ export function Resumen({ datos }: { datos: Semana["resumen"] }) {
       {datos.aviso && <Alert color="warning">{datos.aviso}</Alert>}
       <div className={r.tarjetas}>
         {datos.tarjetas.map((t) => (
-          <Tarjeta key={t.titulo} titulo={t.titulo}>
+          <Seccion key={t.titulo} titulo={t.titulo}>
             <div className={`${r.cifra} ${r[t.nivel]}`}>{t.valor}</div>
             <div className={r.detalle}>{t.detalle}</div>
-          </Tarjeta>
+          </Seccion>
         ))}
       </div>
-      <Tarjeta titulo="Cobertura de la semana">
+      <Seccion titulo="Cobertura de la semana">
         <p className={r.detalle}>Médicos asignados por servicio y día. En amarillo, los días con franjas sin médico (pasa el mouse para ver cuáles).</p>
         <table className={r.tabla}>
           <thead><tr><th scope="col">Servicio</th>{datos.dias.map((d) => <th key={d} scope="col" className={r.centro}>{d}</th>)}</tr></thead>
@@ -44,7 +44,7 @@ export function Resumen({ datos }: { datos: Semana["resumen"] }) {
             ))}
           </tbody>
         </table>
-      </Tarjeta>
+      </Seccion>
     </>
   );
 }
@@ -64,7 +64,7 @@ export function Previa({ area, archivo, lunes }: { area: number; archivo: number
   if (hojas.error) return <Alert color="error">{hojas.error}</Alert>;
   if (!hoja) return <p className={r.vacio} aria-busy="true">Cargando…</p>;
   return (
-    <Tarjeta titulo="Vista previa" acciones={<Button color="secondary" size="sm" onPress={() => window.print()}>Imprimir</Button>}>
+    <Seccion titulo="Vista previa" acciones={<Button color="secondary" size="sm" onPress={() => window.print()}>Imprimir</Button>}>
       <div className={r.pestanas} role="tablist">
         {hojas.datos!.map((h, i) => <button key={h.hoja} role="tab" aria-selected={i === sel} className={r.pestana} onClick={() => setSel(i)}>{h.titulo}</button>)}
       </div>
@@ -83,7 +83,7 @@ export function Previa({ area, archivo, lunes }: { area: number; archivo: number
           </tbody>
         </table>
       </div>
-    </Tarjeta>
+    </Seccion>
   );
 }
 
@@ -91,15 +91,15 @@ export function Alertas({ datos }: { datos: TAlertas }) {
   return (
     <>
       <p className={r.detalle}>Revisa esto antes de publicar. Los problemas se corrigen en el cuadro mensual de Excel; al subirlo de nuevo, la página se actualiza.</p>
-      <Tarjeta titulo="PROBLEMAS EN EL CUADRO MENSUAL">
+      <Seccion titulo="PROBLEMAS EN EL CUADRO MENSUAL">
         <Cuadro columnas={["Fecha", "Médico", "Problema"]} filas={datos.revision.map((a) => [a.corta, a.medico, a.problema])} vacio="Sin problemas en el cuadro." />
-      </Tarjeta>
-      <Tarjeta titulo="REGLAS DE DESCANSO">
+      </Seccion>
+      <Seccion titulo="REGLAS DE DESCANSO">
         <Cuadro columnas={["Fecha", "Médico", "Regla"]} filas={datos.descanso.map((a) => [a.corta, a.medico, a.regla])} vacio="Se cumplen las reglas de descanso." />
-      </Tarjeta>
-      <Tarjeta titulo="FRANJAS SIN MÉDICO">
+      </Seccion>
+      <Seccion titulo="FRANJAS SIN MÉDICO">
         <Cuadro columnas={["Fecha", "Servicio", "Franja", "Qué falta"]} filas={datos.pendientes.map((a) => [a.corta, a.servicio, a.franja, a.que])} vacio="Todas las franjas tienen médico." />
-      </Tarjeta>
+      </Seccion>
     </>
   );
 }
@@ -125,7 +125,7 @@ export function Equidad({ area, archivos, actual, datos }: { area: number; archi
         </fieldset>
       )}
       {!acumulado ? (
-        <Tarjeta>
+        <Seccion>
           <table className={r.tabla}>
             <thead>
               <tr>
@@ -150,16 +150,16 @@ export function Equidad({ area, archivos, actual, datos }: { area: number; archi
               ))}
             </tbody>
           </table>
-        </Tarjeta>
+        </Seccion>
       ) : meses.error ? <Alert color="error">{meses.error}</Alert> : meses.datos && (
-        <Tarjeta>
+        <Seccion>
           <p className={r.detalle}>Meses: {meses.datos.meses.join(", ")}{meses.datos.fallidos.length ? `  ·  No se pudieron leer: ${meses.datos.fallidos.join(", ")}` : ""}</p>
           <Cuadro
             columnas={["Médico", "Meses", "Horas", "Meta", "Pendiente", "Noches URG", "Domingos", "Festivos", "Finde libres", "Disponibilidades"]}
             filas={meses.datos.filas.map((f) => [f.medico, f.meses.length, num(f.mes), num(f.meta), num(f.pendiente), num(f.noches), num(f.domingos), num(f.festivos), num(f.findes_libres), num(f.disponibilidades)])}
             vacio="Sin datos." clases={(i, j) => (j === 4 && meses.datos!.filas[i].pendiente ? (meses.datos!.filas[i].pendiente! > 0 ? r.amarillo : r.azul) : undefined)}
           />
-        </Tarjeta>
+        </Seccion>
       )}
     </>
   );
@@ -180,13 +180,13 @@ export function Agendas({ area, archivo, lunes, agendas }: { area: number; archi
       <p className={r.detalle}>Turnos de cada médico para enviar por WhatsApp o correo. «Exportar agendas» baja un .zip con un .ics por médico para Outlook.</p>
       {copiado && <Alert color="success">{copiado}</Alert>}
       <div className={r.dos}>
-        <Tarjeta>
+        <Seccion>
           <input type="search" aria-label="Buscar médico" placeholder="Buscar médico…" value={buscar} onChange={(ev) => setBuscar(ev.target.value)} />
           <ul className={r.medicos}>
             {nombres.map((n) => <li key={n}><button aria-current={n === actual} onClick={() => setElegido(n)}>{n}</button></li>)}
           </ul>
-        </Tarjeta>
-        <Tarjeta>
+        </Seccion>
+        <Seccion>
           {actual ? <pre className={r.texto}>{agendas[actual]}</pre> : <p className={r.vacio}>Nadie tiene turnos esta semana.</p>}
           <div className={r.fila}>
             <Button color="secondary" size="sm" onPress={() => location.assign(`${ruta}/agendas.zip`)}>Exportar agendas</Button>
@@ -194,7 +194,7 @@ export function Agendas({ area, archivo, lunes, agendas }: { area: number; archi
             <Button color="secondary" size="sm" onPress={() => copiar(Object.values(agendas).join("\n\n"), `${Object.keys(agendas).length} agendas copiadas.`)}>Copiar todas</Button>
             {actual && <Button color="secondary" size="sm" onPress={() => copiar(agendas[actual], "Agenda copiada.")}>Copiar esta agenda</Button>}
           </div>
-        </Tarjeta>
+        </Seccion>
       </div>
     </>
   );
@@ -206,10 +206,10 @@ export function Cambios({ datos }: { datos: Semana["cambios"] }) {
   return (
     <>
       <p className={r.detalle}>Diferencias con la última planilla guardada de esta semana. Al generar, quedan marcadas en amarillo y en la hoja «Cambios».</p>
-      <Tarjeta titulo="Cambios">
+      <Seccion titulo="Cambios">
         <p>{estado}</p>
         {datos.lista.length > 0 && <pre className={r.texto}>{datos.lista.join("\n")}</pre>}
-      </Tarjeta>
+      </Seccion>
     </>
   );
 }

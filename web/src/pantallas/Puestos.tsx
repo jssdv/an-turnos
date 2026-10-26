@@ -3,8 +3,7 @@ import { useOutletContext } from "react-router";
 import { aHHMM, aMinutos, enviar, usar } from "../api/catalogos";
 import type { Area, Demanda, Puesto } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
-import { Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -51,13 +50,13 @@ export function Puestos() {
 
   return (
     <Pagina titulo="Puestos" sub="Dónde trabaja la gente y cuántas personas hacen falta en cada uno." ayuda={<>Cada puesto tiene <strong>reglas de cobertura</strong>: cuántas personas necesita, qué días y en qué turno. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error} aviso={aviso}>
-      <Tarjeta titulo="Puestos">
+      <Seccion titulo="Puestos">
         <Tabla descripcion="Puestos del área" cargando={!puestos.datos && !puestos.error} vacio="Aún no hay puestos." columnas={["N.º", "Nombre", "Estado", "Reglas", ""]}
           filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, q.activo ? "Activo" : "Inactivo", (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
             editar ? <Button color="link-color" size="sm" onPress={() => elegir(q)}>{sel?.id === q.id ? "Editando" : "Editar"}</Button> : null])} />
-      </Tarjeta>
+      </Seccion>
       {editar && (
-        <Tarjeta titulo={sel ? `Puesto ${sel.numero}` : "Nuevo puesto"}>
+        <Seccion titulo={sel ? `Puesto ${sel.numero}` : "Nuevo puesto"}>
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <Input value={String(p.numero)} label="Número" type="number" isRequired onChange={(x) => setP({ ...p, numero: Number(x) })} />
             <Input value={String(p.nombre)} label="Nombre" isRequired maxLength={60} onChange={(x) => setP({ ...p, nombre: x })} />
@@ -69,10 +68,10 @@ export function Puestos() {
               {sel && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
             </Fila>
           </Formulario>
-        </Tarjeta>
+        </Seccion>
       )}
       {editar && sel && (
-        <Tarjeta titulo={`Demanda del puesto ${sel.numero}`} acciones={<Button color="secondary" size="sm" onPress={() => setReglas([...reglas, { puesto_id: sel.id, tipo_dia: "LS", inicio: 360, fin: 1080, personas: 1, obligatorio: true }])}>Agregar regla</Button>}>
+        <Seccion titulo={`Demanda del puesto ${sel.numero}`} acciones={<Button color="secondary" size="sm" onPress={() => setReglas([...reglas, { puesto_id: sel.id, tipo_dia: "LS", inicio: 360, fin: 1080, personas: 1, obligatorio: true }])}>Agregar regla</Button>}>
           {reglas.length === 0 && <p>Sin reglas: el puesto no pide gente.</p>}
           {reglas.map((r, i) => (
             <Formulario key={i} aria-label={`Regla ${i + 1}`} onSubmit={(x) => x.preventDefault()}>
@@ -87,7 +86,7 @@ export function Puestos() {
             </Formulario>
           ))}
           <Fila><Button color="primary" size="sm" isDisabled={ocupado} onPress={guardarReglas}>Guardar reglas</Button></Fila>
-        </Tarjeta>
+        </Seccion>
       )}
     </Pagina>
   );

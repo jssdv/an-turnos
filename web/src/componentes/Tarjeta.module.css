@@ -1,3 +1,0 @@
-.tarjeta { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; padding: var(--e4) var(--e5); box-shadow: 0 1px 3px var(--sombra); }
-.cabeza { display: flex; align-items: center; justify-content: space-between; gap: var(--e3); margin-bottom: var(--e3); }
-.titulo { font-size: 15px; font-weight: 600; color: var(--titulo); display: flex; align-items: center; gap: var(--e2); }
