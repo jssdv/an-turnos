@@ -4,7 +4,6 @@ import { usar } from "../api/catalogos";
 import type { Area } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Pagina, Seccion } from "./comun";
-import f from "./Formulario.module.css";
 import { fechaCorta, nombrePeriodo } from "./fechas";
 import { Input } from "@/components/base/input/input";
 
@@ -42,18 +41,18 @@ export function Analiticas() {
   return (
     <Pagina titulo="Analíticas" sub="Cifras de lo ya registrado. Solo se consulta: aquí no se cambia nada." ayuda={<>Elige el rango de meses. Arriba ves el resumen: <strong>ausentismo</strong> (porcentaje de días perdidos por ausencias), cuántas personas faltaron <strong>a la vez</strong>, días con <strong>déficit</strong> (faltó gente en algún puesto) y cambios de turno. Las tablas de abajo muestran el detalle por persona y por periodo.</>} error={r.error}>
       <Seccion titulo="Rango">
-        <div className={f.form}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] items-start gap-4">
           <Input value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
           <Input value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!!(ok ? null : "El mes final es anterior al inicial")} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
         </div>
       </Seccion>
       {!d || !total ? <p aria-busy="true">Cargando…</p> : (
         <>
-          <div className={f.cifras} role="list" aria-label="Resumen">
-            <div className={f.cifra} role="listitem"><strong>{n(d.ausentismo.pct)} %</strong><span>Ausentismo · {total.ausencias} días de ausencia</span></div>
-            <div className={f.cifra} role="listitem"><strong>{d.simultaneos.maximo}</strong><span>Ausentes a la vez (máximo){d.simultaneos.fecha_maximo ? ` · ${fechaCorta(d.simultaneos.fecha_maximo)}` : ""}</span></div>
-            <div className={f.cifra} role="listitem"><strong>{total.deficit}</strong><span>Días con déficit · {d.simultaneos.dias_riesgo.length} con ausentes en riesgo</span></div>
-            <div className={f.cifra} role="listitem"><strong>{total.cambios}</strong><span>Cambios de turno · {total.excepciones} con excepción</span></div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4" role="list" aria-label="Resumen">
+            <div className="flex flex-col gap-1 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{n(d.ausentismo.pct)} %</strong><span>Ausentismo · {total.ausencias} días de ausencia</span></div>
+            <div className="flex flex-col gap-1 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{d.simultaneos.maximo}</strong><span>Ausentes a la vez (máximo){d.simultaneos.fecha_maximo ? ` · ${fechaCorta(d.simultaneos.fecha_maximo)}` : ""}</span></div>
+            <div className="flex flex-col gap-1 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{total.deficit}</strong><span>Días con déficit · {d.simultaneos.dias_riesgo.length} con ausentes en riesgo</span></div>
+            <div className="flex flex-col gap-1 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{total.cambios}</strong><span>Cambios de turno · {total.excepciones} con excepción</span></div>
           </div>
           <Seccion titulo="Ausentismo por persona (días)">
             <Tabla descripcion="Ausencias por persona" vacio="Sin ausencias en el rango." columnas={["Persona", "Total", ...TIPOS]}

@@ -4,11 +4,10 @@ import { enviar, mensaje, usar } from "../api/catalogos";
 import { base, rutaSemana, subirCuadro, rutaDescarga, type Archivo, type Exporte, type Semana, type Semanas } from "../api/radiologia";
 import type { Area } from "../api/tipos";
 import { Agendas, Alertas, Cambios, Equidad, Previa, Resumen } from "./RadiologiaVistas";
-import r from "./Radiologia.module.css";
-import c from "./Cuadro.module.css";
 import { Button } from "@/components/base/buttons/button";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert } from "@/components/application/alerts/alert";
+import { cx } from "@/utils/cx";
 
 export const SECCIONES: [string, string][] = [["Resumen", "resumen"], ["Vista previa", "previa"], ["Alertas", "alertas"], ["Equidad y horas", "equidad"], ["Agendas", "agendas"], ["Cambios", "cambios"]];
 
@@ -65,12 +64,12 @@ export function Radiologia() {
   const error = archivos.error ?? semanas.error ?? semana.error;
 
   return (
-    <div className={c.pagina}>
-      <div className={c.barra}>
-        <div><h1 className={c.titulo}>Radiología</h1><p className={c.sub}>Planilla semanal a partir del cuadro mensual de turnos.</p></div>
+    <div className="flex max-w-[1500px] flex-col gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div><h1 className="text-display-xs font-semibold text-primary">Radiología</h1><p className="mt-1 text-md text-tertiary">Planilla semanal a partir del cuadro mensual de turnos.</p></div>
         {editar && (
           <>
-            <input ref={entrada} className={r.oculto} type="file" accept=".xlsx" aria-label="Elegir cuadro mensual" tabIndex={-1} onChange={(ev) => { subir(ev.target.files?.[0]); ev.target.value = ""; }} />
+            <input ref={entrada} className="sr-only" type="file" accept=".xlsx" aria-label="Elegir cuadro mensual" tabIndex={-1} onChange={(ev) => { subir(ev.target.files?.[0]); ev.target.value = ""; }} />
             <Button color="primary" size="sm" isDisabled={subiendo} onPress={() => entrada.current?.click()}>{subiendo ? "Subiendo…" : "Elegir cuadro mensual…"}</Button>
           </>
         )}
@@ -79,13 +78,13 @@ export function Radiologia() {
       {errorSubida && <Alert color="error">{errorSubida}</Alert>}
       {error && <Alert color="error">{error}</Alert>}
       {archivos.datos && archivos.datos.length === 0 && (
-        <div className={`${r.subida} ${encima ? r.encima : ""}`} onDragOver={(ev) => { ev.preventDefault(); setEncima(true); }} onDragLeave={() => setEncima(false)} onDrop={soltar}>
+        <div className={cx("flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-primary bg-primary p-8 text-center text-tertiary", encima && "border-brand bg-brand-primary")} onDragOver={(ev) => { ev.preventDefault(); setEncima(true); }} onDragLeave={() => setEncima(false)} onDrop={soltar}>
           <strong>Aún no hay un cuadro mensual</strong>
           <span>{editar ? "Arrastra aquí el cuadro mensual de turnos (.xlsx) o elígelo con el botón. Guárdalo en Excel antes de subirlo." : "Pide a quien coordina que suba el cuadro mensual."}</span>
         </div>
       )}
       {id && semanas.datos && (
-        <div className={r.selector}>
+        <div className="flex flex-wrap items-end gap-3 print:hidden">
           {archivos.datos && archivos.datos.length > 1 && (
             <NativeSelect size="sm" label="Cuadro mensual" value={id} onChange={(ev) => setElegido(Number(ev.target.value))}>
               {archivos.datos.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
