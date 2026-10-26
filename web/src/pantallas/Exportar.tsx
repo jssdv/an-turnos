@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { exportes } from "../api/exportes";
 import { ErrorApi } from "../api/cliente";
 import type { Exporte, TipoExporte } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
-import { CierreDialogo, Dialogo } from "../componentes/Dialogo";
+import { Ventana } from "./comun";
 import e from "./Exportar.module.css";
+import { Button } from "@/components/base/buttons/button";
+import { Alert } from "@/components/application/alerts/alert";
 
 const TIPOS: [TipoExporte, string][] = [["cuadro", "Cuadro"], ["puestos", "Puestos"], ["horas", "Horas y recargos"]];
 const tamano = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
@@ -47,16 +47,16 @@ export function Exportar({ area, periodo, hayCuadro }: Props) {
 
   return (
     <>
-      <Boton onClick={() => setAbierto(true)}>Exportar</Boton>
-      <Dialogo abierto={abierto} alCambiar={setAbierto} titulo="Exportar a Excel"
+      <Button color="secondary" size="sm" onPress={() => setAbierto(true)}>Exportar</Button>
+      <Ventana abierto={abierto} alCambiar={setAbierto} titulo="Exportar a Excel"
         descripcion="Cada exportación crea un archivo nuevo; los anteriores se conservan y se pueden volver a descargar.">
-        {error && <Aviso nivel="error">{error}</Aviso>}
-        {nuevo && <Aviso nivel="ok">Listo: {nuevo}</Aviso>}
+        {error && <Alert color="error">{error}</Alert>}
+        {nuevo && <Alert color="success">Listo: {nuevo}</Alert>}
         <div className={e.tipos}>
           {TIPOS.map(([tipo, titulo]) => (
-            <Boton key={tipo} variante="primario" disabled={!hayCuadro || haciendo !== null} onClick={() => crear(tipo)}>
+            <Button color="primary" size="sm" key={tipo} isDisabled={!hayCuadro || haciendo !== null} onPress={() => crear(tipo)}>
               {haciendo === tipo ? "Generando…" : titulo}
-            </Boton>
+            </Button>
           ))}
         </div>
         {!hayCuadro && <p className={e.vacio}>Este periodo no tiene cuadro todavía.</p>}
@@ -73,8 +73,8 @@ export function Exportar({ area, periodo, hayCuadro }: Props) {
             ))}
           </ul>
         ))}
-        <div className={e.fila}><CierreDialogo render={<Boton />}>Cerrar</CierreDialogo></div>
-      </Dialogo>
+        <div className={e.fila}><Button color="secondary" size="sm" onPress={() => setAbierto(false)}>Cerrar</Button></div>
+      </Ventana>
     </>
   );
 }

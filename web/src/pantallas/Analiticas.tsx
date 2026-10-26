@@ -2,12 +2,12 @@ import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
 import { usar } from "../api/catalogos";
 import type { Area } from "../api/tipos";
-import { Campo } from "../componentes/Campo";
 import { Tabla } from "../componentes/Tabla";
 import { Tarjeta } from "../componentes/Tarjeta";
 import { Pagina } from "./comun";
 import f from "./Formulario.module.css";
 import { fechaCorta, nombrePeriodo } from "./fechas";
+import { Input } from "@/components/base/input/input";
 
 interface Datos {
   ausentismo: { pct: number; por_tipo: Record<string, number>; por_persona: Record<string, Record<string, number>> };
@@ -44,8 +44,8 @@ export function Analiticas() {
     <Pagina titulo="Analíticas" sub="Cifras de lo ya registrado. Solo se consulta: aquí no se cambia nada." ayuda={<>Elige el rango de meses. Arriba ves el resumen: <strong>ausentismo</strong> (porcentaje de días perdidos por ausencias), cuántas personas faltaron <strong>a la vez</strong>, días con <strong>déficit</strong> (faltó gente en algún puesto) y cambios de turno. Las tablas de abajo muestran el detalle por persona y por periodo.</>} error={r.error}>
       <Tarjeta titulo="Rango">
         <div className={f.form}>
-          <Campo etiqueta="Desde (mes)" type="month" value={desde} onChange={(x) => setDesde(x.target.value)} />
-          <Campo etiqueta="Hasta (mes)" type="month" value={hasta} onChange={(x) => setHasta(x.target.value)} error={ok ? null : "El mes final es anterior al inicial"} />
+          <Input value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
+          <Input value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!!(ok ? null : "El mes final es anterior al inicial")} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
         </div>
       </Tarjeta>
       {!d || !total ? <p aria-busy="true">Cargando…</p> : (

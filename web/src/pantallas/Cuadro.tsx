@@ -4,10 +4,7 @@ import { borrador as guardado, cambios, type Borrador } from "../api/cambios";
 import { ErrorApi, leer } from "../api/cliente";
 import { useSesion } from "../Sesion";
 import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Turno } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
 import { Ayuda } from "../componentes/Ayuda";
-import { Boton } from "../componentes/Boton";
-import { Seleccion } from "../componentes/Campo";
 import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
 import { Tarjeta } from "../componentes/Tarjeta";
 import { AccionesPeriodo } from "./AccionesPeriodo";
@@ -17,6 +14,9 @@ import { dias as diasDe, fechaCorta, mesDe, nombrePeriodo } from "./fechas";
 import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
 import { RegistrarCambio, sinCupo } from "./RegistrarCambio";
+import { Button } from "@/components/base/buttons/button";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
 
 interface Datos {
   cuadro: CuadroApi;
@@ -179,7 +179,7 @@ export function Cuadro() {
   };
   const cerrarCambio = (b: Borrador | null) => { if (!b) { guardado.borrar(); setErrorCambio(null); } setBorrador(b); };
 
-  if (error) return <div className={e.pagina}><Aviso nivel="error" accion={<Boton onClick={() => setRecarga((n) => n + 1)}>Reintentar</Boton>}>{error}</Aviso></div>;
+  if (error) return <div className={e.pagina}><Alert color="error" action={<Button color="secondary" size="sm" onPress={() => setRecarga((n) => n + 1)}>Reintentar</Button>}>{error}</Alert></div>;
   if (!periodos) return <p className={e.vacio} aria-busy="true">Cargando…</p>;
   if (!actual) return <p className={e.vacio}>Esta área aún no tiene periodos. Genera o migra un cuadro para verlo aquí.</p>;
 
@@ -200,11 +200,11 @@ export function Cuadro() {
         </div>
         <div className={e.acciones} data-no-imprimir>
           {actual.cerrado_en ? <span className={e.estado}>Cerrado</span> : actual.publicado_en && <span className={e.estado}>Publicado</span>}
-          <Seleccion etiqueta="Periodo" value={actual.id} onChange={(x) => ir(`/areas/${area.id}/cuadro/${x.target.value}`)}>
+          <NativeSelect size="sm" label="Periodo" value={actual.id} onChange={(x) => ir(`/areas/${area.id}/cuadro/${x.target.value}`)}>
             {periodos.map((p) => <option key={p.id} value={p.id}>{nombrePeriodo(p.clave)}</option>)}
-          </Seleccion>
+          </NativeSelect>
           <Exportar area={area.id} periodo={actual.id} hayCuadro={!datos || datos.cuadro.celdas.length > 0} />
-          <Boton onClick={() => window.print()}>Imprimir</Boton>
+          <Button color="secondary" size="sm" onPress={() => window.print()}>Imprimir</Button>
           {area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={actual} alTerminar={() => setRecarga((n) => n + 1)} />}
           {area.permiso === "editar" && <Generar area={area.id} periodo={actual} bloqueado={!!actual.cerrado_en} alTerminar={() => setRecarga((n) => n + 1)} />}
         </div>
@@ -221,14 +221,14 @@ export function Cuadro() {
       </Ayuda>
 
       {actual.solapa_con && actual.solapa_con.length > 0 && (
-        <Aviso nivel="aviso">Este periodo comparte fechas con otro del área; una persona puede quedar con dos turnos el mismo día. Cierra o revisa uno de los dos.</Aviso>
+        <Alert color="warning">Este periodo comparte fechas con otro del área; una persona puede quedar con dos turnos el mismo día. Cierra o revisa uno de los dos.</Alert>
       )}
       {pendiente && !borrador && pendiente.periodo === actual.id && (
-        <Aviso nivel="info" accion={<Boton onClick={() => { abrirCambio(pendiente); setPendiente(null); }}>Revisarlo</Boton>}>
+        <Alert color="brand" action={<Button color="secondary" size="sm" onPress={() => { abrirCambio(pendiente); setPendiente(null); }}>Revisarlo</Button>}>
           Tienes un cambio sin enviar de antes de que venciera tu sesión.
-        </Aviso>
+        </Alert>
       )}
-      {resultado && <Aviso nivel={resultado.nivel}>{resultado.texto}</Aviso>}
+      {resultado && <Alert color={COLOR_NIVEL[resultado.nivel]}>{resultado.texto}</Alert>}
 
       <Tarjeta aria-busy={!datos}>
         {!datos || !vista ? (
@@ -298,9 +298,9 @@ export function Cuadro() {
                         <li key={a.texto} className={e.alerta}>
                           <span className={e.texto}>{a.texto}{veces > 1 && <span className={e.veces}> (×{veces})</span>}</span>
                           {a.fecha && (
-                            <Boton variante="texto" onClick={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
+                            <Button color="link-color" size="sm" onPress={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
                               {a.colab_id ? "Ir a la celda" : `Ir al ${fechaCorta(a.fecha)}`}
-                            </Boton>
+                            </Button>
                           )}
                         </li>
                       ))}

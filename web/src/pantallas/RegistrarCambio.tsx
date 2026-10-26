@@ -1,11 +1,12 @@
 import type { Borrador } from "../api/cambios";
 import type { Cupo, Turno } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
-import { Campo, Seleccion } from "../componentes/Campo";
-import { Dialogo } from "../componentes/Dialogo";
 import { fechaCorta } from "./fechas";
+import { Ventana } from "./comun";
 import e from "./Generar.module.css";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Alert } from "@/components/application/alerts/alert";
 
 interface Props {
   borrador: Borrador | null;
@@ -31,7 +32,7 @@ export function sinCupo(b: Borrador, cupos: Cupo[] | null) {
 
 /** Diálogo «Registrar cambio»: qué se cambia y de qué clase es (permuta, cambio de servicio o ajuste). Lo escrito vive en `borrador`. */
 export function RegistrarCambio({ borrador: b, alCambiar, nombres, turnos, actual, cupos, error, enviando, alEnviar }: Props) {
-  if (!b) return <Dialogo abierto={false} alCambiar={() => undefined} titulo="Registrar cambio">{null}</Dialogo>;
+  if (!b) return <Ventana abierto={false} alCambiar={() => undefined} titulo="Registrar cambio">{null}</Ventana>;
   const set = (p: Partial<Borrador>) => alCambiar({ ...b, ...p });
   const entre = b.modo === "intercambio" && b.celdas.length === 2 && b.celdas[0].colab_id !== b.celdas[1].colab_id;
   const tipos = (entre ? ["permuta", "servicio", "ajuste"] : ["servicio", "ajuste"]) as Borrador["tipo"][];
@@ -42,38 +43,38 @@ export function RegistrarCambio({ borrador: b, alCambiar, nombres, turnos, actua
     : b.celdas.length === 1 ? cel(b.celdas[0]) : `${b.celdas.length} celdas`;
   const sinMotivo = tipo === "servicio" && !b.motivo.trim();
   return (
-    <Dialogo abierto alCambiar={(a) => { if (!a) alCambiar(null); }} titulo="Registrar cambio" descripcion={resumen}>
-      {error && <Aviso nivel="error">{error}</Aviso>}
+    <Ventana abierto alCambiar={(a) => { if (!a) alCambiar(null); }} titulo="Registrar cambio" descripcion={resumen}>
+      {error && <Alert color="error">{error}</Alert>}
       <div className={e.form}>
         {b.celdas.length === 2 && (
-          <Seleccion etiqueta="Qué hacer" value={b.modo} onChange={(x) => set({ modo: x.target.value as Borrador["modo"] })}>
+          <NativeSelect size="sm" label="Qué hacer" value={b.modo} onChange={(x) => set({ modo: x.target.value as Borrador["modo"] })}>
             <option value="intercambio">Intercambiar las dos celdas</option>
             <option value="asignar">Poner un turno en las dos celdas</option>
-          </Seleccion>
+          </NativeSelect>
         )}
         {b.modo === "asignar" && (
-          <Seleccion etiqueta="Turno" value={b.turno} onChange={(x) => set({ turno: x.target.value })}>
+          <NativeSelect size="sm" label="Turno" value={b.turno} onChange={(x) => set({ turno: x.target.value })}>
             <option value="L">L · libre</option>
             {turnos.filter((t) => t.activo).map((t) => <option key={t.codigo} value={t.codigo}>{t.codigo} · {t.nombre}</option>)}
-          </Seleccion>
+          </NativeSelect>
         )}
-        <Seleccion etiqueta="Clase de cambio" value={tipo} onChange={(x) => set({ tipo: x.target.value as Borrador["tipo"] })}>
+        <NativeSelect size="sm" label="Clase de cambio" value={tipo} onChange={(x) => set({ tipo: x.target.value as Borrador["tipo"] })}>
           {tipos.map((t) => <option key={t} value={t}>{NOMBRE_TIPO[t]}</option>)}
-        </Seleccion>
+        </NativeSelect>
         {agotados.length > 0 && (
-          <Aviso nivel="aviso">
+          <Alert color="warning">
             Ya agotó su cupo de permutas en este periodo: {agotados.map((c) => `${nombres.get(c.colab_id) ?? c.colab_id} ${c.usadas}/${c.limite}`).join(", ")}. Puedes aprobar esta permuta como excepción.
-          </Aviso>
+          </Alert>
         )}
-        <Campo etiqueta="Motivo" value={b.motivo} maxLength={500} onChange={(x) => set({ motivo: x.target.value })}
-          ayuda={tipo === "servicio" ? "Obligatorio en un cambio de servicio" : undefined} />
+        <Input value={String(b.motivo)} label="Motivo" maxLength={500} onChange={(x) => set({ motivo: x })}
+          hint={tipo === "servicio" ? "Obligatorio en un cambio de servicio" : undefined} />
       </div>
       <div className={e.fila}>
-        <Boton onClick={() => alCambiar(null)}>Cancelar</Boton>
-        <Boton variante="primario" onClick={alEnviar} disabled={enviando || sinMotivo}>
+        <Button color="secondary" size="sm" onPress={() => alCambiar(null)}>Cancelar</Button>
+        <Button color="primary" size="sm" onPress={alEnviar} isDisabled={enviando || sinMotivo}>
           {enviando ? "Guardando…" : agotados.length ? "Aprobar como excepción" : "Registrar"}
-        </Boton>
+        </Button>
       </div>
-    </Dialogo>
+    </Ventana>
   );
 }

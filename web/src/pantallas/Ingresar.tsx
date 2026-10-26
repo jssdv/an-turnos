@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { ErrorApi } from "../api/cliente";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
-import { Campo } from "../componentes/Campo";
 import { useSesion } from "../Sesion";
 import e from "./Acceso.module.css";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { Alert } from "@/components/application/alerts/alert";
 
 export function Ingresar() {
   const { usuario, entrar } = useSesion();
@@ -52,11 +52,11 @@ export function Ingresar() {
             <p className={e.sub}>Usa el correo que te dio coordinación.</p>
           </div>
         </div>
-        {error && <Aviso nivel="error">{error}</Aviso>}
+        {error && <Alert color="error">{error}</Alert>}
         <form className={e.form} onSubmit={enviar}>
-          <Campo etiqueta="Correo" type="email" autoComplete="username" required autoFocus value={correo} onChange={(x) => setCorreo(x.target.value)} />
-          <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" required value={clave} onChange={(x) => setClave(x.target.value)} />
-          <Boton type="submit" variante="primario" disabled={enviando || !correo || !clave}>{enviando ? "Ingresando…" : "Ingresar"}</Boton>
+          <Input value={String(correo)} label="Correo" type="email" autoComplete="username" isRequired autoFocus onChange={(x) => setCorreo(x)} />
+          <Input value={String(clave)} label="Contraseña" type="password" autoComplete="current-password" isRequired onChange={(x) => setClave(x)} />
+          <Button color="primary" size="sm" type="submit" isDisabled={enviando || !correo || !clave}>{enviando ? "Ingresando…" : "Ingresar"}</Button>
         </form>
         <p className={e.nota}>¿Olvidaste la contraseña? Pídele a quien administra la clínica que la restablezca.</p>
       </div>

@@ -2,12 +2,13 @@ import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, EstadoSolicitud, Periodo, Solicitud, Turno } from "../api/tipos";
-import { Boton } from "../componentes/Boton";
-import { Campo, Seleccion } from "../componentes/Campo";
 import { Tabla } from "../componentes/Tabla";
 import { Tarjeta } from "../componentes/Tarjeta";
 import { Fila, Formulario, Pagina, useAccion } from "./comun";
 import { fechaCorta } from "./fechas";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
 
 const TIPO = { libre: "Pide el día libre", quiero: "Prefiere un turno", evitar: "Prefiere no hacer un turno" } as const;
 
@@ -39,26 +40,26 @@ export function Solicitudes() {
       {editar && (
         <Tarjeta titulo="Nueva solicitud">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
-            <Seleccion etiqueta="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
+            <NativeSelect size="sm" label="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>
               {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </Seleccion>
-            <Seleccion etiqueta="Tipo" value={f.tipo} onChange={(x) => setF({ ...f, tipo: x.target.value })}>
+            </NativeSelect>
+            <NativeSelect size="sm" label="Tipo" value={f.tipo} onChange={(x) => setF({ ...f, tipo: x.target.value })}>
               {Object.entries(TIPO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </Seleccion>
+            </NativeSelect>
             {f.tipo !== "libre" && (
-              <Seleccion etiqueta="Turno" required value={f.turno} onChange={(x) => setF({ ...f, turno: x.target.value })}>
+              <NativeSelect size="sm" label="Turno" required value={f.turno} onChange={(x) => setF({ ...f, turno: x.target.value })}>
                 <option value="">Elige…</option>
                 {(turnos.datos ?? []).filter((t) => t.activo).map((t) => <option key={t.codigo} value={t.codigo}>{t.codigo} · {t.nombre}</option>)}
-              </Seleccion>
+              </NativeSelect>
             )}
-            <Campo etiqueta="Desde" type="date" required value={f.desde} onChange={(x) => setF({ ...f, desde: x.target.value })} />
-            <Campo etiqueta="Hasta" type="date" required value={f.hasta} onChange={(x) => setF({ ...f, hasta: x.target.value })} />
-            <Seleccion etiqueta="Prioridad" value={f.prioridad} onChange={(x) => setF({ ...f, prioridad: x.target.value })}>
+            <Input value={String(f.desde)} label="Desde" type="date" isRequired onChange={(x) => setF({ ...f, desde: x })} />
+            <Input value={String(f.hasta)} label="Hasta" type="date" isRequired onChange={(x) => setF({ ...f, hasta: x })} />
+            <NativeSelect size="sm" label="Prioridad" value={f.prioridad} onChange={(x) => setF({ ...f, prioridad: x.target.value })}>
               <option value="normal">Normal</option><option value="alta">Alta</option>
-            </Seleccion>
-            <Campo etiqueta="Nota" maxLength={300} value={f.nota} onChange={(x) => setF({ ...f, nota: x.target.value })} />
-            <Fila><Boton type="submit" variante="primario" disabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Boton></Fila>
+            </NativeSelect>
+            <Input value={String(f.nota)} label="Nota" maxLength={300} onChange={(x) => setF({ ...f, nota: x })} />
+            <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
           </Formulario>
         </Tarjeta>
       )}
@@ -75,7 +76,7 @@ export function Solicitudes() {
             s.prioridad === "alta" ? "Alta" : "Normal",
             estado.get(s.id) ? `${estado.get(s.id)!.estado}${estado.get(s.id)!.motivo ? ` (${estado.get(s.id)!.motivo})` : ""}` : "",
             s.nota,
-            editar ? <Boton variante="texto" disabled={ocupado} onClick={() => hacer(async () => { await enviar("DELETE", `${base}/solicitudes/${s.id}`); lista.recargar(); estados.recargar(); })}>Borrar</Boton> : null,
+            editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => hacer(async () => { await enviar("DELETE", `${base}/solicitudes/${s.id}`); lista.recargar(); estados.recargar(); })}>Borrar</Button> : null,
           ])}
         />
       </Tarjeta>

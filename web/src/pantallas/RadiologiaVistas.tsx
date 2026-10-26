@@ -1,10 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { usar } from "../api/catalogos";
 import { base, rutaSemana, type Alertas as TAlertas, type Archivo, type Equidad as TEquidad, type EquidadMeses, type Hoja, type Semana } from "../api/radiologia";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
 import { Tarjeta } from "../componentes/Tarjeta";
 import r from "./Radiologia.module.css";
+import { Button } from "@/components/base/buttons/button";
+import { Alert } from "@/components/application/alerts/alert";
 
 const num = (v: number | null | undefined) => (v ?? "");
 
@@ -22,7 +22,7 @@ export function Resumen({ datos }: { datos: Semana["resumen"] }) {
   return (
     <>
       <h2 className={r.cifra}>{datos.semana}</h2>
-      {datos.aviso && <Aviso nivel="aviso">{datos.aviso}</Aviso>}
+      {datos.aviso && <Alert color="warning">{datos.aviso}</Alert>}
       <div className={r.tarjetas}>
         {datos.tarjetas.map((t) => (
           <Tarjeta key={t.titulo} titulo={t.titulo}>
@@ -61,10 +61,10 @@ export function Previa({ area, archivo, lunes }: { area: number; archivo: number
     });
     return { m, t };
   }, [hoja]);
-  if (hojas.error) return <Aviso nivel="error">{hojas.error}</Aviso>;
+  if (hojas.error) return <Alert color="error">{hojas.error}</Alert>;
   if (!hoja) return <p className={r.vacio} aria-busy="true">Cargando…</p>;
   return (
-    <Tarjeta titulo="Vista previa" acciones={<Boton onClick={() => window.print()}>Imprimir</Boton>}>
+    <Tarjeta titulo="Vista previa" acciones={<Button color="secondary" size="sm" onPress={() => window.print()}>Imprimir</Button>}>
       <div className={r.pestanas} role="tablist">
         {hojas.datos!.map((h, i) => <button key={h.hoja} role="tab" aria-selected={i === sel} className={r.pestana} onClick={() => setSel(i)}>{h.titulo}</button>)}
       </div>
@@ -151,7 +151,7 @@ export function Equidad({ area, archivos, actual, datos }: { area: number; archi
             </tbody>
           </table>
         </Tarjeta>
-      ) : meses.error ? <Aviso nivel="error">{meses.error}</Aviso> : meses.datos && (
+      ) : meses.error ? <Alert color="error">{meses.error}</Alert> : meses.datos && (
         <Tarjeta>
           <p className={r.detalle}>Meses: {meses.datos.meses.join(", ")}{meses.datos.fallidos.length ? `  ·  No se pudieron leer: ${meses.datos.fallidos.join(", ")}` : ""}</p>
           <Cuadro
@@ -178,7 +178,7 @@ export function Agendas({ area, archivo, lunes, agendas }: { area: number; archi
   return (
     <>
       <p className={r.detalle}>Turnos de cada médico para enviar por WhatsApp o correo. «Exportar agendas» baja un .zip con un .ics por médico para Outlook.</p>
-      {copiado && <Aviso nivel="ok">{copiado}</Aviso>}
+      {copiado && <Alert color="success">{copiado}</Alert>}
       <div className={r.dos}>
         <Tarjeta>
           <input type="search" aria-label="Buscar médico" placeholder="Buscar médico…" value={buscar} onChange={(ev) => setBuscar(ev.target.value)} />
@@ -189,10 +189,10 @@ export function Agendas({ area, archivo, lunes, agendas }: { area: number; archi
         <Tarjeta>
           {actual ? <pre className={r.texto}>{agendas[actual]}</pre> : <p className={r.vacio}>Nadie tiene turnos esta semana.</p>}
           <div className={r.fila}>
-            <Boton onClick={() => location.assign(`${ruta}/agendas.zip`)}>Exportar agendas</Boton>
-            {actual && <Boton onClick={() => location.assign(`${ruta}/agenda/${Object.keys(agendas).indexOf(actual)}.ics`)}>Descargar .ics</Boton>}
-            <Boton onClick={() => copiar(Object.values(agendas).join("\n\n"), `${Object.keys(agendas).length} agendas copiadas.`)}>Copiar todas</Boton>
-            {actual && <Boton onClick={() => copiar(agendas[actual], "Agenda copiada.")}>Copiar esta agenda</Boton>}
+            <Button color="secondary" size="sm" onPress={() => location.assign(`${ruta}/agendas.zip`)}>Exportar agendas</Button>
+            {actual && <Button color="secondary" size="sm" onPress={() => location.assign(`${ruta}/agenda/${Object.keys(agendas).indexOf(actual)}.ics`)}>Descargar .ics</Button>}
+            <Button color="secondary" size="sm" onPress={() => copiar(Object.values(agendas).join("\n\n"), `${Object.keys(agendas).length} agendas copiadas.`)}>Copiar todas</Button>
+            {actual && <Button color="secondary" size="sm" onPress={() => copiar(agendas[actual], "Agenda copiada.")}>Copiar esta agenda</Button>}
           </div>
         </Tarjeta>
       </div>
