@@ -4,9 +4,7 @@ import { borrador as guardado, cambios, type Borrador } from "../api/cambios";
 import { ErrorApi, leer } from "../api/cliente";
 import { useSesion } from "../Sesion";
 import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Turno } from "../api/tipos";
-import { Ayuda } from "../componentes/Ayuda";
 import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
-import { Tarjeta } from "../componentes/Tarjeta";
 import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
 import e from "./Cuadro.module.css";
@@ -17,6 +15,7 @@ import { RegistrarCambio, sinCupo } from "./RegistrarCambio";
 import { Button } from "@/components/base/buttons/button";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
+import { Seccion, Ayuda } from "./comun";
 
 interface Datos {
   cuadro: CuadroApi;
@@ -230,7 +229,7 @@ export function Cuadro() {
       )}
       {resultado && <Alert color={COLOR_NIVEL[resultado.nivel]}>{resultado.texto}</Alert>}
 
-      <Tarjeta aria-busy={!datos}>
+      <Seccion aria-busy={!datos}>
         {!datos || !vista ? (
           <p className={e.vacio}>Cargando el cuadro…</p>
         ) : datos.cuadro.celdas.length === 0 ? (
@@ -274,13 +273,13 @@ export function Cuadro() {
             </div>
           </>
         )}
-      </Tarjeta>
+      </Seccion>
 
       <RegistrarCambio borrador={borrador} alCambiar={cerrarCambio} nombres={nombres} turnos={datos?.turnos ?? []} actual={codigoDe}
         cupos={cupos} error={errorCambio} enviando={enviando} alEnviar={enviar} />
 
       {datos && (
-        <Tarjeta data-solo-pantalla titulo={<>Alertas {datos.alertas.length > 0 && <span className={e.cuenta}>{datos.alertas.length}</span>}</>}>
+        <Seccion data-solo-pantalla titulo={<>Alertas {datos.alertas.length > 0 && <span className={e.cuenta}>{datos.alertas.length}</span>}</>}>
           {datos.alertas.length === 0 ? (
             <p className={e.vacio}>Sin alertas: el cuadro cumple las reglas.</p>
           ) : (
@@ -310,7 +309,7 @@ export function Cuadro() {
               })}
             </>
           )}
-        </Tarjeta>
+        </Seccion>
       )}
 
       {datos && (

@@ -4,9 +4,8 @@ import { enviar, usar } from "../api/catalogos";
 import { ErrorApi } from "../api/cliente";
 import type { Area, UsuarioClinica } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
 import { useSesion } from "../Sesion";
-import { Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -70,15 +69,15 @@ export function Usuarios() {
       {choque && (
         <Alert color="warning" action={<Button color="primary" size="sm" isDisabled={ocupado} onPress={() => reemplazar(choque.id, choque.area)}>Pasar al editor actual a «ver»</Button>}>{choque.texto}</Alert>
       )}
-      <Tarjeta titulo="Nuevo usuario">
+      <Seccion titulo="Nuevo usuario">
         <Formulario onSubmit={(x) => { x.preventDefault(); void crear(); }}>
           <Input value={String(f.correo)} label="Correo" type="email" isRequired onChange={(x) => setF({ ...f, correo: x })} />
           <Input value={String(f.nombre)} label="Nombre" isRequired maxLength={120} onChange={(x) => setF({ ...f, nombre: x })} />
           <Checkbox label="Administra la clínica" isSelected={f.es_admin} onChange={(x) => setF({ ...f, es_admin: x })} />
           <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.correo || !f.nombre.trim()}>Crear usuario</Button></Fila>
         </Formulario>
-      </Tarjeta>
-      <Tarjeta titulo="Usuarios y permisos">
+      </Seccion>
+      <Seccion titulo="Usuarios y permisos">
         <Tabla
           descripcion="Usuarios de la clínica"
           cargando={!lista.datos && !lista.error}
@@ -98,7 +97,7 @@ export function Usuarios() {
             </Fila>,
           ])}
         />
-      </Tarjeta>
+      </Seccion>
     </Pagina>
   );
 }

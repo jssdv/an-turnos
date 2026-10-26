@@ -1,4 +1,5 @@
-import { Navigate, Outlet, Route, Routes } from "react-router";
+import { RouterProvider } from "react-aria-components";
+import { Navigate, Outlet, Route, Routes, useHref, useNavigate } from "react-router";
 import { useSesion } from "./Sesion";
 import { CambiarClave } from "./pantallas/CambiarClave";
 import { Analiticas } from "./pantallas/Analiticas";
@@ -28,8 +29,11 @@ function Inicio() {
   return <Navigate to={usuario ? "/areas" : "/ingresar"} replace />;
 }
 
+/** RouterProvider: los enlaces de React Aria (navegación de Untitled UI) navegan con react-router, sin recargar. */
 export default function App() {
+  const navigate = useNavigate();
   return (
+    <RouterProvider navigate={navigate} useHref={useHref}>
     <Routes>
       <Route path="/" element={<Inicio />} />
       <Route path="/ingresar" element={<Ingresar />} />
@@ -53,5 +57,6 @@ export default function App() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </RouterProvider>
   );
 }

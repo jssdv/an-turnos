@@ -3,8 +3,7 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, EstadoSolicitud, Periodo, Solicitud, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
-import { Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -38,7 +37,7 @@ export function Solicitudes() {
   return (
     <Pagina titulo="Solicitudes" sub="Preferencias del personal para el próximo cuadro." ayuda={<>Una solicitud es un <strong>deseo, no una garantía</strong>: el sistema intenta cumplirla al generar, pero primero cubre los puestos y respeta las reglas legales. Usa prioridad <strong>alta</strong> solo para lo importante (una cita médica, un compromiso familiar). Después de generar verás si cada solicitud se cumplió.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
-        <Tarjeta titulo="Nueva solicitud">
+        <Seccion titulo="Nueva solicitud">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <NativeSelect size="sm" label="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>
@@ -61,9 +60,9 @@ export function Solicitudes() {
             <Input value={String(f.nota)} label="Nota" maxLength={300} onChange={(x) => setF({ ...f, nota: x })} />
             <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
           </Formulario>
-        </Tarjeta>
+        </Seccion>
       )}
-      <Tarjeta titulo="Solicitudes registradas">
+      <Seccion titulo="Solicitudes registradas">
         <Tabla
           descripcion="Solicitudes del área"
           cargando={!lista.datos && !lista.error}
@@ -79,7 +78,7 @@ export function Solicitudes() {
             editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => hacer(async () => { await enviar("DELETE", `${base}/solicitudes/${s.id}`); lista.recargar(); estados.recargar(); })}>Borrar</Button> : null,
           ])}
         />
-      </Tarjeta>
+      </Seccion>
     </Pagina>
   );
 }

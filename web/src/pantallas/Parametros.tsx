@@ -3,8 +3,7 @@ import { useOutletContext } from "react-router";
 import { aHHMM, aMinutos, enviar, usar } from "../api/catalogos";
 import type { Area, Tarifa, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
-import { Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -75,7 +74,7 @@ export function Parametros() {
 
   return (
     <Pagina titulo="Reglas y turnos" sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Los <strong>turnos</strong> definen horarios y pausas. Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? turnos.error ?? tarifas.error} aviso={aviso}>
-      <Tarjeta titulo="Reglas" aria-busy={!params.datos}>
+      <Seccion titulo="Reglas" aria-busy={!params.datos}>
         {!params.datos ? !params.error && <p aria-busy="true">Cargando…</p> : (
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
             <NativeSelect size="sm" label="Periodo" hint="Cómo se corta cada cuadro." disabled={!editar} value={v.periodo_modo ?? "mes"} onChange={(x) => setV({ ...v, periodo_modo: x.target.value })}>
@@ -87,9 +86,9 @@ export function Parametros() {
             {editar && <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado}>Guardar reglas</Button></Fila>}
           </Formulario>
         )}
-      </Tarjeta>
+      </Seccion>
 
-      <Tarjeta titulo="Turnos">
+      <Seccion titulo="Turnos">
         <Tabla descripcion="Turnos del área" cargando={!turnos.datos && !turnos.error} vacio="Sin turnos." columnas={["Código", "Nombre", "Horario", "Estado", ""]}
           filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, x.activo ? "Activo" : "Inactivo",
             editar ? <Button color="link-color" size="sm" onPress={() => elegirTurno(x)}>Editar</Button> : null])} />
@@ -113,9 +112,9 @@ export function Parametros() {
             </Fila>
           </Formulario>
         )}
-      </Tarjeta>
+      </Seccion>
 
-      <Tarjeta titulo="Tarifas">
+      <Seccion titulo="Tarifas">
         <Tabla descripcion="Tarifas vigentes por fecha" cargando={!tarifas.datos && !tarifas.error} vacio="Sin tarifas." columnas={["Concepto", "Valor", "Desde"]}
           filas={[...(tarifas.datos ?? [])].sort((a, b) => a[0].localeCompare(b[0]) || a[2].localeCompare(b[2])).map(([c, valor, d]) => [c, valor, fechaCorta(d)])} />
         {editar && (
@@ -126,7 +125,7 @@ export function Parametros() {
             <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !tar.valor || !tar.desde}>Agregar tarifa</Button></Fila>
           </Formulario>
         )}
-      </Tarjeta>
+      </Seccion>
     </Pagina>
   );
 }

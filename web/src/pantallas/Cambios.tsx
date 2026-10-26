@@ -3,11 +3,11 @@ import { cambios } from "../api/cambios";
 import { ErrorApi } from "../api/cliente";
 import type { CambioRegistrado } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
 import { NOMBRE_TIPO } from "./RegistrarCambio";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Alert } from "@/components/application/alerts/alert";
+import { Seccion } from "./comun";
 
 interface Props {
   area: number;
@@ -47,7 +47,7 @@ export function Cambios({ area, periodo, revision, nombres, puedeAnular, alAnula
 
   const quien = (c: number) => nombres.get(c) ?? `#${c}`;
   return (
-    <Tarjeta titulo="Cambios del periodo">
+    <Seccion titulo="Cambios del periodo">
       {error && <Alert color="error">{error}</Alert>}
       {!lista ? <p aria-busy="true">Cargando…</p> : (
         <Tabla
@@ -66,6 +66,6 @@ export function Cambios({ area, periodo, revision, nombres, puedeAnular, alAnula
           ])}
         />
       )}
-    </Tarjeta>
+    </Seccion>
   );
 }

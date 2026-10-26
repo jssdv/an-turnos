@@ -3,8 +3,7 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Novedad } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
-import { Fila, Formulario, Pagina, useAccion } from "./comun";
+import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -33,7 +32,7 @@ export function Novedades() {
   return (
     <Pagina titulo="Ausencias" sub="Vacaciones, incapacidades, licencias y días libres concedidos." ayuda={<>Registra aquí cuándo alguien <strong>no puede trabajar</strong>. Al generar el cuadro, el sistema no le asigna turnos esos días. Si el cuadro ya existe, las alertas te avisan de los turnos que chocan con una ausencia.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
-        <Tarjeta titulo="Nueva ausencia">
+        <Seccion titulo="Nueva ausencia">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <NativeSelect size="sm" label="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>
@@ -47,9 +46,9 @@ export function Novedades() {
             <Input value={String(f.nota)} label="Nota" maxLength={300} onChange={(x) => setF({ ...f, nota: x })} />
             <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
           </Formulario>
-        </Tarjeta>
+        </Seccion>
       )}
-      <Tarjeta titulo="Ausencias registradas">
+      <Seccion titulo="Ausencias registradas">
         <Tabla
           descripcion="Ausencias del área"
           cargando={!lista.datos && !lista.error}
@@ -60,7 +59,7 @@ export function Novedades() {
             editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => hacer(async () => { await enviar("DELETE", `${base}/novedades/${n.id}`); lista.recargar(); })}>Borrar</Button> : null,
           ])}
         />
-      </Tarjeta>
+      </Seccion>
     </Pagina>
   );
 }
