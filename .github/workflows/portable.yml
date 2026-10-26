@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     tags: ["v*"]
+    branches: [fase-4-paridad-pc]  # temporal: probar el build antes de fusionar a main
 
 jobs:
   windows:
