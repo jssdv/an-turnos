@@ -202,10 +202,11 @@ export interface Exporte {
   creado_por: string | null;
 }
 
-/** Personas pedidas en una franja y día de un área sin puestos (dia 0 lunes … 6 domingo, 7 festivo). */
+/** Personas pedidas en una ventana horaria (la de un turno) y día de un área sin puestos (dia 0 lunes … 6 domingo, 7 festivo). */
 export interface Requerimiento {
   dia: number;
-  franja: "M" | "T" | "N";
+  inicio: number;
+  fin: number;
   personas: number;
   obligatorio: boolean;
 }

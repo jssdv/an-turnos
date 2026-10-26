@@ -418,8 +418,8 @@ def test_noche_y_corrido_segun_el_horario():
 def test_requerimiento_sin_puestos_por_dia_de_la_semana():
     bd = db.BD()
     bd.set_param("usa_puestos", 0)
-    bd.guardar_requerimiento([dict(dia=0, franja="M", personas=3, obligatorio=True), dict(dia=5, franja="M", personas=1, obligatorio=True),
-                              dict(dia=7, franja="N", personas=2, obligatorio=True)])
+    bd.guardar_requerimiento([dict(dia=0, inicio=360, fin=720, personas=3, obligatorio=True), dict(dia=5, inicio=360, fin=720, personas=1, obligatorio=True),
+                              dict(dia=7, inicio=1080, fin=360, personas=2, obligatorio=True)])
     assert len(bd.requerimiento()) == 3
     ctx = bd.contexto(2026)
     assert not ctx.usa_puestos and not ctx.puestos
@@ -428,8 +428,24 @@ def test_requerimiento_sin_puestos_por_dia_de_la_semana():
     assert demanda.demanda_fecha(ctx, sabado)[0][12:24] == [1] * 12
     assert demanda.demanda_fecha(ctx, date(2026, 10, 6)) == ([0] * 48, [0] * 48)
     assert sum(demanda.demanda_fecha(ctx, festivo, con_ayer=False)[0][36:]) == 24 and sum(demanda.demanda_fecha(ctx, festivo)[0][:12]) == 0
+    bd.guardar_requerimiento([dict(dia=0, inicio=360, fin=1080, personas=1, obligatorio=True)])  # ventana de un turno corrido C
+    assert bd.requerimiento() == [dict(dia=0, inicio=360, fin=1080, personas=1, obligatorio=True)]
+    assert demanda.demanda_fecha(bd.contexto(2026), lunes)[0][12:36] == [1] * 24
     bd.set_param("usa_puestos", 1)  # con puestos vuelve la demanda por puesto y el requerimiento queda guardado
     assert bd.contexto(2026).usa_puestos and all(d.puesto_id for d in bd.contexto(2026).demandas)
+
+
+def test_requerimiento_por_puesto_lee_reglas_ls_df_dia_a_dia():
+    bd = db.BD()
+    pid = bd.guardar_puesto(Puesto(0, 90, "Prueba", "FFFFFF", True))
+    bd.reemplazar_demandas(pid, [Demanda(pid, "LS", 360, 720, 2), Demanda(pid, "LS", 360, 720, 1), Demanda(pid, "DF", 360, 720, 1, obligatorio=False)])
+    r = bd.requerimiento(pid)
+    assert sorted((f["dia"], f["personas"], f["obligatorio"]) for f in r) == [(d, 3, True) for d in range(6)] + [(6, 1, False), (7, 1, False)]
+    ctx = bd.contexto(2026)
+    antes = [demanda.demanda_por_puesto(ctx, date(2026, 10, d))[pid] for d in (5, 10, 11, 12)]  # lunes, sábado, domingo, festivo
+    bd.guardar_requerimiento(r, pid)
+    assert all(d.tipo_dia in "0123456F" for d in bd.demandas(pid))
+    assert antes == [demanda.demanda_por_puesto(bd.contexto(2026), date(2026, 10, d))[pid] for d in (5, 10, 11, 12)]
 
 
 if __name__ == "__main__":
