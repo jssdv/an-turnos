@@ -15,7 +15,7 @@
 - [ ] **Fase 4** — Planilla piloto en React · [plan](superpowers/plans/2026-10-26-web-fase-4.md) (entregables hechos; falta de la aceptación: la base migrada de la Fase 2 y el PC de la clínica)
 - [x] **Fase 5** — Edición con revisiones y auditoría · [plan](superpowers/plans/2026-10-27-web-fase-5.md) (PR 1: edición del cuadro; PR 2: catálogos, Analíticas, Usuarios y paridad. Pendiente de probar: el arrastre con un ratón real)
 - [x] **Fase 6** — Exportes · [plan](superpowers/plans/2026-10-28-web-fase-6.md) (falta ver la hoja de impresión en una impresora o vista previa real)
-- [ ] **Fase 7a** — Servicios tradicionales · plan pendiente
+- [ ] **Fase 7a** — Servicios tradicionales · [plan](superpowers/plans/2026-10-28-web-fase-7a.md) (PR abierto; se marca al fusionar)
 - [ ] **Fase 7b** — Radiología en la web, con lo que hace hoy (importando el cuadro mensual) · plan pendiente
 - [ ] **Fase 8** — Seguridad y despliegue en la clínica piloto · plan pendiente
 - [ ] **Fase 7c** — Radiología automática (se genera sola con el motor) · plan pendiente (después de la Fase 8)
@@ -294,12 +294,12 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 
 **7a — Servicios tradicionales**
 - **Objetivo:** una segunda área `turnos` en la misma clínica.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-28-web-fase-7a.md](superpowers/plans/2026-10-28-web-fase-7a.md)
 - **Entregable:**
-  - [ ] Área creada con `an.web.admin` y semilla de Esterilización, editable por la coordinación
+  - [x] Área creada con `an.web.admin` y semilla de Esterilización, editable por la coordinación
 - **Aceptación:**
-  - [ ] Una segunda área genera su cuadro sin tocar los datos de la primera
-  - [ ] Un usuario de una área no ve la otra (403/404)
+  - [x] Una segunda área genera su cuadro sin tocar los datos de la primera
+  - [x] Un usuario de una área no ve la otra (403/404)
 
 **7b — Radiología en la web, con lo que hace hoy**
 - **Objetivo:** hacer en el navegador todo lo que hace hoy la app Qt de Radiología, importando el cuadro mensual.
