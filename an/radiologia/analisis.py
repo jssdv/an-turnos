@@ -20,6 +20,12 @@ SERVICIOS = {"URG": "Ecografía Urgencias", "ECO1": "Ecógrafo 1 (Mixto)", "ECO2
              "MAMA": "Lectura Mamografía", "DENSITO": "Lectura Densitometría",
              "PROCED": "Procedimientos"}
 AMARILLO = PatternFill("solid", fgColor="FFFFF59D")
+PESTANAS_PREVIA = {"Ecografía - ECO": "Ecografía", "Lectura - Neuro": "Neuro", "Lectura - MSK": "MSK",
+                   "Lectura - Abdomen": "Abdomen", "Lectura - CARDIO-TORAX AMBULATO": "Tórax y Corazón",
+                   "Lectura - Mamografia-Densitomet": "Mamografía y Densito", "Cambios": "Cambios"}
+# Servicios en el orden de la tabla de cobertura
+COBERTURA = ["URG", "ECO1", "ECO2", "ECO3", "ECO4", "ECO5", "PM", "CJ1", "CJ2",
+             "NEURO", "MSK", "ABD", "TORAX", "CARDIO", "MAMA", "DENSITO"]
 
 
 def fecha_corta(f):
@@ -193,12 +199,16 @@ def ics(nombre, eventos):
     return "\r\n".join(lineas) + "\r\n"
 
 
+def nombre_archivo(nombre):
+    return re.sub(r'[\\/:*?"<>|]', "", nombre).strip()
+
+
 def exportar_agendas(datos, carpeta, lunes):
     """Escribe un .ics y un .txt por médico; devuelve la carpeta creada."""
     destino = Path(carpeta) / f"Agendas {nombre_semana(lunes)}"
     destino.mkdir(exist_ok=True)
     for nombre, ev in agenda_por_medico(datos).items():
-        archivo = re.sub(r'[\\/:*?"<>|]', "", nombre).strip()
+        archivo = nombre_archivo(nombre)
         (destino / f"{archivo}.ics").write_text(ics(nombre, ev), encoding="utf-8")
         (destino / f"{archivo}.txt").write_text(texto_agenda(nombre, ev, lunes), encoding="utf-8")
     return destino
@@ -393,3 +403,75 @@ section {{ page-break-after: always; }} section:last-child {{ page-break-after: 
         partes.append(f"<section><h2>{escape(titulo)}</h2><table>{''.join(filas)}</table></section>")
     partes.append("</body></html>")
     return "\n".join(partes)
+
+
+# ---------------------------------------------------------------- resumen y semanas
+def semana_texto(lunes):
+    dom = lunes + timedelta(6)
+    ini = f"{lunes.day}" if lunes.month == dom.month else f"{lunes.day} {MESES_CORTOS[lunes.month - 1]}"
+    return f"{ini} – {dom.day} {MESES_CORTOS[dom.month - 1]} {dom.year}"
+
+
+def semana_por_defecto(lunes, hoy):
+    """La primera semana que no ha pasado; si todas pasaron, la última."""
+    esta = hoy - timedelta(days=hoy.weekday())
+    return next((l for l in lunes if l >= esta), lunes[-1])
+
+
+def resumen_semana(lunes, datos, resumen, alertas, revision, n_agendas, version_anterior, cambios):
+    """Lo que muestra la pestaña Resumen: tarjetas, cobertura por servicio y día, y el aviso «Revisa antes de publicar»."""
+    dom = lunes + timedelta(6)
+    pend = resumen["pendientes"]
+    cruces = [r for r in revision if r[2].startswith("Se cruzan")]
+    servicios = sorted({SERVICIOS.get(s, s) for _, _, s, _ in pend})
+    fest = resumen["festivos"]
+    if version_anterior is None:
+        camb = ("—", "info", "Aún no hay versión guardada")
+    else:
+        camb = (len(cambios), "warn" if cambios else "ok", f"vs. «{version_anterior}»")
+    tarjetas = [
+        ("Franjas sin médico", len(pend), "warn" if pend else "ok", ", ".join(servicios[:4]) or "Todo cubierto"),
+        ("Alertas de descanso", len(alertas), "warn" if alertas else "ok",
+         f"{len({a[1] for a in alertas})} médico(s)" if alertas else "Sin alertas"),
+        ("Problemas en el cuadro", len(revision), "error" if cruces else ("warn" if revision else "ok"),
+         f"{len(cruces)} cruce(s) de turnos" if cruces else ("Revisar" if revision else "Sin problemas")),
+        ("Cambios desde la última versión", *camb),
+        ("Médicos con turnos", n_agendas, "info", "Ver agendas"),
+        ("Festivos", len(fest), "info", ", ".join(fecha_corta(f) for f in fest) or "Ninguno"),
+    ]
+    cobertura = []
+    for srv in COBERTURA:
+        dias = []
+        for k, dia in enumerate(datos["dias"]):
+            i = k + 1
+            n = len(datos["densito"][i]) if srv == "DENSITO" else len({t[4] for t in datos["turnos"][i] if t[0] == srv})
+            dias.append(dict(n=n, faltan=[fr for f, fr, s, _ in pend if s == srv and f == dia]))
+        cobertura.append(dict(servicio=SERVICIOS.get(srv, srv), dias=dias))
+    partes = []
+    if cruces:
+        partes.append(f"{len(cruces)} turno(s) que se cruzan en el cuadro")
+    if resumen["desconocidos"]:
+        partes.append("códigos no reconocidos (no se publican): " + ", ".join(resumen["desconocidos"]))
+    return dict(
+        semana=f"Semana del {lunes.day} de {MESES_LARGOS[lunes.month - 1]} al {dom.day} de {MESES_LARGOS[dom.month - 1]}",
+        tarjetas=[dict(titulo=t, valor=v, nivel=n, detalle=d) for t, v, n, d in tarjetas],
+        cobertura=cobertura, dias=DIAS,
+        aviso=("Revisa antes de publicar: " + "; ".join(partes) + ".") if partes else "")
+
+
+def hoja_a_json(ws, col_ini, tema):
+    """Copia visual de una hoja (texto, fondo, negrita, color de letra y combinadas) para la vista previa web."""
+    filas = []
+    for row in ws.iter_rows(min_col=col_ini):
+        fila = []
+        for cel in row:
+            solido = cel.fill is not None and cel.fill.fill_type == "solid"
+            fila.append(dict(
+                texto=texto_celda(ws, cel),
+                fondo=color_hex(cel.fill.fgColor, tema) if solido else None,
+                negrita=bool(cel.font and cel.font.b),
+                color=color_hex(cel.font.color, tema) if cel.font else None))
+        filas.append(fila)
+    fusiones = [[r.min_row - 1, r.min_col - col_ini, r.max_row - r.min_row + 1, r.max_col - r.min_col + 1]
+                for r in ws.merged_cells.ranges if r.min_col >= col_ini]
+    return dict(filas=filas, fusiones=fusiones)
