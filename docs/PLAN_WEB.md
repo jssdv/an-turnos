@@ -13,7 +13,7 @@
 - [x] **Fase 2** — Migración de `turnos.db` · [plan](superpowers/plans/2026-10-26-web-fase-2.md)
 - [x] **Fase 3** — Trabajador del solver · [plan](superpowers/plans/2026-10-26-web-fase-3.md)
 - [ ] **Fase 4** — Planilla piloto en React · [plan](superpowers/plans/2026-10-26-web-fase-4.md) (entregables hechos; falta de la aceptación: la base migrada de la Fase 2 y el PC de la clínica)
-- [ ] **Fase 5** — Edición con revisiones y auditoría · plan pendiente
+- [ ] **Fase 5** — Edición con revisiones y auditoría · [plan](superpowers/plans/2026-10-27-web-fase-5.md) (PR 1 hecho: API de edición y edición del cuadro; falta PR 2: Solicitudes, catálogos, Analíticas, Usuarios)
 - [ ] **Fase 6** — Exportes · plan pendiente
 - [ ] **Fase 7a** — Servicios tradicionales · plan pendiente
 - [ ] **Fase 7b** — Radiología en la web, con lo que hace hoy (importando el cuadro mensual) · plan pendiente
@@ -231,24 +231,24 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 5 — Edición con revisiones y auditoría
 - **Objetivo:** editar en la web con el mismo registro de cambios que Qt.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-27-web-fase-5.md](superpowers/plans/2026-10-27-web-fase-5.md) (PR 1 = Tareas 1–8, PR 2 = 9–13)
 - **Entregable:**
-  - [ ] Edición de celda, arrastrar para permutar y lote
-  - [ ] Diálogo permuta / cambio de servicio / ajuste
-  - [ ] Pestaña de cambios con Anular
+  - [x] Edición de celda, arrastrar para permutar y lote (el arrastre y la selección múltiple no se probaron en navegador)
+  - [x] Diálogo permuta / cambio de servicio / ajuste
+  - [x] Pestaña de cambios con Anular (tarjeta bajo las alertas)
   - [ ] Solicitudes
   - [ ] Personal, Novedades, Puestos y Parámetros
-  - [ ] Publicar y Cerrar periodo
+  - [x] Publicar y Cerrar periodo (y Restaurar, Reabrir, Nuevo periodo sin solapes)
   - [ ] Analíticas (lectura)
   - [ ] Usuarios y permisos por área para el administrador de la clínica
   - [ ] Lista de funciones de `paginas.py` con su equivalente web, revisada
 - **Aceptación:**
-  - [ ] Dos pestañas editan el mismo periodo: la segunda recibe 409 y ve el cuadro actualizado sin perder lo que escribió
-  - [ ] Cupo de permutas y `EditadoDespues` responden igual que en `test_cambios.py`
-  - [ ] Cada escritura deja fila en `auditoria` y, si es celda, en `cambio_turno`
-  - [ ] Usuario con permiso `ver` recibe 403 en toda escritura
-  - [ ] Un segundo usuario con permiso `editar` en la misma área se rechaza (un solo editor por área)
-  - [ ] Sesión vencida a mitad de una edición: 401, la interfaz pide ingresar y conserva el cambio pendiente
+  - [x] Dos pestañas editan el mismo periodo: la segunda recibe 409 y ve el cuadro actualizado sin perder lo que escribió
+  - [x] Cupo de permutas y `EditadoDespues` responden igual que en `test_cambios.py`
+  - [x] Cada escritura deja fila en `auditoria` y, si es celda, en `cambio_turno`
+  - [x] Usuario con permiso `ver` recibe 403 en toda escritura
+  - [x] Un segundo usuario con permiso `editar` en la misma área se rechaza (un solo editor por área)
+  - [x] Sesión vencida a mitad de una edición: 401, la interfaz pide ingresar y conserva el cambio pendiente
 - **Riesgo:** paridad con Qt incompleta → se revisa la lista de funciones al cerrar la fase.
 
 ### Fase 6 — Exportes
