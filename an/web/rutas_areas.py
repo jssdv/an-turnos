@@ -52,8 +52,11 @@ def parametros(ctx: Contexto = Depends(contexto_area, scope="function")):
 
 @router.get("/areas/{area}/periodos")
 def periodos(ctx: Contexto = Depends(contexto_area, scope="function")):
-    return [dict(id=f["id"], clave=f["clave"], revision=f["revision"], publicado_en=f["publicado_en"], cerrado_en=f["cerrado_en"])
-            for f in ctx.conn.execute("SELECT id, clave, revision, publicado_en, cerrado_en FROM periodo ORDER BY clave")]
+    filas = ctx.conn.execute("SELECT id, clave, revision, publicado_en, cerrado_en FROM periodo ORDER BY clave").fetchall()
+    rangos = {f["id"]: flujo.desde_clave(f["clave"]) for f in filas}
+    return [dict(id=f["id"], clave=f["clave"], revision=f["revision"], publicado_en=f["publicado_en"], cerrado_en=f["cerrado_en"],
+                 solapa_con=[o["id"] for o in filas if o["id"] != f["id"] and rangos[o["id"]][0] <= rangos[f["id"]][1] and rangos[f["id"]][0] <= rangos[o["id"]][1]])
+            for f in filas]
 
 
 def _periodo(ctx, id_):

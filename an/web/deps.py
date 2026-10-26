@@ -30,6 +30,16 @@ def usuario_actual(request: Request):
     return u
 
 
+def leer_revision(if_match):
+    """La revisión de `If-Match` (acepta comillas y `W/`); 428 si falta, 422 si no es un entero."""
+    if if_match is None:
+        raise HTTPException(428, "Falta If-Match con la revisión del periodo")
+    try:
+        return int(if_match.strip().removeprefix("W/").strip('"'))
+    except ValueError:
+        raise HTTPException(422, "If-Match debe ser la revisión del periodo (un entero)")
+
+
 class Contexto:
     def __init__(self, bd, usuario, permiso, conn):
         self.bd, self.usuario, self.permiso, self.conn = bd, usuario, permiso, conn
