@@ -81,15 +81,30 @@ def servir_front(app, dist):
     app.mount("/", Spa(directory=dist, html=True))
 
 
-def detener_huerfano(pg):
-    """Si la sesión anterior se cerró a la fuerza (X de la ventana) queda un Postgres vivo; se detiene antes de arrancar."""
-    if (pg / "postmaster.pid").exists():
-        from pgserver._commands import pg_ctl
+def postgres_vivo(pg):
+    import psutil
 
-        try:
-            pg_ctl(["-w", "-m", "fast", "stop"], pgdata=pg, timeout=30)
-        except Exception:
-            logging.exception("no se pudo detener el Postgres anterior; se intenta reutilizarlo")
+    try:
+        pid = int((pg / "postmaster.pid").read_text().splitlines()[0])
+        return psutil.Process(pid).name().lower().startswith("postgres")
+    except (OSError, ValueError, IndexError, psutil.Error):
+        return False
+
+
+def arrancar_postgres(pg):
+    """pgserver arranca con un tope de 10 s, y tras un cierre brusco la recuperación puede tardar minutos (antivirus). Se arranca aquí,
+    con espera larga y sin consola (la X de la ventana ya no lo mata); pgserver reutiliza el servidor que encuentra vivo."""
+    if not (pg / "PG_VERSION").exists() or postgres_vivo(pg):
+        return
+    import socket
+
+    from pgserver._commands import pg_ctl
+
+    with socket.socket() as sk:
+        sk.bind(("127.0.0.1", 0))
+        puerto = sk.getsockname()[1]
+    extra = {"creationflags": 0x00000008} if sys.platform == "win32" else {}  # DETACHED_PROCESS
+    pg_ctl(["-w", "-t", "900", "-o", "-h 127.0.0.1", "-o", f"-p {puerto}", "-l", str(pg / "log"), "start"], pgdata=pg, timeout=1000, **extra)
 
 
 def al_cerrar_ventana(servidor, terminado):
@@ -120,10 +135,11 @@ def main():
     if not url_admin:
         import pgserver  # solo en el paquete portable
 
-        detener_huerfano(datos / "pg")
         pg = datos / "pg"
         if pg.exists() and not (pg / "PG_VERSION").exists():  # inicialización interrumpida: sin clúster no hay nada que perder
             shutil.rmtree(pg, ignore_errors=True)
+        print("Iniciando la base de datos (tras un cierre brusco puede tardar varios minutos)…")
+        arrancar_postgres(pg)
         servidor = pgserver.get_server(datos / "pg", cleanup_mode="stop")
         url_admin = servidor.get_uri()
     try:
