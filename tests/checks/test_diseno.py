@@ -46,6 +46,12 @@ def test_contraste_de_una_regla():
     assert diseno.revisar(_arbol(".a:disabled { color: var(--superficie); background: var(--fondo); }")) == []
 
 
+def test_clases_tailwind():
+    assert any("text-[9px]" in x for x in diseno.revisar(_arbol(tsx='const c = "text-[9px]";')))
+    assert any("contraste" in x for x in diseno.revisar(_arbol(tsx='const c = "text-atenuado bg-lateral";')))
+    assert diseno.revisar(_arbol(tsx='const c = "text-superficie bg-acento hover:bg-marca text-[12px]";')) == []
+
+
 def test_sin_tokens():
     d = Path(tempfile.mkdtemp())
     assert any("no existe" in x for x in diseno.revisar(d))

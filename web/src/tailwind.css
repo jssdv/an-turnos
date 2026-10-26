@@ -1,0 +1,68 @@
+/* Prueba de Tailwind v4 (rama prueba-tailwind). Sin preflight: convive con estilos.css y los CSS Modules.
+   Solo existen nuestros tokens: la paleta, radios y tamaños de Tailwind se borran, así `bg-red-500` no existe. Los valores arbitrarios
+   (un color o tamaño entre corchetes) sí compilan: checks/diseno.py los rechaza. Los colores repiten tokens.css: un token nuevo se añade aquí. */
+@layer base, theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@theme inline {
+  --color-*: initial;
+  --color-fondo: var(--fondo);
+  --color-superficie: var(--superficie);
+  --color-superficie-sutil: var(--superficie-sutil);
+  --color-borde: var(--borde);
+  --color-borde-control: var(--borde-control);
+  --color-borde-campo: var(--borde-campo);
+  --color-texto: var(--texto);
+  --color-titulo: var(--titulo);
+  --color-atenuado: var(--atenuado);
+  --color-acento: var(--acento);
+  --color-acento-hover: var(--acento-hover);
+  --color-acento-suave: var(--acento-suave);
+  --color-marca: var(--marca);
+  --color-lateral: var(--lateral);
+  --color-lateral-sel: var(--lateral-sel);
+  --color-lateral-hover: var(--lateral-hover);
+  --color-lateral-texto: var(--lateral-texto);
+  --color-lateral-tenue: var(--lateral-tenue);
+  --color-info: var(--info);
+  --color-info-fondo: var(--info-fondo);
+  --color-warn: var(--warn);
+  --color-warn-texto: var(--warn-texto);
+  --color-warn-fondo: var(--warn-fondo);
+  --color-warn-celda: var(--warn-celda);
+  --color-error: var(--error);
+  --color-error-fondo: var(--error-fondo);
+  --color-ok: var(--ok);
+  --color-ok-fondo: var(--ok-fondo);
+  --color-turno-M: var(--turno-M);
+  --color-turno-T: var(--turno-T);
+  --color-turno-C: var(--turno-C);
+  --color-turno-NC: var(--turno-NC);
+  --color-error-borde: var(--error-borde);
+  --color-warn-borde: var(--warn-borde);
+  --color-warn-insignia: var(--warn-insignia);
+  --color-info-borde: var(--info-borde);
+  --color-ok-texto: var(--ok-texto);
+  --color-info-texto: var(--info-texto);
+  --color-error-texto: var(--error-texto);
+  --color-deshabilitado: var(--deshabilitado);
+  --color-ok-borde: var(--ok-borde);
+  --color-sombra: var(--sombra);
+  --radius-*: initial;
+  --radius-sm: var(--radio-s);
+  --radius-md: var(--radio);
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+  --text-*: initial;
+  --text-mini: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-xl: 22px;
+  --font-*: initial;
+  --font-sans: var(--fuente);
+  --font-titulo: var(--fuente-titulo);
+  --shadow-*: initial;
+  --shadow-tarjeta: 0 1px 3px var(--sombra);
+}
