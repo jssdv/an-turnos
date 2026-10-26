@@ -185,3 +185,14 @@ export interface UsuarioClinica {
   debe_cambiar: boolean;
   permisos: { area_id: number; permiso: "ver" | "editar" }[];
 }
+
+export type TipoExporte = "cuadro" | "puestos" | "horas";
+export interface Exporte {
+  id: number;
+  tipo: TipoExporte;
+  numero: number;
+  nombre_archivo: string;
+  bytes: number;
+  creado: string;
+  creado_por: string | null;
+}
