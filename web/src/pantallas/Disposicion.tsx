@@ -34,7 +34,10 @@ export function Disposicion() {
       <a className="saltar" href="#contenido">Saltar al contenido</a>
       <Lateral
         area={actual.nombre}
-        entradas={[{ titulo: "Cuadro", a: `/areas/${actual.id}/cuadro` }]}
+        entradas={[
+          ...[["Cuadro", "cuadro"], ["Solicitudes", "solicitudes"], ["Personal", "personal"], ["Novedades", "novedades"], ["Puestos", "puestos"], ["Parámetros", "parametros"], ["Analíticas", "analiticas"],
+            ...(usuario?.es_admin ? [["Usuarios", "usuarios"]] : [])].map(([titulo, ruta]) => ({ titulo, a: `/areas/${actual.id}/${ruta}` })),
+        ]}
         usuario={usuario?.nombre ?? ""}
         pie={
           <>
