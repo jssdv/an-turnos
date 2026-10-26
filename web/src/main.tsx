@@ -5,6 +5,7 @@ import App from "./App";
 import { Sesion } from "./Sesion";
 import "./tokens.css";
 import "./estilos.css";
+import "./tailwind.css";
 
 createRoot(document.getElementById("raiz")!).render(
   <StrictMode>

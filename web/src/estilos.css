@@ -13,8 +13,11 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #raiz { height: 100%; }
 body { margin: 0; font-family: var(--fuente); font-size: 13px; color: var(--texto); background: var(--fondo); }
-h1, h2, h3, p { margin: 0; }
-button, input, select { font: inherit; color: inherit; }
+/* En una capa: así las clases de Tailwind (capa utilities) pueden cambiarlos. */
+@layer base {
+  h1, h2, h3, p { margin: 0; }
+  button, input, select { font: inherit; color: inherit; }
+}
 :focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
 .solo-lectores { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .saltar { position: absolute; left: var(--e2); top: -48px; padding: var(--e2) var(--e3); background: var(--superficie); border-radius: var(--radio-s); z-index: 20; }

@@ -21,6 +21,11 @@ PARES = [
 ]
 COLOR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(|:\s*(?:white|black)\b", re.I)
 IGNORAR = {"tokens.css", "esquema.d.ts"}
+# Clases de Tailwind en .ts/.tsx: tamaño arbitrario (`text-[9px]`) y pares sin variante (`text-x bg-y`, no `hover:bg-y`) en una misma cadena.
+TW_TAM = re.compile(r"(?<![\w:-])text-\[([\d.]+(?:px|rem|em))\]")
+TW_TEXTO = re.compile(r"(?<![\w:\[-])text-([a-z][\w-]*)")
+TW_FONDO = re.compile(r"(?<![\w:\[-])bg-([a-z][\w-]*)")
+CADENA = re.compile(r'"([^"\n]*)"|`([^`]*)`')
 
 
 def luminancia(hexa):
@@ -73,6 +78,17 @@ def revisar(raiz=RAIZ):
             if COLOR_LITERAL.search(linea) and not linea.lstrip().startswith(("//", "*", "/*")):
                 out.append(f"{rel}:{n}: color literal fuera de tokens.css: {linea.strip()[:70]}")
         if p.suffix != ".css":
+            for n, linea in enumerate(texto.splitlines(), 1):
+                for m in TW_TAM.finditer(linea):
+                    if _px(m.group(1)) < MIN_PX:
+                        out.append(f"{rel}:{n}: clase {m.group(0)} (mínimo {MIN_PX}px)")
+                for a, b in CADENA.findall(linea):
+                    cad = a or b
+                    col = [t for t in TW_TEXTO.findall(cad) if t in tokens]
+                    fon = [t for t in TW_FONDO.findall(cad) if t in tokens]
+                    for c_, f_ in ((c_, f_) for c_ in col for f_ in fon):
+                        if (c := contraste(tokens[c_], tokens[f_])) < MIN_CONTRASTE:
+                            out.append(f"{rel}:{n}: contraste {c:.2f}:1 con text-{c_} sobre bg-{f_}")
             continue
         for sel, props in _reglas(texto):
             tam = _px(props.get("font-size", "")) if "font-size" in props else None
