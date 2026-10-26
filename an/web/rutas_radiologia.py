@@ -19,7 +19,7 @@ from .deps import Contexto, contexto_area, contexto_area_lectura
 
 router = APIRouter(prefix="/api")
 MAX_ARCHIVO = 10 * 1024 * 1024
-MAX_DESCOMPRIMIDO = 100 * 1024 * 1024
+MAX_DESCOMPRIMIDO = 10 * 1024 * 1024
 RUTA_ARCHIVOS = re.compile(r"^/api/areas/\d+/archivos$")
 
 
@@ -64,24 +64,26 @@ def listar_archivos(area: int, ctx: Contexto = Depends(contexto_area, scope="fun
     return [_fila(f) for f in ctx.conn.execute(COLUMNAS + "ORDER BY a.subido DESC, a.id DESC")]
 
 
-def _guardar(ctx, area, nombre, datos):
+def _guardar(ctx, area, nombre, datos, request):
     _exigir_radiologia(ctx, area)
     limpio = _validar_xlsx(nombre, datos)
     id_ = ctx.conn.execute("INSERT INTO archivo (nombre, contenido, subido_por) VALUES (?, ?, ?) RETURNING id", (limpio, datos, ctx.usuario.id)).fetchone()[0]
+    request.state.evento = f"archivo_subido id={id_} nombre={limpio}"
     return _fila(ctx.conn.execute(COLUMNAS + "WHERE a.id = ?", (id_,)).fetchone())
 
 
 @router.post("/areas/{area}/archivos", status_code=201)
 async def subir_archivo(area: int, request: Request, nombre: str = "", ctx: Contexto = Depends(contexto_area, scope="function")):
     datos = await request.body()  # crudo (sin multipart): el nombre va en la consulta
-    return await run_in_threadpool(_guardar, ctx, area, nombre, datos)
+    return await run_in_threadpool(_guardar, ctx, area, nombre, datos, request)
 
 
 @router.delete("/areas/{area}/archivos/{id}", status_code=204)
-def borrar_archivo(area: int, id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
+def borrar_archivo(area: int, id: int, request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
     _exigir_radiologia(ctx, area)
     if ctx.conn.execute("DELETE FROM archivo WHERE id = ? RETURNING id", (id,)).fetchone() is None:
         raise HTTPException(404, "Archivo no encontrado")
+    request.state.evento = f"archivo_borrado id={id}"
 
 
 # ---------------------------------------------------------------- semanas
@@ -233,8 +235,8 @@ EXPORTE = ("e.id, e.periodo_id, e.numero, e.nombre_archivo, octet_length(e.conte
 
 
 @router.post("/areas/{area}/archivos/{id}/semanas/{lunes}/exportes", status_code=201)
-def exportar_libro(area: int, id: int, lunes: str, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
-    """Guarda el libro de la semana en `exporte` (tipo `semana`) y lo marca contra la versión anterior, como «Generar» en Qt. Nunca sobrescribe: `v2`, `v3`…
+def exportar_libro(area: int, id: int, lunes: str, request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
+    """Guarda el libro de la semana en `exporte` (tipo `semana`) y lo marca contra la versión anterior, como «Generar» en Qt. Exige `editar` (el exporte pasa a ser la versión contra la que se marcan los cambios). Nunca sobrescribe: `v2`, `v3`…
     Cada semana es un periodo del área (`lunes/domingo`) para colgar sus exportes."""
     ws = _cuadro(ctx, area, id)
     lunes = _lunes(ws, lunes)

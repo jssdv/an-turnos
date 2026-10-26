@@ -5,6 +5,8 @@ from pathlib import Path
 
 from openpyxl.styles import Font, PatternFill
 
+from an.nucleo.xlsx import poner_texto
+
 from .generar_semana import HOJAS_LECTURA, fechas_mensual, hora, nombre_semana
 
 DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
@@ -275,7 +277,7 @@ def comparar_libros(viejo, nuevo, lunes):
         ws["A1"] = "Cambios respecto a la versión anterior"
         ws["A1"].font = Font(bold=True, size=13)
         for k, t in enumerate(cambios, 3):
-            ws.cell(k, 1, t)
+            poner_texto(ws.cell(k, 1), t)
         ws.column_dimensions["A"].width = 110
     return cambios
 
