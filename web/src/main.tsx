@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router";
 import App from "./App";
 import { Sesion } from "./Sesion";
 import "./tokens.css";
+import "./styles/globals.css";
+import "./styles/puente.css";
 import "./estilos.css";
 
 createRoot(document.getElementById("raiz")!).render(
