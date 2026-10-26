@@ -3,6 +3,7 @@ Los datos (histórico incluido) viven en %LOCALAPPDATA%\\An (o AN_DATOS). Arranq
 Pruebas sin pgserver: AN_PG_ADMIN_URL=postgresql://…(rol dueño) usa esa base en vez de la embebida."""
 import logging
 import os
+import subprocess
 import sys
 import threading
 import webbrowser
@@ -83,6 +84,8 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     datos = carpeta_datos()
     datos.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "win32":  # initdb corre con token restringido (sin el grupo Administradores): el usuario debe figurar en la ACL
+        subprocess.run(["icacls", str(datos), "/grant", f"{os.environ['USERNAME']}:(OI)(CI)F"], check=True, capture_output=True)
     servidor = None
     url_admin = os.environ.get("AN_PG_ADMIN_URL")
     if not url_admin:
