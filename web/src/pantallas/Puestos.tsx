@@ -37,9 +37,9 @@ export function Puestos() {
     return "Puesto guardado. Regenera el cuadro para que lo tome en cuenta.";
   });
   const guardarReglas = () => hacer(async () => {
-    await enviar("PUT", `${base}/puestos/${sel!.id}/demandas`, reglas.map(({ tipo_dia, inicio, fin, personas, obligatorio }) => ({ tipo_dia, inicio, fin, personas, obligatorio })));
+    const r = await enviar<{ avisos: string[] }>("PUT", `${base}/puestos/${sel!.id}/demandas`, reglas.map(({ tipo_dia, inicio, fin, personas, obligatorio }) => ({ tipo_dia, inicio, fin, personas, obligatorio })));
     demandas.recargar();
-    return "Reglas de demanda guardadas. Regenera el cuadro para que las tome en cuenta.";
+    avisar({ nivel: r.avisos.length ? "aviso" : "ok", texto: `Reglas de demanda guardadas. ${r.avisos.join(" ")} Regenera el cuadro para que las tome en cuenta.`.replace("  ", " ") });
   });
   const borrar = () => window.confirm(`¿Eliminar el puesto «${sel!.nombre}»?`) && hacer(async () => {
     const r = await enviar<{ resultado: string }>("DELETE", `${base}/puestos/${sel!.id}`);
