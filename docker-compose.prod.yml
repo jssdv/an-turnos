@@ -106,7 +106,7 @@ services:
 networks:
   interna:
     ipam:
-      config: [{subnet: 172.29.8.0/24}]
+      config: [{subnet: 172.29.8.0/24, ip_range: 172.29.8.128/25}]  # lo dinámico cae en .128+; .2 queda para Caddy
 
 volumes:
   an_pg:
