@@ -199,12 +199,16 @@ def ics(nombre, eventos):
     return "\r\n".join(lineas) + "\r\n"
 
 
+def nombre_archivo(nombre):
+    return re.sub(r'[\\/:*?"<>|]', "", nombre).strip()
+
+
 def exportar_agendas(datos, carpeta, lunes):
     """Escribe un .ics y un .txt por médico; devuelve la carpeta creada."""
     destino = Path(carpeta) / f"Agendas {nombre_semana(lunes)}"
     destino.mkdir(exist_ok=True)
     for nombre, ev in agenda_por_medico(datos).items():
-        archivo = re.sub(r'[\\/:*?"<>|]', "", nombre).strip()
+        archivo = nombre_archivo(nombre)
         (destino / f"{archivo}.ics").write_text(ics(nombre, ev), encoding="utf-8")
         (destino / f"{archivo}.txt").write_text(texto_agenda(nombre, ev, lunes), encoding="utf-8")
     return destino
@@ -453,3 +457,21 @@ def resumen_semana(lunes, datos, resumen, alertas, revision, n_agendas, version_
         tarjetas=[dict(titulo=t, valor=v, nivel=n, detalle=d) for t, v, n, d in tarjetas],
         cobertura=cobertura, dias=DIAS,
         aviso=("Revisa antes de publicar: " + "; ".join(partes) + ".") if partes else "")
+
+
+def hoja_a_json(ws, col_ini, tema):
+    """Copia visual de una hoja (texto, fondo, negrita, color de letra y combinadas) para la vista previa web."""
+    filas = []
+    for row in ws.iter_rows(min_col=col_ini):
+        fila = []
+        for cel in row:
+            solido = cel.fill is not None and cel.fill.fill_type == "solid"
+            fila.append(dict(
+                texto=texto_celda(ws, cel),
+                fondo=color_hex(cel.fill.fgColor, tema) if solido else None,
+                negrita=bool(cel.font and cel.font.b),
+                color=color_hex(cel.font.color, tema) if cel.font else None))
+        filas.append(fila)
+    fusiones = [[r.min_row - 1, r.min_col - col_ini, r.max_row - r.min_row + 1, r.max_col - r.min_col + 1]
+                for r in ws.merged_cells.ranges if r.min_col >= col_ini]
+    return dict(filas=filas, fusiones=fusiones)
