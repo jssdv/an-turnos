@@ -59,7 +59,7 @@ export function Cambios({ area, periodo, revision, nombres, puedeAnular, alAnula
             c.registrado_en.replace("T", " ").slice(0, 16),
             c.usuario,
             <>{NOMBRE_TIPO[c.tipo]}{c.excepcion && " (excepción)"}</>,
-            c.celdas.map((x) => `${quien(x.colab_id)} ${fechaCorta(x.fecha)}: ${x.antes}→${x.despues}`).join("; "),
+            c.celdas.map((x) => `${quien(x.colab_id)} ${fechaCorta(x.fecha)}: ${x.antes}→${x.despues}${x.puesto_antes !== x.puesto_despues ? " (puesto)" : ""}`).join("; "),
             c.motivo,
             c.anulado_en ? <span>Anulado por {c.anulado_por}</span>
               : puedeAnular ? <Button color="link-color" size="sm" isDisabled={ocupado !== null} onPress={() => anular(c.id)}>{ocupado === c.id ? "Anulando…" : "Anular"}</Button> : null,

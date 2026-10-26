@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
 import { aHHMM, aMinutos, enviar, usar } from "../api/catalogos";
-import type { Area, Demanda, Puesto } from "../api/tipos";
+import type { Area, Demanda, Puesto, Requerimiento } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
 import { Button } from "@/components/base/buttons/button";
@@ -9,8 +9,39 @@ import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { Badge } from "@/components/base/badges/badges";
+import { Alert } from "@/components/application/alerts/alert";
 
 const TIPO_DIA = { LS: "Lunes a sábado", DF: "Domingo y festivo" } as const;
+
+const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom", "Festivo"];
+const FRANJAS = [["M", "Mañana"], ["T", "Tarde"], ["N", "Noche"]] as const;
+
+/** Área sin puestos: personas pedidas por franja (M/T/N) y día de la semana. */
+function MatrizRequerimiento({ base, editar }: { base: string; editar: boolean }) {
+  const req = usar<Requerimiento[]>(`${base}/requerimiento`);
+  const { ocupado, aviso, hacer } = useAccion();
+  const [n, setN] = useState<Record<string, number>>({});
+  useEffect(() => { if (req.datos) setN(Object.fromEntries(req.datos.map((r) => [`${r.dia}${r.franja}`, r.personas]))); }, [req.datos]);
+  const guardar = () => hacer(async () => {
+    const filas = DIAS.flatMap((_, dia) => FRANJAS.map(([franja]) => ({ dia, franja, personas: n[`${dia}${franja}`] ?? 0, obligatorio: true }))).filter((f) => f.personas > 0);
+    await enviar("PUT", `${base}/requerimiento`, filas);
+    req.recargar();
+    return "Requerimiento guardado. Regenera el cuadro para que lo tome en cuenta.";
+  });
+  return (
+    <Seccion titulo="Personas por jornada">
+      {aviso && <Alert color={aviso.nivel === "ok" ? "success" : "error"}>{aviso.texto}</Alert>}
+      <p className="text-sm text-tertiary">Cuántas personas hacen falta en cada franja, según el día de la semana. El festivo reemplaza al día de la semana.</p>
+      <div className="overflow-x-auto"><table className="text-sm"><thead><tr><th className="p-1 text-left">Franja</th>{DIAS.map((d) => <th key={d} className="p-1">{d}</th>)}</tr></thead>
+        <tbody>{FRANJAS.map(([f, nombre]) => (
+          <tr key={f}><th className="p-1 text-left font-medium">{nombre}</th>
+            {DIAS.map((d, dia) => <td key={d} className="p-1"><Input aria-label={`${nombre} ${d}`} type="number" size="sm" className="w-20" isDisabled={!editar} value={String(n[`${dia}${f}`] ?? 0)}
+              onChange={(x) => setN({ ...n, [`${dia}${f}`]: Math.max(0, Number(x)) })} /></td>)}
+          </tr>))}</tbody></table></div>
+      {editar && <Fila><Button color="primary" size="sm" isDisabled={ocupado} onPress={guardar}>Guardar requerimiento</Button></Fila>}
+    </Seccion>
+  );
+}
 
 /** Puestos de trabajo y sus reglas de demanda (cuántas personas, en qué horas, obligatorio o deseable). */
 export function Puestos() {
@@ -18,7 +49,9 @@ export function Puestos() {
   const base = `/api/areas/${area.id}`;
   const puestos = usar<Puesto[]>(`${base}/puestos`);
   const demandas = usar<Demanda[]>(`${base}/demandas`);
+  const parametros = usar<Record<string, string>>(`${base}/parametros`);
   const { ocupado, aviso, hacer, avisar } = useAccion();
+  const usaPuestos = parametros.datos?.usa_puestos !== "0";
   const [sel, setSel] = useState<Puesto | null>(null);
   const [p, setP] = useState({ numero: 1, nombre: "", color: "DDEBF7", activo: true });
   const [reglas, setReglas] = useState<Demanda[]>([]);
@@ -32,6 +65,11 @@ export function Puestos() {
   };
   const cambiarRegla = (i: number, d: Partial<Demanda>) => setReglas(reglas.map((r, j) => (j === i ? { ...r, ...d } : r)));
 
+  const cambiarModo = (v: boolean) => hacer(async () => {
+    await enviar("PUT", `${base}/parametros`, { usa_puestos: v ? 1 : 0 });
+    parametros.recargar();
+    return "Modo guardado. Regenera el cuadro para que lo tome en cuenta.";
+  });
   const guardar = () => hacer(async () => {
     const r = sel ? await enviar<{ id: number }>("PUT", `${base}/puestos/${sel.id}`, p) : await enviar<{ id: number }>("POST", `${base}/puestos`, p);
     puestos.recargar();
@@ -50,7 +88,11 @@ export function Puestos() {
   });
 
   return (
-    <Pagina titulo="Puestos" sub="Dónde trabaja la gente y cuántas personas hacen falta en cada uno." ayuda={<>Cada puesto tiene <strong>reglas de cobertura</strong>: cuántas personas necesita, qué días y en qué turno. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error} aviso={aviso}>
+    <Pagina titulo="Requerimiento" sub="Cuántas personas hacen falta y, si el servicio usa puestos, dónde trabajan." ayuda={<>Cada puesto tiene <strong>reglas de cobertura</strong>: cuántas personas necesita, qué días y en qué turno. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error ?? parametros.error} aviso={aviso}>
+      {editar && <Seccion titulo="Cómo se define la necesidad"><Checkbox label="Este servicio trabaja por puestos" hint="Apagado: solo se pide un número de personas por jornada y día de la semana."
+        isSelected={usaPuestos} isDisabled={ocupado || !parametros.datos} onChange={cambiarModo} /></Seccion>}
+      {!usaPuestos && <MatrizRequerimiento base={base} editar={editar} />}
+      {usaPuestos && <>
       <Seccion titulo="Puestos">
         <Tabla descripcion="Puestos del área" cargando={!puestos.datos && !puestos.error} vacio="Aún no hay puestos." columnas={["N.º", "Nombre", "Estado", "Reglas", ""]}
           filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, <Badge size="sm" color={q.activo ? "success" : "gray"}>{q.activo ? "Activo" : "Inactivo"}</Badge>, (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
@@ -89,6 +131,7 @@ export function Puestos() {
           <Fila><Button color="primary" size="sm" isDisabled={ocupado} onPress={guardarReglas}>Guardar reglas</Button></Fila>
         </Seccion>
       )}
+      </>}
     </Pagina>
   );
 }

@@ -24,6 +24,8 @@ export interface Borrador {
   modo: "intercambio" | "asignar";
   celdas: { colab_id: number; fecha: string }[];
   turno: string;
+  /** Puesto a fijar en las celdas: "" = sin cambio, "0" = soltarlo, id = fijarlo. */
+  puesto?: string;
   tipo: "permuta" | "servicio" | "ajuste";
   motivo: string;
   excepcion: boolean;

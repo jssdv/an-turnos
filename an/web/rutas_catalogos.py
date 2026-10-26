@@ -12,7 +12,7 @@ from an.turnos.dominio import PRIORIDADES, TIPOS_COLAB, TIPOS_NOVEDAD, TIPOS_SOL
 from .deps import Contexto, contexto_area
 
 router = APIRouter(prefix="/api/areas/{area}")
-RANGOS_PARAMETROS = {"ventana_semanas": (1, 8), "limite_permutas": (0, 20), "banco_tope_favor_h": (0, 48), "banco_tope_deuda_h": (0, 48),
+RANGOS_PARAMETROS = {"usa_puestos": (0, 1), "ventana_semanas": (1, 8), "limite_permutas": (0, 20), "banco_tope_favor_h": (0, 48), "banco_tope_deuda_h": (0, 48),
                      "periodo_semanas": (1, 8), "max_noches_seguidas": (0, 7), "max_c_seguidos": (0, 7), "max_igual_seguidos": (0, 7),
                      "libre_tras_noche": (0, 3), "libres_por_semana": (1, 3), "fines_semana_libres": (0, 4)}
 CONCEPTOS_TARIFA = ("dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio")
@@ -291,6 +291,28 @@ def reemplazar_demandas(id: int, datos: list[DemandaIn], request: Request, ctx: 
         avisos.append("Ningún turno cubre " + ", ".join(f"{hhmm(a)}–{hhmm(b)}" for a, b in huecos[:3]) + ".")
     _evento(request, "demandas_reemplazadas")
     return {"ok": True, "avisos": avisos}
+
+
+class RequerimientoIn(BaseModel):
+    dia: int = Field(ge=0, le=7)  # 0 lunes … 6 domingo, 7 festivo
+    franja: Literal["M", "T", "N"]
+    personas: int = Field(ge=0, le=50)
+    obligatorio: bool = True
+
+
+@router.get("/requerimiento")
+def leer_requerimiento(ctx: Contexto = Depends(contexto_area, scope="function")):
+    return ctx.bd.requerimiento()
+
+
+@router.put("/requerimiento")
+def guardar_requerimiento(datos: list[RequerimientoIn], request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
+    """Personas por franja (M/T/N) y día de la semana de un área sin puestos."""
+    if len({(d.dia, d.franja, d.obligatorio) for d in datos}) != len(datos):
+        raise HTTPException(422, "Una franja aparece dos veces el mismo día")
+    ctx.bd.guardar_requerimiento([d.model_dump() for d in datos])
+    _evento(request, "requerimiento_guardado")
+    return {"ok": True}
 
 
 # --- parámetros y tarifas -----------------------------------------------------------------------

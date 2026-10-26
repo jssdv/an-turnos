@@ -36,11 +36,13 @@ def leyenda(puestos):
 W_FALTA_P, W_DES_P, W_CAMBIO_P, W_PRIORIDAD_P = 1000, 10, 60, 500  # por persona y tramo; cambiar de puesto dentro del turno; rotación abajo
 
 
-def asignar_tramos(ctx, cuadro, fechas, tiempo=3):
+def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
     """[AsignacionPuesto] de cada día: en qué puesto está cada persona presente, tramo a tramo. Por día, un CP-SAT
     por bloques de tramos con la misma presencia y demanda: cada persona ocupa un puesto a la vez (solo los que puede),
     los puestos reciben la demanda obligatoria, los deseables se buscan, y se penaliza cambiar de puesto dentro del
-    turno, repetir el puesto de ayer y el desequilibrio de veces por puesto. Quien sobra queda en apoyo (puesto 0)."""
+    turno, repetir el puesto de ayer y el desequilibrio de veces por puesto. Quien sobra queda en apoyo (puesto 0). `fijos` {(colab_id, fecha): puesto_id}: puestos fijados a mano, que se respetan.
+    Sin puestos en el área todos quedan en apoyo."""
+    fijos = fijos or {}
     por_id = {p.id: p for p in ctx.colabs if p.en_solver}
     primero = min(fechas)
     hist = defaultdict(lambda: defaultdict(int))
@@ -54,7 +56,7 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3):
                 for off, t in dem.turno_tramos(ctx.turnos[cod]):
                     if off == (0 if f == d else 1):
                         presentes[cid].add(t)
-        necesidad = {q: (o, w) for q, (o, w) in dem.demanda_por_puesto(ctx, d, con_ayer=d != primero).items() if any(o) or any(w)}
+        necesidad = {q: (o, w) for q, (o, w) in dem.demanda_por_puesto(ctx, d, con_ayer=d != primero).items() if ctx.usa_puestos and (any(o) or any(w))}
         # bloques de tramos consecutivos con la misma presencia y la misma demanda
         bloques, firma_ant = [], None
         for t in range(dem.TRAMOS_DIA):
@@ -71,6 +73,7 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3):
             firma_ant = firma
         m = cp_model.CpModel()
         y, obj = {}, []
+        nec_b = [b[3] for b in bloques]
         permitido = lambda c, q: por_id[c].puestos_permitidos is None or q in por_id[c].puestos_permitidos
         for bi, (t0, t1, pres, nec) in enumerate(bloques):
             largo = t1 - t0
@@ -91,6 +94,12 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3):
                     ok = m.NewBoolVar("")
                     m.Add(suma >= o + w).OnlyEnforceIf(ok)
                     obj.append(-W_DES_P * largo * w * ok)
+        for (c, f), q in fijos.items():  # puesto fijado a mano: en sus bloques solo ocupa ese puesto
+            if f == d:
+                for bi in range(len(bloques)):
+                    for q2 in nec_b[bi]:
+                        if (bi, c, q2) in y:
+                            m.Add(y[bi, c, q2] == (1 if q2 == q else 0))
         for bi in range(len(bloques) - 1):  # cambiar de puesto dentro del turno
             a, b = bloques[bi], bloques[bi + 1]
             if a[1] != b[0]:
@@ -116,7 +125,7 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3):
         puesto_en = {}  # (colab_id, tramo) -> puesto_id
         for bi, (t0, t1, pres, nec) in enumerate(bloques):
             for c in pres:
-                elegido = next((q for q in nec if (bi, c, q) in y and sol.Value(y[bi, c, q])), 0)
+                elegido = fijos.get((c, d)) or next((q for q in nec if (bi, c, q) in y and sol.Value(y[bi, c, q])), 0)
                 for t in range(t0, t1):
                     puesto_en[c, t] = elegido
         cuenta = defaultdict(lambda: defaultdict(int))
@@ -147,7 +156,7 @@ def alertas_reparto(ctx, filas, fechas, catalogo):
     for a in filas:
         por_dia[a.fecha].append(a)
     primero, out = min(fechas), []
-    for d in sorted(fechas):
+    for d in sorted(fechas) if ctx.usa_puestos else ():
         nec = dem.demanda_por_puesto(ctx, d, con_ayer=d != primero)
         presentes, ocupa = [0] * dem.TRAMOS_DIA, defaultdict(lambda: [0] * dem.TRAMOS_DIA)
         for a in por_dia.get(d, []):

@@ -134,6 +134,21 @@ def test_puestos_y_demandas():
         assert cli.delete(base(e, f"/puestos/{i}"), headers=H).json() == {"resultado": "borrado"}
 
 
+def test_requerimiento_sin_puestos():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "editor@a.co")
+        assert cli.put(base(e, "/parametros"), headers=H, json={"usa_puestos": 0}).status_code == 200
+        assert cli.get(base(e, "/parametros")).json()["usa_puestos"] == "0"
+        r = [dict(dia=0, franja="M", personas=3, obligatorio=True), dict(dia=7, franja="N", personas=2, obligatorio=True)]
+        assert cli.put(base(e, "/requerimiento"), headers=H, json=r).status_code == 200
+        assert cli.get(base(e, "/requerimiento")).json() == r
+        assert cli.put(base(e, "/requerimiento"), headers=H, json=[{**r[0], "dia": 9}]).status_code == 422
+        assert cli.put(base(e, "/requerimiento"), headers=H, json=[r[0], r[0]]).status_code == 422
+        assert cli.put(base(e, "/parametros"), headers=H, json={"usa_puestos": 2}).status_code == 422
+
+
 def test_parametros_todo_o_nada_y_tarifas():
     with entorno() as e:
         if e is None:
