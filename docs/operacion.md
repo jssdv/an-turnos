@@ -54,13 +54,15 @@ Hacer un respaldo (§4) antes de cada actualización que traiga migraciones. Si 
 
 ## 4. Respaldo y restauración
 
-**Qué hace:** `pg_dump -Fc` de toda la base, cifrado con `age` para la(s) clave(s) pública(s) de un archivo; deja `an-AAAAMMDD-HHMMSS.dump.age` y su `.cifras` (filas y hash por tabla). Conserva `AN_RESPALDO_DIAS` días. **Riesgo:** el `.cifras` queda **en claro** junto al respaldo y revela cuántas filas y qué hash tiene cada tabla (p. ej. cuántos usuarios o cambios hay); trátalo como información interna: mismos permisos y mismo destino que el `.dump.age`, y no lo publiques aparte. Cifrarlo exigiría cambiar `respaldar.sh`, `restaurar.sh` y `probar_respaldo.sh` a la vez; queda pendiente. Si la base cambia mientras respalda, repite (hasta 3 veces) y avisa. Sale con error ≠ 0 ante cualquier fallo.
+**Qué hace:** `pg_dump -Fc` de toda la base, cifrado con `age` para la(s) clave(s) pública(s) de un archivo; deja `an-AAAAMMDD-HHMMSS.dump.age`, su `.cifras` (filas y hash por tabla) y `.firmas` + `.firmas.sig` (sha256 de ambos, firmado con `ssh-keygen -Y sign`, clave de firma distinta de la de cifrado; sin clave de firma no hay respaldo). Conserva `AN_RESPALDO_DIAS` días. **Riesgo:** el `.cifras` queda **en claro** junto al respaldo y revela cuántas filas y qué hash tiene cada tabla (p. ej. cuántos usuarios o cambios hay); trátalo como información interna: mismos permisos y mismo destino que el `.dump.age`, y no lo publiques aparte. Cifrarlo exigiría cambiar `respaldar.sh`, `restaurar.sh` y `probar_respaldo.sh` a la vez; queda pendiente. Si la base cambia mientras respalda, repite (hasta 3 veces) y avisa. Sale con error ≠ 0 ante cualquier fallo.
 
 **Preparar (una vez, 👤):** genera el par de claves en un equipo de confianza (no el servidor):
 
 ```bash
 docker run --rm $(docker build -q deploy/respaldo) age-keygen > an-respaldo.key   # la PRIVADA: guárdala fuera del servidor y fuera de Git
 ```
+
+**Clave de firma (una vez, 👤):** `ssh-keygen -t ed25519 -N '' -C an-respaldo -f respaldo.firma.key`. La privada (`chmod 600`) va en el servidor en `deploy/respaldo.firma.key` (o `AN_RESPALDO_FIRMA`): solo permite firmar, no abrir respaldos. La pública (`respaldo.firma.key.pub`) se guarda en el equipo de confianza. Quien robe la clave de firma puede firmar un respaldo falso, no leer los reales; por eso la restauración exige además la verificación en el equipo de confianza.
 
 Copia al servidor solo la línea `Public key: age1…` (sin el prefijo) a `deploy/respaldo.recipients` (el archivo debe existir antes de la primera corrida, o Docker crea una carpeta con ese nombre). Guarda `an-respaldo.key` en dos lugares (gestor de contraseñas de la clínica y copia cifrada): sin ella los respaldos no se abren.
 
@@ -72,20 +74,23 @@ Copia al servidor solo la línea `Public key: age1…` (sin el prefijo) a `deplo
 
 **Fuera del servidor (👤):** copia `AN_RESPALDO_DESTINO` a otro lugar de la misma región (rsync/rclone a un bucket). Un respaldo que solo vive en el mismo disco no sirve ante la pérdida del servidor.
 
-**Probar la restauración** (en cualquier máquina con Docker; no toca la base real):
+**Probar la restauración** (en un equipo de confianza con Docker y `ssh-keygen`, nunca en el servidor; no toca la base real). `restaurar.sh` verifica primero la firma y los sha256; sin firma válida no descifra:
 
 ```bash
-deploy/restaurar.sh respaldos/an-AAAAMMDD-HHMMSS.dump.age an-respaldo.key
+deploy/restaurar.sh respaldos/an-AAAAMMDD-HHMMSS.dump.age an-respaldo.key respaldo.firma.key.pub
 # → "Restauración correcta: N tablas con las mismas cifras."  (sale ≠ 0 si algo difiere)
 ```
 
-Hacerlo una vez al configurar y después cada mes. **Prueba automática con datos sintéticos** (siembra, respalda, restaura, compara y verifica que un respaldo manipulado o unas cifras alteradas fallan): `PYTHON=… checks/probar_respaldo.sh` — última corrida 26/10/2026: `OK` (27 tablas con cifras iguales).
+Hacerlo una vez al configurar y después cada mes. **Prueba automática con datos sintéticos** (siembra, respalda, restaura, compara y verifica que un respaldo manipulado, sin firma, con cifras alteradas o firmado con otra clave fallan): `PYTHON=… checks/probar_respaldo.sh` — con firma: `OK` (corrida local 26/10/2026).
 
-**Recuperar el servidor real** (la base actual se reemplaza):
+**Recuperar el servidor real** (la base actual se reemplaza). La clave privada `age` nunca va al servidor. En el equipo de confianza: corre `deploy/restaurar.sh` con el respaldo (verifica firma y cifras y prueba la restauración), y solo entonces descifra y copia el volcado al servidor por canal seguro:
 
 ```bash
+# equipo de confianza (tras un restaurar.sh correcto):
+age -d -i an-respaldo.key an-….dump.age > an.dump && scp an.dump servidor:/opt/an/
+# servidor:
 dc stop caddy api trabajador
-age -d -i an-respaldo.key an-….dump.age | dc exec -T db pg_restore -U an_admin -d an --clean --if-exists --exit-on-error
+dc exec -T db pg_restore -U an_admin -d an --clean --if-exists --exit-on-error < an.dump && shred -u an.dump
 dc up -d       # migrar vuelve a fijar la clave de an_app y aplica migraciones nuevas
 ```
 
@@ -141,7 +146,7 @@ Nada de esto lo puede hacer el repositorio:
 - [ ] 👤 Elegir región y proveedor del servidor (≥ 4 vCPU recomendado para el solver; respaldos en la misma región) y contratar el VPS.
 - [ ] 👤 Registrar el dominio y apuntar el DNS (A) al servidor; firewall con solo 80/443 y SSH por llave; actualizaciones automáticas de seguridad del sistema.
 - [ ] 👤 Instalar Docker, clonar el repositorio, crear `.env` con claves generadas (`openssl rand -hex 24`) y levantar la pila (§1).
-- [ ] 👤 Generar el par `age`, instalar la pública, guardar la privada fuera del servidor (§4).
+- [ ] 👤 Generar el par `age` y la clave de firma, instalar la pública `age` y la privada de firma, guardar la privada `age` y la pública de firma fuera del servidor (§4).
 - [ ] 👤 Programar el cron del respaldo, copiarlo fuera del servidor y probar una restauración con el respaldo real.
 - [ ] 👤 Firmar el acuerdo de tratamiento (`docs/ACUERDO_TRATAMIENTO.md`) con la región y la transferencia escritas.
 - [ ] 👤 Probar el acceso desde un PC de la clínica (red, certificado, bloqueo por proxy o firewall corporativo).

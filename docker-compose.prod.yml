@@ -107,6 +107,7 @@ services:
     volumes:
       - ${AN_RESPALDO_DESTINO:-./respaldos}:/respaldos
       - ${AN_RESPALDO_RECIPIENTS:-./deploy/respaldo.recipients}:/recipients:ro
+      - ${AN_RESPALDO_FIRMA:-./deploy/respaldo.firma.key}:/firma.key:ro
       - ./deploy/cifras.sql:/cifras.sql:ro
       - ./deploy/respaldar.sh:/respaldar.sh:ro
     entrypoint: ["sh", "/respaldar.sh"]
