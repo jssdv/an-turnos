@@ -45,9 +45,19 @@ _lista("solicitudes", lambda bd: bd.solicitudes())
 _lista("tarifas", lambda bd: bd.tarifas())
 
 
+# Valores que usa el núcleo cuando el área no guardó el parámetro (`bd.param(clave, defecto)` en db.py, cambios.py, flujo.py,
+# analitica.py), para que la web muestre lo vigente y no un campo vacío.
+# ponytail: copia de los defectos del núcleo; si alguno cambia allí, cámbialo aquí (o súbelos a una constante común).
+PARAMETROS_POR_DEFECTO = {
+    "periodo_modo": "mes", "periodo_semanas": "4", "ventana_semanas": "3", "limite_permutas": "2", "max_noches_seguidas": "2",
+    "max_c_seguidos": "2", "max_igual_seguidos": "3", "libre_tras_noche": "1", "libres_por_semana": "1", "fines_semana_libres": "1",
+    "banco_tope_favor_h": "12", "banco_tope_deuda_h": "12",
+}
+
+
 @router.get("/areas/{area}/parametros")
 def parametros(ctx: Contexto = Depends(contexto_area, scope="function")):
-    return {f["clave"]: f["valor"] for f in ctx.conn.execute("SELECT clave, valor FROM parametro")}
+    return PARAMETROS_POR_DEFECTO | {f["clave"]: f["valor"] for f in ctx.conn.execute("SELECT clave, valor FROM parametro")}
 
 
 @router.get("/areas/{area}/periodos")

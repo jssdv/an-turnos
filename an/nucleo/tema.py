@@ -7,16 +7,16 @@ from PySide6.QtWidgets import QApplication
 
 # Tokens de color: los mismos nombres que las variables «Color» del archivo de FigCraft
 C = dict(
-    fondo="#F5F7FA", superficie="#FFFFFF", superficie_sutil="#F3F5F8", borde="#E3E8EE", borde_control="#C9D1DB",
+    fondo="#F3F7F6", superficie="#FFFFFF", superficie_sutil="#EEF4F3", borde="#DDE7E5", borde_control="#C9D1DB",
     borde_campo="#8D99A6", texto="#1A2633", titulo="#0F1D2B", atenuado="#5E6B7A", deshabilitado="#7A828C",
-    acento="#0B7A75", acento_hover="#08625E", acento_suave="#E3F3F1", marca="#2BB3A3",
-    lateral="#0F1D2B", lateral_sel="#1D3347", lateral_hover="#16293A", lateral_texto="#B9C7D5", lateral_tenue="#6F849A",
+    acento="#0B7A75", acento_hover="#08625E", acento_suave="#E3F3F1", marca="#34C3B0",
+    lateral="#0E3433", lateral_sel="#18504E", lateral_hover="#134241", lateral_texto="#C4DEDA", lateral_tenue="#7FA9A4",
     info="#0B6B8C", info_texto="#0B4A61", info_fondo="#E6F2F7", info_borde="#B9D9E6",
     warn="#A86F00", warn_texto="#5C4300", warn_fondo="#FFF6E0", warn_borde="#F1D58F", warn_celda="#FFEFC2",
-    warn_insignia="#F2B43C",
+    warn_insignia="#F5A524",
     error="#B42318", error_texto="#7A1A12", error_fondo="#FDECEA", error_borde="#F2C1BC",
-    ok="#1E7A47", ok_texto="#14512F", ok_fondo="#E7F5EC", ok_borde="#B8E0C6",
-    turno_M="#FFF1C2", turno_T="#DCEBFF", turno_NC="#E6E0F7", turno_C="#DDF3E4",
+    ok="#1E7A47", ok_texto="#14512F", ok_fondo="#E7F5EC", ok_borde="#B8E0C6", sombra="#0E343314",
+    turno_M="#FFE9A8", turno_T="#CFE3FF", turno_NC="#E0D6FA", turno_C="#CDEFD8",
 )
 ACENTO = C["acento"]
 TITULOS = "Sora"  # títulos, cifras y marca; el resto en Inter
@@ -34,16 +34,16 @@ QLabel#campo { color: $atenuado; font-size: 11px; font-weight: 600; letter-spaci
 
 QFrame#lateral { background: $lateral; }
 QLabel#marca { font-family: "Sora"; font-size: 17px; font-weight: 600; color: white; }
-QLabel#area { font-size: 12px; font-weight: 500; color: #8FA3B8; }
+QLabel#area { font-size: 12px; font-weight: 500; color: #9CC3BE; }
 QLabel#lateral_campo { font-size: 11px; font-weight: 600; letter-spacing: .6px; color: $lateral_tenue; }
 QListWidget#nav { background: transparent; border: none; outline: 0; }
 QListWidget#nav::item { padding: 9px 12px 9px 25px; border-radius: 8px; color: $lateral_texto; margin: 1px 0; font-weight: 500; }
-QListWidget#nav::item:hover { background: $lateral_hover; color: #DCE6EF; }
+QListWidget#nav::item:hover { background: $lateral_hover; color: #E4F1EF; }
 QListWidget#nav::item:selected { background: $lateral_sel; color: white; font-weight: 600; }
-QListWidget#nav::item:disabled { color: #4A5E72; }
+QListWidget#nav::item:disabled { color: #4F7A76; }
 QFrame#usuario { background: $lateral_hover; border-radius: 10px; }
 QLabel#usuario_n { font-weight: 600; color: white; }
-QPushButton#lateral_boton { background: transparent; border: 1px solid #3A5268; color: #C9D6E2; padding: 6px 10px; font-size: 12px; }
+QPushButton#lateral_boton { background: transparent; border: 1px solid #3E6F6C; color: #D3E8E5; padding: 6px 10px; font-size: 12px; }
 QPushButton#lateral_boton:hover { background: $lateral_sel; }
 
 QFrame#tarjeta, QFrame#panel { background: $superficie; border: 1px solid $borde; border-radius: 12px; }

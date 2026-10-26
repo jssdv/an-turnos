@@ -47,8 +47,8 @@ export function CambiarClave() {
         </div>
         {error && <Aviso nivel="error">{error}</Aviso>}
         <form className={e.form} onSubmit={enviar}>
-          <Campo etiqueta="Contraseña actual" type="password" autoComplete="current-password" required autoFocus value={actual} onChange={(x) => setActual(x.target.value)} />
-          <Campo etiqueta="Contraseña nueva" type="password" autoComplete="new-password" required value={nueva} onChange={(x) => setNueva(x.target.value)} />
+          <Campo etiqueta="Contraseña actual" ayuda={usuario.debe_cambiar ? "La temporal que te dio quien administra." : undefined} type="password" autoComplete="current-password" required autoFocus value={actual} onChange={(x) => setActual(x.target.value)} />
+          <Campo etiqueta="Contraseña nueva" ayuda="Al menos 10 caracteres. Una frase corta es fácil de recordar." type="password" autoComplete="new-password" required value={nueva} onChange={(x) => setNueva(x.target.value)} />
           <Campo etiqueta="Repite la nueva" type="password" autoComplete="new-password" required value={repetida} error={distinta} onChange={(x) => setRepetida(x.target.value)} />
           <Boton type="submit" variante="primario" disabled={enviando || !actual || !nueva || nueva !== repetida}>{enviando ? "Guardando…" : "Guardar contraseña"}</Boton>
           <Boton variante="texto" onClick={salir}>Salir</Boton>

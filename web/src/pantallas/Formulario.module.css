@@ -1,4 +1,4 @@
-.form { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--e3); align-items: end; }
+.form { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--e3); align-items: start; }
 .fila { display: flex; gap: var(--e2); flex-wrap: wrap; align-items: center; grid-column: 1 / -1; }
 .casilla { display: inline-flex; align-items: center; gap: var(--e2); min-height: 32px; }
 .grupo { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--e2) var(--e4); border: 0; padding: 0; margin: 0; }

@@ -48,9 +48,9 @@ export function Puestos() {
   });
 
   return (
-    <Pagina titulo="Puestos" sub="Dónde trabaja la gente y cuántas personas hacen falta." error={puestos.error ?? demandas.error} aviso={aviso}>
+    <Pagina titulo="Puestos" sub="Dónde trabaja la gente y cuántas personas hacen falta en cada uno." ayuda={<>Cada puesto tiene <strong>reglas de cobertura</strong>: cuántas personas necesita, qué días y en qué turno. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error} aviso={aviso}>
       <Tarjeta titulo="Puestos">
-        <Tabla descripcion="Puestos del área" vacio="Aún no hay puestos." columnas={["N.º", "Nombre", "Estado", "Reglas", ""]}
+        <Tabla descripcion="Puestos del área" cargando={!puestos.datos && !puestos.error} vacio="Aún no hay puestos." columnas={["N.º", "Nombre", "Estado", "Reglas", ""]}
           filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, q.activo ? "Activo" : "Inactivo", (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
             editar ? <Boton variante="texto" onClick={() => elegir(q)}>{sel?.id === q.id ? "Editando" : "Editar"}</Boton> : null])} />
       </Tarjeta>
@@ -59,7 +59,7 @@ export function Puestos() {
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <Campo etiqueta="Número" type="number" min={1} max={99} required value={p.numero} onChange={(x) => setP({ ...p, numero: Number(x.target.value) })} />
             <Campo etiqueta="Nombre" required maxLength={60} value={p.nombre} onChange={(x) => setP({ ...p, nombre: x.target.value })} />
-            <Campo etiqueta="Color (RRGGBB)" pattern="[0-9A-Fa-f]{6}" maxLength={6} value={p.color} onChange={(x) => setP({ ...p, color: x.target.value })} />
+            <Campo etiqueta="Color en el cuadro" type="color" value={`#${p.color}`} onChange={(x) => setP({ ...p, color: x.target.value.slice(1).toUpperCase() })} />
             <Casilla etiqueta="Activo" checked={p.activo} onChange={(x) => setP({ ...p, activo: x.target.checked })} />
             <Fila>
               <Boton type="submit" variante="primario" disabled={ocupado || !p.nombre.trim()}>{ocupado ? "Guardando…" : "Guardar"}</Boton>

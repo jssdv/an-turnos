@@ -37,10 +37,11 @@ export function Disposicion() {
       <Lateral
         area={actual.nombre}
         entradas={actual.tipo === "radiologia" ? SECCIONES.map(([titulo, ruta]) => ({ titulo, a: `/areas/${actual.id}/radiologia/${ruta}` })) : [
-          ...[["Cuadro", "cuadro"], ["Solicitudes", "solicitudes"], ["Personal", "personal"], ["Novedades", "novedades"], ["Puestos", "puestos"], ["Parámetros", "parametros"], ["Analíticas", "analiticas"],
+          ...[["Cuadro", "cuadro"], ["Solicitudes", "solicitudes"], ["Personal", "personal"], ["Ausencias", "novedades"], ["Puestos", "puestos"], ["Reglas y turnos", "parametros"], ["Analíticas", "analiticas"],
             ...(usuario?.es_admin ? [["Usuarios", "usuarios"]] : [])].map(([titulo, ruta]) => ({ titulo, a: `/areas/${actual.id}/${ruta}` })),
         ]}
         usuario={usuario?.nombre ?? ""}
+        rol={actual.permiso === "editar" ? "Puede editar" : "Solo consulta"}
         pie={
           <>
             {areas.length > 1 && (
@@ -53,6 +54,11 @@ export function Disposicion() {
         }
       />
       <main className={e.principal} id="contenido" tabIndex={-1}>
+        {actual.permiso !== "editar" && (
+          <div className={e.consulta} data-no-imprimir>
+            <Aviso>Modo consulta: puedes ver y exportar, pero no cambiar nada. Si necesitas editar, pídeselo a quien administra la clínica.</Aviso>
+          </div>
+        )}
         <Outlet context={actual} />
       </main>
     </div>
