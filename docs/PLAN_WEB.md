@@ -17,7 +17,7 @@
 - [x] **Fase 6** — Exportes · [plan](superpowers/plans/2026-10-28-web-fase-6.md) (falta ver la hoja de impresión en una impresora o vista previa real)
 - [ ] **Fase 7a** — Servicios tradicionales · [plan](superpowers/plans/2026-10-28-web-fase-7a.md) (PR abierto; se marca al fusionar)
 - [ ] **Fase 7b** — Radiología en la web, con lo que hace hoy (importando el cuadro mensual) · plan pendiente
-- [ ] **Fase 8** — Seguridad y despliegue en la clínica piloto · plan pendiente
+- [ ] **Fase 8** — Seguridad y despliegue en la clínica piloto · [plan](superpowers/plans/2026-10-28-web-fase-8.md): lo del repo está hecho; faltan los pasos 👤 (servidor, dominio, acuerdo, capacitación)
 - [ ] **Fase 7c** — Radiología automática (se genera sola con el motor) · plan pendiente (después de la Fase 8)
 
 Cada plan detallado se escribe al empezar su fase (no antes: depende de lo que enseñe la anterior).
@@ -202,7 +202,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
   - [x] `solver.generar(…, al_avance=None, detener=None)` (§2), con `workers` / `AN_SOLVER_WORKERS`
   - [x] `an/web/trabajador.py` y migración `004_trabajo.sql`
   - [x] Rutas `generar`, `trabajos/{id}`, `cancelar`
-  - [ ] Contenedor `trabajador` (Fase 8: imagen y Compose de producción; aquí se corre con `python -m an.web.trabajador`)
+  - [x] Contenedor `trabajador` (Fase 8: `Dockerfile` + `docker-compose.prod.yml`; probado en local: toma y termina un trabajo `generar`)
 - **Aceptación:** (`tests/web/test_trabajador.py`)
   - [x] Un trabajo termina en `listo` y el cuadro es igual al de `flujo.generar` con la misma semilla
   - [x] Cancelar a los 2 s deja `cancelado` en menos de 3 s y no escribe
@@ -330,17 +330,19 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 
 ### Fase 8 — Seguridad y despliegue en la clínica piloto
 - **Objetivo:** operar con datos reales de una clínica.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-28-web-fase-8.md](superpowers/plans/2026-10-28-web-fase-8.md)
 - **Entregable:**
-  - [ ] VPS en la región acordada con Compose de producción (Caddy, API, trabajador, Postgres sin puerto público)
-  - [ ] `pg_dump` nocturno cifrado fuera del servidor, con prueba de restauración
-  - [ ] `docs/seguridad.md` y `docs/operacion.md`
-  - [ ] Acuerdo de tratamiento firmado
-  - [ ] Auditoría de seguridad (`/security-audit`) sin hallazgos altos abiertos
+  - [x] Compose de producción en el repo (Caddy, API, trabajador, Postgres sin puerto público, roles `an_admin`/`an_app`, `.env.example`), probado en local
+  - [ ] 👤 VPS en la región acordada con esa pila desplegada
+  - [x] Scripts de `pg_dump` nocturno cifrado (`age`) y de restauración, probados en contenedores desechables (`checks/probar_respaldo.sh`)
+  - [ ] 👤 Cron nocturno en el servidor y copia fuera del servidor
+  - [x] `docs/seguridad.md` y `docs/operacion.md`
+  - [ ] 👤 Acuerdo de tratamiento firmado
+  - [ ] Auditoría de seguridad: ronda R1 manual (0 hallazgos altos, ver `docs/seguridad-hallazgos.md`) con cobertura reducida; falta repetirla con escáneres instalados 👤
   - [ ] Capacitación y 2–4 semanas en paralelo con el proceso actual
   - [ ] Qt retirado y etiqueta `qt-final` (si la decisión 3 de §10 se mantiene)
 - **Aceptación:**
-  - [ ] Restauración de un respaldo en un servidor limpio con cifras iguales (script de la Fase 2 contra el respaldo)
+  - [x] Restauración de un respaldo en un contenedor limpio con cifras iguales (`deploy/restaurar.sh`; falta repetirla en el servidor real 👤)
   - [ ] Un mes real publicado desde la web
   - [ ] Lista de hallazgos cerrada o aceptada por escrito
 - **Riesgo:** la red de la clínica bloquea el dominio o el certificado → probar acceso desde un PC de la clínica en la Fase 4, no al final.
@@ -371,7 +373,7 @@ Candidatos, solo si una medida pasa su umbral: pista al solver con la solución 
 
 Abiertos tras cerrar los menores de la Fase 1:
 
-- **IP real detrás de Caddy** (Fase 8): `auditoria.ip` e `intento_login.ip` guardan `request.client.host`, que con el proxy será la IP de Caddy. Hay que confiar en `X-Forwarded-For` solo desde el proxy (uvicorn `--forwarded-allow-ips`) antes de desplegar; hasta entonces el bloqueo por IP del ingreso no distingue clientes.
+- ~~**IP real detrás de Caddy**~~ (cerrado en la Fase 8: Caddy con IP fija y `--forwarded-allow-ips`; `tests/web/test_proxy.py`). Antes: `auditoria.ip` e `intento_login.ip` guardan `request.client.host`, que con el proxy será la IP de Caddy. Hay que confiar en `X-Forwarded-For` solo desde el proxy (uvicorn `--forwarded-allow-ips`) antes de desplegar; hasta entonces el bloqueo por IP del ingreso no distingue clientes.
 - **Tabla `periodo`** (Fase 2): `periodo_estado.cerrado_en` (texto; UTC ISO con `+00:00` desde ahora, las filas anteriores son `AAAA-MM-DD HH:MM:SS` en UTC) se absorbe en `periodo.cerrado_en` (`timestamptz`); la migración debe aceptar ambos formatos. Nadie lee `cerrado_en` todavía.
 - **Marcas de tiempo locales**: `solicitud.creado_en` y `cambio_turno` siguen con `datetime.now()` local; unificarlas a UTC cuando se migren.
 - **Origen rechazado**: la petición con sesión válida pero Origin ajeno renueva `ultima` de la sesión (usa `app_sesion`); aceptable ahora, se puede evitar con una consulta de solo lectura.

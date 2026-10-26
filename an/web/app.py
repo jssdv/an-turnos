@@ -57,7 +57,7 @@ def _usuario_del_rechazo(pool, request):
 
 
 def crear_app(pool=None):
-    app = FastAPI(title="An", docs_url=None, redoc_url=None)
+    app = FastAPI(title="An", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.pool = pool or conexion.abrir_pool()
 
     @app.middleware("http")
