@@ -1,19 +1,21 @@
 """Radiología en la web: cuadro mensual subido (`archivo`) y, sobre él, las funciones de `an/radiologia/`. La API no reimplementa reglas."""
 import re
+import tempfile
 import zipfile
-from datetime import date
+from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
 
 from urllib.parse import quote
 
+import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from an.radiologia import analisis
 from an.radiologia import generar_semana as gs
 
-from .deps import Contexto, contexto_area
+from .deps import Contexto, contexto_area, contexto_area_lectura
 
 router = APIRouter(prefix="/api")
 MAX_ARCHIVO = 10 * 1024 * 1024
@@ -105,9 +107,16 @@ def _lunes(ws, texto):
     return lunes
 
 
+def _clave_semana(lunes):
+    return f"{lunes}/{lunes + timedelta(6)}"
+
+
 def _version_anterior(ctx, lunes):
-    """(nombre, libro openpyxl) de la última planilla guardada de la semana, o None. Hoy no se guardan: espera a la tabla `exporte` (Fase 6)."""
-    return None
+    """(nombre, libro openpyxl) del último `exporte` de tipo `semana` de esa semana, o None."""
+    f = ctx.conn.execute(
+        "SELECT e.nombre_archivo, e.contenido FROM exporte e JOIN periodo p ON p.id = e.periodo_id "
+        "WHERE p.clave = ? AND e.tipo = 'semana' ORDER BY e.numero DESC LIMIT 1", (_clave_semana(lunes),)).fetchone()
+    return (f["nombre_archivo"], openpyxl.load_workbook(BytesIO(bytes(f["contenido"])))) if f else None
 
 
 @router.get("/areas/{area}/archivos/{id}/semanas")
@@ -218,12 +227,40 @@ def agendas_zip(area: int, id: int, lunes: str, ctx: Contexto = Depends(contexto
     return _descarga(buf.getvalue(), "application/zip", f"Agendas {gs.nombre_semana(lunes)}.zip")
 
 
-@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}/libro.xlsx")
-def libro(area: int, id: int, lunes: str, request: Request, ctx: Contexto = Depends(contexto_area, scope="function")):
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+EXPORTE = ("e.id, e.periodo_id, e.numero, e.nombre_archivo, octet_length(e.contenido) AS bytes, e.creado, u.nombre AS creado_por "
+           "FROM exporte e LEFT JOIN usuario u ON u.id = e.creado_por")
+
+
+@router.post("/areas/{area}/archivos/{id}/semanas/{lunes}/exportes", status_code=201)
+def exportar_libro(area: int, id: int, lunes: str, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
+    """Guarda el libro de la semana en `exporte` (tipo `semana`) y lo marca contra la versión anterior, como «Generar» en Qt. Nunca sobrescribe: `v2`, `v3`…
+    Cada semana es un periodo del área (`lunes/domingo`) para colgar sus exportes."""
     ws = _cuadro(ctx, area, id)
     lunes = _lunes(ws, lunes)
-    wb = _calcular(ctx, ws, lunes)[0]
+    clave = _clave_semana(lunes)
+    ctx.conn.execute("INSERT INTO periodo (clave) VALUES (?) ON CONFLICT (area_id, clave) DO NOTHING", (clave,))
+    periodo = ctx.conn.execute("SELECT id FROM periodo WHERE clave = ? FOR UPDATE", (clave,)).fetchone()[0]  # serializa `numero`
+    wb, _, _, _, cambios = _calcular(ctx, ws, lunes)
+    with tempfile.TemporaryDirectory() as tmp:
+        for (n,) in ctx.conn.execute("SELECT nombre_archivo FROM exporte WHERE periodo_id = ? AND tipo = 'semana'", (periodo,)).fetchall():
+            (Path(tmp) / n).touch()
+        nombre = gs.ruta_libre(tmp, lunes).name
     buf = BytesIO()
     wb.save(buf)
-    request.state.evento = "exportacion"  # TODO(Fase 6): guardar en `exporte` con numeración v2, v3… en vez de solo descargar
-    return _descarga(buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", gs.nombre_semana(lunes) + ".xlsx")
+    nuevo = ctx.conn.execute(
+        "INSERT INTO exporte (periodo_id, tipo, numero, nombre_archivo, contenido, creado_por) "
+        "SELECT ?, 'semana', COALESCE(MAX(numero), 0) + 1, ?, ?, ? FROM exporte WHERE periodo_id = ? AND tipo = 'semana' RETURNING id",
+        (periodo, nombre, buf.getvalue(), ctx.usuario.id, periodo)).fetchone()[0]
+    request.state.evento = "exportacion"
+    f = ctx.conn.execute(f"SELECT {EXPORTE} WHERE e.id = ?", (nuevo,)).fetchone()  # sql-ok: columnas constantes
+    return {**{k: f[k] for k in f.keys()}, "cambios": len(cambios or [])}
+
+
+@router.get("/areas/{area}/archivos/{id}/semanas/{lunes}/exportes")
+def exportes_semana(area: int, id: int, lunes: str, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
+    """Versiones guardadas de la semana; se descargan con `/periodos/{periodo_id}/exportes/{id}/descargar`."""
+    lunes = _lunes(_cuadro(ctx, area, id), lunes)
+    return [{k: f[k] for k in f.keys()} for f in ctx.conn.execute(
+        f"SELECT {EXPORTE} JOIN periodo p ON p.id = e.periodo_id WHERE p.clave = ? AND e.tipo = 'semana' ORDER BY e.numero DESC",  # sql-ok: columnas constantes
+        (_clave_semana(lunes),)).fetchall()]

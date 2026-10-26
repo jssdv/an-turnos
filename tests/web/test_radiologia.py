@@ -213,18 +213,61 @@ def test_agendas_ics_y_zip():
     assert analisis.nombre_archivo('A/B:"C"') == "ABC"
 
 
-def test_libro_nombre_y_auditoria():
+H = {"Origin": ORIGEN}
+
+
+def exportar(cli, area, id_, lunes):
+    return cli.post(f"/api/areas/{area}/archivos/{id_}/semanas/{lunes}/exportes", headers=H)
+
+
+def bajar(cli, area, x):
+    return cli.get(f"/api/areas/{area}/periodos/{x['periodo_id']}/exportes/{x['id']}/descargar")
+
+
+def test_exporte_numera_sin_sobrescribir_y_audita():
     import openpyxl
     from an.radiologia import generar_semana as gs
     with entorno() as e:
         if e is None:
             return
         cli, id_, area = con_cuadro(e)
-        r = cli.get(f"/api/areas/{area}/archivos/{id_}/semanas/2026-10-19/libro.xlsx")
-        assert r.status_code == 200 and "SEMANA 19 AL 25 DE OCTUBRE.xlsx" in r.headers["content-disposition"]
-        assert openpyxl.load_workbook(io.BytesIO(r.content)).sheetnames == openpyxl.load_workbook(gs.PLANTILLA).sheetnames
-        fila = e.su.execute("SELECT metodo, codigo FROM auditoria WHERE evento = 'exportacion'").fetchone()
-        assert (fila["metodo"], fila["codigo"]) == ("GET", 200)
+        a = exportar(cli, area, id_, "2026-10-19")
+        b = exportar(cli, area, id_, "2026-10-19")
+        assert (a.status_code, a.json()["nombre_archivo"], a.json()["numero"]) == (201, "SEMANA 19 AL 25 DE OCTUBRE.xlsx", 1), a.text
+        assert (b.json()["nombre_archivo"], b.json()["numero"]) == ("SEMANA 19 AL 25 DE OCTUBRE v2.xlsx", 2)
+        otra = exportar(cli, area, id_, "2026-10-12").json()
+        assert (otra["nombre_archivo"], otra["numero"]) == ("SEMANA 12 AL 18 DE OCTUBRE.xlsx", 1)
+        lista = cli.get(f"/api/areas/{area}/archivos/{id_}/semanas/2026-10-19/exportes").json()
+        assert [x["numero"] for x in lista] == [2, 1]
+        r = bajar(cli, area, a.json())
+        assert r.status_code == 200 and openpyxl.load_workbook(io.BytesIO(r.content)).sheetnames == openpyxl.load_workbook(gs.PLANTILLA).sheetnames
+        eventos = [(f["metodo"], f["codigo"]) for f in e.su.execute("SELECT metodo, codigo FROM auditoria WHERE evento = 'exportacion' ORDER BY id")]
+        assert eventos == [("POST", 201)] * 3 + [("GET", 200)]
+        assert e.su.execute("SELECT count(*) FROM exporte WHERE tipo = 'semana'").fetchone()[0] == 3
+
+
+def test_cambios_contra_la_version_guardada():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, id_, area = con_cuadro(e)
+        editor = e.cliente()
+        e.entrar(editor, "editor@a.co")
+        base = f"/api/areas/{area}/archivos"
+        assert cli.get(f"{base}/{id_}/semanas/2026-10-19").json()["cambios"] == {"version_anterior": None, "lista": []}
+        exportar(cli, area, id_, "2026-10-19")
+        igual = cli.get(f"{base}/{id_}/semanas/2026-10-19").json()
+        assert igual["cambios"] == {"version_anterior": "SEMANA 19 AL 25 DE OCTUBRE.xlsx", "lista": []}
+        assert igual["resumen"]["tarjetas"][3]["valor"] == 0
+        # el cuadro corregido: el lunes 19 pasa de MA (mañana) a TA (tarde)
+        nuevo = subir(editor, area, cuadro_minimo(codigos={15: "TA"})).json()["id"]
+        d = cli.get(f"{base}/{nuevo}/semanas/2026-10-19").json()
+        assert d["cambios"]["version_anterior"] == "SEMANA 19 AL 25 DE OCTUBRE.xlsx" and len(d["cambios"]["lista"]) >= 1
+        n2 = exportar(cli, area, nuevo, "2026-10-19").json()
+        assert n2["nombre_archivo"].endswith(" v2.xlsx") and n2["cambios"] == len(d["cambios"]["lista"])
+        import openpyxl
+        guardado = openpyxl.load_workbook(io.BytesIO(bajar(cli, area, n2).content))
+        assert guardado.sheetnames[0] == "Cambios"  # el libro guardado lleva la hoja «Cambios» cuando hay diferencias
 
 
 def _preparado(origen, destino):
@@ -277,7 +320,9 @@ def test_libro_igual_a_qt():
         editor = e.cliente()
         e.entrar(editor, "editor@a.co")
         id_ = subir(editor, e.rad["A"], (tmp / "mensual.xlsx").read_bytes()).json()["id"]
-        r = editor.get(f"/api/areas/{e.rad['A']}/archivos/{id_}/semanas/2026-10-19/libro.xlsx")
+        x = exportar(editor, e.rad["A"], id_, "2026-10-19")
+        assert x.status_code == 201
+        r = bajar(editor, e.rad["A"], x.json())
         assert r.status_code == 200
         gs.generar(tmp / "mensual.xlsx", date(2026, 10, 19), tmp / "qt.xlsx")
         malas = _diferencias(openpyxl.load_workbook(io.BytesIO(r.content)), openpyxl.load_workbook(tmp / "qt.xlsx"))

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useOutletContext, useParams } from "react-router";
-import { mensaje, usar } from "../api/catalogos";
-import { base, rutaSemana, subirCuadro, type Archivo, type Semana, type Semanas } from "../api/radiologia";
+import { enviar, mensaje, usar } from "../api/catalogos";
+import { base, rutaSemana, subirCuadro, rutaDescarga, type Archivo, type Exporte, type Semana, type Semanas } from "../api/radiologia";
 import type { Area } from "../api/tipos";
 import { Aviso } from "../componentes/Aviso";
 import { Boton } from "../componentes/Boton";
@@ -45,6 +45,19 @@ export function Radiologia() {
       setSubiendo(false);
     }
   };
+  const [guardado, setGuardado] = useState<string | null>(null);
+  const guardar = async () => {
+    if (!id || !actual) return;
+    setErrorSubida(null);
+    try {
+      const x = await enviar<Exporte>("POST", `${rutaSemana(area.id, id, actual)}/exportes`);
+      setGuardado(`Guardado: ${x.nombre_archivo}`);
+      location.assign(rutaDescarga(area.id, x));
+      semana.recargar();
+    } catch (x) {
+      setErrorSubida(mensaje(x));
+    }
+  };
   const soltar = (ev: DragEvent) => { ev.preventDefault(); setEncima(false); if (editar) subir(ev.dataTransfer.files[0]); };
 
   const lista = semanas.datos?.semanas ?? [];
@@ -62,6 +75,7 @@ export function Radiologia() {
           </>
         )}
       </div>
+      {guardado && <Aviso nivel="ok">{guardado}</Aviso>}
       {errorSubida && <Aviso nivel="error">{errorSubida}</Aviso>}
       {error && <Aviso nivel="error">{error}</Aviso>}
       {archivos.datos && archivos.datos.length === 0 && (
@@ -77,12 +91,12 @@ export function Radiologia() {
               {archivos.datos.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
             </Seleccion>
           )}
-          <Boton disabled={i <= 0} onClick={() => setLunes(lista[i - 1].lunes)} aria-label="Semana anterior">←</Boton>
-          <Seleccion etiqueta="Semana" value={actual ?? ""} onChange={(ev) => setLunes(ev.target.value)}>
+          <Boton disabled={i <= 0} onClick={() => { setLunes(lista[i - 1].lunes); setGuardado(null); }} aria-label="Semana anterior">←</Boton>
+          <Seleccion etiqueta="Semana" value={actual ?? ""} onChange={(ev) => { setLunes(ev.target.value); setGuardado(null); }}>
             {lista.map((s) => <option key={s.lunes} value={s.lunes}>{s.etiqueta}</option>)}
           </Seleccion>
-          <Boton disabled={i < 0 || i >= lista.length - 1} onClick={() => setLunes(lista[i + 1].lunes)} aria-label="Semana siguiente">→</Boton>
-          {actual && <Boton variante="primario" onClick={() => location.assign(`${rutaSemana(area.id, id, actual)}/libro.xlsx`)}>Descargar libro de la semana</Boton>}
+          <Boton disabled={i < 0 || i >= lista.length - 1} onClick={() => { setLunes(lista[i + 1].lunes); setGuardado(null); }} aria-label="Semana siguiente">→</Boton>
+          {actual && <Boton variante="primario" onClick={guardar}>Guardar y descargar libro</Boton>}
         </div>
       )}
       {semana.datos?.resumen.aviso && seccion !== "resumen" && <Aviso nivel="aviso">{semana.datos.resumen.aviso}</Aviso>}

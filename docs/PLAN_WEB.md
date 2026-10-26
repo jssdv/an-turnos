@@ -307,7 +307,7 @@ Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterili
 - **Entregable:**
   - [x] Subir el cuadro mensual (`.xlsx`, ≤ 10 MB, `data_only=True`) a `archivo` (PR 1: API; `POST /api/areas/{area}/archivos`)
   - [x] Elegir semana; Resumen, Vista previa, Alertas, Equidad, Agendas (`.ics`) y Cambios
-  - [ ] Descargar `SEMANA … .xlsx` vía `exporte` — **empalme pendiente**: la tabla `exporte` (Fase 6) aún no está en main; hoy `libro.xlsx` se descarga directo, sin guardar ni numerar (`v2`) y «Cambios» no tiene versión anterior. Al llegar `exporte`: `_version_anterior` y `libro` en `an/web/rutas_radiologia.py` (hay un TODO)
+  - [x] Descargar `SEMANA … .xlsx` vía `exporte` (`POST …/semanas/{lunes}/exportes`; cada semana es un periodo `lunes/domingo` del área; `v2`, `v3`…; auditoría `exportacion`; «Cambios» compara con el último exporte)
   - [x] Paridad con `an/radiologia/paginas.py`: lista de funciones con su equivalente web, revisada (tabla en el plan detallado; fuera: imprimir HTML, recarga por archivo, atajos, carpeta de salida)
 - **Aceptación:**
   - [ ] El libro de la semana del 19 al 25 de octubre sale igual (celdas) que el de la app Qt
