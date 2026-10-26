@@ -67,8 +67,10 @@ def _periodo(ctx, id_):
 @router.get("/areas/{area}/periodos/{id}/cuadro")
 def cuadro(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, _, _ = _periodo(ctx, id)
-    return {"clave": clave, "version": "cambios",
-            "celdas": [dict(colab_id=c, fecha=f, turno=t) for (c, f), t in sorted(ctx.bd.asignaciones(clave).items())]}
+    revision = ctx.conn.execute("SELECT revision FROM periodo WHERE id = ?", (id,)).fetchone()[0]  # antes que las celdas: una revisión vieja solo da un 409 inofensivo
+    fijos = ctx.bd.fijos(clave)
+    return {"clave": clave, "version": "cambios", "revision": revision,
+            "celdas": [dict(colab_id=c, fecha=f, turno=t, fijo=(c, f) in fijos) for (c, f), t in sorted(ctx.bd.asignaciones(clave).items())]}
 
 
 @router.get("/areas/{area}/periodos/{id}/alertas")
