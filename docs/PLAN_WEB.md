@@ -14,8 +14,8 @@
 - [x] **Fase 3** — Trabajador del solver · [plan](superpowers/plans/2026-10-26-web-fase-3.md)
 - [ ] **Fase 4** — Planilla piloto en React · [plan](superpowers/plans/2026-10-26-web-fase-4.md) (entregables hechos; falta de la aceptación: la base migrada de la Fase 2 y el PC de la clínica)
 - [x] **Fase 5** — Edición con revisiones y auditoría · [plan](superpowers/plans/2026-10-27-web-fase-5.md) (PR 1: edición del cuadro; PR 2: catálogos, Analíticas, Usuarios y paridad. Pendiente de probar: el arrastre con un ratón real)
-- [ ] **Fase 6** — Exportes · plan pendiente
-- [ ] **Fase 7a** — Servicios tradicionales · plan pendiente
+- [x] **Fase 6** — Exportes · [plan](superpowers/plans/2026-10-28-web-fase-6.md) (falta ver la hoja de impresión en una impresora o vista previa real)
+- [ ] **Fase 7a** — Servicios tradicionales · [plan](superpowers/plans/2026-10-28-web-fase-7a.md) (PR abierto; se marca al fusionar)
 - [ ] **Fase 7b** — Radiología en la web, con lo que hace hoy (importando el cuadro mensual) · plan pendiente
 - [ ] **Fase 8** — Seguridad y despliegue en la clínica piloto · [plan](superpowers/plans/2026-10-28-web-fase-8.md): lo del repo está hecho; faltan los pasos 👤 (servidor, dominio, acuerdo, capacitación)
 - [ ] **Fase 7c** — Radiología automática (se genera sola con el motor) · plan pendiente (después de la Fase 8)
@@ -263,7 +263,7 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 | Vista «Original» (solo lectura) | — | Fuera: publicar/restaurar cubren el uso; se retoma si la clínica la pide |
 | `generar`, `generar_semana`, cancelar | Diálogo Generar con cola y progreso | Hecho (Fases 3–4) |
 | `publicar`, `restaurar`, `_alternar_cierre` | Botones Publicar, Restaurar, Cerrar/Reabrir | Hecho |
-| `exportar` | — | Fase 6 |
+| `exportar` (cuadro, puestos, horas) | Botón «Exportar» del Cuadro: `POST/GET …/exportes`, descarga | Hecho (Fase 6) |
 | Pestañas Personal, Novedades, Solicitudes | Pantallas del mismo nombre | Hecho |
 | Pestaña Puestos y demandas (`ui_puestos`) | Pantalla Puestos | Hecho |
 | Dotación mínima (`dotacion.verificar_minimo`, `TrabajoDotacion`) | — | Fuera: falta el trabajo `dotacion` en la cola (§4); sin fecha |
@@ -277,28 +277,29 @@ Cada fase termina en algo verificable y deja `CLAUDE.md` y los docs al día. No 
 
 ### Fase 6 — Exportes
 - **Objetivo:** descargar los mismos libros que hoy, versionados.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-28-web-fase-6.md](superpowers/plans/2026-10-28-web-fase-6.md)
 - **Entregable:**
-  - [ ] `POST …/exportes {tipo}` llama `exportar.exportar_cuadro|puestos|horas` en una carpeta temporal y guarda el resultado en `exporte`
-  - [ ] Lista y descarga
-  - [ ] Versión imprimible con hoja de estilo de impresión (el «PDF» es Imprimir → Guardar como PDF)
+  - [x] `POST …/exportes {tipo}` llama `exportar.exportar_cuadro|puestos|horas` en una carpeta temporal y guarda el resultado en `exporte` (migración `009`; con `ver` basta)
+  - [x] Lista y descarga (`GET …/exportes`, `GET …/exportes/{id}/descargar`; botón «Exportar» en el Cuadro)
+  - [ ] Versión imprimible con hoja de estilo de impresión (el «PDF» es Imprimir → Guardar como PDF): botón «Imprimir» y `@media print` hechos; **no verificados** en la vista previa de impresión
 - **Aceptación:**
-  - [ ] El xlsx descargado es idéntico celda a celda al que genera Qt con los mismos datos
-  - [ ] Dos exportes seguidos dan `CUADRO OCTUBRE 2026.xlsx` y `… v2.xlsx`
-  - [ ] Cada descarga queda en `auditoria` (`exportacion`)
-- **Riesgo:** exportes grandes en `bytea` inflan la base → medir tamaño por mes; si molesta, volumen en disco con la misma tabla como índice.
+  - [x] El xlsx descargado es idéntico celda a celda al que genera Qt con los mismos datos (`tests/web/test_exportes.py::test_identico_a_qt`: valores, relleno, negrita, alineación, anchos, panel fijo, para los tres tipos)
+  - [x] Dos exportes seguidos dan `CUADRO OCTUBRE 2026.xlsx` y `… v2.xlsx`
+  - [x] Cada exporte y cada descarga quedan en `auditoria` (`exportacion`); otra clínica recibe 404
+- **Tamaño medido** (demo de 40 personas, octubre 2026): cuadro 16,1 KB, puestos 9,6 KB, horas y recargos 10,1 KB → unos 36 KB por juego de tres. Un xlsx ya va comprimido (zip), así que TOAST no lo reduce. Proyección: un juego por mes y área ≈ 0,4 MB al año; con exportes repetidos (v2, v3…) ×5 ≈ 2 MB por área al año. No infla la base; se vuelve a medir con datos reales de la clínica piloto.
+- **Riesgo:** exportes grandes en `bytea` inflan la base → con estas cifras no molesta; si crece (muchas áreas, muchos reexportes, hojas de puestos más grandes), volumen en disco con la misma tabla como índice (no implementado). `exporte` solo admite INSERT: no hay purga; una política de retención queda para la Fase 8.
 
 ### Fase 7 — Resto de áreas
 Dos tipos de servicio: **tradicionales** (comparten motor y semilla con Esterilización) y **con particularidades** (reglas propias, revisión casi manual). No hay lista fija: cada clínica define sus servicios al incorporarse (pregunta 6 de §10).
 
 **7a — Servicios tradicionales**
 - **Objetivo:** una segunda área `turnos` en la misma clínica.
-- **Plan detallado:** pendiente
+- **Plan detallado:** [2026-10-28-web-fase-7a.md](superpowers/plans/2026-10-28-web-fase-7a.md)
 - **Entregable:**
-  - [ ] Área creada con `an.web.admin` y semilla de Esterilización, editable por la coordinación
+  - [x] Área creada con `an.web.admin` y semilla de Esterilización, editable por la coordinación
 - **Aceptación:**
-  - [ ] Una segunda área genera su cuadro sin tocar los datos de la primera
-  - [ ] Un usuario de una área no ve la otra (403/404)
+  - [x] Una segunda área genera su cuadro sin tocar los datos de la primera
+  - [x] Un usuario de una área no ve la otra (403/404)
 
 **7b — Radiología en la web, con lo que hace hoy**
 - **Objetivo:** hacer en el navegador todo lo que hace hoy la app Qt de Radiología, importando el cuadro mensual.
