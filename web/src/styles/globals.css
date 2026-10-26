@@ -1,0 +1,92 @@
+/* De untitleduico/react@1d410cb (MIT). Cambios: sin typography.css ni modo oscuro ni estilos de recharts. */
+@import "tailwindcss";
+@import "./theme.css";
+
+@plugin "tailwindcss-react-aria-components";
+@plugin "tailwindcss-animate";
+
+@custom-variant label (& [data-label]);
+@custom-variant focus-input-within (&:has(input:focus));
+
+@utility scrollbar-hide {
+    /* For Webkit-based browsers (Chrome, Safari and Opera) */
+    &::-webkit-scrollbar {
+        display: none;
+        -webkit-appearance: none;
+    }
+
+    /* For IE, Edge and Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+@utility transition-inherit-all {
+    transition-property: inherit;
+    transition-duration: inherit;
+    transition-timing-function: inherit;
+}
+
+html,
+body {
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-variant-ligatures: contextual;
+    font-variant-ligatures: contextual;
+    -webkit-font-kerning: normal;
+    font-kerning: normal;
+}
+
+/* Hide the default expand arrow on Safari.  */
+details summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Hide default arrows from number inputs. */
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+/* Firefox */
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* Hide the default clear button (X) from search inputs. */
+input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+}
+
+
+/* --- An (no viene de Untitled) --- */
+@font-face { font-family: "Inter"; font-weight: 400; src: url("../fuentes/Inter-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Inter"; font-weight: 500; src: url("../fuentes/Inter-Medium.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Inter"; font-weight: 600; src: url("../fuentes/Inter-SemiBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Inter"; font-weight: 700; src: url("../fuentes/Inter-Bold.ttf") format("truetype"); font-display: swap; }
+
+@layer base {
+    html, body, #raiz { height: 100%; }
+    body { margin: 0; color: var(--color-text-secondary); background: var(--color-bg-secondary); }
+    :focus-visible { outline: 2px solid var(--color-brand-600); outline-offset: 2px; }
+}
+
+/* Enlace «Saltar al contenido»: oculto hasta recibir el foco. */
+.saltar { position: absolute; left: 8px; top: -48px; z-index: 20; padding: 8px 12px; border-radius: 6px; background: var(--color-bg-primary); }
+.saltar:focus { top: 8px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Imprimir → Guardar como PDF: solo el título y la planilla, apaisado, sin menú ni botones. */
+@page { size: landscape; margin: 10mm; }
+@media print {
+    * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    html, body, #raiz { height: auto; }
+    body { background: transparent; }
+    aside, [data-no-imprimir], .saltar { display: none !important; }
+    *:has(> #contenido) { display: block !important; height: auto !important; }
+    #contenido { overflow: visible !important; padding: 0 !important; }
+    #contenido [role="alert"], #contenido [role="status"] { display: none !important; }
+    [data-solo-pantalla] { display: none !important; }
+}

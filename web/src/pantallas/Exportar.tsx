@@ -2,10 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { exportes } from "../api/exportes";
 import { ErrorApi } from "../api/cliente";
 import type { Exporte, TipoExporte } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
-import { CierreDialogo, Dialogo } from "../componentes/Dialogo";
-import e from "./Exportar.module.css";
+import { Ventana } from "./comun";
+import { Button } from "@/components/base/buttons/button";
+import { Alert } from "@/components/application/alerts/alert";
 
 const TIPOS: [TipoExporte, string][] = [["cuadro", "Cuadro"], ["puestos", "Puestos"], ["horas", "Horas y recargos"]];
 const tamano = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
@@ -47,34 +46,34 @@ export function Exportar({ area, periodo, hayCuadro }: Props) {
 
   return (
     <>
-      <Boton onClick={() => setAbierto(true)}>Exportar</Boton>
-      <Dialogo abierto={abierto} alCambiar={setAbierto} titulo="Exportar a Excel"
+      <Button color="secondary" size="sm" onPress={() => setAbierto(true)}>Exportar</Button>
+      <Ventana abierto={abierto} alCambiar={setAbierto} titulo="Exportar a Excel"
         descripcion="Cada exportación crea un archivo nuevo; los anteriores se conservan y se pueden volver a descargar.">
-        {error && <Aviso nivel="error">{error}</Aviso>}
-        {nuevo && <Aviso nivel="ok">Listo: {nuevo}</Aviso>}
-        <div className={e.tipos}>
+        {error && <Alert color="error">{error}</Alert>}
+        {nuevo && <Alert color="success">Listo: {nuevo}</Alert>}
+        <div className="flex flex-wrap gap-2">
           {TIPOS.map(([tipo, titulo]) => (
-            <Boton key={tipo} variante="primario" disabled={!hayCuadro || haciendo !== null} onClick={() => crear(tipo)}>
+            <Button color="primary" size="sm" key={tipo} isDisabled={!hayCuadro || haciendo !== null} onPress={() => crear(tipo)}>
               {haciendo === tipo ? "Generando…" : titulo}
-            </Boton>
+            </Button>
           ))}
         </div>
-        {!hayCuadro && <p className={e.vacio}>Este periodo no tiene cuadro todavía.</p>}
-        {lista && (lista.length === 0 ? <p className={e.vacio}>Aún no hay exportes de este periodo.</p> : (
-          <ul className={e.lista} aria-label="Exportes anteriores">
+        {!hayCuadro && <p className="text-tertiary">Este periodo no tiene cuadro todavía.</p>}
+        {lista && (lista.length === 0 ? <p className="text-tertiary">Aún no hay exportes de este periodo.</p> : (
+          <ul className="max-h-[260px] overflow-auto" aria-label="Exportes anteriores">
             {lista.map((x) => (
-              <li key={x.id} className={e.item}>
+              <li key={x.id} className="flex items-center justify-between gap-3 border-t border-secondary py-2 first:border-t-0">
                 <div>
-                  <div className={e.nombre}>{x.nombre_archivo}</div>
-                  <div className={e.meta}>{tamano(x.bytes)} · {x.creado_por ?? "—"} · {new Date(x.creado).toLocaleString("es-CO")}</div>
+                  <div className="font-semibold break-words text-primary">{x.nombre_archivo}</div>
+                  <div className="text-xs text-tertiary">{tamano(x.bytes)} · {x.creado_por ?? "—"} · {new Date(x.creado).toLocaleString("es-CO")}</div>
                 </div>
                 <a href={exportes.urlDescarga(area, periodo, x.id)} download={x.nombre_archivo}>Descargar</a>
               </li>
             ))}
           </ul>
         ))}
-        <div className={e.fila}><CierreDialogo render={<Boton />}>Cerrar</CierreDialogo></div>
-      </Dialogo>
+        <div className="flex justify-end"><Button color="secondary" size="sm" onPress={() => setAbierto(false)}>Cerrar</Button></div>
+      </Ventana>
     </>
   );
 }

@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { cambios } from "../api/cambios";
 import { ErrorApi } from "../api/cliente";
 import type { CambioRegistrado } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
 import { NOMBRE_TIPO } from "./RegistrarCambio";
 import { fechaCorta } from "./fechas";
+import { Button } from "@/components/base/buttons/button";
+import { Alert } from "@/components/application/alerts/alert";
+import { Seccion } from "./comun";
 
 interface Props {
   area: number;
@@ -47,8 +47,8 @@ export function Cambios({ area, periodo, revision, nombres, puedeAnular, alAnula
 
   const quien = (c: number) => nombres.get(c) ?? `#${c}`;
   return (
-    <Tarjeta titulo="Cambios del periodo">
-      {error && <Aviso nivel="error">{error}</Aviso>}
+    <Seccion titulo="Cambios del periodo">
+      {error && <Alert color="error">{error}</Alert>}
       {!lista ? <p aria-busy="true">Cargando…</p> : (
         <Tabla
           descripcion="Cambios registrados en el periodo"
@@ -62,10 +62,10 @@ export function Cambios({ area, periodo, revision, nombres, puedeAnular, alAnula
             c.celdas.map((x) => `${quien(x.colab_id)} ${fechaCorta(x.fecha)}: ${x.antes}→${x.despues}`).join("; "),
             c.motivo,
             c.anulado_en ? <span>Anulado por {c.anulado_por}</span>
-              : puedeAnular ? <Boton variante="texto" disabled={ocupado !== null} onClick={() => anular(c.id)}>{ocupado === c.id ? "Anulando…" : "Anular"}</Boton> : null,
+              : puedeAnular ? <Button color="link-color" size="sm" isDisabled={ocupado !== null} onPress={() => anular(c.id)}>{ocupado === c.id ? "Anulando…" : "Anular"}</Button> : null,
           ])}
         />
       )}
-    </Tarjeta>
+    </Seccion>
   );
 }

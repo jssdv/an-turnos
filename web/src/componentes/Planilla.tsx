@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { Ficha, type FichaProps } from "./Ficha";
-import e from "./Planilla.module.css";
+import { cx } from "@/utils/cx";
 
 export interface Dia {
   fecha: string;
@@ -110,24 +110,24 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = 
   };
 
   return (
-    <div className={e.contenedor}>
-      <table className={e.planilla} role="grid" aria-label={descripcion} aria-rowcount={filas.length + 1} aria-colcount={dias.length + 2}>
+    <div className="max-w-full overflow-auto">
+      <table className="w-max min-w-full border-separate border-spacing-0 text-sm [&_td]:px-0.5 [&_td]:py-[3px] [&_td]:text-center [&_th]:px-0.5 [&_th]:py-[3px] [&_th]:text-center [&_thead_th]:bg-secondary [&_thead_th]:py-1.5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:text-tertiary [&_tfoot_td]:border-t [&_tfoot_td]:border-secondary [&_tfoot_td]:text-[11px] [&_tfoot_td]:text-tertiary [&_tfoot_th]:border-t [&_tfoot_th]:border-secondary [&_tfoot_th]:text-[11px] [&_tfoot_th]:font-semibold [&_tfoot_th]:text-tertiary" role="grid" aria-label={descripcion} aria-rowcount={filas.length + 1} aria-colcount={dias.length + 2}>
         <thead>
           <tr>
-            <th scope="col" className={e.persona}>Persona</th>
+            <th scope="col" className="sticky left-0 z-[1] min-w-40 bg-primary pr-4! pl-3! text-left! font-medium whitespace-nowrap">Persona</th>
             {dias.map((d) => (
-              <th key={d.fecha} scope="col" className={`${e.dia} ${d.gris ? e.gris : ""}`} aria-label={`${d.nombre} ${d.n}`}>
-                <span className={e.letra}>{d.letra}</span>
+              <th key={d.fecha} scope="col" className={cx("min-w-7", d.gris && "bg-tertiary! text-primary!")} aria-label={`${d.nombre} ${d.n}`}>
+                <span className="block text-[11px]">{d.letra}</span>
                 <span>{d.n}</span>
               </th>
             ))}
-            {columnaExtra && <th scope="col" className={e.extra}>{columnaExtra}</th>}
+            {columnaExtra && <th scope="col" className="min-w-14">{columnaExtra}</th>}
           </tr>
         </thead>
         <tbody ref={cuerpo} onKeyDown={tecla}>
           {filas.map((f, r) => (
             <tr key={f.id}>
-              <th scope="row" className={e.persona}>{f.nombre}</th>
+              <th scope="row" className="sticky left-0 z-[1] min-w-40 bg-primary pr-4! pl-3! text-left! font-medium whitespace-nowrap">{f.nombre}</th>
               {dias.map((d, c) => {
                 const { etiqueta, ...ficha } = celda(f.id, d.fecha);
                 const ed = puede(r, c), elegida = sel.has(`${f.id}|${d.fecha}`);
@@ -140,7 +140,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = 
                     tabIndex={activa[0] === r && activa[1] === c ? 0 : -1}
                     aria-label={`${f.nombre}, ${d.nombre} ${d.n}: ${etiqueta}`}
                     aria-selected={ed ? elegida : undefined}
-                    className={`${e.celda} ${d.gris ? e.gris : ""} ${ed ? e.editable : ""} ${elegida ? e.elegida : ""}`}
+                    className={cx("h-[30px] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand", d.gris && "bg-secondary", ed && "cursor-pointer", elegida && "rounded-sm bg-brand-primary outline-2 -outline-offset-2 outline-brand")}
                     onFocus={() => setActiva([r, c])}
                     onClick={(ev: MouseEvent) => { setActiva([r, c]); elegir(r, c, ev); }}
                     onDoubleClick={() => accionar(r, c)}
@@ -158,7 +158,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = 
                   </td>
                 );
               })}
-              {columnaExtra && <td className={`${e.extra} ${f.extraAlto ? e.alto : ""}`}>{f.extra}</td>}
+              {columnaExtra && <td className={cx("min-w-14 font-semibold text-primary", f.extraAlto && "text-utility-yellow-700")}>{f.extra}</td>}
             </tr>
           ))}
         </tbody>
@@ -166,9 +166,9 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = 
           <tfoot>
             {pie.map((p) => (
               <tr key={p.titulo}>
-                <th scope="row" className={e.persona}>{p.titulo}</th>
+                <th scope="row" className="sticky left-0 z-[1] min-w-40 bg-primary pr-4! pl-3! text-left! font-medium whitespace-nowrap">{p.titulo}</th>
                 {dias.map((d) => (
-                  <td key={d.fecha} className={`${e.resumen} ${d.gris ? e.gris : ""} ${p.alerta?.(d.fecha) ? e.malo : ""}`}>{p.valor(d.fecha)}</td>
+                  <td key={d.fecha} className={cx("tabular-nums", d.gris && "bg-secondary", p.alerta?.(d.fecha) && "bg-utility-red-50 font-bold text-utility-red-700")}>{p.valor(d.fecha)}</td>
                 ))}
                 {columnaExtra && <td />}
               </tr>

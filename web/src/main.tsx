@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router";
 import App from "./App";
 import { Sesion } from "./Sesion";
 import "./tokens.css";
-import "./estilos.css";
+import "./styles/globals.css";
 
 createRoot(document.getElementById("raiz")!).render(
   <StrictMode>

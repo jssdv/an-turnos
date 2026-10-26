@@ -23,8 +23,13 @@ def leer_variables(ruta):
             for x in v["variables"] if x["collection"] == col["id"]}
 
 
+def _nombre(k):
+    """brand_600 → an-brand-600 (styles/theme.css de Untitled lo usa como --color-brand-600); turno_M → turno-M."""
+    return "an-" + k.replace("_", "-") if k.startswith("brand_") else k.replace("_", "-")
+
+
 def css(tokens):
-    return ":root {\n" + "".join(f"  --{k.replace('_', '-')}: {v};\n" for k, v in tokens.items()) + "}\n"
+    return ":root {\n" + "".join(f"  --{_nombre(k)}: {v};\n" for k, v in tokens.items()) + "}\n"
 
 
 def _diferencias(esperado, real, nombre):

@@ -4,19 +4,19 @@ import { borrador as guardado, cambios, type Borrador } from "../api/cambios";
 import { ErrorApi, leer } from "../api/cliente";
 import { useSesion } from "../Sesion";
 import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Turno } from "../api/tipos";
-import { Aviso } from "../componentes/Aviso";
-import { Ayuda } from "../componentes/Ayuda";
-import { Boton } from "../componentes/Boton";
-import { Seleccion } from "../componentes/Campo";
 import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
-import { Tarjeta } from "../componentes/Tarjeta";
 import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
-import e from "./Cuadro.module.css";
 import { dias as diasDe, fechaCorta, mesDe, nombrePeriodo } from "./fechas";
 import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
 import { RegistrarCambio, sinCupo } from "./RegistrarCambio";
+import { Button } from "@/components/base/buttons/button";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
+import { Seccion, Ayuda } from "./comun";
+import { cx } from "@/utils/cx";
+import { Badge } from "@/components/base/badges/badges";
 
 interface Datos {
   cuadro: CuadroApi;
@@ -179,32 +179,32 @@ export function Cuadro() {
   };
   const cerrarCambio = (b: Borrador | null) => { if (!b) { guardado.borrar(); setErrorCambio(null); } setBorrador(b); };
 
-  if (error) return <div className={e.pagina}><Aviso nivel="error" accion={<Boton onClick={() => setRecarga((n) => n + 1)}>Reintentar</Boton>}>{error}</Aviso></div>;
-  if (!periodos) return <p className={e.vacio} aria-busy="true">Cargando…</p>;
-  if (!actual) return <p className={e.vacio}>Esta área aún no tiene periodos. Genera o migra un cuadro para verlo aquí.</p>;
+  if (error) return <div className="flex max-w-[1500px] flex-col gap-5"><Alert color="error" action={<Button color="secondary" size="sm" onPress={() => setRecarga((n) => n + 1)}>Reintentar</Button>}>{error}</Alert></div>;
+  if (!periodos) return <p className="p-6 text-center text-tertiary" aria-busy="true">Cargando…</p>;
+  if (!actual) return <p className="p-6 text-center text-tertiary">Esta área aún no tiene periodos. Genera o migra un cuadro para verlo aquí.</p>;
 
   const deficit = datos?.analiticas.cobertura[0];
   const irA = (a: Alerta) => a.fecha && setFoco({ fila: a.colab_id, fecha: a.fecha, marca: Date.now() });
 
   return (
-    <div className={e.pagina}>
-      <div className={e.barra}>
+    <div className="flex max-w-[1500px] flex-col gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className={e.titulo}>Cuadro de {mesDe(actual.clave)}</h1>
-          <p className={e.sub}>
+          <h1 className="text-display-xs font-semibold text-primary">Cuadro de {mesDe(actual.clave)}</h1>
+          <p className="mt-1 text-md text-tertiary">
             {dias.length} días · versión {actual.revision}
             {deficit && (deficit.dias_deficit || deficit.puestos_sin_cubrir
               ? ` · ${deficit.dias_deficit} días con falta de personal, ${deficit.puestos_sin_cubrir} puestos sin cubrir`
               : " · todos los puestos cubiertos")}
           </p>
         </div>
-        <div className={e.acciones} data-no-imprimir>
-          {actual.cerrado_en ? <span className={e.estado}>Cerrado</span> : actual.publicado_en && <span className={e.estado}>Publicado</span>}
-          <Seleccion etiqueta="Periodo" value={actual.id} onChange={(x) => ir(`/areas/${area.id}/cuadro/${x.target.value}`)}>
+        <div className="flex flex-wrap items-end gap-3" data-no-imprimir>
+          {actual.cerrado_en ? <Badge color="gray">Cerrado</Badge> : actual.publicado_en && <Badge color="success">Publicado</Badge>}
+          <NativeSelect size="sm" className="w-56" label="Periodo" value={actual.id} onChange={(x) => ir(`/areas/${area.id}/cuadro/${x.target.value}`)}>
             {periodos.map((p) => <option key={p.id} value={p.id}>{nombrePeriodo(p.clave)}</option>)}
-          </Seleccion>
+          </NativeSelect>
           <Exportar area={area.id} periodo={actual.id} hayCuadro={!datos || datos.cuadro.celdas.length > 0} />
-          <Boton onClick={() => window.print()}>Imprimir</Boton>
+          <Button color="secondary" size="sm" onPress={() => window.print()}>Imprimir</Button>
           {area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={actual} alTerminar={() => setRecarga((n) => n + 1)} />}
           {area.permiso === "editar" && <Generar area={area.id} periodo={actual} bloqueado={!!actual.cerrado_en} alTerminar={() => setRecarga((n) => n + 1)} />}
         </div>
@@ -221,20 +221,20 @@ export function Cuadro() {
       </Ayuda>
 
       {actual.solapa_con && actual.solapa_con.length > 0 && (
-        <Aviso nivel="aviso">Este periodo comparte fechas con otro del área; una persona puede quedar con dos turnos el mismo día. Cierra o revisa uno de los dos.</Aviso>
+        <Alert color="warning">Este periodo comparte fechas con otro del área; una persona puede quedar con dos turnos el mismo día. Cierra o revisa uno de los dos.</Alert>
       )}
       {pendiente && !borrador && pendiente.periodo === actual.id && (
-        <Aviso nivel="info" accion={<Boton onClick={() => { abrirCambio(pendiente); setPendiente(null); }}>Revisarlo</Boton>}>
+        <Alert color="brand" action={<Button color="secondary" size="sm" onPress={() => { abrirCambio(pendiente); setPendiente(null); }}>Revisarlo</Button>}>
           Tienes un cambio sin enviar de antes de que venciera tu sesión.
-        </Aviso>
+        </Alert>
       )}
-      {resultado && <Aviso nivel={resultado.nivel}>{resultado.texto}</Aviso>}
+      {resultado && <Alert color={COLOR_NIVEL[resultado.nivel]}>{resultado.texto}</Alert>}
 
-      <Tarjeta aria-busy={!datos}>
+      <Seccion aria-busy={!datos}>
         {!datos || !vista ? (
-          <p className={e.vacio}>Cargando el cuadro…</p>
+          <p className="p-6 text-center text-tertiary">Cargando el cuadro…</p>
         ) : datos.cuadro.celdas.length === 0 ? (
-          <p className={e.vacio}>Este periodo no tiene cuadro todavía.</p>
+          <p className="p-6 text-center text-tertiary">Este periodo no tiene cuadro todavía.</p>
         ) : (
           <>
             <Planilla
@@ -266,7 +266,7 @@ export function Cuadro() {
                 alerta: (fecha) => vista.diaMalo.has(fecha),
               }))}
             />
-            <div className={e.leyenda}>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-tertiary">
               {datos.turnos.filter((t) => t.activo).map((t) => <span key={t.codigo}>{t.codigo} {t.nombre}</span>)}
               <span>L Libre</span>
               <span>◥ editada a mano</span>
@@ -274,33 +274,33 @@ export function Cuadro() {
             </div>
           </>
         )}
-      </Tarjeta>
+      </Seccion>
 
       <RegistrarCambio borrador={borrador} alCambiar={cerrarCambio} nombres={nombres} turnos={datos?.turnos ?? []} actual={codigoDe}
         cupos={cupos} error={errorCambio} enviando={enviando} alEnviar={enviar} />
 
       {datos && (
-        <Tarjeta data-solo-pantalla titulo={<>Alertas {datos.alertas.length > 0 && <span className={e.cuenta}>{datos.alertas.length}</span>}</>}>
+        <Seccion data-solo-pantalla titulo={<>Alertas {datos.alertas.length > 0 && <Badge size="sm" color="warning">{datos.alertas.length}</Badge>}</>}>
           {datos.alertas.length === 0 ? (
-            <p className={e.vacio}>Sin alertas: el cuadro cumple las reglas.</p>
+            <p className="p-6 text-center text-tertiary">Sin alertas: el cuadro cumple las reglas.</p>
           ) : (
             <>
-              <p className={e.sub}>Corrige primero las rojas; las amarillas son recomendaciones.</p>
+              <p className="mt-1 text-md text-tertiary">Corrige primero las rojas; las amarillas son recomendaciones.</p>
               {(["error", "aviso"] as const).map((nivel) => {
                 const grupo = agrupar(datos.alertas.filter((a) => (a.nivel === "error") === (nivel === "error")));
                 if (!grupo.length) return null;
                 const errores = nivel === "error";
                 return (
-                  <details key={nivel} className={e.grupo} open={errores || !datos.alertas.some((a) => a.nivel === "error")}>
-                    <summary><span className={`${e.chip} ${errores ? e["chip-error"] : e["chip-aviso"]}`}>{errores ? "Por corregir" : "Para revisar"} · {grupo.length}</span></summary>
-                    <ul className={e.alertas}>
+                  <details key={nivel} className="[&+&]:mt-3 [&>summary]:cursor-pointer [&>summary]:py-2" open={errores || !datos.alertas.some((a) => a.nivel === "error")}>
+                    <summary><Badge size="sm" color={errores ? "error" : "warning"}>{errores ? "Por corregir" : "Para revisar"} · {grupo.length}</Badge></summary>
+                    <ul className="">
                       {grupo.map(({ alerta: a, veces }) => (
-                        <li key={a.texto} className={e.alerta}>
-                          <span className={e.texto}>{a.texto}{veces > 1 && <span className={e.veces}> (×{veces})</span>}</span>
+                        <li key={a.texto} className="flex items-center gap-3 border-t border-secondary py-2 first:border-t-0">
+                          <span className="flex-1">{a.texto}{veces > 1 && <span className="text-tertiary"> (×{veces})</span>}</span>
                           {a.fecha && (
-                            <Boton variante="texto" onClick={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
+                            <Button color="link-color" size="sm" onPress={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
                               {a.colab_id ? "Ir a la celda" : `Ir al ${fechaCorta(a.fecha)}`}
-                            </Boton>
+                            </Button>
                           )}
                         </li>
                       ))}
@@ -310,7 +310,7 @@ export function Cuadro() {
               })}
             </>
           )}
-        </Tarjeta>
+        </Seccion>
       )}
 
       {datos && (
@@ -335,11 +335,12 @@ function Pasos({ hay, alertas, publicado }: { hay: boolean; alertas: Alerta[]; p
   ];
   const actual = pasos.findIndex((p) => !p.hecho);
   return (
-    <ol className={e.pasos} aria-label="Pasos del periodo" data-no-imprimir>
+    <ol className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 print:hidden" aria-label="Pasos del periodo" data-no-imprimir>
       {pasos.map((p, i) => (
-        <li key={p.titulo} className={p.hecho ? e.hecho : i === actual ? e.actual : undefined} aria-current={i === actual ? "step" : undefined}>
-          <span className={e.numero} aria-hidden="true">{p.hecho ? "✓" : i + 1}</span>
-          <span><strong>{i + 1}. {p.titulo}</strong><span className={e.paso}>{p.texto}</span></span>
+        <li key={p.titulo} data-hecho={p.hecho || undefined} data-actual={(!p.hecho && i === actual) || undefined}
+          className={cx("flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary ring-1 ring-secondary ring-inset", p.hecho && "bg-utility-green-50 text-utility-green-700 ring-utility-green-200", !p.hecho && i === actual && "bg-utility-yellow-50 text-utility-yellow-700 ring-utility-yellow-200")} aria-current={i === actual ? "step" : undefined}>
+          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-secondary font-bold text-tertiary in-data-hecho:bg-success-solid in-data-hecho:text-white in-data-actual:bg-warning-solid in-data-actual:text-white" aria-hidden="true">{p.hecho ? "✓" : i + 1}</span>
+          <span><strong>{i + 1}. {p.titulo}</strong><span className="mt-0.5 block text-xs text-tertiary in-data-actual:text-utility-yellow-700 in-data-hecho:text-utility-green-700">{p.texto}</span></span>
         </li>
       ))}
     </ol>

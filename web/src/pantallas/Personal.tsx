@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
-import { Boton } from "../componentes/Boton";
-import { Campo, Seleccion } from "../componentes/Campo";
 import { Tabla } from "../componentes/Tabla";
-import { Tarjeta } from "../componentes/Tarjeta";
-import { Casilla, Fila, Formulario, Pagina, useAccion } from "./comun";
-import f from "./Formulario.module.css";
+import { Fila, Formulario, Pagina, useAccion, Seccion, Grupo } from "./comun";
+import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { NativeSelect } from "@/components/base/select/select-native";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { Badge } from "@/components/base/badges/badges";
 
 const TIPOS = ["regular", "restringido", "estudiante", "refuerzo"];
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -56,44 +57,44 @@ export function Personal() {
 
   return (
     <Pagina titulo="Personal" sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
-      <Tarjeta titulo="Colaboradores" acciones={<Casilla etiqueta="Mostrar inactivos" checked={verInactivos} onChange={(x) => setVerInactivos(x.target.checked)} />}>
+      <Seccion titulo="Colaboradores" acciones={<Checkbox label="Mostrar inactivos" isSelected={verInactivos} onChange={(x) => setVerInactivos(x)} />}>
         <Tabla
           descripcion="Personal del área"
           cargando={!lista.datos && !lista.error}
           vacio="Aún no hay personal. Agrega a la primera persona abajo."
           columnas={["Nombre", "Tipo", "Horas/sem", "Dedicación", "Estado", ""]}
           filas={(lista.datos ?? []).filter((p) => p.activo || verInactivos).map((p) => [
-            p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, p.activo ? "Activo" : "Inactivo",
-            editar ? <Boton variante="texto" onClick={() => elegir(p)} aria-pressed={sel === p.id}>{sel === p.id ? "Editando" : "Editar"}</Boton> : null,
+            p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, <Badge size="sm" color={p.activo ? "success" : "gray"}>{p.activo ? "Activo" : "Inactivo"}</Badge>,
+            editar ? <Button color="link-color" size="sm" onPress={() => elegir(p)} aria-pressed={sel === p.id}>{sel === p.id ? "Editando" : "Editar"}</Button> : null,
           ])}
         />
-      </Tarjeta>
+      </Seccion>
       {editar && (
-        <Tarjeta titulo={sel ? "Editar persona" : "Nueva persona"}>
+        <Seccion titulo={sel ? "Editar persona" : "Nueva persona"}>
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
-            <Campo etiqueta="Nombre" required maxLength={120} value={actual.nombre} onChange={(x) => set({ nombre: x.target.value })} />
-            <Seleccion etiqueta="Tipo" value={actual.tipo} onChange={(x) => set({ tipo: x.target.value })}>{TIPOS.map((t) => <option key={t}>{t}</option>)}</Seleccion>
-            <Campo etiqueta="Horas por semana" type="number" min={1} max={84} step="0.5" value={actual.horas_sem} onChange={(x) => set({ horas_sem: Number(x.target.value) })} />
-            <Campo etiqueta="Dedicación (%)" type="number" min={1} max={100} value={actual.pct} onChange={(x) => set({ pct: Number(x.target.value) })} />
-            <fieldset className={f.grupo}><legend>Turnos que puede hacer</legend>
-              {turnos.map((t) => <Casilla key={t.codigo} etiqueta={`${t.codigo} · ${t.nombre}`} checked={actual.permitidos.includes(t.codigo)} onChange={() => set({ permitidos: alternar(actual.permitidos, t.codigo) })} />)}
-            </fieldset>
-            <fieldset className={f.grupo}><legend>Puestos que puede ocupar</legend>
-              {puestos.map((p) => <Casilla key={p.id} etiqueta={`${p.numero} · ${p.nombre}`} checked={actual.puestos.includes(p.id)} onChange={() => set({ puestos: alternar(actual.puestos, p.id) })} />)}
-            </fieldset>
-            <fieldset className={f.grupo}><legend>Bloques de estudio (no disponible)</legend>
+            <Input value={String(actual.nombre)} label="Nombre" isRequired maxLength={120} onChange={(x) => set({ nombre: x })} />
+            <NativeSelect size="sm" label="Tipo" value={actual.tipo} onChange={(x) => set({ tipo: x.target.value })}>{TIPOS.map((t) => <option key={t}>{t}</option>)}</NativeSelect>
+            <Input value={String(actual.horas_sem)} label="Horas por semana" type="text" inputMode="decimal" onChange={(x) => set({ horas_sem: Number(x.replace(",", ".")) })} />
+            <Input value={String(actual.pct)} label="Dedicación (%)" type="number" onChange={(x) => set({ pct: Number(x) })} />
+            <Grupo leyenda="Turnos que puede hacer">
+              {turnos.map((t) => <Checkbox key={t.codigo} label={`${t.codigo} · ${t.nombre}`} isSelected={actual.permitidos.includes(t.codigo)} onChange={() => set({ permitidos: alternar(actual.permitidos, t.codigo) })} />)}
+            </Grupo>
+            <Grupo leyenda="Puestos que puede ocupar">
+              {puestos.map((p) => <Checkbox key={p.id} label={`${p.numero} · ${p.nombre}`} isSelected={actual.puestos.includes(p.id)} onChange={() => set({ puestos: alternar(actual.puestos, p.id) })} />)}
+            </Grupo>
+            <Grupo leyenda="Bloques de estudio (no disponible)">
               {(["M", "T"] as const).map((fr) => DIAS.map((d, i) => (
-                <Casilla key={`${i}${fr}`} etiqueta={`${d} ${fr === "M" ? "mañana" : "tarde"}`} checked={actual.estudio.includes(`${i}${fr}`)} onChange={() => set({ estudio: alternar(actual.estudio, `${i}${fr}`) })} />
+                <Checkbox key={`${i}${fr}`} label={`${d} ${fr === "M" ? "mañana" : "tarde"}`} isSelected={actual.estudio.includes(`${i}${fr}`)} onChange={() => set({ estudio: alternar(actual.estudio, `${i}${fr}`) })} />
               )))}
-            </fieldset>
-            <Casilla etiqueta="Activo" checked={actual.activo} onChange={(x) => set({ activo: x.target.checked })} />
+            </Grupo>
+            <Checkbox label="Activo" isSelected={actual.activo} onChange={(x) => set({ activo: x })} />
             <Fila>
-              <Boton type="submit" variante="primario" disabled={ocupado || !actual.nombre.trim() || !actual.permitidos.length || !actual.puestos.length}>{ocupado ? "Guardando…" : "Guardar"}</Boton>
-              <Boton onClick={nuevo}>Nueva persona</Boton>
-              {sel && <Boton variante="peligro" disabled={ocupado} onClick={borrar}>Eliminar</Boton>}
+              <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !actual.nombre.trim() || !actual.permitidos.length || !actual.puestos.length}>{ocupado ? "Guardando…" : "Guardar"}</Button>
+              <Button color="secondary" size="sm" onPress={nuevo}>Nueva persona</Button>
+              {sel && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
             </Fila>
           </Formulario>
-        </Tarjeta>
+        </Seccion>
       )}
     </Pagina>
   );
