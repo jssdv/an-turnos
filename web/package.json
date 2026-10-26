@@ -10,7 +10,6 @@
     "tsc": "tsc --noEmit"
   },
   "dependencies": {
-    "@base-ui/react": "^1.9.0",
     "@tailwindcss/vite": "4.3.3",
     "@untitledui/icons": "0.0.23",
     "react": "^19.3.1",
