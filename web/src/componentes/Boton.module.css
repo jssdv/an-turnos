@@ -1,0 +1,10 @@
+.boton { display: inline-flex; align-items: center; justify-content: center; gap: var(--e2); min-height: 32px; padding: 0 var(--e4); border-radius: var(--radio); border: 1px solid transparent; font-weight: 600; font-size: 13px; cursor: pointer; }
+.boton:disabled { cursor: not-allowed; background: var(--superficie-sutil); color: var(--deshabilitado); border-color: var(--borde); }
+.primario { background: var(--acento); color: var(--superficie); }
+.primario:hover:not(:disabled) { background: var(--acento-hover); }
+.secundario { background: var(--superficie); color: var(--titulo); border-color: var(--borde-control); }
+.secundario:hover:not(:disabled) { background: var(--superficie-sutil); }
+.peligro { background: var(--error); color: var(--superficie); }
+.peligro:hover:not(:disabled) { background: var(--error-texto); }
+.texto { background: transparent; color: var(--acento); padding: 0 var(--e2); }
+.texto:hover:not(:disabled) { background: var(--acento-suave); }
