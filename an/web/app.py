@@ -18,6 +18,7 @@ from .rutas_auth import router as rutas_auth
 from .rutas_catalogos import router as rutas_catalogos
 from .rutas_edicion import router as rutas_edicion
 from .rutas_trabajos import router as rutas_trabajos
+from .rutas_usuarios import router as rutas_usuarios
 
 LIMITE_CUERPO = 1_000_000
 CABECERAS = {"Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff",
@@ -98,4 +99,5 @@ def crear_app(pool=None):
     app.include_router(rutas_catalogos)
     app.include_router(rutas_edicion)
     app.include_router(rutas_trabajos)
+    app.include_router(rutas_usuarios)
     return app
