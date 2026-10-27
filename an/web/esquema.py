@@ -20,6 +20,12 @@ def aplicar(conn):
     return aplicadas
 
 
+def aplicar_sqlite(con):
+    """Versión portable: crea el esquema completo si la base está vacía (no hay migraciones incrementales)."""
+    if not con.execute("SELECT name FROM sqlite_master WHERE name = 'clinica'").fetchone():
+        con._raw.executescript((Path(__file__).with_name("esquema_sqlite.sql")).read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":  # python -m an.web.esquema: aplica las migraciones al esquema `public` de AN_PG_URL
     import os
 

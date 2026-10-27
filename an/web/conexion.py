@@ -8,10 +8,15 @@ from psycopg_pool import ConnectionPool
 
 from an.turnos.pg import FILAS, Conexion
 
+from . import sqlite_pg
+
 
 def abrir_pool(url=None, rol=None, max_size=10):
     """Pool sobre AN_PG_URL. En producción la URL ya entra como `an_app`; con `rol` (desarrollo y pruebas) se hace SET ROLE al abrir.
     Se niega a abrir si el rol efectivo se salta RLS (superusuario o BYPASSRLS): sin aislamiento por clínica no se sirve nada."""
+    url = url or os.environ.get("AN_PG_URL", "")
+    if url.startswith("sqlite:"):  # versión portable: un archivo, sin RLS ni roles
+        return sqlite_pg.Pool(url.removeprefix("sqlite:"))
     rol = rol or os.environ.get("AN_ROL")
 
     def configurar(conn):
@@ -24,7 +29,7 @@ def abrir_pool(url=None, rol=None, max_size=10):
         conn.execute("RESET app.area")
         conn.commit()
 
-    pool = ConnectionPool(url or os.environ["AN_PG_URL"], kwargs={"row_factory": FILAS}, configure=configurar, reset=limpiar,
+    pool = ConnectionPool(url, kwargs={"row_factory": FILAS}, configure=configurar, reset=limpiar,
                           min_size=min(2, max_size), max_size=max_size, timeout=10, open=True)
     with pool.connection() as c:
         if c.execute("SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user").fetchone()[0]:
