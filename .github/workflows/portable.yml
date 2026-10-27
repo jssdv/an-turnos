@@ -36,7 +36,8 @@ jobs:
             try { Invoke-WebRequest http://localhost:8765/api/areas -UseBasicParsing | Out-Null } catch { if ($_.Exception.Response.StatusCode -eq 401) { $ok = $true; break } }
           }
           Stop-Process $p -Force
-          Get-Content "$env:AN_DATOS\an.log" -ErrorAction SilentlyContinue | Select-Object -Last 60
+          Get-Content "$env:AN_DATOS\an.log" -ErrorAction SilentlyContinue | Select-Object -First 80
+          Get-ChildItem "$env:AN_DATOS\pg\log*" -ErrorAction SilentlyContinue | ForEach-Object { "== $_"; Get-Content $_ | Select-Object -Last 30 }
           if (-not $ok) { throw "El ejecutable no respondió" }
       - run: Compress-Archive dist/An An-windows.zip
       - uses: actions/upload-artifact@v4
