@@ -55,6 +55,7 @@ def preparar_base(url_admin, datos):
         esquema.aplicar(c)
         c.execute("ALTER ROLE an_app LOGIN")
         c.commit()
+    primer = None
     with psycopg.connect(url_admin, row_factory=FILAS) as c:
         if c.execute("SELECT 1 FROM clinica LIMIT 1").fetchone() is None:
             cl = admin.crear_clinica(c, CLINICA)
@@ -64,8 +65,8 @@ def preparar_base(url_admin, datos):
             admin.dar_permiso(c, uid, area, "editar")
             texto = f"Usuario: {CORREO}\nClave temporal: {clave}\n(el sistema pide cambiarla al entrar)\n"
             (datos / "primer_acceso.txt").write_text(texto, encoding="utf-8")
-            print(texto)
-    return con_usuario(url_admin, "an_app")
+            primer = texto
+    return con_usuario(url_admin, "an_app"), primer
 
 
 def servir_front(app, dist):
@@ -113,82 +114,122 @@ def arrancar_postgres(pg):
     pg_ctl(["-w", "-t", "900", "-o", "-h 127.0.0.1", "-o", f"-p {puerto}", "-l", str(log), "start"], pgdata=pg, timeout=1000, **extra)
 
 
-def al_cerrar_ventana(servidor, terminado):
-    """Windows: la X de la consola mata el proceso a los ~5 s; se pide a uvicorn que salga y se espera a que termine la limpieza."""
-    import ctypes
+def en_marcha():
+    import socket
 
-    @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)
-    def manejador(evento):
-        if evento in (2, 5, 6):  # CTRL_CLOSE / LOGOFF / SHUTDOWN
-            servidor.should_exit = True
-            terminado.wait(4)
-            return True
-        return False
-
-    ctypes.windll.kernel32.SetConsoleCtrlHandler(manejador, True)
-    return manejador  # hay que conservar la referencia
+    with socket.socket() as sk:
+        sk.settimeout(1)
+        return sk.connect_ex(("127.0.0.1", PUERTO)) == 0
 
 
-def main():
-    datos = carpeta_datos()
-    datos.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s",
-                        handlers=[logging.StreamHandler(), logging.FileHandler(datos / "an.log", encoding="utf-8")])  # incluye el stderr de initdb
-    if sys.platform == "win32":  # initdb corre con token restringido (sin el grupo Administradores): el usuario debe figurar en la ACL
-        subprocess.run(["icacls", str(datos), "/grant", f"{os.environ['USERNAME']}:(OI)(CI)F"], check=True, capture_output=True)
-    servidor, terminado = None, threading.Event()
-    url_admin = os.environ.get("AN_PG_ADMIN_URL")
-    if not url_admin:
-        import pgserver  # solo en el paquete portable
-
-        pg = datos / "pg"
-        if pg.exists() and not (pg / "PG_VERSION").exists():  # inicialización interrumpida: sin clúster no hay nada que perder
-            shutil.rmtree(pg, ignore_errors=True)
-        print("Iniciando la base de datos (tras un cierre brusco puede tardar varios minutos)…")
-        arrancar_postgres(pg)
-        servidor = pgserver.get_server(datos / "pg", cleanup_mode=None)  # Postgres sigue vivo al salir; el siguiente arranque lo reutiliza
-        url_admin = servidor.get_uri()
+def servicio(estado):
+    """Hilo de fondo: base de datos, API y trabajador. `estado` es el diccionario que lee la ventana ("listo", "web", "error", "fin")."""
+    datos, servidor = carpeta_datos(), None
     try:
-        os.environ["AN_PG_URL"] = preparar_base(url_admin, datos)
+        url_admin = os.environ.get("AN_PG_ADMIN_URL")
+        if not url_admin:
+            import pgserver  # solo en el paquete portable
+
+            pg = datos / "pg"
+            if pg.exists() and not (pg / "PG_VERSION").exists():  # inicialización interrumpida: sin clúster no hay nada que perder
+                shutil.rmtree(pg, ignore_errors=True)
+            arrancar_postgres(pg)
+            servidor = pgserver.get_server(pg, cleanup_mode="stop")
+            url_admin = servidor.get_uri()
+        os.environ["AN_PG_URL"], estado["primer"] = preparar_base(url_admin, datos)
         os.environ["AN_ORIGEN"] = f"http://localhost:{PUERTO}"
         pool = conexion.abrir_pool()
         app = crear_app(pool)
         servir_front(app, carpeta_front())
         parar = threading.Event()
         threading.Thread(target=Trabajador(pool).servir, args=(parar,), daemon=True).start()
-        threading.Timer(1.5, webbrowser.open, (os.environ["AN_ORIGEN"],)).start()
-        print(f"An corriendo en {os.environ['AN_ORIGEN']} · datos en {datos} · cierra esta ventana para detenerlo")
-        web = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=PUERTO, log_level="warning"))
-        if sys.platform == "win32":
-            manejador = al_cerrar_ventana(web, terminado)  # noqa: F841
-        web.run()
+        estado["web"] = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=PUERTO, log_level="warning"))
+        threading.Timer(1.0, estado.__setitem__, ("listo", True)).start()
+        estado["web"].run()
         parar.set()
         pool.close()
+    except BaseException:
+        logging.getLogger("an").exception("error de arranque")
+        estado["error"] = True
     finally:
         if servidor is not None:
             servidor.cleanup()
-        terminado.set()
+        estado["fin"] = True
 
 
-def main_seguro():
-    """Deja el error en an.log y espera una tecla: la ventana de consola no debe cerrarse antes de poder leerlo."""
-    if "--detener" in sys.argv:  # apaga el Postgres que queda en segundo plano (p. ej. para reemplazar la carpeta del programa)
-        from pgserver._commands import pg_ctl
+def sin_consolas():
+    """Programa sin consola: los procesos hijos (initdb, pg_ctl…) no deben abrir ventanas negras."""
+    original = subprocess.Popen.__init__
 
-        pg_ctl(["-w", "-m", "fast", "stop"], pgdata=carpeta_datos() / "pg", timeout=120)
-        print("Base de datos detenida.")
+    def init(self, *a, **k):
+        k["creationflags"] = k.get("creationflags", 0) | 0x08000000  # CREATE_NO_WINDOW
+        original(self, *a, **k)
+
+    subprocess.Popen.__init__ = init
+
+
+def main():
+    import tkinter as tk
+    from tkinter import messagebox
+
+    datos = carpeta_datos()
+    datos.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s",
+                        handlers=[logging.FileHandler(datos / "an.log", encoding="utf-8")])  # incluye el stderr de initdb
+    url = f"http://localhost:{PUERTO}"
+    if en_marcha():  # segunda vez que se abre: solo lleva al navegador
+        webbrowser.open(url)
         return
-    try:
-        main()
-    except BaseException:
-        import traceback
+    if sys.platform == "win32":
+        sin_consolas()
+        # initdb corre con token restringido (sin el grupo Administradores): el usuario debe figurar en la ACL
+        subprocess.run(["icacls", str(datos), "/grant", f"{os.environ['USERNAME']}:(OI)(CI)F"], check=True, capture_output=True)
+    estado = {}
+    hilo = threading.Thread(target=servicio, args=(estado,), daemon=True)
+    hilo.start()
 
-        texto = traceback.format_exc()
-        logging.getLogger("an").error(texto)
-        print(texto)
-        input("\nHubo un error (copiado en an.log, carpeta de datos). Presiona Enter para cerrar.")
-        raise
+    v = tk.Tk()
+    v.title("An")
+    v.geometry("420x190")
+    v.resizable(False, False)
+    texto = tk.Label(v, text="Iniciando…\nLa primera vez, o tras un cierre brusco, puede tardar varios minutos.", wraplength=380, pady=18)
+    texto.pack()
+    abrir = tk.Button(v, text="Abrir An", state="disabled", width=20, command=lambda: webbrowser.open(url))
+    abrir.pack(pady=4)
+    cerrar = tk.Button(v, text="Cerrar An", width=20)
+    cerrar.pack(pady=4)
+
+    def salir():
+        cerrar.config(state="disabled")
+        abrir.config(state="disabled")
+        texto.config(text="Cerrando… (guardando los datos, no apagues el equipo)")
+        if "web" in estado:
+            estado["web"].should_exit = True
+        estado["salir"] = True
+
+    def vigilar():
+        if estado.get("error"):
+            messagebox.showerror("An no pudo iniciar", f"Ocurrió un problema al iniciar. Intenta abrirlo de nuevo.\n"
+                                 f"Si se repite, envía este archivo a soporte:\n{datos / 'an.log'}")
+            v.destroy()
+        elif estado.get("fin"):
+            v.destroy()
+        else:
+            if estado.get("listo") and not estado.get("salir") and abrir["state"] == "disabled":
+                texto.config(text="An está funcionando.\nDeja esta ventana abierta mientras lo uses; ciérrala con «Cerrar An» al terminar.")
+                abrir.config(state="normal")
+                webbrowser.open(url)
+                if estado.get("primer"):
+                    messagebox.showinfo("Primer acceso", estado["primer"] + "\nAnota estos datos: se muestran una sola vez (también quedan en primer_acceso.txt, "
+                                        f"en {datos}).")
+            v.after(500, vigilar)
+
+    cerrar.config(command=salir)
+    v.protocol("WM_DELETE_WINDOW", salir)
+    v.after(500, vigilar)
+    v.mainloop()
+    hilo.join(30)
 
 
 if __name__ == "__main__":
-    main_seguro()
+    main()
