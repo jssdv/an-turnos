@@ -172,6 +172,9 @@ def main():
     import tkinter as tk
     from tkinter import messagebox
 
+    for flujo in ("stdout", "stderr"):  # programa sin consola: estos flujos son None y uvicorn llama a isatty() sobre ellos
+        if getattr(sys, flujo) is None:
+            setattr(sys, flujo, open(os.devnull, "w"))
     datos = carpeta_datos()
     datos.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s",
