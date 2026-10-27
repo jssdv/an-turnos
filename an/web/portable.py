@@ -93,15 +93,31 @@ def postgres_vivo(pg):
         return False
 
 
+def matar_huerfanos():
+    """Postgres de sesiones anteriores que quedaron sin su proceso principal (o que no responden): se cierran desde aquí, sin Administrador de tareas."""
+    import psutil
+
+    for p in psutil.process_iter(["name", "exe"]):
+        try:
+            if (p.info["name"] or "").lower().startswith("postgres") and "pginstall" in (p.info["exe"] or ""):
+                p.kill()
+        except psutil.Error:
+            pass
+    time.sleep(2)
+
+
 def arrancar_postgres(pg):
     """pgserver arranca con un tope de 10 s, y tras un cierre brusco la recuperación puede tardar minutos (antivirus). Se arranca aquí,
-    con espera larga y sin consola (la X de la ventana ya no lo mata); pgserver reutiliza el servidor que encuentra vivo."""
+    con espera larga y sin consola; pgserver reutiliza el servidor que encuentra vivo."""
     if not (pg / "PG_VERSION").exists() or postgres_vivo(pg):
         return
     import socket
+    import subprocess as sp
 
     from pgserver._commands import pg_ctl
 
+    matar_huerfanos()
+    (pg / "postmaster.pid").unlink(missing_ok=True)  # sin proceso vivo, el archivo es un resto
     with socket.socket() as sk:
         sk.bind(("127.0.0.1", 0))
         puerto = sk.getsockname()[1]
@@ -111,7 +127,11 @@ def arrancar_postgres(pg):
     for viejo in logs[:-4]:
         viejo.unlink(missing_ok=True)
     log = pg / f"log_{int(time.time())}"
-    pg_ctl(["-w", "-t", "900", "-o", "-h 127.0.0.1", "-o", f"-p {puerto}", "-l", str(log), "start"], pgdata=pg, timeout=1000, **extra)
+    try:
+        pg_ctl(["-w", "-t", "900", "-o", "-h 127.0.0.1", "-o", f"-p {puerto}", "-l", str(log), "start"], pgdata=pg, timeout=1000, **extra)
+    except sp.CalledProcessError:
+        logging.getLogger("an").error("Postgres no arrancó. Su log:\n%s", log.read_text(errors="replace")[-4000:] if log.exists() else "(sin log)")
+        raise
 
 
 def en_marcha():
