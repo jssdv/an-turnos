@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
@@ -104,7 +105,12 @@ def arrancar_postgres(pg):
         sk.bind(("127.0.0.1", 0))
         puerto = sk.getsockname()[1]
     extra = {"creationflags": 0x00000008} if sys.platform == "win32" else {}  # DETACHED_PROCESS
-    pg_ctl(["-w", "-t", "900", "-o", "-h 127.0.0.1", "-o", f"-p {puerto}", "-l", str(pg / "log"), "start"], pgdata=pg, timeout=1000, **extra)
+    # un log nuevo por arranque: un Postgres de la sesión anterior puede seguir teniendo abierto el archivo anterior
+    logs = sorted(pg.glob("log*"), key=lambda f: f.stat().st_mtime)
+    for viejo in logs[:-4]:
+        viejo.unlink(missing_ok=True)
+    log = pg / f"log_{int(time.time())}"
+    pg_ctl(["-w", "-t", "900", "-o", "-h 127.0.0.1", "-o", f"-p {puerto}", "-l", str(log), "start"], pgdata=pg, timeout=1000, **extra)
 
 
 def al_cerrar_ventana(servidor, terminado):
@@ -140,7 +146,7 @@ def main():
             shutil.rmtree(pg, ignore_errors=True)
         print("Iniciando la base de datos (tras un cierre brusco puede tardar varios minutos)…")
         arrancar_postgres(pg)
-        servidor = pgserver.get_server(datos / "pg", cleanup_mode="stop")
+        servidor = pgserver.get_server(datos / "pg", cleanup_mode=None)  # Postgres sigue vivo al salir; el siguiente arranque lo reutiliza
         url_admin = servidor.get_uri()
     try:
         os.environ["AN_PG_URL"] = preparar_base(url_admin, datos)
@@ -166,6 +172,12 @@ def main():
 
 def main_seguro():
     """Deja el error en an.log y espera una tecla: la ventana de consola no debe cerrarse antes de poder leerlo."""
+    if "--detener" in sys.argv:  # apaga el Postgres que queda en segundo plano (p. ej. para reemplazar la carpeta del programa)
+        from pgserver._commands import pg_ctl
+
+        pg_ctl(["-w", "-m", "fast", "stop"], pgdata=carpeta_datos() / "pg", timeout=120)
+        print("Base de datos detenida.")
+        return
     try:
         main()
     except BaseException:
