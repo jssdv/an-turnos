@@ -10,11 +10,13 @@ from . import demanda as dem
 from .solicitudes import W_SOL, malo
 
 from .dominio import DESCANSO_MIN
+from .recargos import horas_df
 
 # Pesos del objetivo (minutos de desviación = 1 punto). La cobertura faltante domina todo lo demás.
 W_FALTA, W_DEFICIT, W_EXCESO, W_DESEABLE = 10_000, 1, 2, 10  # W_FALTA es por persona y tramo de 30 min
 W_CAMBIO, W_NOCHE_SEG, W_DF_SEG, W_ESTUDIO, W_EQUIDAD = 15, 200, 100, 300, 200
-W_C_PAR, W_LIBRE_FDS, W_IGUAL = 250, 120, 60  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
+W_C_PAR, W_LIBRE_FDS, W_IGUAL = 250, 120, 60
+W_DF_EQ = 150  # por media hora de diferencia entre la persona con más y la de menos horas en domingo/festivo  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
 
 
 class ErrorSolver(Exception):
@@ -28,13 +30,12 @@ def incompatibles(turnos):
 
 
 def carga(ctx, cuadro, fechas):
-    """{colab_id: {código de turno: veces, "DF": horas trabajadas en domingos/festivos}}; sirve de acumulado para meses futuros."""
+    """{colab_id: {código de turno: veces, "DF": medias horas de calendario en domingo/festivo}}; sirve de acumulado para meses futuros."""
     out = defaultdict(lambda: defaultdict(int))
     for (cid, f), cod in cuadro.items():
         if cod in ctx.turnos and f in fechas:
             out[cid][cod] += 1
-            if ctx.tipo_dia(f) == "DF":
-                out[cid]["DF"] += round(ctx.turnos[cod].horas)
+            out[cid]["DF"] += round(horas_df(ctx.turnos[cod], f, ctx) * 2)
     return {k: dict(v) for k, v in out.items()}
 
 
@@ -176,6 +177,14 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
             if len(dias) == 7:
                 m.Add(sum(v for d in dias for s, v in por_pd[p.id, d] if s == "L") >= ctx.libres_semana)
 
+    if ctx.max_horas_semana:  # tope duro de horas por semana completa (ponytail: las semanas parciales del borde no se topan)
+        tope = ctx.max_horas_semana * 60
+        for p in P:
+            for lunes, dias in semanas.items():
+                fijas = sum(ctx.turnos[fijos[p.id, d]].horas * 60 for d in dias if fijos.get((p.id, d)) in ctx.turnos)
+                if len(dias) == 7 and fijas <= tope:
+                    m.Add(sum(round(ctx.turnos[s].horas * 60) * v for d in dias for s, v in por_pd[p.id, d] if s in ctx.turnos) <= tope)
+
     # cobertura por tramos de 30 min: la demanda obligatoria de los puestos, tramo a tramo; los deseables dan un premio
     tr = {c: ([t for o, t in dem.turno_tramos(tu) if o == 0], [t for o, t in dem.turno_tramos(tu) if o == 1])
           for c, tu in ctx.turnos.items()}
@@ -279,17 +288,16 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
 
     # equidad: M, T, C, NC (y cada turno nuevo) y domingos/festivos parejos entre quienes pueden hacerlos,
     # contando lo acumulado de meses anteriores
-    # (clave, cuenta, quién puede, tolerancia): turnos por código; domingos/festivos en HORAS (aparte de las noches, para no
-    # cargar a quien no hace noches); un turno de diferencia en «DF» = las horas del turno más largo
+    # (clave, cuenta, quién puede, tolerancia): turnos por código, con 1 turno de tolerancia; domingos/festivos en medias horas
+    # de calendario (lo mismo que se paga), aparte de las noches y sin tolerancia: se busca la menor diferencia posible
     cargas = [(cod, lambda d, s, cod=cod: s == cod, lambda p, cod=cod: p.permitidos is None or cod in p.permitidos, 1) for cod in S]
-    h_df = lambda d, s: round(ctx.turnos[s].horas) if s in ctx.turnos and ctx.tipo_dia(d) == "DF" else 0
-    tol_df = max([round(t.horas) for t in ctx.turnos.values() if t.activo and t.solver] or [1])
-    cargas.append(("DF", h_df, lambda p: True, tol_df))
+    mh_df = {(s, d): round(horas_df(ctx.turnos[s], d, ctx) * 2) for s in S if s in ctx.turnos for d in fechas}
+    cargas.append(("DF", lambda d, s: mh_df.get((s, d), 0), lambda p: any(mh_df.get((s, d)) for d in fechas for s, _ in por_pd[p.id, d]), 0))
     for clave, cond, puede, tol in cargas:
         grupos = defaultdict(list)  # se compara entre quienes tienen las mismas restricciones (la restringida va aparte)
         for p in P:
             if puede(p):
-                grupos[p.permitidos if clave != "DF" else None].append(p)
+                grupos[p.permitidos if clave != "DF" else p.pct].append(p)  # DF: solo entre la misma jornada contratada
         for elegibles in grupos.values():
             if len(elegibles) < 2:
                 continue
@@ -299,10 +307,12 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
             for p in elegibles:
                 m.Add(mx >= tot[p.id])
                 m.Add(mn <= tot[p.id])
-            exceso = m.NewIntVar(0, 100000, "")  # la diferencia hasta `tol` pesa normal; lo que pase pesa el triple
-            m.Add(exceso >= mx - mn - 2 * tol)  # tol = 1 turno (o sus horas en «DF»)
-            peso = W_EQUIDAD if clave != "DF" else max(1, W_EQUIDAD // tol_df)  # por hora: un turno de diferencia pesa lo mismo que en los demás
-            obj += [peso * (mx - mn), 3 * peso * exceso]
+            if clave == "DF":
+                obj.append(W_DF_EQ * (mx - mn))  # por media hora; 6 h de diferencia pesan más que cualquier regla blanda de rotación
+                continue
+            exceso = m.NewIntVar(0, 100000, "")  # la diferencia hasta `tol` turnos pesa normal; lo que pase pesa el triple
+            m.Add(exceso >= mx - mn - 2 * tol)
+            obj += [W_EQUIDAD * (mx - mn), 3 * W_EQUIDAD * exceso]
 
     for s in ctx.solicitudes:  # deseos blandos: cuestan, nunca prohíben
         for d in fechas:

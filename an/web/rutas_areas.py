@@ -51,7 +51,7 @@ _lista("tarifas", lambda bd: bd.tarifas())
 # ponytail: copia de los defectos del núcleo; si alguno cambia allí, cámbialo aquí (o súbelos a una constante común).
 PARAMETROS_POR_DEFECTO = {
     "periodo_modo": "mes", "periodo_semanas": "4", "ventana_semanas": "3", "limite_permutas": "2", "max_noches_seguidas": "2",
-    "max_c_seguidos": "2", "max_igual_seguidos": "3", "libre_tras_noche": "1", "libres_por_semana": "1", "fines_semana_libres": "1",
+    "max_c_seguidos": "2", "max_igual_seguidos": "3", "libre_tras_noche": "1", "libres_por_semana": "1", "fines_semana_libres": "1", "max_horas_semana": "0",
     "banco_tope_favor_h": "12", "banco_tope_deuda_h": "12", "usa_puestos": "1",
 }
 
