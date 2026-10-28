@@ -23,7 +23,7 @@ def test_flujo_basico():
     H = {"Origin": O}
     assert cli.get("/api/areas").status_code == 401
     assert cli.post("/api/auth/entrar", json={"correo": entregable.CORREO, "clave": clave}, headers=H).status_code == 200
-    assert cli.get("/api/areas").json()[0]["nombre"] == "Esterilización"
+    assert cli.get("/api/areas").json()[0]["nombre"] == "Turnos"
     assert len(cli.get("/api/areas/1/turnos").json()) > 3  # sembrado con INSERT … VALUES posicional
     assert cli.post("/api/areas/1/colaboradores", json={"nombre": "Ana"}, headers=H).status_code == 201
     p = cli.post("/api/areas/1/periodos", json={"inicio": "2026-11-01", "fin": "2026-11-30"}, headers=H)
