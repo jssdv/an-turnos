@@ -418,7 +418,7 @@ def test_faltantes_cruzan_medianoche_y_excel():
         ws = openpyxl.load_workbook(ruta)["Cuadro"]
         fila = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Cobertura noche")
         assert ws.cell(fila, 2).value == "−1" and ws.cell(fila, 2).fill.fgColor.rgb.endswith("FF7C80")  # sábado: nadie en la guardia
-        assert ws.cell(fila, 4).value == "ok"
+        assert ws.cell(fila, 5).value == "ok"  # la columna 4 es la suma semanal tras el domingo
 
 
 def test_turno_de_tarde_hasta_las_22_no_es_noche_ni_corrido():
