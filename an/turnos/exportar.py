@@ -10,8 +10,8 @@ from an.nucleo.xlsx import poner_texto
 
 from . import recargos
 from . import reglas
-from .dominio import DIAS
-from .puestos import etiqueta, leyenda, por_persona
+from .dominio import DIAS, Puesto
+from .puestos import alertas_reparto, etiqueta, leyenda, por_persona
 
 ABREV_NOVEDAD = {"Vacaciones": "VAC", "Incapacidad": "INC", "Licencia": "LIC", "Libre solicitado": "LIB"}
 ENCABEZADO = PatternFill("solid", fgColor="1F3864")
@@ -41,9 +41,16 @@ def _ancho(ws, primera, resto, desde=2):
         ws.column_dimensions[get_column_letter(i)].width = resto
 
 
-def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
+def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None, detalle=None, contadores=None):
+    """`detalle` ({colab_id: recargos.reporte}): horas, de más/menos y balance por turno como fórmulas sobre las celdas del
+    cuadro (hoja «Turnos» del mismo libro) y recargos como valores. `contadores` ([(puesto, días sin cubrir)]): una fila por
+    puesto bajo el cuadro; la hoja lleva celdas «M·2»."""
     cols = [p for p in ctx.colabs if p.en_solver]
-    _encabezado(ws, 1, ["Colaborador"] + [f"{DIAS[f.weekday()]}\n{f.day}" for f in fechas] + ["Horas"])
+    n, ult = len(cols) + 1, get_column_letter(len(fechas) + 1)
+    solver = [t for t in ctx.turnos.values() if t.activo and t.solver] if detalle is not None else []
+    extra = ["De más", "De menos"] + [t.codigo for t in solver] + ["Horas equiv. recargos", "Dom/fest trabajados"] if detalle is not None else []
+    contr = len(fechas) + 3
+    _encabezado(ws, 1, ["Colaborador"] + [f"{DIAS[f.weekday()]}\n{f.day}" for f in fechas] + ["Horas"] + (["Contratadas"] + extra if detalle is not None else []))
     for i, f in enumerate(fechas, 2):
         if ctx.tipo_dia(f) == "DF":
             ws.cell(1, i).fill = PatternFill("solid", fgColor="C55A11")
@@ -65,7 +72,19 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
                 c.fill = GRIS
             if comparar is not None and comparar.get((p.id, f), "L") != cod:
                 c.fill = AMARILLO
-        ws.cell(r, len(fechas) + 2, horas)
+        if detalle is None:
+            ws.cell(r, len(fechas) + 2, horas)
+            continue
+        fila, rep = f"$B{r}:${ult}{r}", detalle[p.id]
+        ws.cell(r, len(fechas) + 2, f"=SUMPRODUCT(COUNTIF({fila},Turnos!$A$2:$A${len(ctx.turnos) + 1}),Turnos!$C$2:$C${len(ctx.turnos) + 1})")
+        h, c = f"{get_column_letter(len(fechas) + 2)}{r}", f"{get_column_letter(contr)}{r}"
+        ws.cell(r, contr, round(rep["contratadas"], 1))
+        ws.cell(r, contr + 1, f"=MAX(0,{h}-{c})")
+        ws.cell(r, contr + 2, f"=MAX(0,{c}-{h})")
+        for k, t in enumerate(solver):
+            ws.cell(r, contr + 3 + k, f'=COUNTIF({fila},"{t.codigo}")')
+        ws.cell(r, contr + 3 + len(solver), round(rep["equivalentes"], 1))
+        ws.cell(r, contr + 4 + len(solver), rep["festivos_trabajados"])
     base = len(cols) + 3
     faltantes = reglas.faltantes_periodo(ctx, cuadro, fechas)
     for k, (fr, nombre) in enumerate((("M", "Mañana"), ("T", "Tarde"), ("N", "Noche"))):
@@ -76,20 +95,50 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None):
             c.alignment = CENTRO
             if peor:
                 c.fill = PatternFill("solid", fgColor="FF7C80")
+    fila = base + 3
+    activos = [t for t in ctx.turnos.values() if t.activo and t.solver]
+    if activos:  # contador por turno: personas con ese código cada día (en la hoja de puestos «M·2» cuenta como M); rojo si la franja que cubre queda corta
+        ws.cell(fila, 1, "Contador por turno").font = Font(bold=True)
+        for k, t in enumerate(activos, 1):
+            ws.cell(fila + k, 1, f"{t.codigo} {t.nombre}")
+            for i, f in enumerate(fechas, 2):
+                col = get_column_letter(i)
+                rango = f"{col}$2:{col}${n}"
+                c = ws.cell(fila + k, i, f'=COUNTIF({rango},"{t.codigo}")+COUNTIF({rango},"{t.codigo}·*")')
+                c.alignment = CENTRO
+                if any(faltantes[f][fr][0] for fr in t.cubre):
+                    c.fill = PatternFill("solid", fgColor="FF7C80")
+        fila += len(activos) + 2
+    if contadores:  # contador por puesto: personas-día en cada puesto; rojo si la app lo reporta sin cubrir
+        ws.cell(fila, 1, "Contador por puesto").font = Font(bold=True)
+        for k, (q, sin) in enumerate(contadores, 1):
+            ws.cell(fila + k, 1, f"{q.numero} {q.nombre}" if q.numero else "A Apoyo")
+            for i, f in enumerate(fechas, 2):
+                col = get_column_letter(i)
+                c = ws.cell(fila + k, i, f'=COUNTIF({col}$2:{col}${n},"*·{q.numero or "A"}")')
+                c.alignment = CENTRO
+                if f in sin:
+                    c.fill = PatternFill("solid", fgColor="FF7C80")
     _ancho(ws, 22, 5)
     ws.column_dimensions[get_column_letter(len(fechas) + 2)].width = 8
+    for i in range(contr, contr + len(extra) + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 11 if detalle is not None else 5
     ws.freeze_panes = "B2"
 
 
-def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias, filas_puestos=(), catalogo=None):
-    """Hojas: Cuadro (de `cambios`, celdas modificadas en amarillo), Cuadro con puestos, Original y Cambios (diferencias)."""
+def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias, filas_puestos=(), catalogo=None, detalle=None):
+    """Hojas: Cuadro (de `cambios`, celdas modificadas en amarillo; con `detalle`, columnas de horas y contadores por turno),
+    Cuadro con puestos (con contador por puesto), Original, Cambios (diferencias) y Turnos (catálogo que leen las fórmulas)."""
     wb = Workbook()
-    _hoja_cuadro(wb.active, ctx, cuadro, fechas, comparar=original)
+    _hoja_cuadro(wb.active, ctx, cuadro, fechas, comparar=original, detalle=detalle)
     wb.active.title = "Cuadro"
     if filas_puestos:
         con = wb.create_sheet("Cuadro con puestos")
         cat = catalogo or ctx.puestos
-        _hoja_cuadro(con, ctx, cuadro, fechas, puestos=por_persona(filas_puestos, {i: p.numero for i, p in cat.items()}))
+        activos = sorted((q for q in cat.values() if q.activo), key=lambda q: q.numero)
+        falta = {q.id: {a.fecha for a in alertas_reparto(ctx, filas_puestos, fechas, cat) if f": {q.nombre} sin cubrir" in a.texto} for q in activos}
+        _hoja_cuadro(con, ctx, cuadro, fechas, puestos=por_persona(filas_puestos, {i: p.numero for i, p in cat.items()}),
+                     contadores=[(q, falta[q.id]) for q in activos] + [(Puesto(0, 0, "Apoyo"), set())] if detalle is not None else None)
         poner_texto(con.cell(con.max_row + 2, 1), leyenda(cat))
     _hoja_cuadro(wb.create_sheet("Original"), ctx, original, fechas)
     ws = wb.create_sheet("Cambios")
@@ -99,6 +148,13 @@ def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias
         for c, v in enumerate((nombres.get(cid, cid), f.strftime("%d/%m/%Y"), antes, ahora), 1):
             poner_texto(ws.cell(r, c), v)
     _ancho(ws, 26, 14)
+    if detalle is not None:  # lo leen las fórmulas de horas del cuadro
+        tur = wb.create_sheet("Turnos")
+        _encabezado(tur, 1, ["Código", "Nombre", "Horas"])
+        for r, t in enumerate(ctx.turnos.values(), 2):
+            for c, v in enumerate((t.codigo, t.nombre, round(t.horas, 2)), 1):
+                poner_texto(tur.cell(r, c), v) if c < 3 else tur.cell(r, c, v)
+        _ancho(tur, 10, 14)
     ruta = ruta_libre(carpeta, f"CUADRO {mes_txt.upper()}")
     wb.save(ruta)
     return ruta

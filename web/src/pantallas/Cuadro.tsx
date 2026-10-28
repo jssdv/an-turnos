@@ -5,6 +5,7 @@ import { ErrorApi, leer } from "../api/cliente";
 import { useSesion } from "../Sesion";
 import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Puesto, Turno } from "../api/tipos";
 import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
+import { Tabla } from "../componentes/Tabla";
 import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
 import { dias as diasDe, fechaCorta, mesDe, nombrePeriodo } from "./fechas";
@@ -300,6 +301,7 @@ export function Cuadro() {
               <span>◥ editada a mano</span>
               <span>columnas grises: domingo</span>
             </div>
+            <HorasSemana horas={datos.horas} colabs={datos.colabs.filter((c) => c.activo)} />
           </>
         )}
       </Seccion>
@@ -372,5 +374,26 @@ function Pasos({ hay, alertas, publicado }: { hay: boolean; alertas: Alerta[]; p
         </li>
       ))}
     </ol>
+  );
+}
+
+/** Horas trabajadas por semana (lunes a domingo). El rojo marca semanas sobre lo contratado; la regla legal es el promedio de varias semanas. */
+function HorasSemana({ horas, colabs }: { horas: Horas[]; colabs: Colaborador[] }) {
+  const lunes = [...new Set(horas.flatMap((h) => Object.keys(h.semanas)))].sort();
+  const porId = new Map(horas.map((h) => [h.colab_id, h]));
+  const filas = colabs.filter((c) => porId.has(c.id)).map((c) => {
+    const h = porId.get(c.id)!;
+    return [c.nombre, ...lunes.map((l) => {
+      const v = h.semanas[l] ?? 0;
+      return <span key={l} className={v > h.contratadas_sem ? "font-semibold text-error-primary" : undefined}>{v}</span>;
+    }), h.trabajadas, h.contratadas, h.adicionales || "", h.pendientes || ""];
+  });
+  return (
+    <details className="mt-4 [&>summary]:cursor-pointer [&>summary]:py-2" data-solo-pantalla>
+      <summary>Horas por semana</summary>
+      <p className="mb-2 text-sm text-tertiary">Cada semana cuenta de lunes a domingo; en rojo, las que superan lo contratado por semana. La ley mira el promedio de varias semanas (De más / De menos).</p>
+      <Tabla descripcion="Horas trabajadas por semana" vacio="Sin horas todavía." filas={filas}
+        columnas={["Colaborador", ...lunes.map((l) => fechaCorta(l)), "Total", "Contratadas", "De más", "De menos"]} />
+    </details>
   );
 }

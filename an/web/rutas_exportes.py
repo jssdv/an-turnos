@@ -32,7 +32,7 @@ def _libro(bd, tipo, carpeta, clave, cuadro):
     ctx, fechas, txt = bd.contexto(inicio.year), flujo.fechas(inicio, fin), flujo.etiqueta(inicio, fin)
     if tipo == "cuadro":
         return exportar.exportar_cuadro(carpeta, txt, ctx, cuadro, bd.asignaciones(clave, "original"), fechas, bd.diferencias(clave),
-                                        bd.asignacion_puesto(clave), bd.catalogo_puestos())
+                                        bd.asignacion_puesto(clave), bd.catalogo_puestos(), flujo.detalle_horas(bd, inicio, fin))
     if tipo == "puestos":
         return exportar.exportar_puestos(carpeta, txt, ctx, cuadro, fechas, bd.asignacion_puesto(clave), bd.capacitacion(clave), bd.catalogo_puestos())
     return exportar.exportar_horas(carpeta, txt, ctx, bd.tarifas(), cuadro, fechas, int(bd.param("ventana_semanas", 3)))

@@ -55,6 +55,11 @@ def acumulado(bd, ctx, inicio):
     return {cid: dict(v) for cid, v in total.items()}
 
 
+def previo(bd, inicio):
+    """Cuadro de los 3 días antes del periodo: el descanso y el libre tras noche cruzan el borde."""
+    return bd.asignaciones_rango(inicio - timedelta(days=3), inicio - timedelta(days=1))
+
+
 def preparar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20):
     """Argumentos para solver.generar. modo: «cero» (descarta ediciones), «respetar» (celdas manuales fijas) o
     «semana» (solo se rehace la semana de `lunes`; el resto del periodo queda como está)."""
@@ -66,10 +71,9 @@ def preparar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20):
         actual = bd.asignaciones(k)
         fijos = {**{(p.id, d): actual.get((p.id, d), "L") for p in ctx.colabs if p.en_solver for d in dias
                     if d not in sem}, **{c: t for c, t in fijos.items() if c[1] in sem}}
-    previo = bd.asignaciones_rango(inicio - timedelta(days=3), inicio - timedelta(days=1))  # descanso entre periodos
     activos = {p.id for p in ctx.colabs if p.en_solver}
     ajuste = {c: h for c, h in ajustes_banco(bd, inicio, fin).items() if c in activos}
-    return ctx, dias, dict(fijos=fijos, previo=previo, acum=acumulado(bd, ctx, inicio),
+    return ctx, dias, dict(fijos=fijos, previo=previo(bd, inicio), acum=acumulado(bd, ctx, inicio),
                            ventana_sem=int(bd.param("ventana_semanas", 3)), tiempo=tiempo, ajuste=ajuste)
 
 
@@ -90,7 +94,7 @@ def recalcular(bd, inicio, fin, ctx=None):
     bd.guardar_asignacion_puesto(k, puestos.asignar_tramos(ctx, cuadro, dias, fijos=bd.puestos_fijos(k)))
     sesiones, _ = capacitacion.programar(ctx, cuadro, dias)
     bd.guardar_capacitacion(k, sesiones)
-    return reglas.validar(ctx, cuadro, dias, bd.fijos(k))
+    return reglas.validar(ctx, cuadro, dias, bd.fijos(k), previo(bd, inicio))
 
 
 def generar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20):
@@ -115,6 +119,13 @@ def resumen_horas(bd, inicio, fin):
         r = recargos.reporte(ctx, tar, p, cuadro, dias, vent)
         out.append((p.id, round(r["contratadas"], 2), round(r["trabajadas"], 2)))
     return out
+
+
+def detalle_horas(bd, inicio, fin):
+    """{colab_id: recargos.reporte(...)} del cuadro vigente (`cambios`): semanas, de más/menos y recargos."""
+    ctx, k, dias = bd.contexto(inicio.year), clave(inicio, fin), fechas(inicio, fin)
+    cuadro, tar, vent = bd.asignaciones(k), bd.tarifas(), int(bd.param("ventana_semanas", 3))
+    return {p.id: recargos.reporte(ctx, tar, p, cuadro, dias, vent) for p in ctx.colabs if p.en_solver}
 
 
 def cerrar(bd, inicio, fin):
@@ -186,7 +197,7 @@ def historial(bd):
         ctx, dias, cuadro = bd.contexto(ini.year), fechas(ini, fin), bd.asignaciones(k)
         gente = {c for c, _ in cuadro}
         trabajadas = sum(ctx.turnos[t].horas for t in cuadro.values() if t in ctx.turnos)
-        errores = [a for a in reglas.validar(ctx, cuadro, dias, bd.fijos(k)) if a.nivel == "error"]
+        errores = [a for a in reglas.validar(ctx, cuadro, dias, bd.fijos(k), previo(bd, ini)) if a.nivel == "error"]
         cerrado = bd.periodo_cerrado(k)
         out.append({"clave": k, "inicio": ini, "fin": fin, "dias": len(dias), "cerrado": cerrado, "personas": len(gente),
                     "trabajadas": round(trabajadas, 1), "saldo": round(horas_cierre[k], 1) if cerrado else None,
