@@ -96,14 +96,19 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None, detalle=N
             if peor:
                 c.fill = PatternFill("solid", fgColor="FF7C80")
     fila = base + 3
-    if detalle is not None and solver:  # contador por turno: personas con ese código cada día
+    activos = [t for t in ctx.turnos.values() if t.activo and t.solver]
+    if activos:  # contador por turno: personas con ese código cada día (en la hoja de puestos «M·2» cuenta como M); rojo si la franja que cubre queda corta
         ws.cell(fila, 1, "Contador por turno").font = Font(bold=True)
-        for k, t in enumerate(solver, 1):
+        for k, t in enumerate(activos, 1):
             ws.cell(fila + k, 1, f"{t.codigo} {t.nombre}")
-            for i in range(2, len(fechas) + 2):
+            for i, f in enumerate(fechas, 2):
                 col = get_column_letter(i)
-                ws.cell(fila + k, i, f'=COUNTIF({col}$2:{col}${n},"{t.codigo}")').alignment = CENTRO
-        fila += len(solver) + 2
+                rango = f"{col}$2:{col}${n}"
+                c = ws.cell(fila + k, i, f'=COUNTIF({rango},"{t.codigo}")+COUNTIF({rango},"{t.codigo}·*")')
+                c.alignment = CENTRO
+                if any(faltantes[f][fr][0] for fr in t.cubre):
+                    c.fill = PatternFill("solid", fgColor="FF7C80")
+        fila += len(activos) + 2
     if contadores:  # contador por puesto: personas-día en cada puesto; rojo si la app lo reporta sin cubrir
         ws.cell(fila, 1, "Contador por puesto").font = Font(bold=True)
         for k, (q, sin) in enumerate(contadores, 1):
