@@ -1,7 +1,6 @@
 """Exportes en Excel de un periodo. Llaman a `exportar.*` del núcleo (los mismos argumentos que `Turnos.exportar` de Qt) en una carpeta
-temporal y guardan el libro en `exporte`. Nunca sobrescriben: `exportar.ruta_libre` da `v2`, `v3`… sobre los nombres ya guardados."""
+temporal y guardan el libro en `exporte`. Un exporte nuevo borra el anterior del mismo tipo y cada descarga borra el archivo descargado: no queda basura guardada."""
 import tempfile
-from pathlib import Path
 from typing import Literal
 from urllib.parse import quote
 
@@ -13,7 +12,6 @@ from an.turnos import exportar, flujo
 from .deps import Contexto, contexto_area_lectura
 
 router = APIRouter(prefix="/api")
-MAX_EXPORTES_DIA = 20  # por periodo y por día: un `ver` puede exportar, pero `exporte` es de solo inserción
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 COLUMNAS = ("e.id, e.tipo, e.numero, e.nombre_archivo, octet_length(e.contenido) AS bytes, e.creado, u.nombre AS creado_por "
             "FROM exporte e LEFT JOIN usuario u ON u.id = e.creado_por")
@@ -43,16 +41,11 @@ def crear(id: int, datos: NuevoExporte, request: Request, ctx: Contexto = Depend
     f = ctx.conn.execute("SELECT clave FROM periodo WHERE id = ? FOR UPDATE", (id,)).fetchone()  # serializa `numero` por periodo
     if not f:
         raise HTTPException(404, "Periodo no encontrado")
-    hoy = ctx.conn.execute("SELECT count(*) FROM exporte WHERE periodo_id = ? AND creado > now() - interval '1 day'", (id,)).fetchone()[0]
-    if hoy >= MAX_EXPORTES_DIA:
-        raise HTTPException(429, f"Ya hay {MAX_EXPORTES_DIA} exportes de este periodo en las últimas 24 horas. Descarga uno de los existentes o inténtalo mañana.")
     cuadro = ctx.bd.asignaciones(f["clave"])
     if not cuadro:
         raise HTTPException(409, "No hay cuadro para exportar.")
-    previos = [r[0] for r in ctx.conn.execute("SELECT nombre_archivo FROM exporte WHERE periodo_id = ? AND tipo = ?", (id, datos.tipo))]
+    ctx.conn.execute("DELETE FROM exporte WHERE periodo_id = ? AND tipo = ?", (id, datos.tipo))  # el anterior del mismo tipo es un cuadro viejo
     with tempfile.TemporaryDirectory() as tmp:
-        for n in previos:
-            (Path(tmp) / n).touch()
         ruta = _libro(ctx.bd, datos.tipo, tmp, f["clave"], cuadro)
         contenido = ruta.read_bytes()
     nuevo = ctx.conn.execute(
@@ -77,5 +70,7 @@ def descargar(id: int, exporte: int, request: Request, ctx: Contexto = Depends(c
         raise HTTPException(404, "Exporte no encontrado")
     request.state.evento = "exportacion"
     nombre = f["nombre_archivo"]
+    ctx.conn.execute("DELETE FROM exporte WHERE id = ?", (exporte,))  # se entrega una vez y no queda guardado
     return Response(bytes(f["contenido"]), media_type=XLSX,
                     headers={"Content-Disposition": f"attachment; filename=\"{nombre}\"; filename*=UTF-8''{quote(nombre)}"})
+

@@ -245,7 +245,7 @@ def test_exporte_numera_sin_sobrescribir_y_audita():
         assert r.status_code == 200 and openpyxl.load_workbook(io.BytesIO(r.content)).sheetnames == openpyxl.load_workbook(gs.PLANTILLA).sheetnames
         eventos = [(f["metodo"], f["codigo"]) for f in e.su.execute("SELECT metodo, codigo FROM auditoria WHERE evento = 'exportacion' ORDER BY id")]
         assert eventos == [("POST", 201)] * 3 + [("GET", 200)]
-        assert e.su.execute("SELECT count(*) FROM exporte WHERE tipo = 'semana'").fetchone()[0] == 3
+        assert e.su.execute("SELECT count(*) FROM exporte WHERE tipo = 'semana'").fetchone()[0] == 2  # la descarga borra el archivo
 
 
 def test_cambios_contra_la_version_guardada():
