@@ -454,7 +454,7 @@ class BD:
                         int(self.param("libre_tras_noche", 1)), int(self.param("libres_por_semana", 1)),
                         int(self.param("fines_semana_libres", 1)), int(self.param("max_noches_seguidas", 2)),
                         int(self.param("max_c_seguidos", 2)), int(self.param("max_igual_seguidos", 3)), puestos, demandas,
-                        self.solicitudes(), usa)
+                        self.solicitudes(), usa, int(self.param("max_horas_semana", 0)))
 
     # --- cuadro: versiones original / cambios ---------------------------------------------------
     def asignaciones(self, mes, version="cambios"):
