@@ -20,7 +20,7 @@ from .app import crear_app
 from .trabajador import Trabajador
 
 PUERTO = int(os.environ.get("AN_PUERTO", "8765"))
-CLINICA, AREA, CORREO = "Mi clínica", "Esterilización", "admin@an.local"
+CLINICA, AREA, CORREO = "Mi clínica", "Turnos", "admin@an.local"
 RESPALDOS_MAX = 10
 
 
