@@ -16,7 +16,7 @@ interface Props {
   hayCuadro: boolean;
 }
 
-/** Botón «Exportar»: genera el libro en el servidor (nunca sobrescribe: v2, v3…) y lista los ya generados con su descarga. Basta con poder ver el área. */
+/** Botón «Exportar»: genera el libro en el servidor, reemplaza el anterior del mismo tipo y lo borra al descargarlo. Basta con poder ver el área. */
 export function Exportar({ area, periodo, hayCuadro }: Props) {
   const [abierto, setAbierto] = useState(false);
   const [lista, setLista] = useState<Exporte[] | null>(null);
@@ -48,7 +48,7 @@ export function Exportar({ area, periodo, hayCuadro }: Props) {
     <>
       <Button color="secondary" size="sm" onPress={() => setAbierto(true)}>Exportar</Button>
       <Ventana abierto={abierto} alCambiar={setAbierto} titulo="Exportar a Excel"
-        descripcion="Cada exportación crea un archivo nuevo; los anteriores se conservan y se pueden volver a descargar.">
+        descripcion="Cada exportación reemplaza la anterior del mismo tipo. El archivo se elimina del servidor al descargarlo.">
         {error && <Alert color="error">{error}</Alert>}
         {nuevo && <Alert color="success">Listo: {nuevo}</Alert>}
         <div className="flex flex-wrap gap-2">
@@ -59,15 +59,15 @@ export function Exportar({ area, periodo, hayCuadro }: Props) {
           ))}
         </div>
         {!hayCuadro && <p className="text-tertiary">Este periodo no tiene cuadro todavía.</p>}
-        {lista && (lista.length === 0 ? <p className="text-tertiary">Aún no hay exportes de este periodo.</p> : (
-          <ul className="max-h-[260px] overflow-auto" aria-label="Exportes anteriores">
+        {lista && (lista.length === 0 ? <p className="text-tertiary">No hay exportes pendientes de descargar.</p> : (
+          <ul className="max-h-[260px] overflow-auto" aria-label="Exportes pendientes de descargar">
             {lista.map((x) => (
               <li key={x.id} className="flex items-center justify-between gap-3 border-t border-secondary py-2 first:border-t-0">
                 <div>
                   <div className="font-semibold break-words text-primary">{x.nombre_archivo}</div>
                   <div className="text-xs text-tertiary">{tamano(x.bytes)} · {x.creado_por ?? "—"} · {new Date(x.creado).toLocaleString("es-CO")}</div>
                 </div>
-                <a href={exportes.urlDescarga(area, periodo, x.id)} download={x.nombre_archivo}>Descargar</a>
+                <a href={exportes.urlDescarga(area, periodo, x.id)} download={x.nombre_archivo} onClick={() => setTimeout(cargar, 1500)}>Descargar</a>
               </li>
             ))}
           </ul>
