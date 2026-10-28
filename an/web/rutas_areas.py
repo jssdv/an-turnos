@@ -108,7 +108,11 @@ def puestos_periodo(id: int, ctx: Contexto = Depends(contexto_area, scope="funct
 @router.get("/areas/{area}/periodos/{id}/horas")
 def horas(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     _, inicio, fin = _periodo(ctx, id)
-    return [dict(colab_id=c, contratadas=a, trabajadas=b) for c, a, b in flujo.resumen_horas(ctx.bd, inicio, fin)]
+    col = {p.id: p for p in ctx.bd.contexto(inicio.year).colabs}
+    return [dict(colab_id=c, contratadas=round(r["contratadas"], 2), trabajadas=round(r["trabajadas"], 2),
+                 pendientes=round(r["pendientes"], 1), adicionales=round(r["adicionales"], 1), equivalentes=round(r["equivalentes"], 1),
+                 contratadas_sem=round(col[c].horas_sem * col[c].pct, 1), semanas={l.isoformat(): round(h, 1) for l, h in sorted(r["semanas"].items())})
+            for c, r in flujo.detalle_horas(ctx.bd, inicio, fin).items()]
 
 
 @router.get("/areas/{area}/analiticas")

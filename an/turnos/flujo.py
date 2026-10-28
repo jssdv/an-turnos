@@ -121,6 +121,13 @@ def resumen_horas(bd, inicio, fin):
     return out
 
 
+def detalle_horas(bd, inicio, fin):
+    """{colab_id: recargos.reporte(...)} del cuadro vigente (`cambios`): semanas, de más/menos y recargos."""
+    ctx, k, dias = bd.contexto(inicio.year), clave(inicio, fin), fechas(inicio, fin)
+    cuadro, tar, vent = bd.asignaciones(k), bd.tarifas(), int(bd.param("ventana_semanas", 3))
+    return {p.id: recargos.reporte(ctx, tar, p, cuadro, dias, vent) for p in ctx.colabs if p.en_solver}
+
+
 def cerrar(bd, inicio, fin):
     """Congela las horas del periodo en el banco. El cuadro queda en solo lectura hasta reabrirlo."""
     k = clave(inicio, fin)
