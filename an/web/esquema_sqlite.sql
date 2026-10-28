@@ -213,7 +213,7 @@ ALTER TABLE periodo ADD COLUMN modificado_en timestamptz;
 -- `sesion` no se toca directamente desde la aplicación: solo por funciones SECURITY DEFINER.
 
 -- 009_exporte.sql
--- Exportes en Excel de un periodo (Fase 6). Solo se agregan: un exporte nunca se reemplaza ni se borra (numero = máximo + 1 por área, periodo y tipo).
+-- Exportes en Excel de un periodo (Fase 6). Un exporte nuevo borra el anterior del mismo tipo y la descarga borra el archivo (numero = máximo + 1 por área, periodo y tipo).
 CREATE TABLE exporte (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   clinica_id INTEGER NOT NULL DEFAULT 1 REFERENCES clinica(id),
