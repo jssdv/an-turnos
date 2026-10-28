@@ -64,7 +64,7 @@ def abierto(ctx, p):
 def textos_alertas(bd, clave, inicio, fin):
     """Reglas y puestos que quedan sin cubrir en el reparto (lo mismo que el toast de Qt)."""
     dias, c = flujo.fechas(inicio, fin), bd.contexto(inicio.year)
-    return ([a.texto for a in reglas.validar(c, bd.asignaciones(clave), dias, bd.fijos(clave))]
+    return ([a.texto for a in reglas.validar(c, bd.asignaciones(clave), dias, bd.fijos(clave), flujo.previo(bd, inicio))]
             + [a.texto for a in puestos.alertas_reparto(c, bd.asignacion_puesto(clave), dias, bd.catalogo_puestos())])
 
 
