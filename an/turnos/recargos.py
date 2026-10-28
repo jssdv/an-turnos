@@ -37,7 +37,7 @@ def reporte(ctx, tarifas, colab, cuadro, fechas, ventana_sem=3):
     for s in segs:
         ventanas[(s[0] - fechas[0]).days // dias_vent].append(s)
     out = {"trabajadas": 0.0, "contratadas": 0.0, "pendientes": 0.0, "adicionales": 0.0, "equivalentes": 0.0,
-           "cat": defaultdict(float), "festivos_trabajados": 0, "semanas": defaultdict(float)}
+           "cat": defaultdict(float), "festivos_trabajados": 0, "h_nocturnas": 0.0, "h_dominicales": 0.0, "semanas": defaultdict(float)}
     for i in range((len(fechas) + dias_vent - 1) // dias_vent):
         dias = fechas[i * dias_vent:(i + 1) * dias_vent]
         libres = sum(1 for d in dias if not ctx.novedad(colab.id, d))
@@ -69,6 +69,9 @@ def reporte(ctx, tarifas, colab, cuadro, fechas, ventana_sem=3):
         h = (fin - ini).total_seconds() / 3600
         out["trabajadas"] += h
         out["semanas"][f - timedelta(days=f.weekday())] += h
+    for (_, jornada, dia), h in out["cat"].items():  # nocturnas y dominicales/festivas por separado: no se suman entre sí
+        out["h_nocturnas"] += h * (jornada == "nocturna")
+        out["h_dominicales"] += h * (dia == "festivo")
     out["festivos_trabajados"] = len({s[1].date() for s in segs if s[4]})
     out["habitual"] = out["festivos_trabajados"] >= 3
     return out
