@@ -273,6 +273,7 @@ export function Cuadro() {
                 return { id: c.id, nombre: c.nombre, extra: h ? h.trabajadas : "", extraAlto: !!h && h.trabajadas > h.contratadas };
               })}
               columnaExtra="Horas"
+              semanal={(id, lunes) => { const v = vista.horas.get(id)?.semanas[lunes]; return v ? Math.round(v * 10) / 10 : ""; }}
               foco={foco}
               editable={puedeEditar ? editable : undefined}
               alAccionar={accionar}

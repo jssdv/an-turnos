@@ -28,12 +28,13 @@ def incompatibles(turnos):
 
 
 def carga(ctx, cuadro, fechas):
-    """{colab_id: {código de turno: veces, "DF": domingos/festivos trabajados}}; sirve de acumulado para meses futuros."""
+    """{colab_id: {código de turno: veces, "DF": horas trabajadas en domingos/festivos}}; sirve de acumulado para meses futuros."""
     out = defaultdict(lambda: defaultdict(int))
     for (cid, f), cod in cuadro.items():
         if cod in ctx.turnos and f in fechas:
             out[cid][cod] += 1
-            out[cid]["DF"] += ctx.tipo_dia(f) == "DF"
+            if ctx.tipo_dia(f) == "DF":
+                out[cid]["DF"] += round(ctx.turnos[cod].horas)
     return {k: dict(v) for k, v in out.items()}
 
 
@@ -278,9 +279,13 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
 
     # equidad: M, T, C, NC (y cada turno nuevo) y domingos/festivos parejos entre quienes pueden hacerlos,
     # contando lo acumulado de meses anteriores
-    cargas = [(cod, lambda d, s, cod=cod: s == cod, lambda p, cod=cod: p.permitidos is None or cod in p.permitidos) for cod in S]
-    cargas.append(("DF", lambda d, s: s in ctx.turnos and ctx.tipo_dia(d) == "DF", lambda p: True))
-    for clave, cond, puede in cargas:
+    # (clave, cuenta, quién puede, tolerancia): turnos por código; domingos/festivos en HORAS (aparte de las noches, para no
+    # cargar a quien no hace noches); un turno de diferencia en «DF» = las horas del turno más largo
+    cargas = [(cod, lambda d, s, cod=cod: s == cod, lambda p, cod=cod: p.permitidos is None or cod in p.permitidos, 1) for cod in S]
+    h_df = lambda d, s: round(ctx.turnos[s].horas) if s in ctx.turnos and ctx.tipo_dia(d) == "DF" else 0
+    tol_df = max([round(t.horas) for t in ctx.turnos.values() if t.activo and t.solver] or [1])
+    cargas.append(("DF", h_df, lambda p: True, tol_df))
+    for clave, cond, puede, tol in cargas:
         grupos = defaultdict(list)  # se compara entre quienes tienen las mismas restricciones (la restringida va aparte)
         for p in P:
             if puede(p):
@@ -288,15 +293,16 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
         for elegibles in grupos.values():
             if len(elegibles) < 2:
                 continue
-            tot = {p.id: acum.get(p.id, {}).get(clave, 0) + sum(v for d in fechas for s, v in por_pd[p.id, d] if cond(d, s))
+            tot = {p.id: acum.get(p.id, {}).get(clave, 0) + sum(v * int(cond(d, s)) for d in fechas for s, v in por_pd[p.id, d])
                    for p in elegibles}
-            mx, mn = m.NewIntVar(0, 1000, ""), m.NewIntVar(0, 1000, "")
+            mx, mn = m.NewIntVar(0, 100000, ""), m.NewIntVar(0, 100000, "")
             for p in elegibles:
                 m.Add(mx >= tot[p.id])
                 m.Add(mn <= tot[p.id])
-            exceso = m.NewIntVar(0, 1000, "")  # la diferencia hasta 2 pesa normal; lo que pase de 2 pesa el triple
-            m.Add(exceso >= mx - mn - 2)
-            obj += [W_EQUIDAD * (mx - mn), 3 * W_EQUIDAD * exceso]
+            exceso = m.NewIntVar(0, 100000, "")  # la diferencia hasta `tol` pesa normal; lo que pase pesa el triple
+            m.Add(exceso >= mx - mn - 2 * tol)  # tol = 1 turno (o sus horas en «DF»)
+            peso = W_EQUIDAD if clave != "DF" else max(1, W_EQUIDAD // tol_df)  # por hora: un turno de diferencia pesa lo mismo que en los demás
+            obj += [peso * (mx - mn), 3 * peso * exceso]
 
     for s in ctx.solicitudes:  # deseos blandos: cuestan, nunca prohíben
         for d in fechas:
