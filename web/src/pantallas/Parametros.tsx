@@ -13,6 +13,7 @@ const NUM: [string, string, number, number, string][] = [
   ["ventana_semanas", "Promedio de horas (semanas)", 1, 8, "Las 42 h semanales se miden como promedio de este número de semanas (art. 165 CST)."],
   ["limite_permutas", "Permutas por persona y periodo", 0, 20, "Cuántos intercambios de turno puede pedir cada persona. Pasado el límite hace falta una excepción."],
   ["periodo_semanas", "Semanas por periodo", 1, 8, "Solo si el periodo es «Semanas desde un lunes»."],
+  ["max_horas_semana", "Horas por semana (máximo)", 0, 84, "Tope de horas que el cuadro asigna a una persona en una semana de lunes a domingo. 0 = sin tope."],
   ["max_noches_seguidas", "Noches seguidas (máximo)", 0, 7, "Cuántas noches puede hacer alguien sin parar. 0 = sin límite."],
   ["max_c_seguidos", "Corridos seguidos (máximo)", 0, 7, "Turnos de 12 h de día seguidos. 0 = sin límite."],
   ["max_igual_seguidos", "Mismo turno corto seguido", 0, 7, "Días seguidos con el mismo turno de 6 h (mañana o tarde). 0 = sin límite."],

@@ -22,6 +22,20 @@ def segmentos(turno, fecha, ctx, tarifas):
             cur = end
 
 
+def horas_df(turno, fecha, ctx):
+    """Horas del turno que `fecha` inicia y que caen en un día domingo o festivo (calendario, igual que `segmentos`)."""
+    total = 0
+    for a, b in turno.tramos():
+        cur, fin = turno.inicio + a, turno.inicio + b
+        while cur < fin:
+            dia = cur // 1440
+            end = min(fin, (dia + 1) * 1440)
+            f = fecha + timedelta(days=dia)
+            total += (end - cur) * (ctx.tipo_dia(f) == "DF")
+            cur = end
+    return total / 60
+
+
 def reporte(ctx, tarifas, colab, cuadro, fechas, ventana_sem=3):
     """Horas del mes de `colab` clasificadas por recargo. Ventanas de `ventana_sem` semanas contadas desde el
     primer día (ponytail: la ventana no cruza periodos; el siguiente arranca una nueva)."""

@@ -590,3 +590,34 @@ if __name__ == "__main__":
         if nombre.startswith("test_"):
             fn()
     print("OK")
+
+
+def _mes_demo(n=10):
+    bd = db.BD()
+    for i in range(1, n + 1):
+        bd.guardar_colaborador(Colaborador(0, f"P{i}"))
+    return bd, [date(2026, 10, 1) + timedelta(days=i) for i in range(31)]
+
+
+def test_horas_df_por_calendario():
+    bd, _ = _mes_demo(2)
+    ctx = bd.contexto(2026)
+    nc, m = ctx.turnos["NC"], ctx.turnos["M"]
+    assert recargos.horas_df(nc, date(2026, 10, 10), ctx) == 6  # la noche del sábado cae 6 h en domingo
+    assert recargos.horas_df(nc, date(2026, 10, 4), ctx) == 6  # la del domingo 4: 6 h antes de la medianoche (el lunes 5 no es festivo)
+    assert recargos.horas_df(nc, date(2026, 10, 11), ctx) == 12  # domingo y lunes 12 festivo
+    assert recargos.horas_df(m, date(2026, 10, 11), ctx) == m.horas and recargos.horas_df(m, date(2026, 10, 7), ctx) == 0
+
+
+def test_tope_semanal_y_reparto_df():
+    bd, fechas = _mes_demo()
+    bd.set_param("max_horas_semana", 36)
+    ctx = bd.contexto(2026)
+    assert ctx.max_horas_semana == 36
+    cuadro, info = solver.generar(ctx, fechas, tiempo=20)
+    for lunes in (f for f in fechas if f.weekday() == 0 and f + timedelta(days=6) in fechas):
+        for p in ctx.colabs:
+            assert sum(ctx.turnos[cuadro[p.id, d]].horas for d in (lunes + timedelta(i) for i in range(7)) if (p.id, d) in cuadro and cuadro[p.id, d] in ctx.turnos) <= 36
+    # domingos/festivos: la diferencia entre personas, en horas de calendario, no pasa de un turno de 12 h
+    df = [sum(recargos.horas_df(ctx.turnos[cuadro[p.id, f]], f, ctx) for f in fechas if cuadro.get((p.id, f)) in ctx.turnos) for p in ctx.colabs]
+    assert max(df) - min(df) <= 12, df
