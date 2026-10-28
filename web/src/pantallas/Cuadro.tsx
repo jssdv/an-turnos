@@ -47,6 +47,8 @@ export function Cuadro() {
   const [datos, setDatos] = useState<Datos | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recarga, setRecarga] = useState(0);
+  const [version, setVersion] = useState<"cambios" | "original">("cambios");
+  const [verPuestos, setVerPuestos] = useState(false);
   const [foco, setFoco] = useState<Foco | null>(null);
   const uid = useSesion().usuario?.id ?? 0;
   const [borrador, setBorrador] = useState<Borrador | null>(null);
@@ -58,6 +60,7 @@ export function Cuadro() {
 
   // Al recargar (p. ej. tras generar) se conserva lo que hay en pantalla: vaciarlo desmontaría el diálogo de Generar.
   useEffect(() => { setPeriodos(null); setDatos(null); }, [area.id]);
+  useEffect(() => setVersion("cambios"), [periodo]);
   useEffect(() => {
     leer<Periodo[]>(`/api/areas/${area.id}/periodos`).then(setPeriodos).catch((x) => setError(x.message));
   }, [area.id, recarga]);
@@ -72,7 +75,7 @@ export function Cuadro() {
     performance.mark("cuadro:pide");
     setError(null);
     Promise.all([
-      leer<CuadroApi>(`${base}/periodos/${actual.id}/cuadro`),
+      leer<CuadroApi>(`${base}/periodos/${actual.id}/cuadro?version=${version}`),
       leer<Alerta[]>(`${base}/periodos/${actual.id}/alertas`),
       leer<Horas[]>(`${base}/periodos/${actual.id}/horas`),
       leer<Colaborador[]>(`${base}/colaboradores`),
@@ -88,7 +91,7 @@ export function Cuadro() {
       })
       .catch((x) => vivo && setError(x.message));
     return () => { vivo = false; };
-  }, [area.id, actual?.id, recarga]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [area.id, actual?.id, recarga, version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pintado: de que llegan los datos a que la grilla está maquetada (umbral de PLAN_WEB §8: 1 s). Leer offsetHeight fuerza la maquetación
   // sin depender de requestAnimationFrame, que un navegador en segundo plano retrasa; el pintado en sí se mide aparte.
@@ -120,7 +123,7 @@ export function Cuadro() {
   }, [datos, dias]);
 
   const nombres = useMemo(() => new Map((datos?.colabs ?? []).map((c) => [c.id, c.nombre])), [datos]);
-  const puedeEditar = area.permiso === "editar" && !!actual && !actual.cerrado_en;
+  const puedeEditar = area.permiso === "editar" && !!actual && !actual.cerrado_en && version === "cambios";
   const codigoDe = (id: number, fecha: string) => vista?.celdas.get(`${id}|${fecha}`)?.turno ?? "L";
   const usaPuestos = !!datos?.cuadro.usa_puestos;
   /** Nombre del puesto de una celda con turno, o "" (libre, apoyo o área sin puestos). */
@@ -217,6 +220,15 @@ export function Cuadro() {
           <NativeSelect size="sm" className="w-56" label="Periodo" value={actual.id} onChange={(x) => ir(`/areas/${area.id}/cuadro/${x.target.value}`)}>
             {periodos.map((p) => <option key={p.id} value={p.id}>{nombrePeriodo(p.clave)}</option>)}
           </NativeSelect>
+          <NativeSelect size="sm" className="w-40" label="Planilla" value={version} onChange={(x) => setVersion(x.target.value as "cambios" | "original")}>
+            <option value="cambios">Cambios (vigente)</option>
+            <option value="original">Original (publicada)</option>
+          </NativeSelect>
+          {usaPuestos && (
+            <label className="flex items-center gap-2 pb-2 text-sm text-secondary">
+              <input type="checkbox" checked={verPuestos} onChange={(x) => setVerPuestos(x.target.checked)} /> Ver puestos
+            </label>
+          )}
           <Exportar area={area.id} periodo={actual.id} hayCuadro={!datos || datos.cuadro.celdas.length > 0} />
           <Button color="secondary" size="sm" onPress={() => window.print()}>Imprimir</Button>
           {area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={actual} alTerminar={() => setRecarga((n) => n + 1)} />}
@@ -242,6 +254,7 @@ export function Cuadro() {
           Tienes un cambio sin enviar de antes de que venciera tu sesión.
         </Alert>
       )}
+      {version === "original" && <Alert color="brand">Planilla original (publicada): solo lectura. Los cambios y los puestos están en «Cambios».</Alert>}
       {resultado && <Alert color={COLOR_NIVEL[resultado.nivel]}>{resultado.texto}</Alert>}
 
       <Seccion aria-busy={!datos}>
@@ -270,7 +283,7 @@ export function Cuadro() {
                 const nov = codigo === "L" ? vista.novedades.get(`${id}|${fecha}`) : undefined;
                 const falta = vista.faltan.has(`${id}|${fecha}`);
                 return {
-                  codigo, color: t?.color, cambiada: c?.fijo, novedad: nov ? (SIGLA_NOVEDAD[nov] ?? nov) : null, faltante: falta,
+                  codigo, color: t?.color, cambiada: c?.fijo, puesto: verPuestos && c?.puesto ? String(vista.puestos.get(c.puesto)?.numero ?? "") : undefined, novedad: nov ? (SIGLA_NOVEDAD[nov] ?? nov) : null, faltante: falta,
                   etiqueta: `${nov ?? t?.nombre ?? (codigo === "L" ? "Libre" : codigo)}${puestoDe(id, fecha) ? `, puesto ${puestoDe(id, fecha)}` : ""}${c?.fijo ? ", editada a mano" : ""}${falta ? ", con alerta" : ""}`,
                 };
               }}
@@ -283,6 +296,7 @@ export function Cuadro() {
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-tertiary">
               {datos.turnos.filter((t) => t.activo).map((t) => <span key={t.codigo}>{t.codigo} {t.nombre}</span>)}
               <span>L Libre</span>
+              {verPuestos && usaPuestos && datos.puestos.filter((q) => q.activo).map((q) => <span key={q.id}>{q.numero} {q.nombre}</span>)}
               <span>◥ editada a mano</span>
               <span>columnas grises: domingo</span>
             </div>
