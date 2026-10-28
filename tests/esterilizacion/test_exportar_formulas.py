@@ -35,9 +35,11 @@ def test_cuadro_con_horas_y_contadores():
         wb = openpyxl.load_workbook(ruta)
     ws = wb["Cuadro"]
     enc = [c.value for c in ws[1]]
-    assert enc[8:11] == ["Horas", "Contratadas", "De más"] and "NC" in enc and "Horas equiv. recargos" in enc
-    assert ws["I2"].value.startswith("=SUMPRODUCT(COUNTIF($B2:$H2,Turnos!")
-    assert ws.cell(2, enc.index("NC") + 1).value == '=COUNTIF($B2:$H2,"NC")'
+    assert enc[8:12] == ["Σ sem", "Horas", "Contratadas", "De más"] and "NC" in enc and "Horas equiv. recargos" in enc
+    assert "Horas nocturnas" in enc and "Horas dom/fest" in enc
+    assert ws["I2"].value.startswith("=SUMPRODUCT(COUNTIF(B2:H2,Turnos!")  # suma semanal tras el domingo
+    assert ws["J2"].value.startswith("=SUMPRODUCT(COUNTIF($B2:$I2,Turnos!")
+    assert ws.cell(2, enc.index("NC") + 1).value == '=COUNTIF($B2:$I2,"NC")'
     assert wb["Turnos"]["A2"].value in ctx.turnos
     textos = [c.value for c in ws["A"]]
     assert "Contador por turno" in textos and any(str(t).startswith("M ") for t in textos)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { Ficha, type FichaProps } from "./Ficha";
 import { cx } from "@/utils/cx";
 
@@ -35,6 +35,8 @@ interface Props {
   filas: Fila[];
   celda: (fila: number, fecha: string) => FichaProps & { etiqueta: string };
   columnaExtra?: string;
+  /** Suma de la semana lunes–domingo (clave: fecha ISO del lunes) en una celda tras cada domingo y tras el último día. */
+  semanal?: (fila: number, lunes: string) => ReactNode;
   pie?: Pie[];
   foco?: Foco | null;
   /** Celdas que se pueden seleccionar y arrastrar. Sin esto la grilla es de solo lectura. */
@@ -46,7 +48,14 @@ interface Props {
 }
 
 /** Grilla persona × día con `Ficha`. Una sola celda entra en el orden de tabulación; las flechas, Inicio y Fin se mueven dentro. */
-export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = [], foco, editable, alAccionar, alSoltar }: Props) {
+const cierraSemana = (dias: Dia[], i: number) => i === dias.length - 1 || new Date(`${dias[i].fecha}T00:00:00Z`).getUTCDay() === 0;
+const lunesDe = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+};
+
+export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semanal, pie = [], foco, editable, alAccionar, alSoltar }: Props) {
   const [activa, setActiva] = useState<[number, number]>([0, 0]);
   const cuerpo = useRef<HTMLTableSectionElement>(null);
   const [sel, setSel] = useState<Map<string, Sel>>(new Map());
@@ -111,15 +120,18 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = 
 
   return (
     <div className="max-w-full overflow-auto">
-      <table className="w-max min-w-full border-separate border-spacing-0 text-sm [&_td]:px-0.5 [&_td]:py-[3px] [&_td]:text-center [&_th]:px-0.5 [&_th]:py-[3px] [&_th]:text-center [&_thead_th]:bg-secondary [&_thead_th]:py-1.5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:text-tertiary [&_tfoot_td]:border-t [&_tfoot_td]:border-secondary [&_tfoot_td]:text-[11px] [&_tfoot_td]:text-tertiary [&_tfoot_th]:border-t [&_tfoot_th]:border-secondary [&_tfoot_th]:text-[11px] [&_tfoot_th]:font-semibold [&_tfoot_th]:text-tertiary" role="grid" aria-label={descripcion} aria-rowcount={filas.length + 1} aria-colcount={dias.length + 2}>
+      <table className="w-max min-w-full border-separate border-spacing-0 text-sm [&_td]:px-0.5 [&_td]:py-[3px] [&_td]:text-center [&_th]:px-0.5 [&_th]:py-[3px] [&_th]:text-center [&_thead_th]:bg-secondary [&_thead_th]:py-1.5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:text-tertiary [&_tfoot_td]:border-t [&_tfoot_td]:border-secondary [&_tfoot_td]:text-[11px] [&_tfoot_td]:text-tertiary [&_tfoot_th]:border-t [&_tfoot_th]:border-secondary [&_tfoot_th]:text-[11px] [&_tfoot_th]:font-semibold [&_tfoot_th]:text-tertiary" role="grid" aria-label={descripcion} aria-rowcount={filas.length + 1} aria-colcount={dias.length + 2 + (semanal ? dias.filter((_, i) => cierraSemana(dias, i)).length : 0)}>
         <thead>
           <tr>
             <th scope="col" className="sticky left-0 z-[1] min-w-40 bg-primary pr-4! pl-3! text-left! font-medium whitespace-nowrap">Persona</th>
-            {dias.map((d) => (
-              <th key={d.fecha} scope="col" className={cx("min-w-7", d.gris && "bg-tertiary! text-primary!")} aria-label={`${d.nombre} ${d.n}`}>
-                <span className="block text-[11px]">{d.letra}</span>
-                <span>{d.n}</span>
-              </th>
+            {dias.map((d, i) => (
+              <Fragment key={d.fecha}>
+                <th scope="col" className={cx("min-w-7", d.gris && "bg-tertiary! text-primary!")} aria-label={`${d.nombre} ${d.n}`}>
+                  <span className="block text-[11px]">{d.letra}</span>
+                  <span>{d.n}</span>
+                </th>
+                {semanal && cierraSemana(dias, i) && <th scope="col" className="min-w-9 bg-tertiary! text-primary!" aria-label="Horas de la semana">Σ sem</th>}
+              </Fragment>
             ))}
             {columnaExtra && <th scope="col" className="min-w-14">{columnaExtra}</th>}
           </tr>
@@ -132,8 +144,8 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = 
                 const { etiqueta, ...ficha } = celda(f.id, d.fecha);
                 const ed = puede(r, c), elegida = sel.has(`${f.id}|${d.fecha}`);
                 return (
+                  <Fragment key={d.fecha}>
                   <td
-                    key={d.fecha}
                     role="gridcell"
                     data-r={r}
                     data-c={c}
@@ -156,6 +168,8 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = 
                   >
                     <Ficha {...ficha} />
                   </td>
+                  {semanal && cierraSemana(dias, c) && <td className="bg-tertiary font-semibold text-primary tabular-nums">{semanal(f.id, lunesDe(d.fecha))}</td>}
+                  </Fragment>
                 );
               })}
               {columnaExtra && <td className={cx("min-w-14 font-semibold text-primary", f.extraAlto && "text-utility-yellow-700")}>{f.extra}</td>}
@@ -167,8 +181,11 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, pie = 
             {pie.map((p) => (
               <tr key={p.titulo}>
                 <th scope="row" className="sticky left-0 z-[1] min-w-40 bg-primary pr-4! pl-3! text-left! font-medium whitespace-nowrap">{p.titulo}</th>
-                {dias.map((d) => (
-                  <td key={d.fecha} className={cx("tabular-nums", d.gris && "bg-secondary", p.alerta?.(d.fecha) && "bg-utility-red-50 font-bold text-utility-red-700")}>{p.valor(d.fecha)}</td>
+                {dias.map((d, i) => (
+                  <Fragment key={d.fecha}>
+                    <td className={cx("tabular-nums", d.gris && "bg-secondary", p.alerta?.(d.fecha) && "bg-utility-red-50 font-bold text-utility-red-700")}>{p.valor(d.fecha)}</td>
+                    {semanal && cierraSemana(dias, i) && <td />}
+                  </Fragment>
                 ))}
                 {columnaExtra && <td />}
               </tr>
