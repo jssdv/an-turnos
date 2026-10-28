@@ -96,7 +96,7 @@ def alertas(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, inicio, fin = _periodo(ctx, id)
     fijos = ctx.bd.fijos(clave)
     return [_plano(a) if not isinstance(a, str) else a
-            for a in reglas.validar(ctx.bd.contexto(inicio.year), ctx.bd.asignaciones(clave), flujo.fechas(inicio, fin), fijos)]
+            for a in reglas.validar(ctx.bd.contexto(inicio.year), ctx.bd.asignaciones(clave), flujo.fechas(inicio, fin), fijos, flujo.previo(ctx.bd, inicio))]
 
 
 @router.get("/areas/{area}/periodos/{id}/puestos")

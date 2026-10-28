@@ -127,6 +127,16 @@ def test_libre_tras_noche():
     bd.set_param("libre_tras_noche", 0)  # regla apagada: no hay alerta
     ctx = bd.contexto(2026)
     assert ctx.libre_tras_noche == 0 and sin() == []
+    # borde entre periodos: la noche fue el último día del periodo anterior
+    bd.set_param("libre_tras_noche", 1)
+    ctx = bd.contexto(2026)
+    dom = lunes - timedelta(days=1)
+    cuadro = {(a.id, lunes): "T"}
+    borde = lambda previo, **kw: [x.texto for x in reglas.validar(ctx, cuadro, [lunes, martes], previo=previo, **kw)]
+    assert any("sin día libre después de la noche del 18/10" in t for t in borde({(a.id, dom): "NC"}))
+    assert not any("sin día libre" in t for t in borde({(a.id, dom): "NC"}, fijos={(a.id, lunes)}))
+    assert any("Sin datos del periodo anterior" in t for t in borde({}))
+    assert not any("periodo anterior" in t or "sin día libre" in t for t in reglas.validar(ctx, cuadro, [lunes, martes]))  # None: no se revisa
 
 
 def test_fin_de_semana_y_libres():
