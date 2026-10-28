@@ -26,7 +26,7 @@ def main(nombre="f4_demo", personas=40):
     su.execute(f'SET search_path TO "{nombre}"')
     esquema.aplicar(su)
     cl = su.execute("INSERT INTO clinica (nombre) VALUES ('Clínica de prueba') RETURNING id").fetchone()[0]
-    ar = su.execute("INSERT INTO area (nombre, clinica_id) VALUES ('Esterilización', %s) RETURNING id", (cl,)).fetchone()[0]
+    ar = su.execute("INSERT INTO area (nombre, clinica_id) VALUES ('Turnos', %s) RETURNING id", (cl,)).fetchone()[0]
     su.execute("SELECT set_config('app.clinica', %s, false), set_config('app.area', %s, false)", (str(cl), str(ar)))
     bd = BD.postgres(Conexion(su))
     bd.sembrar()

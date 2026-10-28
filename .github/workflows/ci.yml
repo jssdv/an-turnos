@@ -55,8 +55,8 @@ jobs:
       - run: python checks/rls.py
       - run: >-
           AN_TIEMPO_ESCALA=3 AN_BD=postgres python -m pytest -q
-          tests/esterilizacion/test_puestos.py tests/esterilizacion/test_cambios.py tests/esterilizacion/test_analitica.py
-          tests/esterilizacion/test_solicitudes.py tests/esterilizacion/test_turnos.py tests/turnos tests/web
+          tests/turnos
+          tests/web
       - run: python -m pytest -q tests/web tests/turnos
 
   web:

@@ -3,7 +3,7 @@
 # An~
 
 **Una app web para programar turnos y los procesos que giran alrededor**<br>
-Un núcleo común y un área por servicio: **Radiología** (cuadro mensual → planilla semanal) y **Esterilización** (cuadro de turnos con solver, puestos, horas y recargos).
+Un núcleo común y un área por servicio: **Radiología** (cuadro mensual → planilla semanal) y **Turnos** (cuadro de turnos con solver, puestos, horas y recargos).
 
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/Interfaz-React%2019-61DAFB?logo=react&logoColor=black)
@@ -15,9 +15,9 @@ Un núcleo común y un área por servicio: **Radiología** (cuadro mensual → p
 
 <br>
 
-<img src="docs/diseno/web_rediseno_cuadro.png" alt="Cuadro mensual de Esterilización" width="900">
+<img src="docs/diseno/web_rediseno_cuadro.png" alt="Cuadro mensual de turnos" width="900">
 
-<sub>Cuadro de octubre de 2026 de Esterilización con datos de ejemplo.</sub>
+<sub>Cuadro de octubre de 2026 con datos de ejemplo.</sub>
 
 </div>
 
@@ -30,7 +30,7 @@ Cada clínica tiene sus áreas; cada usuario ve las áreas en las que tiene perm
 | Área | Qué hace | Datos | Documentación |
 |---|---|---|---|
 | **Radiología** | Lee el cuadro mensual de radiólogos (Excel, hoja `Cambios …`) y genera el libro semanal `SEMANA dd AL dd DE MES.xlsx`: resumen, vista previa, alertas de descanso, equidad, agendas `.ics` y comparación entre versiones. También por línea de comandos. | Los Excel del coordinador | [RADIOLOGIA.md](docs/RADIOLOGIA.md), [PROYECTO.md](docs/PROYECTO.md) |
-| **Esterilización** | Genera el cuadro mensual con OR-Tools, reparte puestos por tramo, calcula horas (art. 165 CST) y recargos, lleva banco de horas y exporta a Excel. | PostgreSQL | [Reglas](docs/REGLAS.md), [Arquitectura](docs/ARQUITECTURA.md) |
+| **Turnos** | Genera el cuadro mensual con OR-Tools, reparte puestos por tramo, calcula horas (art. 165 CST) y recargos, lleva banco de horas y exporta a Excel. | PostgreSQL | [Reglas](docs/REGLAS.md), [Arquitectura](docs/ARQUITECTURA.md) |
 
 Pensada para coordinadoras no técnicas: solo hace falta un navegador.
 
@@ -38,7 +38,7 @@ Pensada para coordinadoras no técnicas: solo hace falta un navegador.
 
 Reglas y turnos son *datos* editables, no código; así se suman servicios sin reprogramar. Siguen más áreas, procesos administrativos vinculados (novedades, permutas, cierre para nómina) y más usuarios con roles y trazabilidad. Plan y preguntas abiertas: [VISION.md](docs/VISION.md), [HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md).
 
-## Esterilización: qué hace
+## Turnos: qué hace
 
 | | |
 |---|---|
@@ -56,7 +56,7 @@ Reglas y turnos son *datos* editables, no código; así se suman servicios sin r
 | 💰 **Horas y recargos** | Ventana del art. 165 CST, pendientes y adicionales, nocturno, dominical/festivo y extras con tarifas por fecha. |
 | 📤 **Excel** | Cuadro mensual, planilla de puestos y reporte de horas. Nunca sobrescribe: guarda `v2`, `v3`… |
 
-## Esterilización: cómo funciona
+## Turnos: cómo funciona
 
 ```mermaid
 flowchart LR
@@ -79,7 +79,7 @@ El solver cumple las reglas duras y optimiza el resto (horas de la ventana, rota
 an/
   nucleo/xlsx.py       escritura de celdas compartida por los exportes
   radiologia/          generar_semana, analisis, plantilla_semana.xlsx
-  turnos/              núcleo de Esterilización: dominio, db, reglas, solver, puestos, recargos, exportar…
+  turnos/              núcleo de turnos: dominio, db, reglas, solver, puestos, recargos, exportar…
   web/                 API FastAPI, trabajador del solver, migraciones, administración
 web/                   front React (Vite + TypeScript)
 tests/                 pytest; cada archivo también corre como script e imprime OK
@@ -108,8 +108,8 @@ Usuarios de la demo: `editor@demo.co`, `lector@demo.co`, `admin@demo.co`, `nuevo
 **Pruebas**
 
 ```bash
-.venv/bin/python -m pytest tests --ignore=tests/esterilizacion/test_turnos.py
-.venv/bin/python tests/esterilizacion/test_turnos.py   # ≈ 2 min: resuelve meses completos
+.venv/bin/python -m pytest tests --ignore=tests/turnos/test_turnos.py
+.venv/bin/python tests/turnos/test_turnos.py   # ≈ 2 min: resuelve meses completos
 .venv/bin/python tests/radiologia/test_generar_semana.py
 ```
 
