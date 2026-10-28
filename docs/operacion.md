@@ -23,7 +23,7 @@ Primer uso (desde el servidor; los comandos muestran la clave temporal una sola 
 
 ```bash
 dc --profile herramientas run --rm admin crear-clinica "Nombre de la clínica"
-dc --profile herramientas run --rm admin crear-area --clinica 1 --nombre "Esterilización"
+dc --profile herramientas run --rm admin crear-area --clinica 1 --nombre "Turnos"
 dc --profile herramientas run --rm admin crear-usuario --clinica 1 --correo coordinadora@clinica.co --nombre "Nombre" --admin
 dc --profile herramientas run --rm admin dar-permiso --usuario 1 --area 1 --permiso editar
 ```

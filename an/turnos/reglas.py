@@ -124,6 +124,10 @@ def validar(ctx, cuadro, fechas, fijos=(), previo=None):
             sem = [lunes + timedelta(days=i) for i in range(7)]
             if sem[-1] in dias and sum(cuadro.get((p.id, d), "L") not in ctx.turnos for d in sem) < ctx.libres_semana:
                 out.append(Alerta("error", lunes, p.id, f"{nombres[p.id]}: menos de {ctx.libres_semana} día(s) libre(s) en la semana del {lunes:%d/%m}"))
+            if ctx.max_horas_semana and sem[-1] in dias:
+                h = sum(ctx.turnos[cuadro[p.id, d]].horas for d in sem if cuadro.get((p.id, d)) in ctx.turnos)
+                if h > ctx.max_horas_semana:
+                    out.append(Alerta("aviso", lunes, p.id, f"{nombres[p.id]}: {h:g} h en la semana del {lunes:%d/%m} (máximo {ctx.max_horas_semana})"))
         fines = [(f, f + timedelta(days=1)) for f in fechas if f.weekday() == 5 and f + timedelta(days=1) in dias]
         if ctx.fines_libres and fines:
             libre = lambda x: cuadro.get((p.id, x), "L") not in ctx.turnos
