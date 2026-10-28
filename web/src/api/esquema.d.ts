@@ -1912,7 +1912,9 @@ export interface operations {
     };
     cuadro_api_areas__area__periodos__id__cuadro_get: {
         parameters: {
-            query?: never;
+            query?: {
+                version?: "original" | "cambios";
+            };
             header?: never;
             path: {
                 id: number;

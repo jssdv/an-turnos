@@ -8,12 +8,14 @@ export interface FichaProps {
   cambiada?: boolean;
   novedad?: string | null;
   faltante?: boolean;
+  /** Nombre corto del puesto, bajo el código (interruptor «Ver puestos»). */
+  puesto?: string;
 }
 
 const CON_TOKEN = new Set(["M", "T", "C", "NC"]);
 
 /** Celda de turno: color del turno, esquina marcada si se editó a mano, novedad (V/I/…) y borde si falta cobertura. */
-export const Ficha = memo(function Ficha({ codigo, color, cambiada, novedad, faltante }: FichaProps) {
+export const Ficha = memo(function Ficha({ codigo, color, cambiada, novedad, faltante, puesto }: FichaProps) {
   const libre = codigo === "L";
   const propio = !libre && !CON_TOKEN.has(codigo) && color ? { background: `#${color}` } : undefined;
   return (
@@ -25,6 +27,7 @@ export const Ficha = memo(function Ficha({ codigo, color, cambiada, novedad, fal
       style={propio}
     >
       {novedad ?? codigo}
+      {puesto && <sup className="ml-px text-[11px] font-semibold">{puesto}</sup>}
       {cambiada && <span className="absolute top-0 right-0 size-0 rounded-tr-sm border-t-[7px] border-l-[7px] border-t-fg-primary border-l-transparent" aria-hidden="true" />}
     </span>
   );

@@ -1,6 +1,7 @@
 """Rutas de lectura de un área. Cada una llama una función del núcleo; la API no reimplementa reglas."""
 from dataclasses import asdict, is_dataclass
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -78,15 +79,16 @@ def _periodo(ctx, id_):
 
 
 @router.get("/areas/{area}/periodos/{id}/cuadro")
-def cuadro(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
+def cuadro(id: int, version: Literal["original", "cambios"] = "cambios", ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, _, _ = _periodo(ctx, id)
     revision = ctx.conn.execute("SELECT revision FROM periodo WHERE id = ?", (id,)).fetchone()[0]  # antes que las celdas: una revisión vieja solo da un 409 inofensivo
-    fijos, fijos_q = ctx.bd.fijos(clave), ctx.bd.puestos_fijos(clave)
-    usa = ctx.bd.usa_puestos()
-    return {"clave": clave, "version": "cambios", "revision": revision, "usa_puestos": usa,
+    vigente = version == "cambios"  # el original es la copia publicada: sin ediciones a mano ni puestos (no se guardan por versión)
+    fijos, fijos_q = (ctx.bd.fijos(clave), ctx.bd.puestos_fijos(clave)) if vigente else (set(), {})
+    usa = ctx.bd.usa_puestos() and vigente
+    return {"clave": clave, "version": version, "revision": revision, "usa_puestos": usa,
             "celdas": [dict(colab_id=c, fecha=f, turno=t, fijo=(c, f) in fijos, **({"puesto": cambios.puesto_de(ctx.bd, clave, c, f),
                                                                                    "puesto_fijo": (c, f) in fijos_q} if usa else {}))
-                       for (c, f), t in sorted(ctx.bd.asignaciones(clave).items())]}
+                       for (c, f), t in sorted(ctx.bd.asignaciones(clave, version).items())]}
 
 
 @router.get("/areas/{area}/periodos/{id}/alertas")
