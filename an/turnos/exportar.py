@@ -46,19 +46,32 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None, detalle=N
     cuadro (hoja «Turnos» del mismo libro) y recargos como valores. `contadores` ([(puesto, días sin cubrir)]): una fila por
     puesto bajo el cuadro; la hoja lleva celdas «M·2»."""
     cols = [p for p in ctx.colabs if p.en_solver]
-    n, ult = len(cols) + 1, get_column_letter(len(fechas) + 1)
+    col, sumas, c = {}, [], 1  # columna de cada fecha y, tras cada domingo (o el último día), la suma de horas de esa semana
+    for f in fechas:
+        c += 1
+        col[f] = c
+        if f.weekday() == 6 or f == fechas[-1]:
+            c += 1
+            sumas.append((c, [g for g in fechas if g - timedelta(days=g.weekday()) == f - timedelta(days=f.weekday())]))
+    ncol = c
+    n, ult = len(cols) + 1, get_column_letter(ncol)
     solver = [t for t in ctx.turnos.values() if t.activo and t.solver] if detalle is not None else []
-    extra = ["De más", "De menos"] + [t.codigo for t in solver] + ["Horas equiv. recargos", "Dom/fest trabajados"] if detalle is not None else []
-    contr = len(fechas) + 3
-    _encabezado(ws, 1, ["Colaborador"] + [f"{DIAS[f.weekday()]}\n{f.day}" for f in fechas] + ["Horas"] + (["Contratadas"] + extra if detalle is not None else []))
-    for i, f in enumerate(fechas, 2):
+    extra = ["De más", "De menos"] + [t.codigo for t in solver] + ["Horas equiv. recargos", "Horas dom/fest", "Horas nocturnas"] if detalle is not None else []
+    contr = ncol + 2
+    enc = ["Colaborador"] + [""] * (ncol - 1)
+    for f in fechas:
+        enc[col[f] - 1] = f"{DIAS[f.weekday()]}\n{f.day}"
+    for c, _ in sumas:
+        enc[c - 1] = "Σ sem"
+    _encabezado(ws, 1, enc + ["Horas"] + (["Contratadas"] + extra if detalle is not None else []))
+    for f in fechas:
         if ctx.tipo_dia(f) == "DF":
-            ws.cell(1, i).fill = PatternFill("solid", fgColor="C55A11")
+            ws.cell(1, col[f]).fill = PatternFill("solid", fgColor="C55A11")
     for r, p in enumerate(cols, 2):
         poner_texto(ws.cell(r, 1), p.nombre).font = Font(bold=True)
         horas = 0
-        for i, f in enumerate(fechas, 2):
-            cod = cuadro.get((p.id, f), "L")
+        for f in fechas:
+            i, cod = col[f], cuadro.get((p.id, f), "L")
             nov = ctx.novedad(p.id, f)
             texto = ABREV_NOVEDAD[nov.tipo] if nov and cod == "L" else cod
             if puestos is not None and cod in ctx.turnos and (p.id, f) in puestos:
@@ -72,24 +85,32 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None, detalle=N
                 c.fill = GRIS
             if comparar is not None and comparar.get((p.id, f), "L") != cod:
                 c.fill = AMARILLO
+        for c, sem in sumas:  # horas de la semana lunes–domingo en la celda tras el domingo
+            if detalle is None:
+                ws.cell(r, c, sum(ctx.turnos[cuadro.get((p.id, g), "L")].horas for g in sem if cuadro.get((p.id, g), "L") in ctx.turnos))
+            else:
+                ws.cell(r, c, f"=SUMPRODUCT(COUNTIF({get_column_letter(col[sem[0]])}{r}:{get_column_letter(col[sem[-1]])}{r},Turnos!$A$2:$A${len(ctx.turnos) + 1}),Turnos!$C$2:$C${len(ctx.turnos) + 1})")
+            ws.cell(r, c).font = Font(bold=True)
         if detalle is None:
-            ws.cell(r, len(fechas) + 2, horas)
+            ws.cell(r, ncol + 1, horas)
             continue
         fila, rep = f"$B{r}:${ult}{r}", detalle[p.id]
-        ws.cell(r, len(fechas) + 2, f"=SUMPRODUCT(COUNTIF({fila},Turnos!$A$2:$A${len(ctx.turnos) + 1}),Turnos!$C$2:$C${len(ctx.turnos) + 1})")
-        h, c = f"{get_column_letter(len(fechas) + 2)}{r}", f"{get_column_letter(contr)}{r}"
+        ws.cell(r, ncol + 1, f"=SUMPRODUCT(COUNTIF({fila},Turnos!$A$2:$A${len(ctx.turnos) + 1}),Turnos!$C$2:$C${len(ctx.turnos) + 1})")
+        h, c = f"{get_column_letter(ncol + 1)}{r}", f"{get_column_letter(contr)}{r}"
         ws.cell(r, contr, round(rep["contratadas"], 1))
         ws.cell(r, contr + 1, f"=MAX(0,{h}-{c})")
         ws.cell(r, contr + 2, f"=MAX(0,{c}-{h})")
         for k, t in enumerate(solver):
             ws.cell(r, contr + 3 + k, f'=COUNTIF({fila},"{t.codigo}")')
         ws.cell(r, contr + 3 + len(solver), round(rep["equivalentes"], 1))
-        ws.cell(r, contr + 4 + len(solver), rep["festivos_trabajados"])
+        ws.cell(r, contr + 4 + len(solver), round(rep["h_dominicales"], 1))
+        ws.cell(r, contr + 5 + len(solver), round(rep["h_nocturnas"], 1))
     base = len(cols) + 3
     faltantes = reglas.faltantes_periodo(ctx, cuadro, fechas)
     for k, (fr, nombre) in enumerate((("M", "Mañana"), ("T", "Tarde"), ("N", "Noche"))):
         ws.cell(base + k, 1, f"Cobertura {nombre.lower()}").font = Font(bold=True)
-        for i, f in enumerate(fechas, 2):
+        for f in fechas:
+            i = col[f]
             peor, rangos = faltantes[f][fr]
             c = ws.cell(base + k, i, "ok" if not peor else f"−{peor}")
             c.alignment = CENTRO
@@ -101,9 +122,10 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None, detalle=N
         ws.cell(fila, 1, "Contador por turno").font = Font(bold=True)
         for k, t in enumerate(activos, 1):
             ws.cell(fila + k, 1, f"{t.codigo} {t.nombre}")
-            for i, f in enumerate(fechas, 2):
-                col = get_column_letter(i)
-                rango = f"{col}$2:{col}${n}"
+            for f in fechas:
+                i = col[f]
+                letra = get_column_letter(i)
+                rango = f"{letra}$2:{letra}${n}"
                 c = ws.cell(fila + k, i, f'=COUNTIF({rango},"{t.codigo}")+COUNTIF({rango},"{t.codigo}·*")')
                 c.alignment = CENTRO
                 if any(faltantes[f][fr][0] for fr in t.cubre):
@@ -113,14 +135,17 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None, detalle=N
         ws.cell(fila, 1, "Contador por puesto").font = Font(bold=True)
         for k, (q, sin) in enumerate(contadores, 1):
             ws.cell(fila + k, 1, f"{q.numero} {q.nombre}" if q.numero else "A Apoyo")
-            for i, f in enumerate(fechas, 2):
-                col = get_column_letter(i)
-                c = ws.cell(fila + k, i, f'=COUNTIF({col}$2:{col}${n},"*·{q.numero or "A"}")')
+            for f in fechas:
+                i = col[f]
+                letra = get_column_letter(i)
+                c = ws.cell(fila + k, i, f'=COUNTIF({letra}$2:{letra}${n},"*·{q.numero or "A"}")')
                 c.alignment = CENTRO
                 if f in sin:
                     c.fill = PatternFill("solid", fgColor="FF7C80")
     _ancho(ws, 22, 5)
-    ws.column_dimensions[get_column_letter(len(fechas) + 2)].width = 8
+    ws.column_dimensions[get_column_letter(ncol + 1)].width = 8
+    for c, _ in sumas:
+        ws.column_dimensions[get_column_letter(c)].width = 7
     for i in range(contr, contr + len(extra) + 1):
         ws.column_dimensions[get_column_letter(i)].width = 11 if detalle is not None else 5
     ws.freeze_panes = "B2"

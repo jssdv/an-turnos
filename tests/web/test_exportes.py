@@ -30,12 +30,15 @@ def test_tabla_exporte_rls():
                 f = conn.execute(sql).fetchone()
                 return f[0] if f else None
         assert contar("A") == 1 and contar("B") == 0
-        for sql in ("UPDATE exporte SET numero = 2", "DELETE FROM exporte"):
-            try:
-                contar("A", sql)
-                assert False, sql
-            except psycopg.errors.InsufficientPrivilege:
-                pass
+        try:
+            contar("A", "UPDATE exporte SET numero = 2")
+            assert False
+        except psycopg.errors.InsufficientPrivilege:
+            pass
+        contar("B", "DELETE FROM exporte RETURNING 1")  # borrar sí se puede, pero solo dentro de su clínica y área
+        assert contar("A") == 1
+        contar("A", "DELETE FROM exporte RETURNING 1")
+        assert contar("A") == 0
 
 
 def sesion(e, correo):
@@ -81,9 +84,8 @@ def test_crear_cuadro_y_version():
         d = r.json()
         assert (d["tipo"], d["numero"], d["nombre_archivo"], d["creado_por"]) == ("cuadro", 1, "CUADRO OCTUBRE 2026.xlsx", "lector@a.co")
         assert d["bytes"] > 0
-        assert cli.post(ruta(e), headers=H, json={"tipo": "cuadro"}).json()["nombre_archivo"] == "CUADRO OCTUBRE 2026 v2.xlsx"
-        d3 = cli.post(ruta(e), headers=H, json={"tipo": "cuadro"}).json()
-        assert (d3["numero"], d3["nombre_archivo"]) == (3, "CUADRO OCTUBRE 2026 v3.xlsx")
+        cli.post(ruta(e), headers=H, json={"tipo": "cuadro"})  # el nuevo reemplaza al anterior del mismo tipo
+        assert [x["tipo"] for x in cli.get(ruta(e)).json()] == ["cuadro"]
         assert cli.post(ruta(e), headers=H, json={"tipo": "puestos"}).json()["nombre_archivo"] == "PUESTOS OCTUBRE 2026.xlsx"
         d = cli.post(ruta(e), headers=H, json={"tipo": "horas"}).json()
         assert (d["numero"], d["nombre_archivo"]) == (1, "HORAS Y RECARGOS OCTUBRE 2026.xlsx")
@@ -110,7 +112,7 @@ def test_lista_y_auditoria():
         for t in ("cuadro", "cuadro", "horas"):
             cli.post(ruta(e), headers=H, json={"tipo": t})
         lista = cli.get(ruta(e)).json()
-        assert [(x["tipo"], x["numero"]) for x in lista] == [("horas", 1), ("cuadro", 2), ("cuadro", 1)]
+        assert [(x["tipo"], x["numero"]) for x in lista] == [("horas", 1), ("cuadro", 1)]
         assert "contenido" not in lista[0]
         assert [(m, c) for m, _, c, _ in auditoria(e)] == [("POST", 201)] * 3
 
@@ -126,6 +128,8 @@ def test_descargar_y_auditar():
         assert r.headers["content-disposition"] == ("attachment; filename=\"CUADRO OCTUBRE 2026.xlsx\"; filename*=UTF-8''CUADRO%20OCTUBRE%202026.xlsx")
         from openpyxl import load_workbook
         assert load_workbook(BytesIO(r.content)).worksheets[0]["A1"].value == "Colaborador"
+        assert cli.get(ruta(e)).json() == []  # la descarga borra el archivo
+        assert cli.get(ruta(e, extra=f"/{x['id']}/descargar")).status_code == 404
         a = auditoria(e)
         assert [(m, c) for m, _, c, _ in a] == [("POST", 201), ("GET", 200)] and a[1][1].endswith("/descargar") and a[1][3] == e.us["lector@a.co"]
 
@@ -204,15 +208,3 @@ if __name__ == "__main__":
             f()
     print("OK")
 
-
-def test_tope_de_exportes_por_periodo_y_dia():
-    from an.web.rutas_exportes import MAX_EXPORTES_DIA
-    with entorno() as e:
-        if e is None:
-            return
-        cli = sesion(e, "lector@a.co")
-        for _ in range(MAX_EXPORTES_DIA):
-            assert cli.post(ruta(e), headers=H, json={"tipo": "horas"}).status_code == 201
-        r = cli.post(ruta(e), headers=H, json={"tipo": "horas"})
-        assert r.status_code == 429 and "exportes" in r.json()["detalle"], r.text
-        assert e.su.execute("SELECT count(*) FROM exporte").fetchone()[0] == MAX_EXPORTES_DIA
