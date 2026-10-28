@@ -43,6 +43,16 @@ def test_puesto_fijado_en_la_celda():
         assert r.status_code == 422
 
 
+def test_cuadro_version_original():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, pid = sesion(e, "lector@a.co"), periodo(e)
+        r = cli.get(f"/api/areas/{e.ar['A']}/periodos/{pid}/cuadro?version=original").json()
+        assert r["version"] == "original" and not r["usa_puestos"] and all("puesto" not in c and not c["fijo"] for c in r["celdas"])
+        assert cli.get(f"/api/areas/{e.ar['A']}/periodos/{pid}/cuadro?version=otra").status_code == 422
+
+
 def agregar_persona(e, n="A", nombre="P2"):
     """Segunda persona del área con M el 5/10, T el 6/10 y M el 7/10; devuelve su id."""
     from datetime import date
