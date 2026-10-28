@@ -190,7 +190,12 @@ export function Cuadro() {
 
   if (error) return <div className="flex max-w-[1500px] flex-col gap-5"><Alert color="error" action={<Button color="secondary" size="sm" onPress={() => setRecarga((n) => n + 1)}>Reintentar</Button>}>{error}</Alert></div>;
   if (!periodos) return <p className="p-6 text-center text-tertiary" aria-busy="true">Cargando…</p>;
-  if (!actual) return <p className="p-6 text-center text-tertiary">Esta área aún no tiene periodos. Genera o migra un cuadro para verlo aquí.</p>;
+  if (!actual) return (
+    <div className="flex flex-col items-center gap-4 p-6 text-center text-tertiary">
+      <p>Esta área aún no tiene periodos. Crea uno para poder generar el cuadro.</p>
+      {area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={null} alTerminar={() => setRecarga((n) => n + 1)} />}
+    </div>
+  );
 
   const deficit = datos?.analiticas.cobertura[0];
   const irA = (a: Alerta) => a.fecha && setFoco({ fila: a.colab_id, fecha: a.fecha, marca: Date.now() });

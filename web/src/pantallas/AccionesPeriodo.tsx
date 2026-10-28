@@ -18,7 +18,7 @@ const TEXTO: Record<Accion, [string, string]> = {
 
 interface Props {
   area: number;
-  periodo: Periodo;
+  periodo: Periodo | null; // null: el área no tiene periodos, solo se ofrece «Nuevo periodo»
   alTerminar: () => void;
 }
 
@@ -30,7 +30,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [inicio, setInicio] = useState("");
   const [fin, setFin] = useState("");
-  const cerrado = !!periodo.cerrado_en;
+  const cerrado = !!periodo?.cerrado_en;
 
   const abrir = (a: Accion | "nuevo") => { setError(null); setAccion(a); };
   const confirmar = async () => {
@@ -44,7 +44,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
         alTerminar();
         ir(`/areas/${area}/cuadro/${r.id}`);
       } else {
-        await cambios.accion(area, periodo.id, periodo.revision, accion);
+        await cambios.accion(area, periodo!.id, periodo!.revision, accion);
         setAccion(null);
         alTerminar();
       }
@@ -58,7 +58,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
 
   return (
     <>
-      {cerrado ? <Button color="secondary" size="sm" onPress={() => abrir("reabrir")}>Reabrir</Button> : (
+      {!periodo ? null : cerrado ? <Button color="secondary" size="sm" onPress={() => abrir("reabrir")}>Reabrir</Button> : (
         <>
           <Button color="secondary" size="sm" onPress={() => abrir("publicar")}>Publicar</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("restaurar")}>Restaurar</Button>
