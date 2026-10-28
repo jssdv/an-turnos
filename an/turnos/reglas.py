@@ -58,11 +58,16 @@ def faltantes_periodo(ctx, cuadro, fechas):
     return {f: faltantes_dia(ctx, cuadro, f, con_ayer=f != fechas[0]) for f in fechas}
 
 
-def validar(ctx, cuadro, fechas, fijos=()):
-    """`fijos`: celdas (colab_id, fecha) editadas a mano; romper allí «libre tras noche» es decisión de quien coordina."""
+def validar(ctx, cuadro, fechas, fijos=(), previo=None):
+    """`fijos`: celdas (colab_id, fecha) editadas a mano; romper allí «libre tras noche» es decisión de quien coordina.
+    `previo`: cuadro de los días anteriores al periodo (None = no se revisa el borde entre periodos)."""
     out = []
     fechas = sorted(fechas)
     dias = set(fechas)
+    antes = lambda n: [fechas[0] - timedelta(days=i) for i in range(n, 0, -1)] if previo is not None else []
+    cu = {**(previo or {}), **cuadro}  # solo para los pares que cruzan el borde
+    if previo is not None and any(p.en_solver for p in ctx.colabs) and not any(f == fechas[0] - timedelta(days=1) for _, f in previo):
+        out.append(Alerta("aviso", None, None, "Sin datos del periodo anterior: no se pudo comprobar el libre tras noche ni el descanso de 12 h entre periodos."))
     nombres = {p.id: p.nombre for p in ctx.colabs}
     en = [p for p in ctx.colabs if p.en_solver]
     for p in en:
@@ -74,15 +79,16 @@ def validar(ctx, cuadro, fechas, fijos=()):
                     out.append(Alerta("error", f, p.id, f"{nombres[p.id]}: {cod} no permitido ({motivo})"))
             elif cod != "L":
                 out.append(Alerta("error", f, p.id, f"{nombres[p.id]}: código desconocido {cod}"))
-        for a, b in zip(fechas, fechas[1:]):
-            ta, tb = cuadro.get((p.id, a), "L"), cuadro.get((p.id, b), "L")
+        ext = antes(1) + fechas
+        for a, b in zip(ext, ext[1:]):
+            ta, tb = cu.get((p.id, a), "L"), cu.get((p.id, b), "L")
             if ta in ctx.turnos and tb in ctx.turnos and b - a == timedelta(days=1):
                 fin = intervalo(ctx.turnos[ta], a)[1]
                 ini = intervalo(ctx.turnos[tb], b)[0]
                 if (ini - fin).total_seconds() / 60 < DESCANSO_MIN:
                     out.append(Alerta("error", b, p.id, f"{nombres[p.id]}: menos de 12 h entre {ta} ({a:%d/%m}) y {tb} ({b:%d/%m})"))
-        for a in fechas:  # libre después de una noche
-            t = ctx.turnos.get(cuadro.get((p.id, a), "L"))
+        for a in antes(ctx.libre_tras_noche) + fechas:  # libre después de una noche
+            t = ctx.turnos.get(cu.get((p.id, a), "L"))
             if t and dem.es_noche(t):
                 for k in range(1, ctx.libre_tras_noche + 1):
                     b = a + timedelta(days=k)
