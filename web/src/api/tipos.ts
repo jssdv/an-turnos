@@ -83,6 +83,12 @@ export interface Horas {
   colab_id: number;
   contratadas: number;
   trabajadas: number;
+  pendientes: number;
+  adicionales: number;
+  equivalentes: number;
+  contratadas_sem: number;
+  /** Lunes ISO → horas trabajadas esa semana. */
+  semanas: Record<string, number>;
 }
 export interface CoberturaPeriodo {
   periodo: string;

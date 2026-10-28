@@ -185,7 +185,8 @@ def test_identico_a_qt():
             ctx, cuadro = bd.contexto(2026), bd.asignaciones(k)
             with tempfile.TemporaryDirectory() as t:
                 esperado = {
-                    "cuadro": exportar.exportar_cuadro(t, txt, ctx, cuadro, bd.asignaciones(k, "original"), fechas, bd.diferencias(k), bd.asignacion_puesto(k), bd.catalogo_puestos()),
+                    "cuadro": exportar.exportar_cuadro(t, txt, ctx, cuadro, bd.asignaciones(k, "original"), fechas, bd.diferencias(k), bd.asignacion_puesto(k), bd.catalogo_puestos(),
+                                                       flujo.detalle_horas(bd, inicio, fin)),
                     "puestos": exportar.exportar_puestos(t, txt, ctx, cuadro, fechas, bd.asignacion_puesto(k), bd.capacitacion(k), bd.catalogo_puestos()),
                     "horas": exportar.exportar_horas(t, txt, ctx, bd.tarifas(), cuadro, fechas, int(bd.param("ventana_semanas", 3)))}
                 esperado = {tipo: celdas(load_workbook(r)) for tipo, r in esperado.items()}
