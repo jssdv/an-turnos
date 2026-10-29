@@ -52,7 +52,7 @@ export function Parametros() {
   });
 
   return (
-    <Pagina titulo="Reglas y tarifas" sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? tarifas.error} aviso={aviso}>
+    <Pagina titulo="Parámetros" sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? tarifas.error} aviso={aviso}>
       <Seccion titulo="Reglas" aria-busy={!params.datos}>
         {!params.datos ? !params.error && <p aria-busy="true">Cargando…</p> : (
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
