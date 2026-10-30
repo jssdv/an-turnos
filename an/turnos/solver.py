@@ -16,6 +16,7 @@ from .recargos import horas_df
 W_FALTA, W_DEFICIT, W_EXCESO, W_DESEABLE = 10_000, 1, 2, 10  # W_FALTA es por persona y tramo de 30 min
 W_CAMBIO, W_NOCHE_SEG, W_DF_SEG, W_ESTUDIO, W_EQUIDAD = 15, 200, 100, 300, 200
 W_C_PAR, W_LIBRE_FDS, W_IGUAL = 250, 120, 60
+W_SOBRA, W_SOBRA2, X_NOCHE = 4, 12, 3  # por persona y tramo de 30 min por encima de lo pedido; la segunda sobrante cuesta más; en la noche × X_NOCHE
 W_DF_EQ = 150  # por media hora de diferencia entre la persona con más y la de menos horas en domingo/festivo  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
 
 
@@ -196,6 +197,7 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
     tr = {c: ([t for o, t in dem.turno_tramos(tu) if o == 0], [t for o, t in dem.turno_tramos(tu) if o == 1])
           for c, tu in ctx.turnos.items()}
     dias_set = set(fechas)
+    noche_t = set(dem.FRANJAS["N"])
     previo_ayer = {k: c for k, c in previo.items() if k[1] == fechas[0] - timedelta(days=1)}
     for d in fechas:
         ayer = d - timedelta(days=1)
@@ -230,6 +232,12 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
                     m.Add(presente + falta >= obl[t])
                     obj.append(W_FALTA * falta)
                     faltas[d, t] = falta
+            if terms:  # reparto parejo: lo que sobra de la demanda (obligatoria + deseable) se reparte y no se apila, y menos de noche
+                peso = X_NOCHE if t in noche_t else 1
+                sob, sob2 = m.NewIntVar(0, len(P), ""), m.NewIntVar(0, len(P), "")
+                m.Add(sob >= presente - obl[t] - des[t])
+                m.Add(sob2 >= presente - obl[t] - des[t] - 1)
+                obj += [W_SOBRA * peso * sob, W_SOBRA2 * peso * sob2]
             if des[t] and terms:
                 ok = m.NewBoolVar("")
                 m.Add(presente >= obl[t] + des[t]).OnlyEnforceIf(ok)
