@@ -7,6 +7,7 @@ from . import demanda as dem
 Resultado = namedtuple("Resultado", "solicitud estado motivo dias_fallidos")
 # Peso por día en el objetivo del solver; por debajo de W_FALTA, así la cobertura siempre manda.
 W_SOL = {"normal": 400, "alta": 4000}
+BANDA_SEMANA_H = 6  # una semana se considera pareja si queda a ±6 h de las horas semanales de la persona; más allá el solver la penaliza
 
 
 def malo(s, turno):
@@ -30,7 +31,27 @@ def _motivo(ctx, s, d, cuadro, fijos):
         t = ctx.turnos.get(cuadro.get((s.colab_id, d - timedelta(days=k)), "L"))
         if t and dem.es_noche(t):
             return "libre obligatorio tras noche"
+    h = _desequilibrio(ctx, colab, s, d, cuadro)
+    if h is not None:
+        return f"equilibrio de horas: la semana quedaría en {h:g} h"
     return "cobertura o reglas"
+
+
+def _desequilibrio(ctx, colab, s, d, cuadro):
+    """Horas de la semana de `d` si se cumpliera la solicitud, si con eso la semana sale de la banda de equilibrio (y hoy está dentro); si no, None."""
+    if colab is None:
+        return None
+    lunes = d - timedelta(days=d.weekday())
+    sem = [lunes + timedelta(days=i) for i in range(7)]
+    if any((s.colab_id, x) not in cuadro for x in sem if not ctx.novedad(s.colab_id, x)):
+        return None  # semana incompleta (borde del periodo): no se juzga
+    horas = lambda cod: ctx.turnos[cod].horas if cod in ctx.turnos else 0
+    hoy = sum(horas(cuadro.get((s.colab_id, x), "L")) for x in sem)
+    pedido = horas(s.turno) if s.tipo == "quiero" else 0
+    nuevo = hoy - horas(cuadro.get((s.colab_id, d), "L")) + pedido
+    meta = colab.horas_sem * colab.pct * sum(not ctx.novedad(s.colab_id, x) for x in sem) / 7
+    dentro = lambda h: abs(h - meta) <= BANDA_SEMANA_H
+    return nuevo if dentro(hoy) and not dentro(nuevo) else None
 
 
 def evaluar(ctx, cuadro, fechas, fijos=()):

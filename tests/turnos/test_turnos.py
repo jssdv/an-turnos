@@ -609,6 +609,14 @@ def test_horas_df_por_calendario():
     assert recargos.horas_df(m, date(2026, 10, 11), ctx) == m.horas and recargos.horas_df(m, date(2026, 10, 7), ctx) == 0
 
 
+def test_deseables_sin_cubrir():
+    bd, fechas = _mes_demo()
+    ctx = bd.contexto(2026)
+    al = reglas.deseables_sin_cubrir(ctx, {}, fechas)
+    assert al and all(a.nivel == "info" and a.colab_id is None and "deseable" in a.texto for a in al)
+    assert not any(a.nivel == "info" for a in reglas.validar(ctx, {}, fechas))  # validar no las mezcla con las reglas
+
+
 def test_tope_semanal_y_reparto_df():
     bd, fechas = _mes_demo()
     bd.set_param("max_horas_semana", 36)
@@ -621,3 +629,11 @@ def test_tope_semanal_y_reparto_df():
     # domingos/festivos: la diferencia entre personas, en horas de calendario, no pasa de un turno de 12 h
     df = [sum(recargos.horas_df(ctx.turnos[cuadro[p.id, f]], f, ctx) for f in fechas if cuadro.get((p.id, f)) in ctx.turnos) for p in ctx.colabs]
     assert max(df) - min(df) <= 12, df
+    bd.set_param("max_c_semana", 2)
+    ctx = bd.contexto(2026)
+    assert ctx.max_c_semana == 2
+    cuadro, info = solver.generar(ctx, fechas, tiempo=20)
+    for lunes in (f for f in fechas if f.weekday() == 0 and f + timedelta(days=6) in fechas):
+        for p in ctx.colabs:
+            assert sum(cuadro.get((p.id, lunes + timedelta(i))) == "C" for i in range(7)) <= 2
+    assert not [a for a in reglas.validar(ctx, cuadro, fechas) if "corridos en la semana" in a.texto]

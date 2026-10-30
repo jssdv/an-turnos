@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from an.turnos import analitica, cambios, flujo, reglas
+from an.turnos import analitica, cambios, flujo, puestos, reglas
 
 from . import deps
 from .deps import Contexto, contexto_area, usuario_actual
@@ -51,7 +51,7 @@ _lista("tarifas", lambda bd: bd.tarifas())
 # ponytail: copia de los defectos del núcleo; si alguno cambia allí, cámbialo aquí (o súbelos a una constante común).
 PARAMETROS_POR_DEFECTO = {
     "periodo_modo": "mes", "periodo_semanas": "4", "ventana_semanas": "3", "limite_permutas": "2", "max_noches_seguidas": "2",
-    "max_c_seguidos": "2", "max_igual_seguidos": "3", "libre_tras_noche": "1", "libres_por_semana": "1", "fines_semana_libres": "1", "max_horas_semana": "0",
+    "max_c_seguidos": "2", "max_igual_seguidos": "3", "libre_tras_noche": "1", "libres_por_semana": "1", "fines_semana_libres": "1", "max_horas_semana": "0", "max_c_semana": "0",
     "banco_tope_favor_h": "12", "banco_tope_deuda_h": "12", "usa_puestos": "1",
 }
 
@@ -91,12 +91,18 @@ def cuadro(id: int, version: Literal["original", "cambios"] = "cambios", ctx: Co
                        for (c, f), t in sorted(ctx.bd.asignaciones(clave, version).items())]}
 
 
+def _reparto(ctx, clave, c, dias):
+    """Puestos obligatorios sin cubrir en el reparto aunque haya gente por cabezas (p. ej. quien está solo puede ocupar otro puesto)."""
+    return puestos.alertas_reparto(c, ctx.bd.asignacion_puesto(clave), dias, ctx.bd.catalogo_puestos())
+
+
 @router.get("/areas/{area}/periodos/{id}/alertas")
 def alertas(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave, inicio, fin = _periodo(ctx, id)
     fijos = ctx.bd.fijos(clave)
+    c, cuadro, dias = ctx.bd.contexto(inicio.year), ctx.bd.asignaciones(clave), flujo.fechas(inicio, fin)
     return [_plano(a) if not isinstance(a, str) else a
-            for a in reglas.validar(ctx.bd.contexto(inicio.year), ctx.bd.asignaciones(clave), flujo.fechas(inicio, fin), fijos, flujo.previo(ctx.bd, inicio))]
+            for a in reglas.validar(c, cuadro, dias, fijos, flujo.previo(ctx.bd, inicio)) + reglas.deseables_sin_cubrir(c, cuadro, dias) + _reparto(ctx, clave, c, dias)]
 
 
 @router.get("/areas/{area}/periodos/{id}/puestos")

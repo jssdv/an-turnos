@@ -128,6 +128,16 @@ def test_evaluar_parcial():
     assert r.estado == "parcial" and r.dias_fallidos == [F[0]]
 
 
+def test_motivo_equilibrio_semanal():
+    bd = equipo(2)
+    ctx = bd.contexto(2026)
+    ctx.solicitudes = [Solicitud(1, "libre", F[0], F[0])]
+    sem = {(1, F[i]): c for i, c in enumerate(["C", "C", "C", "M", "L", "L", "L"])}  # 42 h = sus horas semanales
+    r = solicitudes.evaluar(ctx, sem, F)[0]
+    assert r.estado == "no cumplida" and r.motivo == "equilibrio de horas: la semana quedaría en 30 h", r.motivo
+    assert solicitudes.evaluar(ctx, {**sem, (1, F[3]): "L", (1, F[4]): "C"}, F)[0].motivo == "cobertura o reglas"  # la semana sigue pareja (36 h): no se culpa al equilibrio
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):

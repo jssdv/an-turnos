@@ -14,7 +14,7 @@ from .deps import Contexto, contexto_area
 router = APIRouter(prefix="/api/areas/{area}")
 RANGOS_PARAMETROS = {"usa_puestos": (0, 1), "ventana_semanas": (1, 8), "limite_permutas": (0, 20), "banco_tope_favor_h": (0, 48), "banco_tope_deuda_h": (0, 48),
                      "periodo_semanas": (1, 8), "max_noches_seguidas": (0, 7), "max_c_seguidos": (0, 7), "max_igual_seguidos": (0, 7),
-                     "libre_tras_noche": (0, 3), "libres_por_semana": (1, 3), "fines_semana_libres": (0, 4), "max_horas_semana": (0, 84)}
+                     "libre_tras_noche": (0, 3), "libres_por_semana": (1, 3), "fines_semana_libres": (0, 4), "max_horas_semana": (0, 84), "max_c_semana": (0, 7)}
 CONCEPTOS_TARIFA = ("dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio")
 COLOR = r"^[0-9A-Fa-f]{6}$"
 

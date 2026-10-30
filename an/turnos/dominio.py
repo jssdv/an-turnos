@@ -184,6 +184,7 @@ class Contexto:
     solicitudes: list = field(default_factory=list)  # deseos blandos del solver
     usa_puestos: bool = True  # False: la necesidad son personas por franja y día de la semana (demanda con puesto 0)
     max_horas_semana: int = 0  # tope duro de horas por persona en cada semana lunes–domingo completa; 0 = sin tope
+    max_c_semana: int = 0  # tope duro de corridos por persona en cada semana lunes–domingo completa; 0 = sin tope
     _nov: dict = field(default_factory=dict, repr=False)
 
     def __post_init__(self):
