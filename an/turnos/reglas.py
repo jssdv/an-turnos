@@ -22,10 +22,11 @@ def texto_tramos(ini, fin):
     return f"{hm(ini)}–{hm(fin)}"
 
 
-def faltantes_dia(ctx, cuadro, fecha, con_ayer=True):
+def faltantes_dia(ctx, cuadro, fecha, con_ayer=True, deseable=False):
     """{franja: (faltante_máximo, [(tramo_ini, tramo_fin, falta), ...])} del día `fecha` frente a la demanda obligatoria
-    de los puestos. Cuenta a quienes empiezan hoy y, si `con_ayer`, la madrugada de las noches de ayer."""
-    obl, _ = dem.demanda_fecha(ctx, fecha, con_ayer)
+    de los puestos. Cuenta a quienes empiezan hoy y, si `con_ayer`, la madrugada de las noches de ayer.
+    Con `deseable`, solo lo que falta de la demanda deseable (lo obligatorio ya se reporta aparte)."""
+    obl, des = dem.demanda_fecha(ctx, fecha, con_ayer)
     hay = [0] * dem.TRAMOS_DIA
     activos = {p.id for p in ctx.colabs if p.en_solver}
     ayer = fecha - timedelta(days=1)
@@ -37,7 +38,7 @@ def faltantes_dia(ctx, cuadro, fecha, con_ayer=True):
     out = {}
     for fr, tramos in dem.FRANJAS.items():
         tramos = list(tramos)
-        faltas = [max(0, obl[t] - hay[t]) for t in tramos]
+        faltas = [max(0, obl[t] + des[t] - hay[t]) - max(0, obl[t] - hay[t]) if deseable else max(0, obl[t] - hay[t]) for t in tramos]
         rangos, i = [], 0
         while i < len(tramos):
             if not faltas[i]:
@@ -56,6 +57,17 @@ def faltantes_periodo(ctx, cuadro, fechas):
     """{fecha: faltantes_dia(...)}; del primer día no se exige la madrugada que viene de la noche anterior (se desconoce)."""
     fechas = sorted(fechas)
     return {f: faltantes_dia(ctx, cuadro, f, con_ayer=f != fechas[0]) for f in fechas}
+
+
+def deseables_sin_cubrir(ctx, cuadro, fechas):
+    """Una alerta «info» por día y franja donde falta cubrir demanda deseable. Aparte de `validar`: son deseos, no reglas."""
+    fechas = sorted(fechas)
+    out = []
+    for f in fechas:
+        for fr, (peor, rangos) in faltantes_dia(ctx, cuadro, f, f != fechas[0], deseable=True).items():
+            if peor:
+                out.append(Alerta("info", f, None, f"{f:%d/%m}: deseable sin cubrir en {FRANJA_NOMBRE[fr]} ({', '.join(texto_tramos(a, b) for a, b, _ in rangos)})"))
+    return out
 
 
 def validar(ctx, cuadro, fechas, fijos=(), previo=None):
@@ -124,6 +136,8 @@ def validar(ctx, cuadro, fechas, fijos=(), previo=None):
             sem = [lunes + timedelta(days=i) for i in range(7)]
             if sem[-1] in dias and sum(cuadro.get((p.id, d), "L") not in ctx.turnos for d in sem) < ctx.libres_semana:
                 out.append(Alerta("error", lunes, p.id, f"{nombres[p.id]}: menos de {ctx.libres_semana} día(s) libre(s) en la semana del {lunes:%d/%m}"))
+            if ctx.max_c_semana and sem[-1] in dias and (n := sum(corrido(d) for d in sem)) > ctx.max_c_semana:
+                out.append(Alerta("aviso", lunes, p.id, f"{nombres[p.id]}: {n} corridos en la semana del {lunes:%d/%m} (máximo {ctx.max_c_semana})"))
             if ctx.max_horas_semana and sem[-1] in dias:
                 h = sum(ctx.turnos[cuadro[p.id, d]].horas for d in sem if cuadro.get((p.id, d)) in ctx.turnos)
                 if h > ctx.max_horas_semana:
