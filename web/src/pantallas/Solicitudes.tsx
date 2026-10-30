@@ -27,6 +27,9 @@ export function Solicitudes() {
   const nombre = useMemo(() => new Map((personas.datos ?? []).map((p) => [p.id, p.nombre])), [personas.datos]);
   const estado = useMemo(() => new Map((estados.datos ?? []).map((s) => [s.id, s])), [estados.datos]);
   const editar = area.permiso === "editar";
+  const [persona, ver] = useState("");  // filtro de la tabla: "" = todas
+  const visibles = (lista.datos ?? []).filter((x) => !persona || String(x.colab_id) === persona);
+  const cumplidas = visibles.filter((x) => estado.get(x.id)?.estado === "cumplida").length;
 
   const guardar = () => hacer(async () => {
     await enviar("POST", `${base}/solicitudes`, { ...f, colab_id: Number(f.colab_id), turno: f.tipo === "libre" ? "" : f.turno });
@@ -64,12 +67,17 @@ export function Solicitudes() {
         </Seccion>
       )}
       <Seccion titulo="Solicitudes registradas">
+        <NativeSelect size="sm" className="w-64" label="Persona" value={persona} onChange={(x) => ver(x.target.value)}>
+          <option value="">Todas</option>
+          {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+        </NativeSelect>
+        {persona && ultimo && <p className="mt-1 text-md text-tertiary">{visibles.length ? `${cumplidas} de ${visibles.length} cumplidas en el último periodo.` : "Esta persona no tiene solicitudes."}</p>}
         <Tabla
           descripcion="Solicitudes del área"
           cargando={!lista.datos && !lista.error}
-          vacio="Aún no hay solicitudes."
+          vacio={persona ? "Esta persona no tiene solicitudes." : "Aún no hay solicitudes."}
           columnas={["Persona", "Tipo", "Fechas", "Prioridad", ultimo ? "Estado en el último periodo" : "Estado", "Nota", ""]}
-          filas={(lista.datos ?? []).map((s) => [
+          filas={visibles.map((s) => [
             nombre.get(s.colab_id) ?? `#${s.colab_id}`,
             TIPO[s.tipo] + (s.turno ? ` ${s.turno}` : ""),
             `${fechaCorta(s.desde)} – ${fechaCorta(s.hasta)}`,
