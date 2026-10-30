@@ -51,6 +51,7 @@ export function Cuadro() {
   const [version, setVersion] = useState<"cambios" | "original">("cambios");
   const [verPuestos, setVerPuestos] = useState(false);
   const [foco, setFoco] = useState<Foco | null>(null);
+  const [persona, setPersona] = useState("");  // filtro de la lista de alertas: "" = todas
   const uid = useSesion().usuario?.id ?? 0;
   const [borrador, setBorrador] = useState<Borrador | null>(null);
   const [cupos, setCupos] = useState<Cupo[] | null>(null);
@@ -310,39 +311,49 @@ export function Cuadro() {
       <RegistrarCambio borrador={borrador} alCambiar={cerrarCambio} nombres={nombres} turnos={datos?.turnos ?? []} actual={codigoDe} puestos={usaPuestos ? datos!.puestos.filter((q) => q.activo) : null} puestoDe={puestoDe}
         cupos={cupos} error={errorCambio} enviando={enviando} alEnviar={enviar} />
 
-      {datos && (
-        <Seccion data-solo-pantalla titulo={<>Alertas {datos.alertas.length > 0 && <Badge size="sm" color="warning">{datos.alertas.length}</Badge>}</>}>
-          {datos.alertas.length === 0 ? (
-            <p className="p-6 text-center text-tertiary">Sin alertas: el cuadro cumple las reglas.</p>
-          ) : (
-            <>
-              <p className="mt-1 text-md text-tertiary">Corrige primero las rojas; las amarillas son recomendaciones.</p>
-              {(["error", "aviso"] as const).map((nivel) => {
-                const grupo = agrupar(datos.alertas.filter((a) => (a.nivel === "error") === (nivel === "error")));
-                if (!grupo.length) return null;
-                const errores = nivel === "error";
-                return (
-                  <details key={nivel} className="[&+&]:mt-3 [&>summary]:cursor-pointer [&>summary]:py-2" open={errores || !datos.alertas.some((a) => a.nivel === "error")}>
-                    <summary><Badge size="sm" color={errores ? "error" : "warning"}>{errores ? "Por corregir" : "Para revisar"} · {grupo.length}</Badge></summary>
-                    <ul className="">
-                      {grupo.map(({ alerta: a, veces }) => (
-                        <li key={a.texto} className="flex items-center gap-3 border-t border-secondary py-2 first:border-t-0">
-                          <span className="flex-1">{a.texto}{veces > 1 && <span className="text-tertiary"> (×{veces})</span>}</span>
-                          {a.fecha && (
-                            <Button color="link-color" size="sm" onPress={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
-                              {a.colab_id ? "Ir a la celda" : `Ir al ${fechaCorta(a.fecha)}`}
-                            </Button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                );
-              })}
-            </>
-          )}
-        </Seccion>
-      )}
+      {datos && (() => {
+        const vista = persona ? datos.alertas.filter((a) => String(a.colab_id) === persona) : datos.alertas;
+        const reglas = vista.filter((a) => a.nivel !== "info").length;
+        const niveles = [["error", "Por corregir", "error"], ["aviso", "Para revisar", "warning"], ["info", "Deseables sin cubrir", "gray"]] as const;
+        return (
+          <Seccion data-solo-pantalla titulo={<>Alertas {reglas > 0 && <Badge size="sm" color="warning">{reglas}</Badge>}</>}>
+            <NativeSelect size="sm" className="w-64" label="Persona" value={persona} onChange={(x) => setPersona(x.target.value)}>
+              <option value="">Todas</option>
+              {datos.colabs.filter((c) => c.activo).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </NativeSelect>
+            {persona && <p className="mt-1 text-md text-tertiary">Solo alertas de esta persona; las de cobertura de un día no se muestran.</p>}
+            {vista.length === 0 ? (
+              <p className="p-6 text-center text-tertiary">{persona ? "Sin alertas para esta persona." : "Sin alertas: el cuadro cumple las reglas."}</p>
+            ) : (
+              <>
+                {reglas > 0 && <p className="mt-1 text-md text-tertiary">Corrige primero las rojas; las amarillas son recomendaciones.</p>}
+                {niveles.map(([nivel, titulo, color]) => {
+                  const grupo = agrupar(vista.filter((a) => a.nivel === nivel));
+                  if (!grupo.length) return null;
+                  const info = nivel === "info";
+                  return (
+                    <details key={nivel} className="[&+&]:mt-3 [&>summary]:cursor-pointer [&>summary]:py-2" open={nivel === "error" || (nivel === "aviso" && !vista.some((a) => a.nivel === "error"))}>
+                      <summary><Badge size="sm" color={color}>{titulo} · {grupo.length}</Badge></summary>
+                      <ul className="">
+                        {grupo.map(({ alerta: a, veces }) => (
+                          <li key={a.texto} className={`flex items-center gap-3 border-t border-secondary first:border-t-0 ${info ? "py-1 text-sm text-tertiary" : "py-2"}`}>
+                            <span className="flex-1">{a.texto}{veces > 1 && <span className="text-tertiary"> (×{veces})</span>}</span>
+                            {a.fecha && (
+                              <Button color="link-color" size="sm" onPress={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
+                                {a.colab_id ? "Ir a la celda" : `Ir al ${fechaCorta(a.fecha)}`}
+                              </Button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  );
+                })}
+              </>
+            )}
+          </Seccion>
+        );
+      })()}
 
       {datos && (
         <div data-solo-pantalla>
@@ -358,7 +369,7 @@ export function Cuadro() {
 /** Guía de tres pasos del periodo: generar → revisar alertas → publicar. Solo informa; las acciones están arriba. */
 function Pasos({ hay, alertas, publicado }: { hay: boolean; alertas: Alerta[]; publicado: boolean }) {
   // Mismas cuentas que la lista de alertas (agrupada), para que los números coincidan.
-  const errores = agrupar(alertas.filter((a) => a.nivel === "error")).length, avisos = agrupar(alertas.filter((a) => a.nivel !== "error")).length;
+  const errores = agrupar(alertas.filter((a) => a.nivel === "error")).length, avisos = agrupar(alertas.filter((a) => a.nivel === "aviso")).length;
   const pasos = [
     { titulo: "Generar", hecho: hay, texto: hay ? "Hecho: el cuadro está armado." : "Usa «Generar» para que el sistema arme el cuadro." },
     { titulo: "Revisar alertas", hecho: hay && !errores, texto: errores ? `${errores} por corregir · ${avisos} para revisar` : avisos ? `Sin errores · ${avisos} recomendaciones` : "Sin alertas." },

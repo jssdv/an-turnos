@@ -74,7 +74,7 @@ export interface Novedad {
   hasta: string;
 }
 export interface Alerta {
-  nivel: "error" | "aviso";
+  nivel: "error" | "aviso" | "info";
   fecha: string | null;
   colab_id: number | null;
   texto: string;
