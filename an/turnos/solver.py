@@ -185,6 +185,13 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
                 if len(dias) == 7 and fijas <= tope:
                     m.Add(sum(round(ctx.turnos[s].horas * 60) * v for d in dias for s, v in por_pd[p.id, d] if s in ctx.turnos) <= tope)
 
+    if ctx.max_c_semana:  # tope duro de corridos por semana completa (ponytail: las semanas parciales del borde no se topan)
+        for p in P:
+            for lunes, dias in semanas.items():
+                fijos_c = sum(es_c(fijos.get((p.id, d))) for d in dias)
+                if len(dias) == 7 and fijos_c <= ctx.max_c_semana:
+                    m.Add(sum(v for d in dias for s, v in por_pd[p.id, d] if es_c(s)) <= ctx.max_c_semana)
+
     # cobertura por tramos de 30 min: la demanda obligatoria de los puestos, tramo a tramo; los deseables dan un premio
     tr = {c: ([t for o, t in dem.turno_tramos(tu) if o == 0], [t for o, t in dem.turno_tramos(tu) if o == 1])
           for c, tu in ctx.turnos.items()}
@@ -192,16 +199,25 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
     previo_ayer = {k: c for k, c in previo.items() if k[1] == fechas[0] - timedelta(days=1)}
     for d in fechas:
         ayer = d - timedelta(days=1)
-        obl, des = dem.demanda_fecha(ctx, d, con_ayer=d != fechas[0] or bool(previo_ayer))  # sin datos de ayer no se exige su madrugada
+        con_ayer = d != fechas[0] or bool(previo_ayer)  # sin datos de ayer no se exige su madrugada
+        obl, des = dem.demanda_fecha(ctx, d, con_ayer)
+        # ponytail: quien solo puede ocupar ciertos puestos cuenta en un tramo solo si alguno de ellos pide gente ahí (aproximación; el reparto fino lo hace puestos.asignar_tramos)
+        pide = {q: [a or b for a, b in zip(o, w)] for q, (o, w) in dem.demanda_por_puesto(ctx, d, con_ayer).items()} if ctx.usa_puestos else {}
+        sirve = lambda p, t: p.puestos_permitidos is None or not pide or any(pide.get(q, [0] * dem.TRAMOS_DIA)[t] for q in p.puestos_permitidos)
+        for p in P:  # quien solo ocupa ciertos puestos no trabaja un turno cuyos tramos ninguno de ellos pide (salvo edición manual)
+            if p.puestos_permitidos is not None and pide:
+                for s, v in por_pd[p.id, d]:
+                    if s in tr and tr[s][0] and not any(sirve(p, t) for t in tr[s][0]) and fijos.get((p.id, d)) != s:
+                        m.Add(v == 0)
         for t in range(dem.TRAMOS_DIA):
             if not (obl[t] or des[t]):
                 continue
-            terms = [v for p in P for s, v in por_pd[p.id, d] if s in tr and t in tr[s][0]]
+            terms = [v for p in P if sirve(p, t) for s, v in por_pd[p.id, d] if s in tr and t in tr[s][0]]
             const = 0
             if ayer in dias_set:
-                terms += [v for p in P for s, v in por_pd[p.id, ayer] if s in tr and t in tr[s][1]]
+                terms += [v for p in P if sirve(p, t) for s, v in por_pd[p.id, ayer] if s in tr and t in tr[s][1]]
             else:
-                const = sum(1 for p in P if (c := previo.get((p.id, ayer))) in tr and t in tr[c][1])
+                const = sum(1 for p in P if sirve(p, t) and (c := previo.get((p.id, ayer))) in tr and t in tr[c][1])
             presente = sum(terms) + const
             if obl[t]:
                 if estricto:
