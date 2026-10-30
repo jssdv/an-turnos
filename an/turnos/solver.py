@@ -7,7 +7,7 @@ from datetime import timedelta
 from ortools.sat.python import cp_model
 
 from . import demanda as dem
-from .solicitudes import W_SOL, malo
+from .solicitudes import BANDA_SEMANA_H, W_SOL, malo
 
 from .dominio import DESCANSO_MIN
 from .recargos import horas_df
@@ -16,6 +16,8 @@ from .recargos import horas_df
 W_FALTA, W_DEFICIT, W_EXCESO, W_DESEABLE = 10_000, 1, 2, 10  # W_FALTA es por persona y tramo de 30 min
 W_CAMBIO, W_NOCHE_SEG, W_DF_SEG, W_ESTUDIO, W_EQUIDAD = 15, 200, 100, 300, 200
 W_C_PAR, W_LIBRE_FDS, W_IGUAL = 250, 120, 60
+W_SOBRA, W_SOBRA2, X_NOCHE = 4, 12, 3  # por persona y tramo de 30 min por encima de lo pedido; la segunda sobrante cuesta más; en la noche × X_NOCHE
+W_SEMANA = 3  # por minuto de una semana completa fuera de la banda de ±BANDA_SEMANA_H h de sus horas semanales (más que una solicitud normal, menos que una alta)
 W_DF_EQ = 150  # por media hora de diferencia entre la persona con más y la de menos horas en domingo/festivo  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
 
 
@@ -185,23 +187,50 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
                 if len(dias) == 7 and fijas <= tope:
                     m.Add(sum(round(ctx.turnos[s].horas * 60) * v for d in dias for s, v in por_pd[p.id, d] if s in ctx.turnos) <= tope)
 
+    if ctx.max_c_semana:  # tope duro de corridos por semana completa (ponytail: las semanas parciales del borde no se topan)
+        for p in P:
+            for lunes, dias in semanas.items():
+                fijos_c = sum(es_c(fijos.get((p.id, d))) for d in dias)
+                if len(dias) == 7 and fijos_c <= ctx.max_c_semana:
+                    m.Add(sum(v for d in dias for s, v in por_pd[p.id, d] if es_c(s)) <= ctx.max_c_semana)
+
+    for p in P:  # equilibrio: ninguna semana completa muy por debajo o por encima de las horas semanales de la persona
+        for lunes, dias in semanas.items():
+            if len(dias) == 7:
+                meta = round(p.horas_sem * p.pct * 60 * sum(1 for d in dias if not ctx.novedad(p.id, d)) / 7)
+                hechas = sum(round(ctx.turnos[s].horas * 60) * v for d in dias for s, v in por_pd[p.id, d] if s in ctx.turnos)
+                fuera = m.NewIntVar(0, 100_000, "")
+                m.Add(fuera >= meta - hechas - BANDA_SEMANA_H * 60)
+                m.Add(fuera >= hechas - meta - BANDA_SEMANA_H * 60)
+                obj.append(W_SEMANA * fuera)
+
     # cobertura por tramos de 30 min: la demanda obligatoria de los puestos, tramo a tramo; los deseables dan un premio
     tr = {c: ([t for o, t in dem.turno_tramos(tu) if o == 0], [t for o, t in dem.turno_tramos(tu) if o == 1])
           for c, tu in ctx.turnos.items()}
     dias_set = set(fechas)
+    noche_t = set(dem.FRANJAS["N"])
     previo_ayer = {k: c for k, c in previo.items() if k[1] == fechas[0] - timedelta(days=1)}
     for d in fechas:
         ayer = d - timedelta(days=1)
-        obl, des = dem.demanda_fecha(ctx, d, con_ayer=d != fechas[0] or bool(previo_ayer))  # sin datos de ayer no se exige su madrugada
+        con_ayer = d != fechas[0] or bool(previo_ayer)  # sin datos de ayer no se exige su madrugada
+        obl, des = dem.demanda_fecha(ctx, d, con_ayer)
+        # ponytail: quien solo puede ocupar ciertos puestos cuenta en un tramo solo si alguno de ellos pide gente ahí (aproximación; el reparto fino lo hace puestos.asignar_tramos)
+        pide = {q: [a or b for a, b in zip(o, w)] for q, (o, w) in dem.demanda_por_puesto(ctx, d, con_ayer).items()} if ctx.usa_puestos else {}
+        sirve = lambda p, t: p.puestos_permitidos is None or not pide or any(pide.get(q, [0] * dem.TRAMOS_DIA)[t] for q in p.puestos_permitidos)
+        for p in P:  # quien solo ocupa ciertos puestos no trabaja un turno cuyos tramos ninguno de ellos pide (salvo edición manual)
+            if p.puestos_permitidos is not None and pide:
+                for s, v in por_pd[p.id, d]:
+                    if s in tr and tr[s][0] and not any(sirve(p, t) for t in tr[s][0]) and fijos.get((p.id, d)) != s:
+                        m.Add(v == 0)
         for t in range(dem.TRAMOS_DIA):
             if not (obl[t] or des[t]):
                 continue
-            terms = [v for p in P for s, v in por_pd[p.id, d] if s in tr and t in tr[s][0]]
+            terms = [v for p in P if sirve(p, t) for s, v in por_pd[p.id, d] if s in tr and t in tr[s][0]]
             const = 0
             if ayer in dias_set:
-                terms += [v for p in P for s, v in por_pd[p.id, ayer] if s in tr and t in tr[s][1]]
+                terms += [v for p in P if sirve(p, t) for s, v in por_pd[p.id, ayer] if s in tr and t in tr[s][1]]
             else:
-                const = sum(1 for p in P if (c := previo.get((p.id, ayer))) in tr and t in tr[c][1])
+                const = sum(1 for p in P if sirve(p, t) and (c := previo.get((p.id, ayer))) in tr and t in tr[c][1])
             presente = sum(terms) + const
             if obl[t]:
                 if estricto:
@@ -214,6 +243,12 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
                     m.Add(presente + falta >= obl[t])
                     obj.append(W_FALTA * falta)
                     faltas[d, t] = falta
+            if terms:  # reparto parejo: lo que sobra de la demanda (obligatoria + deseable) se reparte y no se apila, y menos de noche
+                peso = X_NOCHE if t in noche_t else 1
+                sob, sob2 = m.NewIntVar(0, len(P), ""), m.NewIntVar(0, len(P), "")
+                m.Add(sob >= presente - obl[t] - des[t])
+                m.Add(sob2 >= presente - obl[t] - des[t] - 1)
+                obj += [W_SOBRA * peso * sob, W_SOBRA2 * peso * sob2]
             if des[t] and terms:
                 ok = m.NewBoolVar("")
                 m.Add(presente >= obl[t] + des[t]).OnlyEnforceIf(ok)
