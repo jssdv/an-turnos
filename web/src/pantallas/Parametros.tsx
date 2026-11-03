@@ -16,6 +16,7 @@ const NUM: [string, string, number, number, string][] = [
   ["max_horas_semana", "Horas por semana (máximo)", 0, 84, "Tope de horas que el cuadro asigna a una persona en una semana de lunes a domingo. 0 = sin tope."],
   ["max_noches_seguidas", "Noches seguidas (máximo)", 0, 7, "Cuántas noches puede hacer alguien sin parar. 0 = sin límite."],
   ["max_c_semana", "Corridos por semana (máximo)", 0, 7, "Turnos de 12 h de día que una persona puede hacer en una semana de lunes a domingo. 0 = sin límite."],
+  ["partir_corridos", "Partir corridos entre puestos", 0, 1, "1 = el corrido (C) puede estar en un puesto en la mañana y en otro en la tarde sin penalización. 0 = se prefiere el mismo puesto todo el día."],
   ["max_c_seguidos", "Corridos seguidos (máximo)", 0, 7, "Turnos de 12 h de día seguidos. 0 = sin límite."],
   ["max_igual_seguidos", "Mismo turno corto seguido", 0, 7, "Días seguidos con el mismo turno de 6 h (mañana o tarde). 0 = sin límite."],
   ["libre_tras_noche", "Días libres después de noche", 0, 3, "Descanso mínimo al terminar una noche. 0 = no aplicar la regla."],
