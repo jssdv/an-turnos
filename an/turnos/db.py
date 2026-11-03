@@ -547,6 +547,12 @@ class BD:
         self.c.execute("DELETE FROM cierre WHERE periodo=?", (k,))
         self.c.commit()
 
+    def borrar_periodo(self, k):
+        """Quita el cuadro, los puestos fijados y los cambios del periodo (el registro del periodo lo borra la ruta)."""
+        for tabla, columna in (("asignacion", "mes"), ("asignacion_puesto", "periodo"), ("puesto_fijo", "periodo"), ("cambio_turno", "periodo")):
+            self.c.execute(f"DELETE FROM {tabla} WHERE {columna}=?", (k,))  # sql-ok: tabla y columna de una lista constante
+        self.c.commit()
+
     def cierres(self, colab_id=None):
         """[(periodo, colab_id, contratadas, trabajadas)] de los periodos cerrados, del más antiguo al más reciente."""
         q = "SELECT * FROM cierre" + (" WHERE colab_id=?" if colab_id else "") + " ORDER BY periodo"  # sql-ok: partes constantes
