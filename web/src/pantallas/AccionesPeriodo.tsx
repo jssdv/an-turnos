@@ -8,12 +8,13 @@ import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Alert } from "@/components/application/alerts/alert";
 
-type Accion = "publicar" | "restaurar" | "cerrar" | "reabrir";
+type Accion = "publicar" | "restaurar" | "cerrar" | "reabrir" | "eliminar";
 const TEXTO: Record<Accion, [string, string]> = {
   publicar: ["Publicar", "El cuadro actual pasará a ser el «original». ¿Continuar?"],
   restaurar: ["Restaurar", "Se devolverán todas las celdas al original. ¿Continuar?"],
   cerrar: ["Cerrar periodo", "Se guardarán las horas trabajadas y contratadas de cada persona en el banco de horas y el cuadro quedará en solo lectura. ¿Continuar?"],
   reabrir: ["Reabrir periodo", "El cuadro volverá a ser editable y se borrará el cierre de este periodo del banco de horas. ¿Continuar?"],
+  eliminar: ["Eliminar periodo", "Se borran el cuadro, los puestos, los cambios y los exportes de este periodo. No se puede deshacer. ¿Continuar?"],
 };
 
 interface Props {
@@ -43,6 +44,11 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
         setAccion(null);
         alTerminar();
         ir(`/areas/${area}/cuadro/${r.id}`);
+      } else if (accion === "eliminar") {
+        await cambios.eliminarPeriodo(area, periodo!.id, periodo!.revision);
+        setAccion(null);
+        alTerminar();
+        ir(`/areas/${area}/cuadro`); // sin periodo en la URL: Cuadro muestra el último
       } else {
         await cambios.accion(area, periodo!.id, periodo!.revision, accion);
         setAccion(null);
@@ -63,6 +69,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
           <Button color="secondary" size="sm" onPress={() => abrir("publicar")}>Publicar</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("restaurar")}>Restaurar</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("cerrar")}>Cerrar periodo</Button>
+          <Button color="secondary" size="sm" onPress={() => abrir("eliminar")}>Eliminar periodo</Button>
         </>
       )}
       <Button color="secondary" size="sm" onPress={() => abrir("nuevo")}>Nuevo periodo</Button>
