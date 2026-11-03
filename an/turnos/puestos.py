@@ -105,6 +105,8 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
             if a[1] != b[0]:
                 continue
             for c in set(a[2]) & set(b[2]):
+                if ctx.partir_corridos and (t := ctx.turnos.get(cuadro.get((c, d)))) is not None and dem.es_corrido(t):
+                    continue  # corrido partido: M en un puesto y T en otro no cuesta
                 for q in {k[2] for k in y if k[0] == bi and k[1] == c}:
                     sale = m.NewBoolVar("")
                     m.Add(sale >= y[bi, c, q] - (y[bi + 1, c, q] if (bi + 1, c, q) in y else 0))
