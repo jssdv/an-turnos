@@ -13,6 +13,8 @@ export const cambios = {
   cupos: (area: number, periodo: number) => leer<Cupo[]>(`${base(area, periodo)}/cupos`),
   accion: (area: number, periodo: number, revision: number, nombre: "publicar" | "restaurar" | "cerrar" | "reabrir") =>
     pedir<{ revision: number }>("POST", `${base(area, periodo)}/${nombre}`, { cuerpo: {}, revision }),
+  eliminarPeriodo: (area: number, periodo: number, revision: number) =>
+    pedir<void>("DELETE", `/api/areas/${area}/periodos/${periodo}`, { revision }),
   crearPeriodo: (area: number, inicio: string, fin: string) =>
     pedir<{ id: number; clave: string }>("POST", `/api/areas/${area}/periodos`, { cuerpo: { inicio, fin } }),
 };

@@ -4,7 +4,7 @@ from collections import namedtuple
 from datetime import date, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from an.turnos import cambios, flujo, puestos, reglas
@@ -191,6 +191,20 @@ def crear_periodo(datos: NuevoPeriodo, request: Request, ctx: Contexto = Depends
     clave = flujo.clave(datos.inicio, datos.fin)
     request.state.evento = "periodo_creado"
     return {"id": ctx.conn.execute("INSERT INTO periodo (clave) VALUES (?) RETURNING id", (clave,)).fetchone()[0], "clave": clave, "revision": 0}
+
+
+@router.delete("/areas/{area}/periodos/{id}", status_code=204)
+def borrar_periodo(id: int, request: Request, if_match: str | None = Header(None), ctx: Contexto = Depends(contexto_area, scope="function")):
+    p = bloquear(ctx, id, if_match)
+    abierto(ctx, p)
+    if ctx.conn.execute("SELECT 1 FROM trabajo WHERE periodo_id = ? AND estado IN ('en_cola', 'corriendo')", (id,)).fetchone():
+        raise HTTPException(409, "Hay un cuadro generándose para este periodo; espera o cancélalo.")
+    ctx.conn.execute("DELETE FROM exporte WHERE periodo_id = ?", (id,))
+    ctx.conn.execute("DELETE FROM trabajo WHERE periodo_id = ?", (id,))  # terminados: la FK a periodo no deja borrar el periodo con ellos
+    ctx.conn.execute("DELETE FROM periodo WHERE id = ?", (id,))
+    ctx.bd.borrar_periodo(p.clave)  # al final: commit de la transacción completa
+    request.state.evento = "periodo_eliminado"
+    return Response(status_code=204)
 
 
 def _accion(nombre, hacer, evento, cerrado_ok=False):
