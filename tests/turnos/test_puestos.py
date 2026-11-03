@@ -260,6 +260,18 @@ def test_corrido_conserva_el_puesto_si_puede():
         assert len(propias) == 1 and (propias[0].desde, propias[0].hasta) == (360, 1080)
 
 
+def test_partir_corridos():
+    bd, ids = _bd({"A": [("LS", 360, 720, 1)], "B": [("LS", 720, 1080, 1)]}, 1)
+    assert bd.contexto(2026).partir_corridos == 0
+    bd.set_param("partir_corridos", 1)
+    ctx = bd.contexto(2026)
+    assert ctx.partir_corridos == 1
+    c0 = ctx.colabs[0].id
+    filas = puestos.asignar_tramos(ctx, {(c0, LUN): "C"}, [LUN])
+    _sin_solape(filas)
+    assert {(x.puesto_id, x.desde, x.hasta) for x in filas} == {(ids["A"], 360, 720), (ids["B"], 720, 1080)}
+
+
 def test_apoyo_cuando_sobra_gente():
     bd, ids = _bd({"A": [("LS", 360, 1080, 1)]}, 2)
     ctx = bd.contexto(2026)
