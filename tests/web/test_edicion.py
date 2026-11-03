@@ -315,6 +315,32 @@ def test_ver_recibe_403_en_toda_escritura():
             assert lector.post(ruta, headers={**H, "If-Match": "0"}, json={}).status_code == 403, ruta
 
 
+def test_borrar_periodo_solo_abierto_con_revision():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, c, pid = sesion(e, "editor@a.co"), e.colab["A"], periodo(e)
+        clave = e.su.execute("SELECT clave FROM periodo WHERE id = %s", (pid,)).fetchone()[0]
+        base = f"/api/areas/{e.ar['A']}/periodos/{pid}"
+        cambio(cli, e, "ajuste", [(c, "2026-10-07", "M")])  # revisión 1
+        assert cli.delete(base, headers={**H, "If-Match": "0"}).status_code == 409
+        assert sesion(e, "lector@a.co").delete(base, headers={**H, "If-Match": "1"}).status_code == 403
+        assert accion(cli, e, "cerrar", 1).json() == {"revision": 2}
+        assert cli.delete(base, headers={**H, "If-Match": "2"}).status_code == 409
+        assert accion(cli, e, "reabrir", 2).json() == {"revision": 3}
+        e.su.execute("INSERT INTO trabajo (periodo_id, tipo, revision_base, estado, clinica_id, area_id) VALUES (%s, 'generar', 3, 'en_cola', %s, %s)",
+                     (pid, e.cl["A"], e.ar["A"]))
+        e.su.commit()
+        assert cli.delete(base, headers={**H, "If-Match": "3"}).status_code == 409  # hay un cuadro en cola
+        e.su.execute("UPDATE trabajo SET estado = 'listo' WHERE periodo_id = %s", (pid,))
+        e.su.commit()
+        assert cli.delete(base, headers={**H, "If-Match": "3"}).status_code == 204
+        assert pid not in [p["id"] for p in cli.get(f"/api/areas/{e.ar['A']}/periodos").json()]
+        for tabla, columna in (("asignacion", "mes"), ("asignacion_puesto", "periodo"), ("cambio_turno", "periodo"), ("trabajo", "periodo_id")):
+            valor = pid if columna == "periodo_id" else clave
+            assert e.su.execute(f"SELECT count(*) FROM {tabla} WHERE {columna} = %s AND area_id = %s", (valor, e.ar["A"])).fetchone()[0] == 0, tabla  # sql-ok: tabla y columna constantes
+
+
 if __name__ == "__main__":
     import inspect
     for n, f in list(globals().items()):
