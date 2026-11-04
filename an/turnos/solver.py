@@ -16,6 +16,7 @@ from .recargos import horas_df
 W_FALTA, W_DEFICIT, W_EXCESO, W_DESEABLE = 10_000, 1, 2, 10  # W_FALTA es por persona y tramo de 30 min
 W_CAMBIO, W_NOCHE_SEG, W_DF_SEG, W_ESTUDIO, W_EQUIDAD = 15, 200, 100, 300, 200
 W_C_PAR, W_LIBRE_FDS, W_IGUAL = 250, 120, 60
+W_C = 30  # por corrido elegido (× peso_corrido): si otro turno cubre igual, se prefiere
 W_SOBRA, W_SOBRA2, X_NOCHE = 4, 12, 3  # por persona y tramo de 30 min por encima de lo pedido; la segunda sobrante cuesta más; en la noche × X_NOCHE
 W_SEMANA = 3  # por minuto de una semana completa fuera de la banda de ±BANDA_SEMANA_H h de sus horas semanales (más que una solicitud normal, menos que una alta)
 W_DF_EQ = 150  # por media hora de diferencia entre la persona con más y la de menos horas en domingo/festivo  # dos corridos seguidos; semana sin ningún libre en sábado o domingo
@@ -276,6 +277,8 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
                     if s1 != s2 and s1 != "L" and s2 != "L":
                         m.Add(cambio >= v1 + v2 - 1)
             obj.append(W_CAMBIO * cambio)
+        if ctx.peso_corrido:  # cada corrido cuesta algo: si otro turno cubre igual, se prefiere
+            obj.extend(W_C * ctx.peso_corrido * v for d in fechas for s, v in por_pd[p.id, d] if es_c(s))
         for a, b in zip(fechas, fechas[1:]):  # evitar dos corridos seguidos
             va, vb = [v for s, v in por_pd[p.id, a] if es_c(s)], [v for s, v in por_pd[p.id, b] if es_c(s)]
             if va and vb:

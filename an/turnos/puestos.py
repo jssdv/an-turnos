@@ -34,6 +34,7 @@ def leyenda(puestos):
 
 # --- reparto por tramos horarios ----------------------------------------------------------------------------------------
 W_FALTA_P, W_DES_P, W_CAMBIO_P, W_PRIORIDAD_P = 1000, 10, 60, 500  # por persona y tramo; cambiar de puesto dentro del turno; rotación abajo
+W_PARTIR_P = 150  # castigo por repetir puesto en las dos mitades de un corrido con partir_corridos (> rotación, << W_FALTA_P)
 
 
 def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
@@ -58,11 +59,17 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
                         presentes[cid].add(t)
         necesidad = {q: (o, w) for q, (o, w) in dem.demanda_por_puesto(ctx, d, con_ayer=d != primero).items() if ctx.usa_puestos and (any(o) or any(w))}
         # bloques de tramos consecutivos con la misma presencia y la misma demanda
+        cortes = {}  # colab_id -> tramo medio de su corrido: con partir_corridos ahí empieza otro bloque
+        if ctx.partir_corridos:
+            for c in presentes:
+                t = ctx.turnos.get(cuadro.get((c, d)))
+                if t is not None and dem.es_corrido(t):
+                    cortes[c] = (t.inicio + t.duracion // 2) // 30 % dem.TRAMOS_DIA
         bloques, firma_ant = [], None
         for t in range(dem.TRAMOS_DIA):
             pres = tuple(sorted(c for c, ts in presentes.items() if t in ts))
             nec = tuple(sorted((q, o[t], w[t]) for q, (o, w) in necesidad.items() if o[t] or w[t]))
-            firma = (pres, nec)
+            firma = (pres, nec, sum(t >= k for k in cortes.values()))
             if not pres:
                 firma_ant = None
                 continue
@@ -105,8 +112,14 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
             if a[1] != b[0]:
                 continue
             for c in set(a[2]) & set(b[2]):
-                if ctx.partir_corridos and (t := ctx.turnos.get(cuadro.get((c, d)))) is not None and dem.es_corrido(t):
-                    continue  # corrido partido: M en un puesto y T en otro no cuesta
+                if c in cortes:  # corrido con partir_corridos: repetir el puesto en las dos mitades se castiga
+                    if b[0] == cortes[c]:
+                        for q in {k[2] for k in y if k[0] == bi and k[1] == c}:
+                            if (bi + 1, c, q) in y:
+                                mismo = m.NewBoolVar("")
+                                m.Add(mismo >= y[bi, c, q] + y[bi + 1, c, q] - 1)
+                                obj.append(W_PARTIR_P * mismo)
+                    continue
                 for q in {k[2] for k in y if k[0] == bi and k[1] == c}:
                     sale = m.NewBoolVar("")
                     m.Add(sale >= y[bi, c, q] - (y[bi + 1, c, q] if (bi + 1, c, q) in y else 0))

@@ -207,6 +207,24 @@ def borrar_periodo(id: int, request: Request, if_match: str | None = Header(None
     return Response(status_code=204)
 
 
+class Reasignar(BaseModel):
+    desde: date | None = None
+
+
+@router.post("/areas/{area}/periodos/{id}/reasignar-puestos")
+def reasignar_puestos(id: int, request: Request, datos: Reasignar = Reasignar(), if_match: str | None = Header(None),
+                      ctx: Contexto = Depends(contexto_area, scope="function")):
+    """Rehace solo el reparto de puestos (y la capacitación) con el cuadro de turnos actual, desde `desde` o todo el periodo."""
+    p = bloquear(ctx, id, if_match)
+    abierto(ctx, p)
+    if datos.desde and not p.inicio <= datos.desde <= p.fin:
+        raise HTTPException(422, "La fecha debe estar dentro del periodo")
+    if ctx.conn.execute("SELECT 1 FROM trabajo WHERE periodo_id = ? AND estado IN ('en_cola', 'corriendo')", (id,)).fetchone():
+        raise HTTPException(409, "Hay un cuadro generándose para este periodo; espera o cancélalo.")
+    flujo.recalcular(ctx.bd, p.inicio, p.fin, desde=datos.desde)
+    return {"revision": subir(ctx, id, request, "puestos_reasignados")}
+
+
 def _accion(nombre, hacer, evento, cerrado_ok=False):
     @router.post(f"/areas/{{area}}/periodos/{{id}}/{nombre}")
     def ruta(id: int, request: Request, if_match: str | None = Header(None), ctx: Contexto = Depends(contexto_area, scope="function")):
