@@ -6,6 +6,8 @@
 
 ## 0. Progreso
 
+> **Vigente desde el 03/11/2026:** un solo modo, la app portable con SQLite (ver [ESTADO.md](ESTADO.md)). Lo que este plan dice de servidor, Postgres, Docker, Caddy, RLS y VPS (sobre todo la Fase 8) quedó sin efecto; vive en la etiqueta `servidor-postgres-final`.
+
 > Retomar en otra sesión: leer esta lista, abrir el plan detallado de la primera fase sin cerrar y seguir desde su primer `- [ ]`. Marcar `- [x]` aquí solo al cumplir la **aceptación** de la fase (§6). El avance fino vive en el plan de cada fase (un plan de diseño interno).
 
 - [x] **Fase 0** — Decisiones y cimientos · plan
