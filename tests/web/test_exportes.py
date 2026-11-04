@@ -1,7 +1,6 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-"""Pruebas de los exportes en Excel (necesitan AN_PG_URL). Imprime OK."""
-import psycopg
+"""Pruebas de los exportes en Excel. Imprime OK."""
 from io import BytesIO
 
 from fastapi import Depends
@@ -135,7 +134,7 @@ def test_identico_a_qt():
 
     from an.turnos import exportar, flujo
     from an.turnos.db import BD
-    from an.turnos.pg import Conexion
+    from an.turnos.puente import Conexion
     with entorno() as e:
         if e is None:
             return

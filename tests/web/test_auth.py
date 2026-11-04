@@ -6,12 +6,9 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import psycopg
-
-from an.turnos.pg import FILAS, Conexion
+from an.turnos.puente import Conexion
 from an.web import auth, esquema, sqlite_pg
 
-URL = os.environ.get("AN_PG_URL")
 CLAVE = "clave-larga-1"
 
 

@@ -1,6 +1,7 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-"""Pruebas de la API de edición del cuadro (necesitan AN_PG_URL). Imprime OK."""
+"""Pruebas de la API de edición del cuadro. Imprime OK."""
+from an.turnos.puente import UniqueViolation
 from fixtura_api import ORIGEN, entorno
 
 H = {"Origin": ORIGEN}
@@ -58,7 +59,7 @@ def agregar_persona(e, n="A", nombre="P2"):
     from datetime import date
     from an.turnos.db import BD
     from an.turnos.dominio import Colaborador
-    from an.turnos.pg import Conexion
+    from an.turnos.puente import Conexion
     e.su.execute("SELECT set_config('app.clinica', %s, false), set_config('app.area', %s, false)", (str(e.cl[n]), str(e.ar[n])))
     bd = BD.postgres(Conexion(e.su))
     p = Colaborador(0, f"{nombre}-{n}")
@@ -280,7 +281,6 @@ def test_dos_pestanas_la_segunda_recibe_409():
 
 
 def test_un_solo_editor_por_area():
-    import psycopg
     with entorno() as e:
         if e is None:
             return
@@ -288,7 +288,7 @@ def test_un_solo_editor_por_area():
             e.su.execute("INSERT INTO usuario_area (usuario_id, area_id, permiso, clinica_id) VALUES (%s, %s, 'editar', %s)",
                          (e.us["lector@a.co"], e.ar["A"], e.cl["A"]))
             raise AssertionError("aceptó un segundo editor")
-        except psycopg.errors.UniqueViolation:
+        except UniqueViolation:
             e.su.rollback()
 
 

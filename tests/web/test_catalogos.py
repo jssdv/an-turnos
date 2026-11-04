@@ -1,6 +1,6 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-"""Pruebas de las rutas de catálogos: solicitudes, personal, novedades, turnos, puestos, parámetros y tarifas (necesitan AN_PG_URL). Imprime OK."""
+"""Pruebas de las rutas de catálogos: solicitudes, personal, novedades, turnos, puestos, parámetros y tarifas. Imprime OK."""
 from fixtura_api import ORIGEN, entorno
 from test_edicion import sesion, url
 

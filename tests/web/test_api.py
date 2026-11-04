@@ -1,6 +1,6 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-"""Pruebas de la API FastAPI (necesitan AN_PG_URL). Imprime OK."""
+"""Pruebas de la API FastAPI. Imprime OK."""
 from fixtura_api import CLAVE_PERIODO, ORIGEN, entorno
 
 

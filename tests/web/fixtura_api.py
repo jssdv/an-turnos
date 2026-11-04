@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from an.turnos.db import BD
 from an.turnos.dominio import Colaborador
-from an.turnos.pg import Conexion
+from an.turnos.puente import Conexion
 from an.web import admin, auth, conexion, esquema, sqlite_pg
 from an.web.app import crear_app
 from an.web.deps import contexto_area

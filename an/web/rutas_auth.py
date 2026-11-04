@@ -4,7 +4,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from an.turnos.pg import Conexion
+from an.turnos.puente import Conexion
 
 from . import auth
 from .deps import COOKIE, usuario_permitido_cambiar

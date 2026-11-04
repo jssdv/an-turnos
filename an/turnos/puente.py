@@ -1,7 +1,5 @@
-"""Adaptador de psycopg 3 con la forma de sqlite3 que usa BD: `?`, filas por índice y por nombre, execute/commit."""
+"""Puente entre `BD` (SQL con `?`) y las conexiones de `an.web.sqlite_pg` (SQL con `%s`): filas por índice y por nombre, execute/commit."""
 import re
-
-import psycopg
 
 
 _TOKEN = re.compile(r"""
@@ -30,6 +28,10 @@ def _int_si_bool(params):
     return tuple(int(p) if isinstance(p, bool) else p for p in params)
 
 
+class UniqueViolation(Exception):
+    """Violación de una restricción UNIQUE (la lanza `sqlite_pg`)."""
+
+
 class Fila(tuple):
     def __new__(cls, valores, nombres):
         f = super().__new__(cls, valores)
@@ -48,7 +50,6 @@ def _fila(cursor):
     return lambda valores: Fila(valores, nombres)
 
 
-FILAS = _fila  # row_factory de psycopg para pools y conexiones
 
 
 class Cursor:
@@ -70,10 +71,6 @@ class Cursor:
 class Conexion:
     def __init__(self, conn, confirmar=True):
         self.conn, self.confirmar = conn, confirmar  # confirmar=False: commit lo hace quien abrió la transacción (la API)
-
-    @classmethod
-    def abrir(cls, url):
-        return cls(psycopg.connect(url, row_factory=_fila))
 
     def execute(self, sql, params=()):
         cur = self.conn.cursor()
