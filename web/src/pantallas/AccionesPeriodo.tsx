@@ -8,12 +8,13 @@ import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Alert } from "@/components/application/alerts/alert";
 
-type Accion = "publicar" | "restaurar" | "cerrar" | "reabrir" | "eliminar";
+type Accion = "publicar" | "restaurar" | "cerrar" | "reabrir" | "eliminar" | "reasignar";
 const TEXTO: Record<Accion, [string, string]> = {
   publicar: ["Publicar", "El cuadro actual pasará a ser el «original». ¿Continuar?"],
   restaurar: ["Restaurar", "Se devolverán todas las celdas al original. ¿Continuar?"],
   cerrar: ["Cerrar periodo", "Se guardarán las horas trabajadas y contratadas de cada persona en el banco de horas y el cuadro quedará en solo lectura. ¿Continuar?"],
   reabrir: ["Reabrir periodo", "El cuadro volverá a ser editable y se borrará el cierre de este periodo del banco de horas. ¿Continuar?"],
+  reasignar: ["Reasignar puestos", "No cambia los turnos: solo se vuelven a repartir los puestos con las reglas actuales. Los puestos fijados a mano se respetan. Si indicas una fecha, lo anterior no cambia. ¿Continuar?"],
   eliminar: ["Eliminar periodo", "Se borran el cuadro, los puestos, los cambios y los exportes de este periodo. No se puede deshacer. ¿Continuar?"],
 };
 
@@ -31,6 +32,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [inicio, setInicio] = useState("");
   const [fin, setFin] = useState("");
+  const [desde, setDesde] = useState("");
   const cerrado = !!periodo?.cerrado_en;
 
   const abrir = (a: Accion | "nuevo") => { setError(null); setAccion(a); };
@@ -44,6 +46,10 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
         setAccion(null);
         alTerminar();
         ir(`/areas/${area}/cuadro/${r.id}`);
+      } else if (accion === "reasignar") {
+        await cambios.reasignarPuestos(area, periodo!.id, periodo!.revision, desde || null);
+        setAccion(null);
+        alTerminar();
       } else if (accion === "eliminar") {
         await cambios.eliminarPeriodo(area, periodo!.id, periodo!.revision);
         setAccion(null);
@@ -68,6 +74,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
         <>
           <Button color="secondary" size="sm" onPress={() => abrir("publicar")}>Publicar</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("restaurar")}>Restaurar</Button>
+          <Button color="secondary" size="sm" onPress={() => abrir("reasignar")}>Reasignar puestos</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("cerrar")}>Cerrar periodo</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("eliminar")}>Eliminar periodo</Button>
         </>
@@ -82,6 +89,9 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
             <Input value={String(inicio)} label="Desde" type="date" onChange={(x) => setInicio(x)} />
             <Input value={String(fin)} label="Hasta" type="date" onChange={(x) => setFin(x)} />
           </div>
+        )}
+        {accion === "reasignar" && periodo && (
+          <Input value={desde} label="Desde (opcional)" type="date" onChange={(x) => setDesde(x)} />
         )}
         <div className="flex flex-wrap justify-end gap-2">
           <Button color="secondary" size="sm" onPress={() => setAccion(null)}>Cancelar</Button>
