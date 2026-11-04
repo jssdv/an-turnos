@@ -73,6 +73,17 @@ def test_semana_exige_lunes_del_periodo():
         assert cli.post(ruta_generar(e), headers=h, json={"tiempo": 0}).status_code == 422
 
 
+def test_desde_exige_fecha_dentro_del_periodo():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "editor@a.co")
+        h = {**H, "If-Match": "0"}
+        assert cli.post(ruta_generar(e), headers=h, json={"modo": "desde"}).status_code == 422
+        assert cli.post(ruta_generar(e), headers=h, json={"modo": "desde", "desde": "2026-11-02"}).status_code == 422
+        assert cli.post(ruta_generar(e), headers=h, json={"modo": "desde", "desde": "2026-10-14", "tiempo": 5}).status_code == 202
+
+
 def test_permisos_de_trabajos():
     with entorno() as e:
         if e is None:
