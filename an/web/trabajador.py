@@ -108,7 +108,8 @@ class Trabajador:
             clave = c.execute("SELECT clave FROM periodo WHERE id = ?", (t["periodo_id"],)).fetchone()[0]
             inicio, fin = flujo.desde_clave(clave)
             lunes = date.fromisoformat(p["lunes"]) if p.get("lunes") else None
-            ctx, dias, kw = flujo.preparar(BD.postgres(c), inicio, fin, p.get("modo", "cero"), lunes, p.get("tiempo", 20))
+            desde = date.fromisoformat(p["desde"]) if p.get("desde") else None
+            ctx, dias, kw = flujo.preparar(BD.postgres(c), inicio, fin, p.get("modo", "cero"), lunes, p.get("tiempo", 20), desde)
         al_avance = lambda d: setattr(monitor, "avance", {**d, "estado": "buscando"})
         cuadro, info = solver.generar(ctx, dias, **kw, semilla=p.get("semilla", 0), al_avance=al_avance, detener=detener)
         return inicio, fin, ctx, dias, cuadro, info, kw["fijos"]
@@ -132,7 +133,9 @@ class Trabajador:
             rev = c.execute("SELECT revision FROM periodo WHERE id = ? FOR UPDATE", (t["periodo_id"],)).fetchone()[0]
             if rev != t["revision_base"]:
                 return self._cerrar(t, "conflicto", error=MSG_CONFLICTO, c=c)
-            flujo.terminar(BD.postgres(c), inicio, fin, ctx, dias, cuadro, t["params"].get("modo", "cero"))
+            p = t["params"]
+            flujo.terminar(BD.postgres(c), inicio, fin, ctx, dias, cuadro, p.get("modo", "cero"),
+                           date.fromisoformat(p["desde"]) if p.get("desde") else None)
             c.execute("UPDATE periodo SET revision = revision + 1 WHERE id = ?", (t["periodo_id"],))
             sol = [{"id": r.solicitud.id, "estado": r.estado, "motivo": r.motivo} for r in solicitudes.evaluar(ctx, cuadro, dias, fijos)
                    if r.estado in ("parcial", "no cumplida")]

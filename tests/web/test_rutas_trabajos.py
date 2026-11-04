@@ -30,7 +30,7 @@ def test_generar_encola_y_responde_202():
         g = cli.get(f"/api/trabajos/{tid}")
         assert g.status_code == 200 and g.json()["estado"] == "en_cola" and g.json()["tipo"] == "generar"
         f = e.su.execute("SELECT params, revision_base, creado_por FROM trabajo WHERE id = %s", (tid,)).fetchone()
-        assert f["params"] == {"modo": "cero", "lunes": None, "tiempo": 20, "semilla": 0}
+        assert f["params"] == {"modo": "cero", "lunes": None, "desde": None, "tiempo": 20, "semilla": 0}
         assert f["revision_base"] == 0 and f["creado_por"] == e.us["editor@a.co"]
 
 
@@ -71,6 +71,17 @@ def test_semana_exige_lunes_del_periodo():
         assert cli.post(ruta_generar(e), headers=h, json={"modo": "semana", "lunes": "2026-11-02"}).status_code == 422
         assert cli.post(ruta_generar(e), headers=h, json={"modo": "semana", "lunes": "2026-10-05", "tiempo": 5, "semilla": 3}).status_code == 202
         assert cli.post(ruta_generar(e), headers=h, json={"tiempo": 0}).status_code == 422
+
+
+def test_desde_exige_fecha_dentro_del_periodo():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "editor@a.co")
+        h = {**H, "If-Match": "0"}
+        assert cli.post(ruta_generar(e), headers=h, json={"modo": "desde"}).status_code == 422
+        assert cli.post(ruta_generar(e), headers=h, json={"modo": "desde", "desde": "2026-11-02"}).status_code == 422
+        assert cli.post(ruta_generar(e), headers=h, json={"modo": "desde", "desde": "2026-10-14", "tiempo": 5}).status_code == 202
 
 
 def test_permisos_de_trabajos():

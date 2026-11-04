@@ -116,8 +116,9 @@ export interface Trabajo {
   error: string | null;
 }
 export interface PedidoGenerar {
-  modo: "cero" | "respetar" | "semana";
+  modo: "cero" | "respetar" | "semana" | "desde";
   lunes?: string;
+  desde?: string; // ISO, dentro del periodo: se regenera desde ese día hasta el final
   tiempo?: number; // segundos del solver (1–300)
 }
 
