@@ -2,7 +2,7 @@
 
 **An** — a web app (Spanish UI) for clinics: FastAPI API over one SQLite file (`an/web/`), delivered as a single portable app (`deploy/An-mac.command`, Windows exe via `.github/workflows/entregable.yml`; there is no server mode: the Postgres/Docker server stayed in git tag `servidor-postgres-final`), a React front (`web/`) and a pure Python core with one area per service: **Radiología** (monthly roster → weekly assignment workbook) and **Turnos** (shift grid with OR-Tools CP-SAT, posts, hours and Colombian surcharges; generic: the name of each area is data in `area.nombre`, never code). Used by non-technical coordinators. The former PySide6 desktop app was removed on 26/10/2026 (git tag `qt-final`). Remote: `origin` = `jssdv/an-turnos`.
 
-Web direction (progress checklist and per-phase task plans): `docs/PLAN_WEB.md`, `docs/superpowers/plans/`. Resume a phase from the first unchecked `- [ ]`.
+Current state snapshot: `docs/ESTADO.md`. Web direction (progress checklist and per-phase task plans): `docs/PLAN_WEB.md`, `docs/superpowers/plans/`. Resume a phase from the first unchecked `- [ ]`.
 
 Architecture: `docs/ARQUITECTURA.md`. Roadmap toward a full scheduling system: `docs/PROYECTO.md` (Radiología stages) and `docs/VISION.md` (multi-service). Each new stage gets its own design doc in `docs/` before coding.
 
