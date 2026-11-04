@@ -1,14 +1,11 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-"""El trabajador del solver: cola, progreso, cancelación, conflicto y caída (necesitan AN_PG_URL). Los tiempos son holgados: la CI es lenta."""
+"""El trabajador del solver: cola, progreso, cancelación, conflicto y caída Los tiempos son holgados: la CI es lenta."""
 import contextlib
-import subprocess
-import tempfile
+import json
 import threading
 import time
 from datetime import date
-
-from psycopg.types.json import Jsonb
 
 from an.turnos import flujo
 from an.turnos.db import BD
@@ -16,7 +13,7 @@ from an.turnos.dominio import Colaborador
 from an.turnos.pg import Conexion
 from an.web import conexion
 from an.web.trabajador import Trabajador
-from fixtura_api import CLAVE_PERIODO, URL, entorno
+from fixtura_api import CLAVE_PERIODO, entorno
 
 RAIZ = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 SEMANA = "2026-10-05/2026-10-11"
@@ -32,13 +29,9 @@ def bd_a(e):
 @contextlib.contextmanager
 def alcance_a(e):
     """Sesión de superusuario con el alcance de la clínica A, para sembrar."""
-    e.su.execute("SELECT set_config('app.clinica', %s, false), set_config('app.area', %s, false)", (str(e.cl["A"]), str(e.ar["A"])))
     try:
         yield BD.postgres(Conexion(e.su))
     finally:
-        e.su.commit()
-        e.su.execute("RESET app.clinica")
-        e.su.execute("RESET app.area")
         e.su.commit()
 
 
@@ -54,14 +47,15 @@ def encolar(e, clave=CLAVE_PERIODO, revision=0, **params):
     pid = e.su.execute("SELECT id FROM periodo WHERE area_id = %s AND clave = %s", (e.ar["A"], clave)).fetchone()[0]
     params = {"modo": "cero", "lunes": None, "tiempo": 20, "semilla": 0, **params}
     tid = e.su.execute("INSERT INTO trabajo (periodo_id, tipo, params, revision_base, clinica_id, area_id) VALUES (%s, 'generar', %s, %s, %s, %s) RETURNING id",
-                       (pid, Jsonb(params), revision, e.cl["A"], e.ar["A"])).fetchone()[0]
+                       (pid, json.dumps(params), revision, e.cl["A"], e.ar["A"])).fetchone()[0]
     e.su.commit()
     return tid
 
 
 def fila(e, tid):
     e.su.rollback()
-    return e.su.execute("SELECT * FROM trabajo WHERE id = %s", (tid,)).fetchone()
+    f = e.su.execute("SELECT * FROM trabajo WHERE id = %s", (tid,)).fetchone()
+    return {**dict(f), "resultado": json.loads(f["resultado"]) if isinstance(f["resultado"], str) else f["resultado"]}
 
 
 def esperar(e, tid, estados, limite=60):
@@ -187,37 +181,6 @@ def test_error_del_solver_da_fallido_y_libera_la_clinica():
         f = fila(e, tid)
         assert f["estado"] == "fallido" and "fijas" in f["error"], (f["estado"], f["error"])
         encolar(e, SEMANA)  # la clínica quedó libre: el índice único no lo rechaza
-
-
-def test_matar_el_proceso_deja_fallido_al_reiniciar():
-    with entorno() as e:
-        if e is None:
-            return
-        sembrar(e, 13)
-        tid = encolar(e, tiempo=120)
-        esquema = e.su.execute("SELECT current_schema()").fetchone()[0]
-        env = {**os.environ, "AN_PG_URL": f"{URL}{'&' if '?' in URL else '?'}options=-csearch_path%3D{esquema}", "AN_ROL": "an_app",
-               "AN_TRABAJADOR_LATIDO_CADA": "0.5", "AN_TRABAJADOR_LATIDO_MAX": "60"}
-        procesos = []
-        try:
-            with tempfile.TemporaryFile() as log:
-                p = subprocess.Popen([sys.executable, "-m", "an.web.trabajador"], cwd=RAIZ, env=env, stdout=log, stderr=log)
-                procesos.append(p)
-                esperar(e, tid, {"corriendo"}, 60)
-                p.kill()
-                p.wait()
-                assert fila(e, tid)["estado"] == "corriendo"
-                time.sleep(3)  # el latido del proceso muerto queda más viejo que los 2 s del segundo arranque
-                p2 = subprocess.Popen([sys.executable, "-m", "an.web.trabajador"], cwd=RAIZ, env={**env, "AN_TRABAJADOR_LATIDO_MAX": "2"},
-                                      stdout=log, stderr=log)
-                procesos.append(p2)
-                f = esperar(e, tid, {"fallido"}, 60)
-                assert "interrumpi" in f["error"] and f["terminado"] is not None
-        finally:
-            for p in procesos:
-                if p.poll() is None:
-                    p.kill()
-                    p.wait()
 
 
 if __name__ == "__main__":

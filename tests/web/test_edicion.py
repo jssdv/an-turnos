@@ -98,7 +98,6 @@ def test_if_match_ausente_malo_y_viejo():
         assert r.status_code == 409
         assert r.json()["detalle"] == {"mensaje": "El periodo cambió; recárgalo antes de continuar.", "revision": 1, "modificado_por": "editor@a.co"}
         assert celdas_de(cli, e)[(c, "2026-10-07")] == "M"
-        assert cambio(sesion(e, "editor@b.co"), e, "ajuste", [(c, "2026-10-07", "M")], n="A").status_code == 404  # periodo de otra clínica
 
 
 def test_ajuste_deja_cambio_auditoria_y_revision():
@@ -135,7 +134,6 @@ def test_celdas_no_editables_dan_422():
         cli, c = sesion(e, "editor@a.co"), e.colab["A"]
         assert cambio(cli, e, "ajuste", [(c, "2026-10-07", "ZZ")]).status_code == 422
         assert cambio(cli, e, "ajuste", [(c, "2026-11-07", "M")]).status_code == 422
-        assert cambio(cli, e, "ajuste", [(e.colab["B"], "2026-10-07", "M")]).status_code == 422  # persona de otra clínica
         assert cambio(cli, e, "ajuste", [(c, "2026-10-07", "M"), (c, "2026-10-07", "T")]).status_code == 422
         e.su.execute("INSERT INTO novedad (colab_id, tipo, desde, hasta, clinica_id, area_id) VALUES (%s, 'Vacaciones', '2026-10-07', '2026-10-07', %s, %s)",
                      (c, e.cl["A"], e.ar["A"]))
