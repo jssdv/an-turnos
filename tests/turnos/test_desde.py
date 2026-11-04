@@ -35,6 +35,18 @@ def test_desde_fija_lo_anterior_y_conserva_manuales():
     assert (ids[1], DESDE + timedelta(days=1)) not in fijos  # celda sin manual en la ventana: libre
 
 
+def test_desde_respeta_racha_de_noches_con_dias_fijos_antes_del_corte():
+    # NC fijas el día 0 y el 2 (NC-L-NC-L…): con max_noches=2 el día 4 no puede ser NC, aunque esté en la ventana
+    bd = db.BD()
+    p = Colaborador(0, "P0")
+    bd.guardar_colaborador(p)
+    k = flujo.clave(INI, FIN)
+    bd.guardar_cuadro(k, {(p.id, INI): "NC", (p.id, INI + timedelta(days=2)): "NC"}, versiones=("cambios",))
+    flujo.generar(bd, INI, FIN, "desde", desde=INI + timedelta(days=3), tiempo=10)
+    assert bd.asignaciones(k).get((p.id, INI + timedelta(days=4))) != "NC"
+
+
 if __name__ == "__main__":
     test_desde_fija_lo_anterior_y_conserva_manuales()
+    test_desde_respeta_racha_de_noches_con_dias_fijos_antes_del_corte()
     print("OK")
