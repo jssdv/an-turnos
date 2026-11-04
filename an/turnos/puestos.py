@@ -34,10 +34,11 @@ def leyenda(puestos):
 
 # --- reparto por tramos horarios ----------------------------------------------------------------------------------------
 W_FALTA_P, W_DES_P, W_CAMBIO_P, W_PRIORIDAD_P = 1000, 10, 60, 500  # por persona y tramo; cambiar de puesto dentro del turno; rotación abajo
+W_EXCESO_P = 500  # por persona y tramo por encima de lo pedido (obligatorio + deseable) en un puesto: quien sobra va a apoyo
 W_PARTIR_P = 150  # castigo por repetir puesto en las dos mitades de un corrido con partir_corridos (> rotación, << W_FALTA_P)
 
 
-def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
+def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None, semilla=0):
     """[AsignacionPuesto] de cada día: en qué puesto está cada persona presente, tramo a tramo. Por día, un CP-SAT
     por bloques de tramos con la misma presencia y demanda: cada persona ocupa un puesto a la vez (solo los que puede),
     los puestos reciben la demanda obligatoria, los deseables se buscan, y se penaliza cambiar de puesto dentro del
@@ -97,6 +98,11 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
                     m.Add(suma + falta >= o)
                     numero = ctx.puestos[q].numero if q in ctx.puestos else 99
                     obj.append((W_FALTA_P + (99 - numero) * W_PRIORIDAD_P) * largo * falta)  # si falta gente, queda vacío el de mayor número
+                tope = o + w  # sobreasignación: más gente que la demanda del puesto (se tolera si la fija una edición manual)
+                if any((bi, c, q) in y for c in pres):
+                    sobra = m.NewIntVar(0, len(pres), "")
+                    m.Add(sobra >= suma - tope)
+                    obj.append(W_EXCESO_P * largo * sobra)
                 if w and any((bi, c, q) in y for c in pres):
                     ok = m.NewBoolVar("")
                     m.Add(suma >= o + w).OnlyEnforceIf(ok)
@@ -134,7 +140,7 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
         sol = cp_model.CpSolver()
         sol.parameters.max_time_in_seconds = tiempo
         sol.parameters.num_workers = 1
-        sol.parameters.random_seed = 0
+        sol.parameters.random_seed = semilla  # 0 = reparto reproducible; Reasignar pasa otra para explorar otro reparto igual de bueno
         if bloques:
             sol.Solve(m)
         puesto_en = {}  # (colab_id, tramo) -> puesto_id

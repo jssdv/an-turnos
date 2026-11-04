@@ -481,3 +481,11 @@ if __name__ == "__main__":
         if nombre.startswith("test_"):
             fn()
     print("OK")
+
+
+def test_no_sobreasigna_puesto():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)], "B": [("LS", 360, 1080, 1)]}, 4)
+    ctx = bd.contexto(2026)
+    cuadro = {(c.id, LUN): "C" for c in ctx.colabs}
+    occ = _ocupacion(puestos.asignar_tramos(ctx, cuadro, [LUN]))
+    assert all(occ[(LUN, ids[q], t)] == 1 for q in "AB" for t in range(12, 36))
