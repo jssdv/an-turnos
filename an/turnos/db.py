@@ -18,6 +18,10 @@ PUESTO_FIJO = """
 CREATE TABLE IF NOT EXISTS puesto_fijo (periodo TEXT, fecha TEXT, colab_id INT, puesto_id INT, PRIMARY KEY (periodo, fecha, colab_id));
 """
 
+PUESTO_FIJO_MITAD = """
+CREATE TABLE IF NOT EXISTS puesto_fijo_mitad (periodo TEXT, fecha TEXT, colab_id INT, tramo INT, puesto_id INT, PRIMARY KEY (periodo, fecha, colab_id, tramo));
+"""  # tramo 1 = mañana, 2 = tarde de una C partida; excluyente con puesto_fijo de la misma celda
+
 SOLICITUD = """
 CREATE TABLE IF NOT EXISTS solicitud (
   id INTEGER PRIMARY KEY, servicio TEXT DEFAULT 'esterilizacion', colab_id INT, tipo TEXT, desde TEXT, hasta TEXT,
@@ -47,7 +51,7 @@ CREATE TABLE demanda (id INTEGER PRIMARY KEY, puesto_id INT, tipo_dia TEXT, inic
 CREATE TABLE persona_puesto (colab_id INT, puesto_id INT, PRIMARY KEY (colab_id, puesto_id));
 """ + """
 CREATE TABLE asignacion_puesto (periodo TEXT, fecha TEXT, colab_id INT, puesto_id INT, desde INT, hasta INT, pausa INT);
-""" + CAMBIO_TURNO + SOLICITUD + PUESTO_FIJO
+""" + CAMBIO_TURNO + SOLICITUD + PUESTO_FIJO + PUESTO_FIJO_MITAD
 
 PUESTOS_BASE = [(1, "Lavado", "DDEBF7"), (2, "Autoclave", "E2EFDA"), (3, "Sterrad y esto", "FFF2CC"),
                 (4, "Cuarto estéril", "FCE4D6"), (5, "Ropa", "EDEDED"), (6, "Guardia noche", "D9D2E9")]
@@ -76,7 +80,7 @@ class BD:
         if self.c.execute("PRAGMA user_version").fetchone()[0] == 0:
             self.c.executescript(ESQUEMA)
             self.sembrar()
-            self.c.execute("PRAGMA user_version = 8")
+            self.c.execute("PRAGMA user_version = 9")
             self.c.commit()
         else:
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
@@ -93,6 +97,8 @@ class BD:
                 self._migrar_a_7()
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 7:
                 self._migrar_a_8()
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 8:
+                self._migrar_a_9()
 
     # --- SQL común a SQLite y PostgreSQL ---------------------------------------------------------
     CLAVES = {"turno": "codigo", "parametro": "clave", "periodo_estado": "clave", "asignacion": "mes, version, colab_id, fecha"}
@@ -137,6 +143,12 @@ class BD:
     def cerrar(self):
         if self.dialecto == "sqlite":
             self.c.close()
+
+    def _migrar_a_9(self):
+        """v9 agrega el puesto fijado por mitad (mañana / tarde) en una C partida."""
+        self.c.executescript(PUESTO_FIJO_MITAD)
+        self.c.execute("PRAGMA user_version = 9")
+        self.c.commit()
 
     def _migrar_a_8(self):
         """v8 agrega el puesto fijado a mano en una celda del cuadro."""
@@ -352,8 +364,27 @@ class BD:
         """{(colab_id, fecha): puesto_id} fijados a mano."""
         return {(r["colab_id"], _dt(r["fecha"])): r["puesto_id"] for r in self.c.execute("SELECT * FROM puesto_fijo WHERE periodo=?", (periodo,))}
 
+    def puestos_fijos_mitad(self, periodo):
+        """{(colab_id, fecha): (mañana, tarde)} fijados a mano en una C partida; 0 = esa mitad queda automática."""
+        out = {}
+        for r in self.c.execute("SELECT * FROM puesto_fijo_mitad WHERE periodo=?", (periodo,)):
+            m = out.setdefault((r["colab_id"], _dt(r["fecha"])), [0, 0])
+            m[r["tramo"] - 1] = r["puesto_id"]
+        return {k: tuple(v) for k, v in out.items()}
+
+    def fijar_mitades(self, periodo, cid, fecha, manana, tarde):
+        """Fija el puesto de la mañana y el de la tarde (0 = automático) y suelta el fijado de todo el día."""
+        k = (periodo, fecha.isoformat(), cid)
+        self.c.execute("DELETE FROM puesto_fijo WHERE periodo=? AND fecha=? AND colab_id=?", k)
+        self.c.execute("DELETE FROM puesto_fijo_mitad WHERE periodo=? AND fecha=? AND colab_id=?", k)
+        for tramo, q in ((1, manana), (2, tarde)):
+            if q:
+                self.c.execute("INSERT INTO puesto_fijo_mitad (periodo, fecha, colab_id, tramo, puesto_id) VALUES (?,?,?,?,?)", k + (tramo, q))
+        self.c.commit()
+
     def fijar_puesto(self, periodo, cid, fecha, puesto_id):
-        """Fija (o, con None, suelta) el puesto de la celda."""
+        """Fija (o, con None, suelta) el puesto de la celda, todo el día; suelta lo fijado por mitad."""
+        self.c.execute("DELETE FROM puesto_fijo_mitad WHERE periodo=? AND fecha=? AND colab_id=?", (periodo, fecha.isoformat(), cid))
         self.c.execute("DELETE FROM puesto_fijo WHERE periodo=? AND fecha=? AND colab_id=?", (periodo, fecha.isoformat(), cid))
         if puesto_id:
             self.c.execute("INSERT INTO puesto_fijo (periodo, fecha, colab_id, puesto_id) VALUES (?,?,?,?)", (periodo, fecha.isoformat(), cid, puesto_id))
@@ -474,6 +505,7 @@ class BD:
         if reiniciar:
             self.c.execute("DELETE FROM asignacion WHERE mes=?", (mes,))
             self.c.execute("DELETE FROM puesto_fijo WHERE periodo=?", (mes,))
+            self.c.execute("DELETE FROM puesto_fijo_mitad WHERE periodo=?", (mes,))
         for v in versiones:
             fijos = {(r["colab_id"], r["fecha"]) for r in self.c.execute(
                 "SELECT * FROM asignacion WHERE mes=? AND version=? AND fijo=1", (mes, v))}
@@ -495,6 +527,7 @@ class BD:
         orig, cam = self.asignaciones(mes, "original"), self.asignaciones(mes, "cambios")
         if cids is None and fechas is None:
             self.c.execute("DELETE FROM puesto_fijo WHERE periodo=?", (mes,))
+            self.c.execute("DELETE FROM puesto_fijo_mitad WHERE periodo=?", (mes,))
         for (cid, f) in set(orig) | set(cam):
             if (cids is None or cid in cids) and (fechas is None or f in fechas):
                 self.c.execute("DELETE FROM asignacion WHERE mes=? AND version='cambios' AND colab_id=? AND fecha=?",
@@ -537,7 +570,7 @@ class BD:
 
     def borrar_periodo(self, k):
         """Quita el cuadro, los puestos fijados y los cambios del periodo (el registro del periodo lo borra la ruta)."""
-        for tabla, columna in (("asignacion", "mes"), ("asignacion_puesto", "periodo"), ("puesto_fijo", "periodo"), ("cambio_turno", "periodo")):
+        for tabla, columna in (("asignacion", "mes"), ("asignacion_puesto", "periodo"), ("puesto_fijo", "periodo"), ("puesto_fijo_mitad", "periodo"), ("cambio_turno", "periodo")):
             self.c.execute(f"DELETE FROM {tabla} WHERE {columna}=?", (k,))  # sql-ok: tabla y columna de una lista constante
         self.c.commit()
 

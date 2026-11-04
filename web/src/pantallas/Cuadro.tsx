@@ -11,7 +11,7 @@ import { Cambios } from "./Cambios";
 import { dias as diasDe, fechaCorta, mesDe, nombrePeriodo } from "./fechas";
 import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
-import { RegistrarCambio, sinCupo } from "./RegistrarCambio";
+import { RegistrarCambio, esCorrido, sinCupo } from "./RegistrarCambio";
 import { Button } from "@/components/base/buttons/button";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
@@ -135,6 +135,11 @@ export function Cuadro() {
     const nombre = (q: number) => vista?.puestos.get(q)?.nombre ?? "";
     return c.puestos && c.puestos.length > 1 ? c.puestos.map(nombre).join(" y luego ") : `${nombre(c.puesto)}${c.puesto_fijo ? " (fijo)" : ""}`;  // C partida: mañana y luego tarde
   };
+  /** Ids de los puestos de una celda en orden horario (dos = C partida). */
+  const puestosDe = (id: number, fecha: string) => {
+    const c = vista?.celdas.get(`${id}|${fecha}`);
+    return c?.puestos && c.puestos.length ? c.puestos : c?.puesto ? [c.puesto] : [];
+  };
   /** Como `_editable` de Qt: persona del cuadro, y no una celda libre cubierta por novedad. */
   const editable = (id: number, fecha: string) => {
     if (!puedeEditar || !vista) return false;
@@ -165,7 +170,10 @@ export function Cuadro() {
       const [x, y] = b.celdas;
       if (codigoDe(x.colab_id, x.fecha) === codigoDe(y.colab_id, y.fecha)) return setErrorCambio("Las dos celdas ya tienen el mismo turno: no hay nada que intercambiar.");
       celdas = [{ ...x, turno: codigoDe(y.colab_id, y.fecha) }, { ...y, turno: codigoDe(x.colab_id, x.fecha) }];
-    } else celdas = b.celdas.map((c) => ({ ...c, turno: b.turno, ...(b.puesto ? { puesto: Number(b.puesto) } : {}) }));
+    } else {
+      const mitades = b.puestoTarde !== undefined && esCorrido(datos?.turnos.find((t) => t.codigo === b.turno));
+      celdas = b.celdas.map((c) => ({ ...c, turno: b.turno, ...(mitades ? { puesto: Number(b.puesto ?? 0), puesto_tarde: Number(b.puestoTarde) } : b.puesto ? { puesto: Number(b.puesto) } : {}) }));
+    }
     const motivo = b.motivo.trim() || (tipo === "ajuste" && celdas.length > 1 && b.modo === "asignar" ? `Lote: ${celdas.length} celdas → ${b.turno}` : "");
     setEnviando(true);
     setErrorCambio(null);
@@ -213,7 +221,7 @@ export function Cuadro() {
         <div>
           <h1 className="text-display-xs font-semibold text-primary">Cuadro de {mesDe(actual.clave)}</h1>
           <p className="mt-1 text-md text-tertiary">
-            {dias.length} días · versión {actual.revision}
+            {dias.length} días
             {deficit && (deficit.dias_deficit || deficit.puestos_sin_cubrir
               ? ` · ${deficit.dias_deficit} días con falta de personal, ${deficit.puestos_sin_cubrir} puestos sin cubrir`
               : " · todos los puestos cubiertos")}
@@ -235,30 +243,39 @@ export function Cuadro() {
           )}
           <Exportar area={area.id} periodo={actual.id} hayCuadro={!datos || datos.cuadro.celdas.length > 0} />
           <Button color="secondary" size="sm" onPress={() => window.print()}>Imprimir</Button>
-          {area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={actual} alTerminar={() => setRecarga((n) => n + 1)} />}
-          {area.permiso === "editar" && <Generar area={area.id} periodo={actual} bloqueado={!!actual.cerrado_en} alTerminar={() => setRecarga((n) => n + 1)} />}
         </div>
       </div>
+      {area.permiso === "editar" && (
+        <div className="flex flex-wrap items-center gap-2" data-no-imprimir aria-label="Acciones del periodo" role="group">
+          <Generar area={area.id} periodo={actual} bloqueado={!!actual.cerrado_en} alTerminar={() => setRecarga((n) => n + 1)} />
+          <AccionesPeriodo area={area.id} periodo={actual} alTerminar={() => setRecarga((n) => n + 1)} />
+        </div>
+      )}
 
       {datos && area.permiso === "editar" && <Pasos hay={datos.cuadro.celdas.length > 0} alertas={datos.alertas} publicado={!!actual.publicado_en} />}
 
       <Ayuda titulo="¿Cómo se usa el cuadro?" clave="cuadro">
-        Cada fila es una persona y cada columna un día; los colores son los turnos (la leyenda está debajo).
-        {puedeEditar
-          ? " Haz clic en una celda para cambiar el turno, o arrastra una celda sobre otra para intercambiarlas. Todo cambio queda registrado con su motivo y se puede anular."
-          : " Puedes exportarlo a Excel o imprimirlo."}
-        {" "}Las celdas con borde rojo tienen una alerta: revísalas en la lista de abajo.
+        <ul className="list-disc pl-5">
+          {puedeEditar ? (
+            <>
+              <li>Doble clic en una celda: cambiar su turno o su puesto.</li>
+              <li>Arrastra una celda sobre otra: intercambiarlas.</li>
+              <li>Cada cambio queda registrado y se puede anular.</li>
+            </>
+          ) : <li>Puedes exportarlo a Excel o imprimirlo.</li>}
+          <li>Borde rojo: hay una alerta; mira la lista de abajo.</li>
+        </ul>
       </Ayuda>
 
       {actual.solapa_con && actual.solapa_con.length > 0 && (
-        <Alert color="warning">Este periodo comparte fechas con otro del área; una persona puede quedar con dos turnos el mismo día. Cierra o revisa uno de los dos.</Alert>
+        <Alert color="warning">Este periodo se cruza con otro; alguien puede tener dos turnos el mismo día.</Alert>
       )}
       {pendiente && !borrador && pendiente.periodo === actual.id && (
         <Alert color="brand" action={<Button color="secondary" size="sm" onPress={() => { abrirCambio(pendiente); setPendiente(null); }}>Revisarlo</Button>}>
           Tienes un cambio sin enviar de antes de que venciera tu sesión.
         </Alert>
       )}
-      {version === "original" && <Alert color="brand">Planilla original (publicada): solo lectura. Los cambios y los puestos están en «Cambios».</Alert>}
+      {version === "original" && <Alert color="brand">Original publicada (solo lectura). Para editar, elige «Cambios».</Alert>}
       {resultado && <Alert color={COLOR_NIVEL[resultado.nivel]}>{resultado.texto}</Alert>}
 
       <Seccion aria-busy={!datos}>
@@ -310,7 +327,7 @@ export function Cuadro() {
         )}
       </Seccion>
 
-      <RegistrarCambio borrador={borrador} alCambiar={cerrarCambio} nombres={nombres} turnos={datos?.turnos ?? []} actual={codigoDe} puestos={usaPuestos ? datos!.puestos.filter((q) => q.activo) : null} puestoDe={puestoDe}
+      <RegistrarCambio borrador={borrador} alCambiar={cerrarCambio} nombres={nombres} turnos={datos?.turnos ?? []} actual={codigoDe} puestos={usaPuestos ? datos!.puestos.filter((q) => q.activo) : null} puestoDe={puestoDe} puestosDe={puestosDe}
         cupos={cupos} error={errorCambio} enviando={enviando} alEnviar={enviar} />
 
       {datos && (() => {

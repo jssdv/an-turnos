@@ -33,13 +33,13 @@ export function Puestos() {
   const cambiarModo = (v: boolean) => hacer(async () => {
     await enviar("PUT", `${base}/parametros`, { usa_puestos: v ? 1 : 0 });
     parametros.recargar();
-    return "Modo guardado. Regenera el cuadro para que lo tome en cuenta.";
+    return "Guardado. Genera de nuevo el cuadro para aplicarlo.";
   });
   const guardar = () => hacer(async () => {
     const r = sel ? await enviar<{ id: number }>("PUT", `${base}/puestos/${sel.id}`, p) : await enviar<{ id: number }>("POST", `${base}/puestos`, p);
     puestos.recargar();
     setSel({ id: r.id, ...p });
-    return "Puesto guardado. Regenera el cuadro para que lo tome en cuenta.";
+    return "Guardado. Genera de nuevo el cuadro para aplicarlo.";
   });
   const borrar = () => window.confirm(`¿Eliminar el puesto «${sel!.nombre}»?`) && hacer(async () => {
     const r = await enviar<{ resultado: string }>("DELETE", `${base}/puestos/${sel!.id}`);

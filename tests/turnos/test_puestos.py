@@ -104,7 +104,7 @@ def test_migracion_v3_a_v4():
         assert bd.contexto(2026).cobertura["LS"] == {"M": 5, "T": 4, "N": 2}
         sterrad = next(i for i, p in pu.items() if p.numero == 3)
         assert bd.colaboradores()[0].puestos_permitidos == (sterrad,)
-        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8  # la cadena termina en la versión vigente
+        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 9  # la cadena termina en la versión vigente
 
 
 def test_borrar_puesto_en_uso():
@@ -334,7 +334,7 @@ def test_asignacion_puesto_roundtrip_y_migracion_v5():
         bd = db.BD(ruta)
         assert sorted(bd.asignacion_puesto("p")) == sorted([AsignacionPuesto(LUN, 1, aut, 360, 720, 1),
                                                            AsignacionPuesto(LUN, 2, 0, 720, 1080, 2)])
-        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
+        assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 9
 
 
 class _Simulado:
@@ -489,3 +489,18 @@ def test_no_sobreasigna_puesto():
     cuadro = {(c.id, LUN): "C" for c in ctx.colabs}
     occ = _ocupacion(puestos.asignar_tramos(ctx, cuadro, [LUN]))
     assert all(occ[(LUN, ids[q], t)] == 1 for q in "AB" for t in range(12, 36))
+
+
+def test_fijo_por_mitad_en_c_partida():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)], "B": [("LS", 360, 1080, 1)]}, 2)
+    bd.set_param("partir_corridos", 1)
+    ctx = bd.contexto(2026)
+    c0, c1 = [c.id for c in ctx.colabs]
+    cuadro = {(c0, LUN): "C", (c1, LUN): "C"}
+    en = lambda filas, c: {(x.puesto_id, x.desde, x.hasta) for x in filas if x.colab_id == c}
+    f = puestos.asignar_tramos(ctx, cuadro, [LUN], fijos_mitad={(c0, LUN): (ids["B"], 0)})  # solo la mañana fijada
+    assert (ids["B"], 360, 720) in en(f, c0) and any(q != ids["B"] for q, d, h in en(f, c0) if d >= 720)
+    f = puestos.asignar_tramos(ctx, cuadro, [LUN], fijos_mitad={(c0, LUN): (ids["A"], ids["B"])})  # ambas
+    assert en(f, c0) == {(ids["A"], 360, 720), (ids["B"], 720, 1080)}
+    f = puestos.asignar_tramos(ctx, cuadro, [LUN], fijos={(c0, LUN): ids["A"]})  # día completo: sigue igual
+    assert en(f, c0) == {(ids["A"], 360, 1080)}

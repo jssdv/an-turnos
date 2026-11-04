@@ -10,12 +10,12 @@ import { Alert } from "@/components/application/alerts/alert";
 
 type Accion = "publicar" | "restaurar" | "cerrar" | "reabrir" | "eliminar" | "reasignar";
 const TEXTO: Record<Accion, [string, string]> = {
-  publicar: ["Publicar", "El cuadro actual pasará a ser el «original». ¿Continuar?"],
-  restaurar: ["Restaurar", "Se devolverán todas las celdas al original. ¿Continuar?"],
-  cerrar: ["Cerrar periodo", "Se guardarán las horas trabajadas y contratadas de cada persona en el banco de horas y el cuadro quedará en solo lectura. ¿Continuar?"],
-  reabrir: ["Reabrir periodo", "El cuadro volverá a ser editable y se borrará el cierre de este periodo del banco de horas. ¿Continuar?"],
-  reasignar: ["Reasignar puestos", "No cambia los turnos: solo se vuelven a repartir los puestos con las reglas actuales. Los puestos fijados a mano se respetan. Si indicas una fecha, lo anterior no cambia. ¿Continuar?"],
-  eliminar: ["Eliminar periodo", "Se borran el cuadro, los puestos, los cambios y los exportes de este periodo. No se puede deshacer. ¿Continuar?"],
+  publicar: ["Publicar", "El cuadro actual será el original que ve el equipo."],
+  restaurar: ["Restaurar", "Descarta tus cambios y vuelve al original."],
+  cerrar: ["Cerrar periodo", "Las horas pasan al banco de horas y el cuadro queda de solo lectura."],
+  reabrir: ["Reabrir periodo", "El cuadro vuelve a ser editable y se borra su cierre del banco de horas."],
+  reasignar: ["Reasignar puestos", "Reparte de nuevo solo los puestos. Los turnos y los puestos fijados no cambian. Opcional: desde una fecha."],
+  eliminar: ["Eliminar periodo", "Se borran el cuadro, los puestos, los cambios y los exportes. No se puede deshacer."],
 };
 
 interface Props {
@@ -72,14 +72,18 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
     <>
       {!periodo ? null : cerrado ? <Button color="secondary" size="sm" onPress={() => abrir("reabrir")}>Reabrir</Button> : (
         <>
-          <Button color="secondary" size="sm" onPress={() => abrir("publicar")}>Publicar</Button>
-          <Button color="secondary" size="sm" onPress={() => abrir("restaurar")}>Restaurar</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("reasignar")}>Reasignar puestos</Button>
+          <Button color="secondary" size="sm" onPress={() => abrir("publicar")}>Publicar</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("cerrar")}>Cerrar periodo</Button>
-          <Button color="secondary" size="sm" onPress={() => abrir("eliminar")}>Eliminar periodo</Button>
         </>
       )}
       <Button color="secondary" size="sm" onPress={() => abrir("nuevo")}>Nuevo periodo</Button>
+      {periodo && !cerrado && (
+        <>
+          <Button color="secondary-destructive" size="sm" onPress={() => abrir("restaurar")}>Restaurar</Button>
+          <Button color="secondary-destructive" size="sm" onPress={() => abrir("eliminar")}>Eliminar periodo</Button>
+        </>
+      )}
       <Ventana abierto={accion !== null} alCambiar={(a) => !a && setAccion(null)}
         titulo={accion === "nuevo" ? "Nuevo periodo" : accion ? TEXTO[accion][0] : ""}
         descripcion={accion === "nuevo" ? "Un periodo no puede compartir fechas con otro del área." : accion ? TEXTO[accion][1] : undefined}>
@@ -95,7 +99,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
         )}
         <div className="flex flex-wrap justify-end gap-2">
           <Button color="secondary" size="sm" onPress={() => setAccion(null)}>Cancelar</Button>
-          <Button color="primary" size="sm" onPress={confirmar} isDisabled={enviando || (accion === "nuevo" && (!inicio || !fin))}>{enviando ? "Un momento…" : "Confirmar"}</Button>
+          <Button color={accion === "eliminar" || accion === "restaurar" ? "primary-destructive" : "primary"} size="sm" onPress={confirmar} isDisabled={enviando || (accion === "nuevo" && (!inicio || !fin))}>{enviando ? "Un momento…" : accion === "nuevo" ? "Crear" : accion ? TEXTO[accion][0] : "Confirmar"}</Button>
         </div>
       </Ventana>
     </>
