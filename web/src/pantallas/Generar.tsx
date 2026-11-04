@@ -35,6 +35,9 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
   const [abierto, setAbierto] = useState(false);
   const [modo, setModo] = useState<PedidoGenerar["modo"]>("respetar");
   const [lunes, setLunes] = useState("");
+  const [desde, setDesde] = useState("");
+  const [limiteIni, limiteFin] = periodo.clave.split("/");
+  const fueraDePeriodo = desde !== "" && (desde < limiteIni || desde > limiteFin);
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -69,7 +72,7 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
     setError(null);
     setEnviando(true);
     try {
-      const pedido: PedidoGenerar = modo === "semana" ? { modo, lunes } : { modo };
+      const pedido: PedidoGenerar = modo === "semana" ? { modo, lunes } : modo === "desde" ? { modo, desde } : { modo };
       const r = await trabajos.iniciar(area, periodo.id, periodo.revision, pedido);
       id.current = r.id;
       setTrabajo({ id: r.id, estado: "en_cola", progreso: null, resultado: null, error: null });
@@ -108,8 +111,16 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
               <option value="respetar">Mes completo, respetando lo editado a mano</option>
               <option value="cero">Mes completo, desde cero</option>
               <option value="semana">Una semana</option>
+              <option value="desde">Desde una fecha</option>
             </NativeSelect>
             {modo === "semana" && <Input value={String(lunes)} label="Lunes de la semana" type="date" onChange={(x) => setLunes(x)} />}
+            {modo === "desde" && (
+              <>
+                <Input value={desde} label="Desde el día" type="date" onChange={(x) => setDesde(x)} />
+                <p className="text-xs text-tertiary">Entre {limiteIni} y {limiteFin}. Los días anteriores a esa fecha no cambian y las celdas editadas a mano se respetan. Solo cambia la copia de trabajo, no el cuadro publicado.</p>
+                {fueraDePeriodo && <Alert color="error">La fecha debe estar dentro del periodo ({limiteIni} a {limiteFin}).</Alert>}
+              </>
+            )}
           </div>
         )}
         {trabajo && !fin && (
@@ -122,7 +133,7 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
         {fin && <Alert color={COLOR_NIVEL[fin[0]]}>{trabajo?.error ?? (trabajo?.estado === "listo" ? textoListo(trabajo) : fin[1])}</Alert>}
         <div className="flex flex-wrap justify-end gap-2">
           {!trabajo && <Button color="secondary" size="sm" onPress={() => setAbierto(false)}>Cerrar</Button>}
-          {!trabajo && <Button color="primary" size="sm" onPress={iniciar} isDisabled={enviando || (modo === "semana" && !lunes)}>{enviando ? "Iniciando…" : "Iniciar"}</Button>}
+          {!trabajo && <Button color="primary" size="sm" onPress={iniciar} isDisabled={enviando || (modo === "semana" && !lunes) || (modo === "desde" && (!desde || fueraDePeriodo))}>{enviando ? "Iniciando…" : "Iniciar"}</Button>}
           {corriendo && <Button color="primary-destructive" size="sm" onPress={cancelar} isDisabled={cancelando}>{cancelando ? "Cancelando…" : "Cancelar"}</Button>}
           {fin && <Button color="primary" size="sm" onPress={() => setAbierto(false)}>{trabajo?.estado === "listo" ? "Ver cuadro" : "Cerrar"}</Button>}
         </div>

@@ -19,8 +19,9 @@ CAMPOS = ("id", "area_id", "periodo_id", "tipo", "estado", "progreso", "resultad
 
 
 class Pedido(BaseModel):
-    modo: Literal["cero", "respetar", "semana"] = "cero"
+    modo: Literal["cero", "respetar", "semana", "desde"] = "cero"
     lunes: date | None = None
+    desde: date | None = None
     tiempo: int = Field(20, ge=1, le=300)
     semilla: int = 0
 
@@ -36,9 +37,12 @@ def generar(id: int, datos: Pedido = Pedido(), if_match: str | None = Header(Non
     inicio, fin = flujo.desde_clave(f["clave"])
     if datos.modo == "semana" and not (datos.lunes and datos.lunes.weekday() == 0 and inicio <= datos.lunes <= fin):
         raise HTTPException(422, "Para regenerar una semana indica un lunes dentro del periodo")
+    if datos.modo == "desde" and not (datos.desde and inicio <= datos.desde <= fin):
+        raise HTTPException(422, "Para regenerar desde una fecha indica un día dentro del periodo")
     if ctx.conn.execute("SELECT 1 FROM trabajo WHERE estado IN ('en_cola', 'corriendo')").fetchone():
         raise HTTPException(409, YA_HAY)
-    params = {"modo": datos.modo, "lunes": datos.lunes.isoformat() if datos.lunes else None, "tiempo": datos.tiempo, "semilla": datos.semilla}
+    params = {"modo": datos.modo, "lunes": datos.lunes.isoformat() if datos.lunes else None,
+              "desde": datos.desde.isoformat() if datos.desde else None, "tiempo": datos.tiempo, "semilla": datos.semilla}
     try:
         return {"id": ctx.conn.execute(
             "INSERT INTO trabajo (periodo_id, tipo, params, revision_base, creado_por) VALUES (?, 'generar', ?, ?, ?) RETURNING id",
