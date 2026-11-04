@@ -95,7 +95,7 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
 
   return (
     <>
-      <span title={bloqueado ? "El periodo está cerrado" : undefined}><Button color="primary" size="sm" onPress={abrir} isDisabled={bloqueado}>Generar</Button></span>
+      <span title={bloqueado ? "El periodo está cerrado" : undefined}><Button color="primary" size="sm" onPress={abrir} isDisabled={bloqueado} data-accion="generar">Generar</Button></span>
       <Ventana
         abierto={abierto}
         alCambiar={setAbierto}
