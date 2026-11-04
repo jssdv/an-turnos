@@ -286,8 +286,8 @@ export function Cuadro() {
                 const nov = codigo === "L" ? vista.novedades.get(`${id}|${fecha}`) : undefined;
                 const falta = vista.faltan.has(`${id}|${fecha}`);
                 return {
-                  codigo, color: t?.color, cambiada: c?.fijo, puesto: verPuestos && c?.puesto ? String(vista.puestos.get(c.puesto)?.numero ?? "") : undefined, novedad: nov ? (SIGLA_NOVEDAD[nov] ?? nov) : null, faltante: falta,
-                  etiqueta: `${nov ?? t?.nombre ?? (codigo === "L" ? "Libre" : codigo)}${puestoDe(id, fecha) ? `, puesto ${puestoDe(id, fecha)}` : ""}${c?.fijo ? ", editada a mano" : ""}${falta ? ", con alerta" : ""}`,
+                  codigo, color: t?.color, cambiada: c?.fijo, puesto: verPuestos && c?.puesto ? (c.puestos && c.puestos.length > 1 ? c.puestos : [c.puesto]).map((q) => vista.puestos.get(q)?.numero ?? "").join("·") : undefined, novedad: nov ? (SIGLA_NOVEDAD[nov] ?? nov) : null, faltante: falta,
+                  etiqueta: `${nov ?? t?.nombre ?? (codigo === "L" ? "Libre" : codigo)}${puestoDe(id, fecha) ? (c?.puestos && c.puestos.length > 1 ? `, partido: ${c.puestos.map((q) => vista.puestos.get(q)?.nombre ?? "").join(" y luego ")}` : `, puesto ${puestoDe(id, fecha)}`) : ""}${c?.fijo ? ", editada a mano" : ""}${falta ? ", con alerta" : ""}`,
                 };
               }}
               pie={(["M", "T", "N"] as const).map((f) => ({

@@ -22,11 +22,14 @@ Foto a 04/11/2026 (`main` en `271170d`, PR 37). Para el detalle de cada pieza: [
 - **Sobreasignación de puestos:** `puestos.asignar_tramos` castiga (`W_EXCESO_P` = 500 por persona y tramo) tener más gente que obligatoria + deseable en un puesto; quien sobra queda en apoyo. Es suave: un puesto fijado a mano puede pasarse.
 - **Reasignar puestos:** cada ejecución usa una semilla distinta (`semilla` en `asignar_tramos` y `flujo.recalcular`), así que explora otro reparto igual de bueno. Generar sigue reproducible (semilla 0).
 - **Partir corridos:** funciona con `partir_corridos=1` (turnos de 10 h o más, que no son de noche): un puesto en la mañana y otro en la tarde. Las áreas nuevas nacen con 1; las existentes se cambian en Parámetros.
+- **Celda partida en el cuadro:** con «Ver puestos», una C partida muestra sus dos puestos en orden horario (`C³·⁵`: mañana en el 3, tarde en el 5) y el texto accesible dice «partido: A y luego B». La API del cuadro envía `puestos: [ids]` por celda (vacío si el puesto está fijado a mano); `puesto` sigue siendo el principal. Diseño elegido entre superíndice doble, chip de dos bandas y solo tooltip: el superíndice doble es el que cabe en la celda de 22 px.
+- **Verificado con la BD real (04/11):** Reasignar en 30 nov–27 dic y 2–29 nov: 0 tramos con exceso o falta, en puestos y en turnos.
 
 ## Límites conocidos
 
 - Sobrecobertura en el cuadro de turnos (no en puestos): `W_SOBRA` del solver es bajo frente al peso de las horas contratadas. Subirlo exige medir con datos reales.
 - Partir corridos es un castigo (`W_PARTIR_P` = 150), no una obligación; quien queda en apoyo todo el día ve una sola fila.
+- `cambios.puesto_de` relee el reparto por cada celda; el cuadro ya no lo necesita para la lista de puestos, pero sigue usándolo para el principal.
 - Reasignar con `desde`: los días anteriores se conservan, pero el historial de rotación se recalcula sobre el cuadro actual.
 
 ## Pendiente
