@@ -27,6 +27,18 @@ const NUM: [string, string, number, number, string][] = [
   ["banco_tope_deuda_h", "Banco: máximo en deuda (h)", 0, 48, "Horas de menos que se pueden deber por periodo. 0 = no compensar."],
 ];
 const CONCEPTOS = ["dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio"];
+const NOMBRE_CONCEPTO: Record<string, string> = {
+  dominical: "Recargo dominical y festivo", nocturno: "Recargo nocturno", extra_diurna: "Hora extra diurna",
+  extra_nocturna: "Hora extra nocturna", noche_inicio: "Inicio de la noche (minutos desde 00:00)",
+};
+const nombreConcepto = (c: string) => NOMBRE_CONCEPTO[c] ?? c;
+/** Reglas por tema, para no mostrar 15 campos seguidos. */
+const GRUPOS: [string, string[]][] = [
+  ["Horas", ["ventana_semanas", "max_horas_semana", "periodo_semanas"]],
+  ["Descansos", ["max_noches_seguidas", "libre_tras_noche", "libres_por_semana", "fines_semana_libres", "max_igual_seguidos"]],
+  ["Corridos (C, 12 h)", ["max_c_semana", "max_c_seguidos", "peso_corrido", "partir_corridos"]],
+  ["Permutas y banco de horas", ["limite_permutas", "banco_tope_favor_h", "banco_tope_deuda_h"]],
+];
 
 /** Reglas del área, turnos y tarifas legales (editables: confirmar con RR. HH./legal). */
 export function Parametros() {
@@ -62,8 +74,13 @@ export function Parametros() {
             <NativeSelect size="sm" label="Periodo" hint="Cómo se corta cada cuadro." disabled={!editar} value={v.periodo_modo ?? "mes"} onChange={(x) => setV({ ...v, periodo_modo: x.target.value })}>
               <option value="mes">Mes calendario</option><option value="semanas">Semanas desde un lunes</option>
             </NativeSelect>
-            {NUM.map(([k, etiqueta, lo, hi, ayuda]) => (
-              <Input value={String(v[k] ?? "")} key={k} label={etiqueta} hint={`${ayuda} Entre ${lo} y ${hi}.`} type="number" isDisabled={!editar} onChange={(x) => setV({ ...v, [k]: x })} />
+            {GRUPOS.map(([titulo, claves]) => (
+              <fieldset key={titulo} className="col-span-full grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+                <legend className="mb-2 text-sm font-semibold text-secondary">{titulo}</legend>
+                {NUM.filter(([k]) => claves.includes(k)).map(([k, etiqueta, lo, hi, ayuda]) => (
+                  <Input value={String(v[k] ?? "")} key={k} label={etiqueta} hint={`${ayuda} (${lo}–${hi})`} type="number" isDisabled={!editar} onChange={(x) => setV({ ...v, [k]: x })} />
+                ))}
+              </fieldset>
             ))}
             {editar && <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado}>Guardar reglas</Button></Fila>}
           </Formulario>
@@ -72,11 +89,11 @@ export function Parametros() {
 
       <Seccion titulo="Tarifas">
         <Tabla descripcion="Tarifas vigentes por fecha" cargando={!tarifas.datos && !tarifas.error} vacio="Sin tarifas." columnas={["Concepto", "Valor", "Desde"]}
-          filas={[...(tarifas.datos ?? [])].sort((a, b) => a[0].localeCompare(b[0]) || a[2].localeCompare(b[2])).map(([c, valor, d]) => [c, valor, fechaCorta(d)])} />
+          filas={[...(tarifas.datos ?? [])].sort((a, b) => a[0].localeCompare(b[0]) || a[2].localeCompare(b[2])).map(([c, valor, d]) => [nombreConcepto(c), valor, fechaCorta(d)])} />
         {editar && (
           <Formulario onSubmit={(x) => { x.preventDefault(); void agregarTarifa(); }}>
-            <NativeSelect size="sm" label="Concepto" value={tar.concepto} onChange={(x) => setTar({ ...tar, concepto: x.target.value })}>{CONCEPTOS.map((c) => <option key={c}>{c}</option>)}</NativeSelect>
-            <Input value={String(tar.valor)} label="Valor (% o minutos)" type="number" isRequired onChange={(x) => setTar({ ...tar, valor: x })} />
+            <NativeSelect size="sm" label="Concepto" value={tar.concepto} onChange={(x) => setTar({ ...tar, concepto: x.target.value })}>{CONCEPTOS.map((c) => <option key={c} value={c}>{nombreConcepto(c)}</option>)}</NativeSelect>
+            <Input value={String(tar.valor)} label={tar.concepto === "noche_inicio" ? "Valor (minutos)" : "Valor (%)"} type="number" isRequired onChange={(x) => setTar({ ...tar, valor: x })} />
             <Input value={String(tar.desde)} label="Rige desde" type="date" isRequired onChange={(x) => setTar({ ...tar, desde: x })} />
             <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !tar.valor || !tar.desde}>Agregar tarifa</Button></Fila>
           </Formulario>

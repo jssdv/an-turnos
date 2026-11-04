@@ -4,6 +4,7 @@ import { borrador as guardado, cambios, type Borrador } from "../api/cambios";
 import { ErrorApi, leer } from "../api/cliente";
 import { useSesion } from "../Sesion";
 import type { Alerta, Analiticas, Area, Colaborador, Cuadro as CuadroApi, Cupo, CuerpoCambio, Horas, Novedad, Periodo, Puesto, Turno } from "../api/tipos";
+import { Ficha } from "../componentes/Ficha";
 import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
 import { Tabla } from "../componentes/Tabla";
 import { AccionesPeriodo } from "./AccionesPeriodo";
@@ -183,7 +184,7 @@ export function Cuadro() {
       guardado.borrar();
       setBorrador(null);
       setPendiente(null);
-      setResultado({ nivel: r.alertas_nuevas.length ? "aviso" : "ok", texto: "Cambio registrado." + (r.alertas_nuevas.length ? " Ojo: " + r.alertas_nuevas.slice(0, 3).join("; ") + (r.alertas_nuevas.length > 3 ? "…" : ".") : "") });
+      setResultado({ nivel: r.alertas_nuevas.length ? "aviso" : "ok", texto: "Cambio registrado." + (r.alertas_nuevas.length ? "\nNuevas alertas:\n• " + r.alertas_nuevas.slice(0, 3).join("\n• ") + (r.alertas_nuevas.length > 3 ? `\n… y ${r.alertas_nuevas.length - 3} más` : "") : "") });
       setRecarga((n) => n + 1);
     } catch (x) {
       if (!(x instanceof ErrorApi)) return setErrorCambio("No se pudo registrar el cambio");
@@ -276,7 +277,7 @@ export function Cuadro() {
         </Alert>
       )}
       {version === "original" && <Alert color="brand">Original publicada (solo lectura). Para editar, elige «Cambios».</Alert>}
-      {resultado && <Alert color={COLOR_NIVEL[resultado.nivel]}>{resultado.texto}</Alert>}
+      {resultado && <div role="status" aria-live="polite"><Alert color={COLOR_NIVEL[resultado.nivel]}><span className="whitespace-pre-line">{resultado.texto}</span></Alert></div>}
 
       <Seccion aria-busy={!datos}>
         {!datos || !vista ? (
@@ -315,12 +316,12 @@ export function Cuadro() {
                 alerta: (fecha) => vista.diaMalo.has(fecha),
               }))}
             />
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-tertiary">
-              {datos.turnos.filter((t) => t.activo).map((t) => <span key={t.codigo}>{t.codigo} {t.nombre}</span>)}
-              <span>L Libre</span>
-              {verPuestos && usaPuestos && datos.puestos.filter((q) => q.activo).map((q) => <span key={q.id}>{q.numero} {q.nombre}</span>)}
-              <span>◥ editada a mano</span>
-              <span>columnas grises: domingo</span>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-tertiary" aria-label="Leyenda">
+              {datos.turnos.filter((t) => t.activo).map((t) => <span key={t.codigo} className="flex items-center gap-1.5"><Ficha codigo={t.codigo} color={t.color} />{t.nombre}</span>)}
+              <span className="flex items-center gap-1.5"><Ficha codigo="L" />Libre</span>
+              {verPuestos && usaPuestos && datos.puestos.filter((q) => q.activo).map((q) => <span key={q.id}><strong className="text-secondary">{q.numero}</strong> {q.nombre}</span>)}
+              <span className="flex items-center gap-1.5"><Ficha codigo="M" cambiada />Editada a mano</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block h-4 w-5 rounded-sm bg-tertiary" aria-hidden="true" />Domingo o festivo</span>
             </div>
             <HorasSemana horas={datos.horas} colabs={datos.colabs.filter((c) => c.activo)} />
           </>
@@ -335,7 +336,7 @@ export function Cuadro() {
         const reglas = vista.filter((a) => a.nivel !== "info").length;
         const niveles = [["error", "Por corregir", "error"], ["aviso", "Para revisar", "warning"], ["info", "Deseables sin cubrir", "gray"]] as const;
         return (
-          <Seccion data-solo-pantalla titulo={<>Alertas {reglas > 0 && <Badge size="sm" color="warning">{reglas}</Badge>}</>}>
+          <Seccion id="alertas" data-solo-pantalla titulo={<>Alertas {reglas > 0 && <Badge size="sm" color="warning">{reglas}</Badge>}</>}>
             <NativeSelect size="sm" className="w-64" label="Persona" value={persona} onChange={(x) => setPersona(x.target.value)}>
               <option value="">Todas</option>
               {datos.colabs.filter((c) => c.activo).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
@@ -378,7 +379,7 @@ export function Cuadro() {
         <div data-solo-pantalla>
         <Cambios area={area.id} periodo={actual.id} revision={actual.revision} nombres={nombres} puedeAnular={puedeEditar}
           alConflicto={() => setRecarga((n) => n + 1)}
-          alAnular={(a) => { setResultado({ nivel: a.length ? "aviso" : "ok", texto: "Cambio anulado." + (a.length ? " Ojo: " + a.slice(0, 3).join("; ") : "") }); setRecarga((n) => n + 1); }} />
+          alAnular={(a) => { setResultado({ nivel: a.length ? "aviso" : "ok", texto: "Cambio anulado." + (a.length ? "\nNuevas alertas:\n• " + a.slice(0, 3).join("\n• ") : "") }); setRecarga((n) => n + 1); }} />
         </div>
       )}
     </div>
@@ -390,9 +391,9 @@ function Pasos({ hay, alertas, publicado }: { hay: boolean; alertas: Alerta[]; p
   // Mismas cuentas que la lista de alertas (agrupada), para que los números coincidan.
   const errores = agrupar(alertas.filter((a) => a.nivel === "error")).length, avisos = agrupar(alertas.filter((a) => a.nivel === "aviso")).length;
   const pasos = [
-    { titulo: "Generar", hecho: hay, texto: hay ? "Hecho: el cuadro está armado." : "Usa «Generar» para que el sistema arme el cuadro." },
-    { titulo: "Revisar alertas", hecho: hay && !errores, texto: errores ? `${errores} por corregir · ${avisos} para revisar` : avisos ? `Sin errores · ${avisos} recomendaciones` : "Sin alertas." },
-    { titulo: "Publicar", hecho: publicado, texto: publicado ? "Publicado: el equipo ve esta versión." : "Cuando esté listo, publícalo para el equipo." },
+    { titulo: "Generar", hecho: hay, texto: hay ? "Hecho: el cuadro está armado." : "Aún sin cuadro.", boton: hay ? null : ["Generar", () => document.querySelector<HTMLElement>("[data-accion=generar]")?.click()] as const },
+    { titulo: "Revisar alertas", hecho: hay && !errores, texto: errores ? `${errores} por corregir · ${avisos} para revisar` : avisos ? `Sin errores · ${avisos} recomendaciones` : "Sin alertas.", boton: errores || avisos ? ["Ver alertas", () => document.getElementById("alertas")?.scrollIntoView({ behavior: "smooth", block: "start" })] as const : null },
+    { titulo: "Publicar", hecho: publicado, texto: publicado ? "Publicado: el equipo ve esta versión." : "Aún no publicado.", boton: hay && !publicado && !errores ? ["Publicar", () => document.querySelector<HTMLElement>("[data-accion=publicar]")?.click()] as const : null },
   ];
   const actual = pasos.findIndex((p) => !p.hecho);
   return (
@@ -402,6 +403,7 @@ function Pasos({ hay, alertas, publicado }: { hay: boolean; alertas: Alerta[]; p
           className={cx("flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary ring-1 ring-secondary ring-inset", p.hecho && "bg-utility-green-50 text-utility-green-700 ring-utility-green-200", !p.hecho && i === actual && "bg-utility-yellow-50 text-utility-yellow-700 ring-utility-yellow-200")} aria-current={i === actual ? "step" : undefined}>
           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-secondary font-bold text-tertiary in-data-hecho:bg-success-solid in-data-hecho:text-white in-data-actual:bg-warning-solid in-data-actual:text-white" aria-hidden="true">{p.hecho ? "✓" : i + 1}</span>
           <span><strong>{i + 1}. {p.titulo}</strong><span className="mt-0.5 block text-xs text-tertiary in-data-actual:text-utility-yellow-700 in-data-hecho:text-utility-green-700">{p.texto}</span></span>
+          {p.boton && <Button color="secondary" size="sm" className="ml-auto" onPress={p.boton[1]}>{p.boton[0]}</Button>}
         </li>
       ))}
     </ol>
