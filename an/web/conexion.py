@@ -9,7 +9,7 @@ from . import sqlite_pg
 
 def abrir_pool(ruta=None):
     """Pool sobre el archivo SQLite `ruta` (por defecto AN_BASE; se admite el prefijo `sqlite:`)."""
-    return sqlite_pg.Pool((ruta or os.environ["AN_BASE"]).removeprefix("sqlite:"))
+    return sqlite_pg.Pool(str(ruta or os.environ["AN_BASE"]).removeprefix("sqlite:"))
 
 
 def alcance(conn, clinica_id, area_id=None):
