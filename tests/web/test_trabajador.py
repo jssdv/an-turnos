@@ -23,14 +23,14 @@ SEMANA = "2026-10-05/2026-10-11"
 def bd_a(e):
     """BD del núcleo como `an_app` con el alcance de la clínica A: solo ve sus filas (un superusuario se salta RLS y vería también la B)."""
     with conexion.transaccion(e.pool, e.cl["A"], e.ar["A"]) as c:
-        yield BD.postgres(c)
+        yield BD.web(c)
 
 
 @contextlib.contextmanager
 def alcance_a(e):
     """Sesión de superusuario con el alcance de la clínica A, para sembrar."""
     try:
-        yield BD.postgres(Conexion(e.su))
+        yield BD.web(Conexion(e.su))
     finally:
         e.su.commit()
 

@@ -144,7 +144,7 @@ def test_identico_a_qt():
         fechas, txt = flujo.fechas(inicio, fin), flujo.etiqueta(inicio, fin)
         with e.pool.connection() as conn:  # como an_app: el superusuario se salta RLS y vería también la clínica B
             conexion.alcance(conn, e.cl["A"], e.ar["A"])
-            bd = BD.postgres(Conexion(conn, confirmar=False))
+            bd = BD.web(Conexion(conn, confirmar=False))
             ctx, cuadro = bd.contexto(2026), bd.asignaciones(k)
             with tempfile.TemporaryDirectory() as t:
                 esperado = {
