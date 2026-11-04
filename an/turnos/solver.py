@@ -51,7 +51,7 @@ def workers_por_defecto():
 
 
 def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiempo=20, semilla=0, ajuste=None, estricto=False,
-            al_avance=None, detener=None, workers=None):
+            al_avance=None, detener=None, workers=None, manuales=None):
     """Devuelve (cuadro {(colab_id, fecha): código}, info). Los días libres no aparecen en el cuadro.
     `ajuste`: {colab_id: horas} que se suman a la meta de horas del periodo (negativo: se le deben horas, trabaja menos).
     `estricto`: la demanda obligatoria es restricción dura (sin faltantes); si no cabe se lanza ErrorSolver.
@@ -60,7 +60,7 @@ def generar(ctx, fechas, fijos=None, previo=None, acum=None, ventana_sem=3, tiem
     `workers`: hilos de CP-SAT (por defecto `AN_SOLVER_WORKERS` o min(8, núcleos)).
     `info["faltan"]` = [(fecha, tramo 0–47, personas que faltan)]."""
     fechas, fijos, previo, acum = sorted(fechas), fijos or {}, previo or {}, acum or {}
-    extra = dict(al_avance=al_avance, detener=detener, workers=workers or workers_por_defecto())
+    extra = dict(al_avance=al_avance, detener=detener, workers=workers or workers_por_defecto(), manuales=manuales)
     try:
         return _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste or {}, estricto, **extra)
     except ErrorSolver:
@@ -82,7 +82,7 @@ class _Avance(cp_model.CpSolverSolutionCallback):
                         "segundos": self.WallTime(), "limite": self.limite})
 
 
-def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste, estricto, al_avance=None, detener=None, workers=8):
+def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, ajuste, estricto, al_avance=None, detener=None, workers=8, manuales=None):
     if detener and detener.is_set():
         raise ErrorSolver("Generación cancelada.")
     P = [p for p in ctx.colabs if p.en_solver]
@@ -117,7 +117,9 @@ def _resolver(ctx, fechas, fijos, previo, acum, ventana_sem, tiempo, semilla, aj
                         m.Add(v1 + v2 <= 1)
     es_noche = lambda s: s in ctx.turnos and dem.es_noche(ctx.turnos[s])
     es_c = lambda s: s in ctx.turnos and dem.es_corrido(ctx.turnos[s])
-    libre_ok = lambda p, dias: all(fijos.get((p.id, d), "L") == "L" for d in dias)  # una edición manual en la ventana manda
+    # una edición manual en la ventana manda; los días fijos del cuadro anterior al corte cuentan como constantes en la racha
+    manual = set(manuales) if manuales is not None else {k for k, v in fijos.items() if v != "L"}
+    libre_ok = lambda p, dias: not any((p.id, d) in manual for d in dias)
     paso = ctx.libre_tras_noche + 1  # separación entre noches de una racha NC-L-NC-L…
     for p in P:
         if ctx.max_noches:  # a lo sumo `max_noches` noches en racha

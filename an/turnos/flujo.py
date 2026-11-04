@@ -67,15 +67,17 @@ def preparar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20, desde=None):
     k, dias = clave(inicio, fin), fechas(inicio, fin)
     ctx = bd.contexto(inicio.year)
     fijos = {} if modo == "cero" else bd.fijos(k)
+    manuales = None  # None: todo lo fijo cuenta como manual (modo «respetar»)
     if modo in ("semana", "desde"):
         ventana = {lunes + timedelta(days=i) for i in range(7)} if modo == "semana" else {d for d in dias if d >= desde}
         actual = bd.asignaciones(k)
         fijos = {**{(p.id, d): actual.get((p.id, d), "L") for p in ctx.colabs if p.en_solver for d in dias
                     if d not in ventana}, **{c: t for c, t in fijos.items() if c[1] in ventana}}
+        manuales = {c for c in fijos if c[1] in ventana}  # solo las ediciones de la ventana son manuales; el resto son constantes
     activos = {p.id for p in ctx.colabs if p.en_solver}
     ajuste = {c: h for c, h in ajustes_banco(bd, inicio, fin).items() if c in activos}
     return ctx, dias, dict(fijos=fijos, previo=previo(bd, inicio), acum=acumulado(bd, ctx, inicio),
-                           ventana_sem=int(bd.param("ventana_semanas", 3)), tiempo=tiempo, ajuste=ajuste)
+                           ventana_sem=int(bd.param("ventana_semanas", 3)), tiempo=tiempo, ajuste=ajuste, manuales=manuales)
 
 
 def terminar(bd, inicio, fin, ctx, dias, cuadro, modo="cero", desde=None):
