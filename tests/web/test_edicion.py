@@ -44,6 +44,21 @@ def test_puesto_fijado_en_la_celda():
         assert r.status_code == 422
 
 
+def test_puesto_por_mitad_solo_en_un_corrido():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, c = sesion(e, "editor@a.co"), e.colab["A"]
+        q = cli.get(f"/api/areas/{e.ar['A']}/puestos").json()[0]["id"]
+        celda = lambda t, **k: dict(tipo="ajuste", motivo="", celdas=[dict(colab_id=c, fecha="2026-10-05", turno=t, **k)])
+        r = cli.post(url(e, "/cambios"), headers={**H, "If-Match": "0"}, json=celda("M", puesto=q, puesto_tarde=q))
+        assert r.status_code == 422  # la mitad de la tarde no existe en una M
+        r = cli.post(url(e, "/cambios"), headers={**H, "If-Match": "0"}, json=celda("C", puesto=q, puesto_tarde=q))
+        assert r.status_code == 200, r.text
+        hecho = [x for x in cli.get(f"/api/areas/{e.ar['A']}/periodos/{periodo(e)}/cuadro").json()["celdas"] if x["fecha"] == "2026-10-05"][0]
+        assert hecho["turno"] == "C" and hecho["puesto_fijo"] is True
+
+
 def test_cuadro_version_original():
     with entorno() as e:
         if e is None:

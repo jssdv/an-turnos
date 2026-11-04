@@ -59,22 +59,49 @@ def puesto_de(bd, periodo, cid, fecha):
     return max(tiempo, key=tiempo.get) if tiempo else 0
 
 
+def _norm(q):
+    """Puesto fijado de una celda: un id (todo el día) o (mañana, tarde); las listas del JSON vuelven a tupla."""
+    return tuple(q) if isinstance(q, (list, tuple)) else q
+
+
+def fijo_de(bd, periodo, cid, fecha):
+    """Lo fijado a mano en la celda: id de puesto (todo el día), (mañana, tarde) o 0 si nada."""
+    return bd.puestos_fijos(periodo).get((cid, fecha)) or bd.puestos_fijos_mitad(periodo).get((cid, fecha)) or 0
+
+
+def _fijar(bd, periodo, cid, fecha, q):
+    q = _norm(q)
+    if isinstance(q, tuple):
+        bd.fijar_mitades(periodo, cid, fecha, *q)
+    else:
+        bd.fijar_puesto(periodo, cid, fecha, q)
+
+
+def puestos_dia(bd, periodo, cid, fecha):
+    """Puestos reales de la celda en orden horario, sin repetir seguidos (dos = C partida)."""
+    seq = []
+    for a in bd.asignacion_puesto(periodo):
+        if (a.colab_id, a.fecha) == (cid, fecha) and a.puesto_id and (not seq or seq[-1] != a.puesto_id):
+            seq.append(a.puesto_id)
+    return seq
+
+
 def _registrar(bd, periodo, tipo, usuario, nuevas, motivo, colab_a, colab_b=None, excepcion=False):
-    """nuevas = [(colab_id, fecha, código nuevo[, puesto])]; puesto None = no tocarlo, 0 = soltarlo, id = fijarlo.
+    """nuevas = [(colab_id, fecha, código nuevo[, puesto])]; puesto None = no tocarlo, 0 = soltarlo, id = fijarlo,
+    (mañana, tarde) = fijar cada mitad de una C partida (0 = automática).
     Escribe las celdas y la fila; devuelve su id."""
     if bd.periodo_cerrado(periodo):
         raise ErrorCambio("El periodo está cerrado.")
     usuario = usuario or "—"
     actual = bd.asignaciones(periodo)
-    fijos = bd.puestos_fijos(periodo)
     celdas = []
     for cid, f, cod, *q in nuevas:
-        pa = fijos.get((cid, f), 0)
-        celdas.append((cid, f, actual.get((cid, f), "L"), cod, pa, pa if not q or q[0] is None else q[0]))
+        pa = fijo_de(bd, periodo, cid, f)
+        celdas.append((cid, f, actual.get((cid, f), "L"), cod, pa, pa if not q or q[0] is None else _norm(q[0])))
     for cid, f, _, cod, pa, pd in celdas:
         bd.set_celda(periodo, cid, f, cod)
         if pa != pd:
-            bd.fijar_puesto(periodo, cid, f, pd)
+            _fijar(bd, periodo, cid, f, pd)
     ahora = datetime.now().isoformat(timespec="seconds")
     js = json.dumps([[c, f.isoformat(), a, d, pa, pd] for c, f, a, d, pa, pd in celdas])
     id_ = bd._insertar("INSERT INTO cambio_turno (periodo, tipo, registrado_en, usuario, colab_a, colab_b, celdas, motivo, excepcion) "
@@ -98,6 +125,13 @@ def permuta(bd, periodo, a, fa, b, fb, motivo, usuario, excepcion=False):
         qa, qb = puesto_de(bd, periodo, a, fa), puesto_de(bd, periodo, b, fb)
         pa = qb if y != "L" and (perm.get(a) is None or qb in perm[a]) else 0
         pb = qa if x != "L" and (perm.get(b) is None or qa in perm[b]) else 0
+        for quien, otro, fo, destino in ((a, b, fb, "pa"), (b, a, fa, "pb")):  # una C partida se lleva sus dos mitades si la otra persona puede ocuparlas
+            dos = puestos_dia(bd, periodo, otro, fo)
+            if len(dos) == 2 and (perm.get(quien) is None or all(q in perm[quien] for q in dos)) and (y if destino == "pa" else x) != "L":
+                if destino == "pa":
+                    pa = tuple(dos)
+                else:
+                    pb = tuple(dos)
     return [_registrar(bd, periodo, "permuta", usuario, [(a, fa, y, pa), (b, fb, x, pb)], motivo, a, b, bool(ex))]
 
 
@@ -120,7 +154,7 @@ def restaurar_celdas(bd, periodo, antes):
     """antes = [(colab_id, fecha, código anterior, puesto fijado anterior)]: devuelve esas celdas de `cambios` a ese valor."""
     orig = bd.asignaciones(periodo, "original")
     for cid, f, cod, q in antes:
-        bd.fijar_puesto(periodo, cid, f, q)
+        _fijar(bd, periodo, cid, f, q)
         if orig.get((cid, f), "L") == cod:
             bd.restaurar(periodo, {cid}, {f})
         else:
@@ -129,7 +163,7 @@ def restaurar_celdas(bd, periodo, antes):
 
 def _celdas(r):
     """[(colab_id, fecha, antes, después, puesto fijo antes, puesto fijo después)]; las filas viejas (4 campos) no tocaban el puesto."""
-    return [(c, date.fromisoformat(f), a, n, *(q or (0, 0))) for c, f, a, n, *q in json.loads(r["celdas"])]
+    return [(c, date.fromisoformat(f), a, n, *map(_norm, q or (0, 0))) for c, f, a, n, *q in json.loads(r["celdas"])]
 
 
 def anular(bd, id_, usuario):
@@ -140,8 +174,8 @@ def anular(bd, id_, usuario):
     if bd.periodo_cerrado(r["periodo"]):
         raise ErrorCambio("El periodo está cerrado.")
     celdas = _celdas(r)
-    actual, fijos = bd.asignaciones(r["periodo"]), bd.puestos_fijos(r["periodo"])
-    if cambiadas := [(c, f) for c, f, _, n, _, q in celdas if actual.get((c, f), "L") != n or fijos.get((c, f), 0) != q]:  # todo o nada, sin dejar una permuta a medias
+    actual = bd.asignaciones(r["periodo"])
+    if cambiadas := [(c, f) for c, f, _, n, _, q in celdas if actual.get((c, f), "L") != n or fijo_de(bd, r["periodo"], c, f) != q]:  # todo o nada, sin dejar una permuta a medias
         raise EditadoDespues(cambiadas)
     restaurar_celdas(bd, r["periodo"], [(c, f, a, qa) for c, f, a, _, qa, _ in celdas])
     ahora = datetime.now().isoformat(timespec="seconds")
