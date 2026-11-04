@@ -1,5 +1,6 @@
 """Rutas de escritura del cuadro de un periodo. Cada una exige `If-Match: <revision>`, bloquea la fila del periodo, llama al núcleo
 (`cambios`, `flujo`) y sube la revisión. Si algo falla la excepción HTTP deshace la transacción de `contexto_area`."""
+import time
 from collections import namedtuple
 from datetime import date, timedelta
 from typing import Literal
@@ -221,7 +222,7 @@ def reasignar_puestos(id: int, request: Request, datos: Reasignar = Reasignar(),
         raise HTTPException(422, "La fecha debe estar dentro del periodo")
     if ctx.conn.execute("SELECT 1 FROM trabajo WHERE periodo_id = ? AND estado IN ('en_cola', 'corriendo')", (id,)).fetchone():
         raise HTTPException(409, "Hay un cuadro generándose para este periodo; espera o cancélalo.")
-    flujo.recalcular(ctx.bd, p.inicio, p.fin, desde=datos.desde)
+    flujo.recalcular(ctx.bd, p.inicio, p.fin, desde=datos.desde, semilla=int(time.time()) % 100_000 + 1)  # cada Reasignar explora otro reparto
     return {"revision": subir(ctx, id, request, "puestos_reasignados")}
 
 
