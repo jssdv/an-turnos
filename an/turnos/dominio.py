@@ -185,7 +185,8 @@ class Contexto:
     usa_puestos: bool = True  # False: la necesidad son personas por franja y día de la semana (demanda con puesto 0)
     max_horas_semana: int = 0  # tope duro de horas por persona en cada semana lunes–domingo completa; 0 = sin tope
     max_c_semana: int = 0  # tope duro de corridos por persona en cada semana lunes–domingo completa; 0 = sin tope
-    partir_corridos: int = 0  # 1: el corrido (C) no paga penalización por cambiar de puesto entre mañana y tarde
+    partir_corridos: int = 0  # 1: el corrido (C) se parte: puesto distinto en la mañana y en la tarde (se castiga repetirlo)
+    peso_corrido: int = 1  # multiplica el costo W_C de cada corrido en el solver; 0 = sin costo
     _nov: dict = field(default_factory=dict, repr=False)
 
     def __post_init__(self):

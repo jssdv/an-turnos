@@ -551,6 +551,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/areas/{area}/periodos/{id}/reasignar-puestos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reasignar Puestos
+         * @description Rehace solo el reparto de puestos (y la capacitación) con el cuadro de turnos actual, desde `desde` o todo el periodo.
+         */
+        post: operations["reasignar_puestos_api_areas__area__periodos__id__reasignar_puestos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/areas/{area}/periodos/{id}/publicar": {
         parameters: {
             query?: never;
@@ -1148,6 +1168,11 @@ export interface components {
              * @default true
              */
             activo: boolean;
+        };
+        /** Reasignar */
+        Reasignar: {
+            /** Desde */
+            desde?: string | null;
         };
         /** RequerimientoIn */
         RequerimientoIn: {
@@ -2715,6 +2740,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reasignar_puestos_api_areas__area__periodos__id__reasignar_puestos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Reasignar"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
             /** @description Validation Error */
             422: {
