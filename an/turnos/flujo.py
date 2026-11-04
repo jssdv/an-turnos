@@ -60,48 +60,52 @@ def previo(bd, inicio):
     return bd.asignaciones_rango(inicio - timedelta(days=3), inicio - timedelta(days=1))
 
 
-def preparar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20):
-    """Argumentos para solver.generar. modo: «cero» (descarta ediciones), «respetar» (celdas manuales fijas) o
-    «semana» (solo se rehace la semana de `lunes`; el resto del periodo queda como está)."""
+def preparar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20, desde=None):
+    """Argumentos para solver.generar. modo: «cero» (descarta ediciones), «respetar» (celdas manuales fijas),
+    «semana» (solo se rehace la semana de `lunes`) o «desde» (solo se rehacen los días desde `desde` hasta el fin);
+    fuera de la ventana el resto del periodo queda como está."""
     k, dias = clave(inicio, fin), fechas(inicio, fin)
     ctx = bd.contexto(inicio.year)
     fijos = {} if modo == "cero" else bd.fijos(k)
-    if modo == "semana":
-        sem = {lunes + timedelta(days=i) for i in range(7)}
+    if modo in ("semana", "desde"):
+        ventana = {lunes + timedelta(days=i) for i in range(7)} if modo == "semana" else {d for d in dias if d >= desde}
         actual = bd.asignaciones(k)
         fijos = {**{(p.id, d): actual.get((p.id, d), "L") for p in ctx.colabs if p.en_solver for d in dias
-                    if d not in sem}, **{c: t for c, t in fijos.items() if c[1] in sem}}
+                    if d not in ventana}, **{c: t for c, t in fijos.items() if c[1] in ventana}}
     activos = {p.id for p in ctx.colabs if p.en_solver}
     ajuste = {c: h for c, h in ajustes_banco(bd, inicio, fin).items() if c in activos}
     return ctx, dias, dict(fijos=fijos, previo=previo(bd, inicio), acum=acumulado(bd, ctx, inicio),
                            ventana_sem=int(bd.param("ventana_semanas", 3)), tiempo=tiempo, ajuste=ajuste)
 
 
-def terminar(bd, inicio, fin, ctx, dias, cuadro, modo="cero"):
+def terminar(bd, inicio, fin, ctx, dias, cuadro, modo="cero", desde=None):
     """Guarda el cuadro (en «cero» también como original) y recalcula puestos y capacitación sobre `cambios`."""
     k = clave(inicio, fin)
     if modo == "cero":
         bd.guardar_cuadro(k, cuadro, reiniciar=True)
     else:
         bd.guardar_cuadro(k, cuadro, versiones=("cambios",))
-    recalcular(bd, inicio, fin, ctx)
+    recalcular(bd, inicio, fin, ctx, desde)
 
 
-def recalcular(bd, inicio, fin, ctx=None):
+def recalcular(bd, inicio, fin, ctx=None, desde=None):
     k, dias = clave(inicio, fin), fechas(inicio, fin)
     ctx = ctx or bd.contexto(inicio.year)
     cuadro = bd.asignaciones(k)
-    bd.guardar_asignacion_puesto(k, puestos.asignar_tramos(ctx, cuadro, dias, fijos=bd.puestos_fijos(k)))
+    filas = puestos.asignar_tramos(ctx, cuadro, dias, fijos=bd.puestos_fijos(k))  # todo el periodo: la demanda de `desde` necesita el día anterior
+    if desde:  # los días anteriores a `desde` conservan su reparto guardado
+        filas = [f for f in bd.asignacion_puesto(k) if f.fecha < desde] + [f for f in filas if f.fecha >= desde]
+    bd.guardar_asignacion_puesto(k, filas)
     sesiones, _ = capacitacion.programar(ctx, cuadro, dias)
     bd.guardar_capacitacion(k, sesiones)
     return reglas.validar(ctx, cuadro, dias, bd.fijos(k), previo(bd, inicio))
 
 
-def generar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20):
+def generar(bd, inicio, fin, modo="cero", lunes=None, tiempo=20, desde=None):
     """Todo en uno (sin hilos): lo usan las pruebas y la línea de comandos."""
-    ctx, dias, kw = preparar(bd, inicio, fin, modo, lunes, tiempo)
+    ctx, dias, kw = preparar(bd, inicio, fin, modo, lunes, tiempo, desde)
     cuadro, info = solver.generar(ctx, dias, **kw)
-    terminar(bd, inicio, fin, ctx, dias, cuadro, modo)
+    terminar(bd, inicio, fin, ctx, dias, cuadro, modo, desde)
     return info
 
 

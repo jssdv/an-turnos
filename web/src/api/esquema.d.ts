@@ -1111,9 +1111,11 @@ export interface components {
              * @default cero
              * @enum {string}
              */
-            modo: "cero" | "respetar" | "semana";
+            modo: "cero" | "respetar" | "semana" | "desde";
             /** Lunes */
             lunes?: string | null;
+            /** Desde */
+            desde?: string | null;
             /**
              * Tiempo
              * @default 20
