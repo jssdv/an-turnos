@@ -272,6 +272,19 @@ def test_partir_corridos():
     assert {(x.puesto_id, x.desde, x.hasta) for x in filas} == {(ids["A"], 360, 720), (ids["B"], 720, 1080)}
 
 
+def test_partir_corridos_se_prefiere_si_nada_lo_impide():
+    bd, ids = _bd({"A": [("LS", 360, 1080, 1)], "B": [("LS", 360, 1080, 1)], "C": [("LS", 720, 1080, 1)]}, 3)
+    bd.set_param("partir_corridos", 1)
+    ctx = bd.contexto(2026)
+    cs = [c.id for c in ctx.colabs]
+    filas = puestos.asignar_tramos(ctx, {(c, LUN): "C" for c in cs}, [LUN])
+    _sin_solape(filas)
+    assert any(len({x.puesto_id for x in filas if x.colab_id == c}) >= 2 for c in cs)
+    occ = _ocupacion(filas)  # la cobertura obligatoria sigue completa
+    assert all(occ[(LUN, ids[q], t)] == 1 for q in "AB" for t in range(12, 36))
+    assert all(occ[(LUN, ids["C"], t)] == 1 for t in range(24, 36))
+
+
 def test_apoyo_cuando_sobra_gente():
     bd, ids = _bd({"A": [("LS", 360, 1080, 1)]}, 2)
     ctx = bd.contexto(2026)
