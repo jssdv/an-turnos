@@ -1,45 +1,19 @@
-"""Pool de conexiones PostgreSQL y alcance RLS por petición (app.clinica / app.area)."""
+"""Conexiones de la versión portable (una base SQLite, una clínica y un área) y el alcance por petición, que aquí no filtra nada."""
 import contextlib
 import os
 
-import psycopg
-from psycopg import sql
-from psycopg_pool import ConnectionPool
-
-from an.turnos.pg import FILAS, Conexion
+from an.turnos.puente import Conexion
 
 from . import sqlite_pg
 
 
-def abrir_pool(url=None, rol=None, max_size=10):
-    """Pool sobre AN_PG_URL. En producción la URL ya entra como `an_app`; con `rol` (desarrollo y pruebas) se hace SET ROLE al abrir.
-    Se niega a abrir si el rol efectivo se salta RLS (superusuario o BYPASSRLS): sin aislamiento por clínica no se sirve nada."""
-    url = url or os.environ.get("AN_PG_URL", "")
-    if url.startswith("sqlite:"):  # versión portable: un archivo, sin RLS ni roles
-        return sqlite_pg.Pool(url.removeprefix("sqlite:"))
-    rol = rol or os.environ.get("AN_ROL")
-
-    def configurar(conn):
-        if rol:
-            conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(rol)))
-        conn.commit()
-
-    def limpiar(conn):  # el alcance de una petición no debe pasar a la siguiente aunque alguien lo fije a nivel de sesión
-        conn.execute("RESET app.clinica")
-        conn.execute("RESET app.area")
-        conn.commit()
-
-    pool = ConnectionPool(url, kwargs={"row_factory": FILAS}, configure=configurar, reset=limpiar,
-                          min_size=min(2, max_size), max_size=max_size, timeout=10, open=True)
-    with pool.connection() as c:
-        if c.execute("SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user").fetchone()[0]:
-            pool.close()
-            raise RuntimeError("el rol de la aplicación se salta RLS (superusuario o BYPASSRLS); conecta como an_app")
-    return pool
+def abrir_pool(ruta=None):
+    """Pool sobre el archivo SQLite `ruta` (por defecto AN_BASE; se admite el prefijo `sqlite:`)."""
+    return sqlite_pg.Pool((ruta or os.environ["AN_BASE"]).removeprefix("sqlite:"))
 
 
 def alcance(conn, clinica_id, area_id=None):
-    """Fija la clínica (y el área) de la transacción actual; sin esto las tablas con RLS fallan en vez de devolver filas."""
+    """Fija la clínica (y el área) de la transacción; `sqlite_pg` lo ignora porque la base tiene una sola de cada una."""
     conn.execute("SELECT set_config('app.clinica', %s, true)", (str(clinica_id),))
     if area_id is not None:
         conn.execute("SELECT set_config('app.area', %s, true)", (str(area_id),))

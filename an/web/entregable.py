@@ -172,8 +172,8 @@ def servicio(estado, ruta):
     """Hilo de fondo: API y trabajador. `estado` lo lee la ventana ("listo", "web", "primer", "error", "fin")."""
     try:
         estado["primer"] = preparar_base(ruta, carpeta_respaldos())
-        os.environ["AN_PG_URL"], os.environ["AN_ORIGEN"] = f"sqlite:{ruta}", f"http://localhost:{PUERTO}"
-        pool = conexion.abrir_pool()
+        os.environ["AN_ORIGEN"] = f"http://localhost:{PUERTO}"
+        pool = conexion.abrir_pool(ruta)
         app = crear_app(pool)
         servir_front(app, carpeta_front())
         parar = threading.Event()

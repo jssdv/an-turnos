@@ -2,7 +2,7 @@
 from fastapi import HTTPException, Request
 
 from an.turnos.db import BD
-from an.turnos.pg import Conexion
+from an.turnos.puente import Conexion
 
 from . import auth, conexion
 

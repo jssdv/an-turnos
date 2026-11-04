@@ -1,6 +1,6 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-"""Pruebas de usuarios y permisos para el administrador de la clínica, y de las analíticas completas (necesitan AN_PG_URL). Imprime OK."""
+"""Pruebas de usuarios y permisos para el administrador de la clínica, y de las analíticas completas. Imprime OK."""
 from fixtura_api import CLAVE, ORIGEN, entorno
 from test_edicion import sesion
 

@@ -10,7 +10,7 @@ from datetime import date
 from an.turnos import flujo
 from an.turnos.db import BD
 from an.turnos.dominio import Colaborador
-from an.turnos.pg import Conexion
+from an.turnos.puente import Conexion
 from an.web import conexion
 from an.web.trabajador import Trabajador
 from fixtura_api import CLAVE_PERIODO, entorno

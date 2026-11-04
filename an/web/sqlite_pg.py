@@ -7,10 +7,8 @@ import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
 
-import psycopg
-from psycopg.types.json import Jsonb
 
-from an.turnos.pg import Fila
+from an.turnos.puente import Fila, UniqueViolation
 
 MIN_SESION, HORAS_SESION = 35, 12
 
@@ -23,7 +21,6 @@ def _fecha(b):
     return datetime.fromisoformat(b.decode()).replace(tzinfo=timezone.utc)
 
 
-sqlite3.register_adapter(Jsonb, lambda j: json.dumps(j.obj))
 sqlite3.register_adapter(memoryview, bytes)
 sqlite3.register_converter("jsonb", json.loads)
 sqlite3.register_converter("boolean", lambda b: bool(int(b)))
@@ -113,7 +110,7 @@ class Cur:
             self._cur.execute(self._traducir(sql), tuple(int(p) if isinstance(p, bool) else p for p in params))
         except sqlite3.IntegrityError as e:
             if "UNIQUE" in str(e):
-                raise psycopg.errors.UniqueViolation(str(e)) from e
+                raise UniqueViolation(str(e)) from e
             raise
         self._poner_descripcion()
         return self

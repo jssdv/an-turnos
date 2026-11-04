@@ -1,15 +1,14 @@
 """Trabajador del solver: toma trabajos de la tabla `trabajo` (uno por clínica a la vez), corre `solver.generar` con progreso y
 cancelación y guarda el cuadro solo si el periodo no cambió. Arranque: python -m an.web.trabajador
-Variables: AN_PG_URL y AN_ROL (como la API); opcionales AN_TRABAJADOR_PROGRESO_CADA (1 s), AN_TRABAJADOR_LATIDO_CADA (5 s),
+Variables: AN_BASE (ruta de la base SQLite); opcionales AN_TRABAJADOR_PROGRESO_CADA (1 s), AN_TRABAJADOR_LATIDO_CADA (5 s),
 AN_TRABAJADOR_LATIDO_MAX (60 s) y AN_SOLVER_WORKERS (hilos de CP-SAT)."""
+import json
 import logging
 import os
 import signal
 import threading
 import time
 from datetime import date
-
-from psycopg.types.json import Jsonb
 
 from an.turnos import flujo, solicitudes, solver
 from an.turnos.db import BD
@@ -40,7 +39,7 @@ class _Monitor(threading.Thread):
                     cancelar = c.execute("SELECT cancelar FROM trabajo WHERE id = ?", (self.t["id"],)).fetchone()[0]
                     if avance is not self.escrito and ahora - t_prog >= tr.progreso_cada:
                         c.execute("UPDATE trabajo SET progreso = ?, latido = now() WHERE id = ? AND estado = 'corriendo'",
-                                  (Jsonb(avance), self.t["id"]))
+                                  (json.dumps(avance), self.t["id"]))
                         self.escrito, t_prog, t_lat = avance, ahora, ahora
                     elif ahora - t_lat >= tr.latido_cada:
                         c.execute("UPDATE trabajo SET latido = now() WHERE id = ? AND estado = 'corriendo'", (self.t["id"],))
@@ -120,7 +119,7 @@ class Trabajador:
 
     def _cerrar(self, t, estado, error=None, resultado=None, c=None):
         sql = "UPDATE trabajo SET estado = ?, error = ?, resultado = ?, terminado = now() WHERE id = ? AND estado = 'corriendo'"
-        params = (estado, error, Jsonb(resultado) if resultado is not None else None, t["id"])
+        params = (estado, error, json.dumps(resultado) if resultado is not None else None, t["id"])
         if c is not None:
             c.execute(sql, params)
         else:

@@ -1,11 +1,9 @@
-"""Aplicadores de esquema. PostgreSQL: migraciones numeradas (an/web/migraciones/NNN_*.sql) registradas en `esquema_version`.
-SQLite (entregable): esquema base (esquema_sqlite.sql, versión 12) y migraciones en migraciones_sqlite/ desde la 13, con la versión
+"""Aplicador de esquema SQLite: esquema base (esquema_sqlite.sql, versión 12) y migraciones en migraciones_sqlite/ desde la 13, con la versión
 en `PRAGMA user_version`. Una migración publicada no se edita: se agrega otra."""
 import re
 import sqlite3
 from pathlib import Path
 
-MIGRACIONES = Path(__file__).with_name("migraciones")
 BASE_SQLITE = Path(__file__).with_name("esquema_sqlite.sql")
 MIGRACIONES_SQLITE = Path(__file__).with_name("migraciones_sqlite")
 VERSION_BASE_SQLITE = 12
@@ -13,22 +11,6 @@ VERSION_BASE_SQLITE = 12
 
 class BaseNoUsable(Exception):
     """La base no puede usarse. El mensaje (en español) se muestra tal cual al usuario; la base no se modifica."""
-
-
-def aplicar(conn):
-    """Aplica en orden las migraciones aún no registradas en `esquema_version`; devuelve los nombres aplicados."""
-    conn.execute("CREATE TABLE IF NOT EXISTS esquema_version (version int PRIMARY KEY, nombre text NOT NULL, aplicada timestamptz NOT NULL DEFAULT now())")
-    hechas = {r[0] for r in conn.execute("SELECT version FROM esquema_version")}
-    aplicadas = []
-    for ruta in sorted(MIGRACIONES.glob("[0-9][0-9][0-9]_*.sql")):
-        version = int(ruta.name[:3])
-        if version in hechas:
-            continue
-        conn.execute(ruta.read_text(encoding="utf-8"))
-        conn.execute("INSERT INTO esquema_version (version, nombre) VALUES (%s, %s)", (version, ruta.name))
-        aplicadas.append(ruta.name)
-    conn.commit()
-    return aplicadas
 
 
 def _migraciones_sqlite(carpeta):
@@ -88,12 +70,3 @@ def aplicar_sqlite(con, carpeta=None):
             _script(raw, f"{ruta.read_text(encoding='utf-8')}\nPRAGMA user_version = {v};")
             version = v
     return version
-
-
-if __name__ == "__main__":  # python -m an.web.esquema: aplica las migraciones al esquema `public` de AN_PG_URL
-    import os
-
-    import psycopg
-
-    with psycopg.connect(os.environ["AN_PG_URL"]) as c:
-        print("aplicadas:", aplicar(c) or "ninguna")

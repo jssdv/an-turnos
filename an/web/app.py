@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from an.turnos.pg import Conexion
+from an.turnos.puente import Conexion
 
 from . import auth, conexion
 from .deps import COOKIE, ESCRITURA

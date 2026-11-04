@@ -2,7 +2,6 @@
 import json
 import os
 import sqlite3
-import weakref
 from datetime import date, datetime, timezone
 
 from .demanda import cobertura_derivada, franjas_de
@@ -68,19 +67,10 @@ def _dt(s):
 
 class BD:
     dialecto = "sqlite"
-    _limpiar = None
 
     def __init__(self, ruta=":memory:"):
-        """SQLite (archivo o memoria). Con AN_BD=postgres, `BD()` en memoria crea un esquema temporal en PostgreSQL (pruebas)."""
+        """SQLite (archivo o memoria)."""
         self.ruta = ruta
-        if ruta == ":memory:" and os.environ.get("AN_BD") == "postgres":
-            from an.web.pruebas import esquema_temporal
-            self.dialecto = "postgres"
-            self.ruta = None
-            self.c, self._limpiar = esquema_temporal()
-            weakref.finalize(self, self._limpiar)  # sin esto cada BD() de prueba retiene su conexión hasta salir del proceso (CI: too many clients)
-            self.sembrar()
-            return
         self.c = sqlite3.connect(ruta)
         self.c.row_factory = sqlite3.Row
         if self.c.execute("PRAGMA user_version").fetchone()[0] == 0:
@@ -145,9 +135,7 @@ class BD:
         return self.dialecto == "postgres"
 
     def cerrar(self):
-        if self._limpiar:
-            self._limpiar()
-        elif self.dialecto == "sqlite":
+        if self.dialecto == "sqlite":
             self.c.close()
 
     def _migrar_a_8(self):
