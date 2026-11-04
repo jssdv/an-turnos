@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from an.turnos import cambios, flujo, puestos, reglas
+from an.turnos import demanda as dem
 
 from .deps import Contexto, contexto_area, leer_revision
 
@@ -23,6 +24,7 @@ class CeldaIn(BaseModel):
     fecha: date
     turno: str = "L"
     puesto: int | None = None  # None = no tocar el puesto; 0 = soltar el fijado; id = fijarlo (solo en áreas con puestos)
+    puesto_tarde: int | None = None  # solo en una C: con él, `puesto` es el de la mañana y este el de la tarde (0 = automático)
 
 
 class Cambio(BaseModel):
@@ -89,13 +91,16 @@ def _validar_celdas(bd, p, celdas, con_turno):
         vistas.add((x.colab_id, x.fecha))
         if con_turno and x.turno != "L" and x.turno not in c.turnos:
             raise HTTPException(422, f"«{x.turno}» no es un turno. Usa L o uno de: {', '.join(c.turnos)}.")
-        if x.puesto is not None and x.puesto != 0:
-            q = bd.catalogo_puestos(solo_activos=True).get(x.puesto)
-            persona = next(y for y in c.colabs if y.id == x.colab_id)
-            if not c.usa_puestos or not q:
-                raise HTTPException(422, "Este servicio no trabaja por puestos o el puesto no está activo")
-            if persona.puestos_permitidos is not None and x.puesto not in persona.puestos_permitidos:
-                raise HTTPException(422, f"{persona.nombre} no puede ocupar el puesto {q.nombre}")
+        if x.puesto_tarde is not None and not (x.turno in c.turnos and dem.es_corrido(c.turnos[x.turno])):
+            raise HTTPException(422, "El puesto de la tarde solo se elige en un turno corrido (C)")
+        for elegido in (x.puesto, x.puesto_tarde):
+            if elegido is not None and elegido != 0:
+                q = bd.catalogo_puestos(solo_activos=True).get(elegido)
+                persona = next(y for y in c.colabs if y.id == x.colab_id)
+                if not c.usa_puestos or not q:
+                    raise HTTPException(422, "Este servicio no trabaja por puestos o el puesto no está activo")
+                if persona.puestos_permitidos is not None and elegido not in persona.puestos_permitidos:
+                    raise HTTPException(422, f"{persona.nombre} no puede ocupar el puesto {q.nombre}")
         if c.novedad(x.colab_id, x.fecha) and actual.get((x.colab_id, x.fecha), "L") == "L":
             raise HTTPException(422, f"El {x.fecha:%d/%m} tiene una novedad; esa celda no se puede cambiar")
 
@@ -113,7 +118,8 @@ def registrar(id: int, datos: Cambio, request: Request, if_match: str | None = H
         raise HTTPException(422, "Una permuta es entre dos celdas")
     _validar_celdas(bd, p, datos.celdas, datos.tipo != "permuta")
     antes = textos_alertas(bd, p.clave, p.inicio, p.fin)
-    usuario, nuevas = ctx.usuario.nombre, [(x.colab_id, x.fecha, x.turno, 0 if x.turno == "L" and datos.tipo != "permuta" else x.puesto)
+    usuario, nuevas = ctx.usuario.nombre, [(x.colab_id, x.fecha, x.turno, 0 if x.turno == "L" and datos.tipo != "permuta" else
+                                                      (x.puesto or 0, x.puesto_tarde) if x.puesto_tarde is not None else x.puesto)
                                          for x in datos.celdas]
     try:
         if datos.tipo == "permuta":
@@ -143,7 +149,7 @@ def _periodo_de(ctx, id):
 def listar(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     return [{**{k: r[k] for k in ("id", "tipo", "registrado_en", "usuario", "colab_a", "colab_b", "motivo", "excepcion", "anulado_en", "anulado_por")},
              "excepcion": bool(r["excepcion"]),
-             "celdas": [dict(colab_id=c, fecha=f.isoformat(), antes=a, despues=d, puesto_antes=pa, puesto_despues=pd)
+             "celdas": [dict(colab_id=c, fecha=f.isoformat(), antes=a, despues=d, puesto_antes=list(pa) if isinstance(pa, tuple) else pa, puesto_despues=list(pd) if isinstance(pd, tuple) else pd)
                        for c, f, a, d, pa, pd in r["celdas"]]}
             for r in cambios.listar(ctx.bd, _periodo_de(ctx, id))]
 

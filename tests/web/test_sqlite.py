@@ -48,35 +48,35 @@ def test_flujo_basico():
 def test_base_nueva_queda_en_la_ultima_version():
     ruta = str(_carpeta() / "an.db")
     entregable.preparar_base(ruta, _carpeta())
-    assert _version(ruta) == esquema.ultima_sqlite() == 12
+    assert _version(ruta) == esquema.ultima_sqlite() == 13
 
 
-def test_migracion_de_prueba_sube_desde_12():
+def test_migracion_de_prueba_sube_desde_13():
     d = _carpeta()
     migraciones = d / "migraciones"
     migraciones.mkdir()
-    (migraciones / "013_prueba.sql").write_text("CREATE TABLE prueba (id INTEGER PRIMARY KEY);", encoding="utf-8")
-    (migraciones / "014_rota.sql").write_text("CREATE TABLE rota (id INTEGER); SELECT no_existe();", encoding="utf-8")
+    (migraciones / "014_prueba.sql").write_text("CREATE TABLE prueba (id INTEGER PRIMARY KEY);", encoding="utf-8")
+    (migraciones / "015_rota.sql").write_text("CREATE TABLE rota (id INTEGER); SELECT no_existe();", encoding="utf-8")
     ruta = str(d / "an.db")
     con = sqlite_pg.abrir(ruta)
-    assert esquema.aplicar_sqlite(con) == 12  # base nueva: sin migraciones en la carpeta real
+    assert esquema.aplicar_sqlite(con) == 13  # base nueva: solo las migraciones de la carpeta real
     con.close()
     con = sqlite_pg.abrir(ruta)
     try:
-        esquema.aplicar_sqlite(con, migraciones)  # 013 sube, 014 falla y se revierte entera
-        raise AssertionError("la migración 014 debía fallar")
+        esquema.aplicar_sqlite(con, migraciones)  # 014 sube, 015 falla y se revierte entera
+        raise AssertionError("la migración 015 debía fallar")
     except sqlite3.Error:
         pass
     finally:
         con.close()
-    assert _version(ruta) == 13
+    assert _version(ruta) == 14
     raw = sqlite3.connect(ruta)
     tablas = {r[0] for r in raw.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     raw.close()
     assert "prueba" in tablas and "rota" not in tablas
-    (migraciones / "014_rota.sql").write_text("CREATE TABLE ok (id INTEGER);", encoding="utf-8")
+    (migraciones / "015_rota.sql").write_text("CREATE TABLE ok (id INTEGER);", encoding="utf-8")
     con = sqlite_pg.abrir(ruta)
-    assert esquema.aplicar_sqlite(con, migraciones) == 14
+    assert esquema.aplicar_sqlite(con, migraciones) == 15
     con.close()
 
 
@@ -87,7 +87,7 @@ def test_base_del_formato_anterior_se_marca_12():
     raw.executescript(esquema.BASE_SQLITE.read_text(encoding="utf-8"))  # como la creaba el código anterior: sin user_version
     raw.close()
     entregable.preparar_base(ruta, d / "respaldos")
-    assert _version(ruta) == 12
+    assert _version(ruta) == 13
 
 
 def test_base_del_formato_anterior_con_tabla_que_falta_se_rechaza():
@@ -162,7 +162,7 @@ def test_respaldo_al_abrir_con_poda():
 
 
 if __name__ == "__main__":
-    for prueba in [test_flujo_basico, test_base_nueva_queda_en_la_ultima_version, test_migracion_de_prueba_sube_desde_12,
+    for prueba in [test_flujo_basico, test_base_nueva_queda_en_la_ultima_version, test_migracion_de_prueba_sube_desde_13,
                    test_base_del_formato_anterior_se_marca_12, test_base_del_formato_anterior_con_tabla_que_falta_se_rechaza,
                    test_version_mas_nueva_se_rechaza_sin_tocarla, test_base_danada_no_se_toca_y_ofrece_el_respaldo,
                    test_cero_bytes_es_base_nueva, test_respaldo_al_abrir_con_poda]:

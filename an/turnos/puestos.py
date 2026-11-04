@@ -38,13 +38,15 @@ W_EXCESO_P = 500  # por persona y tramo por encima de lo pedido (obligatorio + d
 W_PARTIR_P = 150  # castigo por repetir puesto en las dos mitades de un corrido con partir_corridos (> rotación, << W_FALTA_P)
 
 
-def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None, semilla=0):
+def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None, semilla=0, fijos_mitad=None):
     """[AsignacionPuesto] de cada día: en qué puesto está cada persona presente, tramo a tramo. Por día, un CP-SAT
     por bloques de tramos con la misma presencia y demanda: cada persona ocupa un puesto a la vez (solo los que puede),
     los puestos reciben la demanda obligatoria, los deseables se buscan, y se penaliza cambiar de puesto dentro del
     turno, repetir el puesto de ayer y el desequilibrio de veces por puesto. Quien sobra queda en apoyo (puesto 0). `fijos` {(colab_id, fecha): puesto_id}: puestos fijados a mano, que se respetan.
-    Sin puestos en el área todos quedan en apoyo."""
+    Sin puestos en el área todos quedan en apoyo.
+    `fijos_mitad` {(colab_id, fecha): (mañana, tarde)}: puestos fijados por mitad en una C partida (0 = automático)."""
     fijos = fijos or {}
+    fijos_mitad = fijos_mitad or {}
     por_id = {p.id: p for p in ctx.colabs if p.en_solver}
     primero = min(fechas)
     hist = defaultdict(lambda: defaultdict(int))
@@ -107,9 +109,18 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None, semilla=0):
                     ok = m.NewBoolVar("")
                     m.Add(suma >= o + w).OnlyEnforceIf(ok)
                     obj.append(-W_DES_P * largo * w * ok)
-        for (c, f), q in fijos.items():  # puesto fijado a mano: en sus bloques solo ocupa ese puesto
-            if f == d:
-                for bi in range(len(bloques)):
+        def fijo_en(c, t0):  # puesto fijado a mano para `c` en el bloque que empieza en t0 (None = automático)
+            if (c, d) in fijos:
+                return fijos[c, d]
+            mm = fijos_mitad.get((c, d))
+            if not mm:
+                return None
+            q = (mm[1] if t0 >= cortes[c] else mm[0]) if c in cortes else (mm[0] or mm[1])
+            return q or None
+        for c in {c for c, f in [*fijos, *fijos_mitad] if f == d}:  # puesto fijado a mano: en ese bloque solo ocupa ese puesto
+            for bi, b in enumerate(bloques):
+                q = fijo_en(c, b[0])
+                if q is not None:
                     for q2 in nec_b[bi]:
                         if (bi, c, q2) in y:
                             m.Add(y[bi, c, q2] == (1 if q2 == q else 0))
@@ -146,7 +157,7 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None, semilla=0):
         puesto_en = {}  # (colab_id, tramo) -> puesto_id
         for bi, (t0, t1, pres, nec) in enumerate(bloques):
             for c in pres:
-                elegido = fijos.get((c, d)) or next((q for q in nec if (bi, c, q) in y and sol.Value(y[bi, c, q])), 0)
+                elegido = fijo_en(c, t0) or next((q for q in nec if (bi, c, q) in y and sol.Value(y[bi, c, q])), 0)
                 for t in range(t0, t1):
                     puesto_en[c, t] = elegido
         cuenta = defaultdict(lambda: defaultdict(int))
