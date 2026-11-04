@@ -61,7 +61,7 @@ def agregar_persona(e, n="A", nombre="P2"):
     from an.turnos.dominio import Colaborador
     from an.turnos.puente import Conexion
     e.su.execute("SELECT set_config('app.clinica', %s, false), set_config('app.area', %s, false)", (str(e.cl[n]), str(e.ar[n])))
-    bd = BD.postgres(Conexion(e.su))
+    bd = BD.web(Conexion(e.su))
     p = Colaborador(0, f"{nombre}-{n}")
     bd.guardar_colaborador(p)
     for d, t in ((5, "M"), (6, "T"), (7, "M")):

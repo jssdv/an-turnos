@@ -59,7 +59,7 @@ def _contexto(area, request, exige_editar):
         if exige_editar and request.method in ESCRITURA and permiso != "editar":
             raise HTTPException(403, "Solo lectura en esta área")
         conexion.alcance(conn, u.clinica_id, area)
-        yield Contexto(BD.postgres(c), u, permiso, c)
+        yield Contexto(BD.web(c), u, permiso, c)
 
 
 def contexto_area(area: int, request: Request):

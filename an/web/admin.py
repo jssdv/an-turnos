@@ -29,7 +29,7 @@ def crear_area(conn, clinica_id, nombre, tipo="turnos"):
         raise ErrorAdmin("esa clínica ya tiene un área con ese nombre")
     if tipo == "turnos":
         conexion.alcance(conn, clinica_id, area)
-        BD.postgres(Conexion(conn, confirmar=False)).sembrar()
+        BD.web(Conexion(conn, confirmar=False)).sembrar()
     conn.commit()
     return area
 

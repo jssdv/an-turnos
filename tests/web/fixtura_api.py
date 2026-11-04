@@ -72,7 +72,7 @@ def entorno(pool_max=10):
     e.cl["A"] = admin.crear_clinica(su, "A")
     su.commit()
     e.ar["A"] = admin.crear_area(su, e.cl["A"], "Turnos")
-    bd = BD.postgres(Conexion(su))
+    bd = BD.web(Conexion(su))
     p = Colaborador(0, "P-A")
     bd.guardar_colaborador(p)
     su.execute("INSERT INTO periodo (clave, clinica_id, area_id) VALUES (%s, %s, %s)", (CLAVE_PERIODO, e.cl["A"], e.ar["A"]))

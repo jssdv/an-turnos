@@ -108,7 +108,7 @@ class Trabajador:
             inicio, fin = flujo.desde_clave(clave)
             lunes = date.fromisoformat(p["lunes"]) if p.get("lunes") else None
             desde = date.fromisoformat(p["desde"]) if p.get("desde") else None
-            ctx, dias, kw = flujo.preparar(BD.postgres(c), inicio, fin, p.get("modo", "cero"), lunes, p.get("tiempo", 20), desde)
+            ctx, dias, kw = flujo.preparar(BD.web(c), inicio, fin, p.get("modo", "cero"), lunes, p.get("tiempo", 20), desde)
         al_avance = lambda d: setattr(monitor, "avance", {**d, "estado": "buscando"})
         cuadro, info = solver.generar(ctx, dias, **kw, semilla=p.get("semilla", 0), al_avance=al_avance, detener=detener)
         return inicio, fin, ctx, dias, cuadro, info, kw["fijos"]
@@ -133,7 +133,7 @@ class Trabajador:
             if rev != t["revision_base"]:
                 return self._cerrar(t, "conflicto", error=MSG_CONFLICTO, c=c)
             p = t["params"]
-            flujo.terminar(BD.postgres(c), inicio, fin, ctx, dias, cuadro, p.get("modo", "cero"),
+            flujo.terminar(BD.web(c), inicio, fin, ctx, dias, cuadro, p.get("modo", "cero"),
                            date.fromisoformat(p["desde"]) if p.get("desde") else None)
             c.execute("UPDATE periodo SET revision = revision + 1 WHERE id = ?", (t["periodo_id"],))
             sol = [{"id": r.solicitud.id, "estado": r.estado, "motivo": r.motivo} for r in solicitudes.evaluar(ctx, cuadro, dias, fijos)

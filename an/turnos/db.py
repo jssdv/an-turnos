@@ -101,7 +101,7 @@ class BD:
 
     def _pk(self, tabla):
         """Columnas de la clave de conflicto de `tabla` (en PostgreSQL llevan además el área)."""
-        return ("area_id, " if self.dialecto == "postgres" else "") + self.CLAVES[tabla]
+        return ("area_id, " if self.dialecto == "web" else "") + self.CLAVES[tabla]
 
     def _upsert(self, tabla):
         """Cola `ON CONFLICT (clave) DO UPDATE SET …` que reemplaza las columnas no clave."""
@@ -113,10 +113,10 @@ class BD:
         return self.c.execute(sql + " RETURNING id", params).fetchone()[0]
 
     @classmethod
-    def postgres(cls, conexion):
-        """BD sobre una conexión PostgreSQL ya abierta y con alcance (app.clinica/app.area); no siembra nada."""
+    def web(cls, conexion):
+        """BD sobre una conexión de la capa web (`puente.Conexion`) ya abierta; no siembra nada."""
         bd = cls.__new__(cls)
-        bd.dialecto, bd.ruta, bd.c = "postgres", None, conexion
+        bd.dialecto, bd.ruta, bd.c = "web", None, conexion
         return bd
 
     def sembrar(self):
@@ -131,8 +131,8 @@ class BD:
             self.set_param(k, v)
         self.c.commit()
 
-    def es_postgres(self):
-        return self.dialecto == "postgres"
+    def es_web(self):
+        return self.dialecto == "web"
 
     def cerrar(self):
         if self.dialecto == "sqlite":
