@@ -31,6 +31,8 @@ export interface Celda {
   fijo?: boolean;
   /** Puesto (id) donde pasa más tiempo; 0 = apoyo. Solo en áreas con puestos. */
   puesto?: number;
+  /** Puestos (ids) en orden horario; más de uno = turno partido (mañana → tarde). Vacío si el puesto está fijado a mano. */
+  puestos?: number[];
   /** Puesto fijado a mano: el reparto automático lo respeta. */
   puesto_fijo?: boolean;
 }

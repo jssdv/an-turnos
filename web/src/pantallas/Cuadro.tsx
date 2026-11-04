@@ -131,7 +131,9 @@ export function Cuadro() {
   /** Nombre del puesto de una celda con turno, o "" (libre, apoyo o área sin puestos). */
   const puestoDe = (id: number, fecha: string) => {
     const c = vista?.celdas.get(`${id}|${fecha}`);
-    return usaPuestos && c && c.turno !== "L" && c.puesto ? `${vista?.puestos.get(c.puesto)?.nombre ?? ""}${c.puesto_fijo ? " (fijo)" : ""}` : "";
+    if (!usaPuestos || !c || c.turno === "L" || !c.puesto) return "";
+    const nombre = (q: number) => vista?.puestos.get(q)?.nombre ?? "";
+    return c.puestos && c.puestos.length > 1 ? c.puestos.map(nombre).join(" y luego ") : `${nombre(c.puesto)}${c.puesto_fijo ? " (fijo)" : ""}`;  // C partida: mañana y luego tarde
   };
   /** Como `_editable` de Qt: persona del cuadro, y no una celda libre cubierta por novedad. */
   const editable = (id: number, fecha: string) => {
@@ -286,8 +288,8 @@ export function Cuadro() {
                 const nov = codigo === "L" ? vista.novedades.get(`${id}|${fecha}`) : undefined;
                 const falta = vista.faltan.has(`${id}|${fecha}`);
                 return {
-                  codigo, color: t?.color, cambiada: c?.fijo, puesto: verPuestos && c?.puesto ? String(vista.puestos.get(c.puesto)?.numero ?? "") : undefined, novedad: nov ? (SIGLA_NOVEDAD[nov] ?? nov) : null, faltante: falta,
-                  etiqueta: `${nov ?? t?.nombre ?? (codigo === "L" ? "Libre" : codigo)}${puestoDe(id, fecha) ? `, puesto ${puestoDe(id, fecha)}` : ""}${c?.fijo ? ", editada a mano" : ""}${falta ? ", con alerta" : ""}`,
+                  codigo, color: t?.color, cambiada: c?.fijo, puesto: verPuestos && c?.puesto ? (c.puestos && c.puestos.length > 1 ? c.puestos : [c.puesto]).map((q) => vista.puestos.get(q)?.numero ?? "").join("·") : undefined, novedad: nov ? (SIGLA_NOVEDAD[nov] ?? nov) : null, faltante: falta,
+                  etiqueta: `${nov ?? t?.nombre ?? (codigo === "L" ? "Libre" : codigo)}${puestoDe(id, fecha) ? `, ${c?.puestos && c.puestos.length > 1 ? "partido" : "puesto"}: ${puestoDe(id, fecha)}` : ""}${c?.fijo ? ", editada a mano" : ""}${falta ? ", con alerta" : ""}`,
                 };
               }}
               pie={(["M", "T", "N"] as const).map((f) => ({

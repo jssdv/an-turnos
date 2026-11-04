@@ -85,9 +85,14 @@ def cuadro(id: int, version: Literal["original", "cambios"] = "cambios", ctx: Co
     vigente = version == "cambios"  # el original es la copia publicada: sin ediciones a mano ni puestos (no se guardan por versión)
     fijos, fijos_q = (ctx.bd.fijos(clave), ctx.bd.puestos_fijos(clave)) if vigente else (set(), {})
     usa = ctx.bd.usa_puestos() and vigente
+    orden = {}  # (colab, fecha) -> puestos reales en orden horario, sin repetir seguidos: una C partida lista los dos
+    for a in (ctx.bd.asignacion_puesto(clave) if usa else []):
+        seq = orden.setdefault((a.colab_id, a.fecha), [])
+        if a.puesto_id and (not seq or seq[-1] != a.puesto_id):
+            seq.append(a.puesto_id)
     return {"clave": clave, "version": version, "revision": revision, "usa_puestos": usa,
             "celdas": [dict(colab_id=c, fecha=f, turno=t, fijo=(c, f) in fijos, **({"puesto": cambios.puesto_de(ctx.bd, clave, c, f),
-                                                                                   "puesto_fijo": (c, f) in fijos_q} if usa else {}))
+                                                                                   "puesto_fijo": (c, f) in fijos_q, "puestos": [] if (c, f) in fijos_q else orden.get((c, f), [])} if usa else {}))
                        for (c, f), t in sorted(ctx.bd.asignaciones(clave, version).items())]}
 
 
