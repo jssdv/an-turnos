@@ -13,3 +13,4 @@ cambios.log
 respaldos/
 deploy/respaldo.recipients
 .DS_Store
+web/.demo/

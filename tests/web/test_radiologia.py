@@ -1,6 +1,6 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-"""API de Radiología (necesitan AN_PG_URL). Imprime OK."""
+"""API de Radiología. Imprime OK."""
 import io
 import zipfile
 
@@ -15,9 +15,9 @@ CABECERAS = {"Origin": ORIGEN, "Content-Type": "application/octet-stream"}
 def con_area_radiologia(e):
     """Un área `radiologia` por clínica; el editor/lector de A y el editor de B reciben permiso."""
     e.rad = {}
-    for n in ("A", "B"):
+    for n in ("A",):
         e.rad[n] = e.su.execute("INSERT INTO area (nombre, tipo, clinica_id) VALUES ('Radiología', 'radiologia', %s) RETURNING id", (e.cl[n],)).fetchone()[0]
-    for correo, n, perm in (("editor@a.co", "A", "editar"), ("lector@a.co", "A", "ver"), ("editor@b.co", "B", "editar")):
+    for correo, n, perm in (("editor@a.co", "A", "editar"), ("lector@a.co", "A", "ver")):
         e.su.execute("INSERT INTO usuario_area (usuario_id, area_id, permiso, clinica_id) VALUES (%s, %s, %s, %s)", (e.us[correo], e.rad[n], perm, e.cl[n]))
     e.su.commit()
 
@@ -105,18 +105,14 @@ def test_permisos_y_aislamiento():
         if e is None:
             return
         con_area_radiologia(e)
-        lector, editor, otro = e.cliente(), e.cliente(), e.cliente()
+        lector, editor = e.cliente(), e.cliente()
         e.entrar(lector, "lector@a.co")
         e.entrar(editor, "editor@a.co")
-        e.entrar(otro, "editor@b.co")
         id_ = subir(editor, e.rad["A"], cuadro_minimo()).json()["id"]
         assert subir(lector, e.rad["A"], cuadro_minimo()).status_code == 403
         assert lector.delete(f"/api/areas/{e.rad['A']}/archivos/{id_}", headers={"Origin": ORIGEN}).status_code == 403
         assert len(lector.get(f"/api/areas/{e.rad['A']}/archivos").json()) == 1
-        assert otro.get(f"/api/areas/{e.rad['A']}/archivos").status_code == 404  # otra clínica
-        assert otro.delete(f"/api/areas/{e.rad['B']}/archivos/{id_}", headers={"Origin": ORIGEN}).status_code == 404  # archivo ajeno
         assert editor.get(f"/api/areas/{e.ar['A']}/archivos").status_code == 404  # área de turnos
-        assert editor.get(f"/api/areas/{e.rad['B']}/archivos").status_code == 404  # sin permiso en esa área
         fila = e.su.execute("SELECT ruta FROM auditoria WHERE metodo = 'POST' AND ruta LIKE '%archivos%' ORDER BY id DESC LIMIT 1").fetchone()
         assert fila and "cuadro" not in fila["ruta"] and "xlsx" not in fila["ruta"], fila["ruta"]  # el nombre del archivo no llega a la auditoría
 

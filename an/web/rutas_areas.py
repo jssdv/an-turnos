@@ -17,7 +17,7 @@ MAX_DIAS_ANALITICAS = 3660
 @router.get("/areas")
 def areas(request: Request, u=Depends(usuario_actual)):
     from . import conexion
-    from an.turnos.pg import Conexion
+    from an.turnos.puente import Conexion
     with request.app.state.pool.connection() as conn:
         conexion.alcance(conn, u.clinica_id)
         c = Conexion(conn, confirmar=False)

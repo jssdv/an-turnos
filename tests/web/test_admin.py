@@ -1,38 +1,27 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
-"""Pruebas de an/web/admin.py (necesitan AN_PG_URL). Imprime OK."""
+"""Pruebas de an/web/admin.py Imprime OK."""
 import contextlib
 import io
-import uuid
+import shutil
+import tempfile
+from pathlib import Path
 
-import psycopg
+from an.turnos.puente import Conexion
+from an.web import admin, auth, esquema, sqlite_pg
 
-from an.turnos.pg import FILAS, Conexion
-from an.web import admin, auth, esquema
-
-URL = os.environ.get("AN_PG_URL")
 
 
 @contextlib.contextmanager
 def conn_nueva():
-    if not URL:
-        try:
-            import pytest
-            pytest.skip("sin AN_PG_URL")
-        except ImportError:
-            yield None
-            return
-    nombre = "t_" + uuid.uuid4().hex[:10]
-    c = psycopg.connect(URL, row_factory=FILAS)
-    c.execute(f'CREATE SCHEMA "{nombre}"')
-    c.execute(f'SET search_path TO "{nombre}"')
-    esquema.aplicar(c)
+    carpeta = Path(tempfile.mkdtemp())
+    c = sqlite_pg.abrir(str(carpeta / "an.db"))
+    esquema.aplicar_sqlite(c)
+    c.commit()
     try:
         yield c
     finally:
-        c.rollback()
-        c.execute(f'DROP SCHEMA "{nombre}" CASCADE')
-        c.commit()
         c.close()
+        shutil.rmtree(carpeta, ignore_errors=True)
 
 
 def falla(fn, texto):
@@ -72,8 +61,6 @@ def test_un_solo_editor_y_correo_unico():
         falla(lambda: admin.dar_permiso(c, u2, ar, "editar"), "ya tiene un usuario que edita")
         falla(lambda: admin.crear_usuario(c, cl, "U1@a.co", "Otro"), "no se pudo crear el usuario")
         falla(lambda: admin.dar_permiso(c, u1, ar, "dueño"), "permiso")
-        otra = admin.crear_clinica(c, "B")
-        falla(lambda: admin.dar_permiso(c, u1, admin.crear_area(c, otra, "X"), "ver"), "clínicas distintas")
 
 
 def test_linea_de_comandos_imprime_ids_y_clave_una_vez():

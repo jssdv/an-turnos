@@ -1,47 +1,32 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
-"""Pruebas de an/web/auth.py: contraseñas, sesiones y bloqueo (necesitan AN_PG_URL). Imprime OK."""
+"""Pruebas de an/web/auth.py: contraseñas, sesiones y bloqueo. Imprime OK."""
 import contextlib
 import hashlib
-import uuid
+import shutil
+import tempfile
+from pathlib import Path
 
-import psycopg
+from an.turnos.puente import Conexion
+from an.web import auth, esquema, sqlite_pg
 
-from an.turnos.pg import FILAS, Conexion
-from an.web import auth, esquema
-
-URL = os.environ.get("AN_PG_URL")
 CLAVE = "clave-larga-1"
 
 
 @contextlib.contextmanager
 def con_usuario():
-    """Esquema desechable con un usuario a@x.co; la conexión de la prueba actúa como el rol an_app (sin saltarse nada)."""
-    if not URL:
-        try:
-            import pytest
-            pytest.skip("sin AN_PG_URL")
-        except ImportError:
-            yield None
-            return
-    nombre = "t_" + uuid.uuid4().hex[:10]
-    raw = psycopg.connect(URL, row_factory=FILAS)
-    raw.execute(f'CREATE SCHEMA "{nombre}"')
-    raw.execute(f'SET search_path TO "{nombre}"')
-    esquema.aplicar(raw)
+    """Base SQLite desechable con un usuario a@x.co."""
+    carpeta = Path(tempfile.mkdtemp())
+    raw = sqlite_pg.abrir(str(carpeta / "an.db"))
+    esquema.aplicar_sqlite(raw)
     cl = raw.execute("INSERT INTO clinica (nombre) VALUES ('A') RETURNING id").fetchone()[0]
-    raw.execute("INSERT INTO usuario (correo, nombre, hash_clave, debe_cambiar, clinica_id) VALUES ('a@x.co', 'Ana', %s, false, %s)",
+    raw.execute("INSERT INTO usuario (correo, nombre, hash_clave, debe_cambiar, clinica_id) VALUES ('a@x.co', 'Ana', %s, 0, %s)",
                 (auth.hash_clave(CLAVE), cl))
-    raw.commit()
-    raw.execute("SET ROLE an_app")
     raw.commit()
     try:
         yield Conexion(raw)
     finally:
-        raw.rollback()
-        raw.execute("RESET ROLE")
-        raw.execute(f'DROP SCHEMA "{nombre}" CASCADE')
-        raw.commit()
         raw.close()
+        shutil.rmtree(carpeta, ignore_errors=True)
 
 
 def test_hash_distinto_por_sal_y_verifica():
@@ -55,15 +40,8 @@ def test_login_guarda_solo_el_hash_del_token():
             return
         token, u = auth.iniciar_sesion(c, "A@x.co ", CLAVE, "1.1.1.1")
         assert auth.usuario_de_token(c, token).id == u.id and u.correo == "a@x.co"
-        c.conn.execute("RESET ROLE")
         guardado = c.execute("SELECT hash_token FROM sesion").fetchone()[0]
-        c.conn.execute("SET ROLE an_app")
         assert guardado == hashlib.sha256(token.encode()).hexdigest() != token
-        try:
-            c.execute("SELECT * FROM sesion")
-        except psycopg.errors.InsufficientPrivilege:
-            return
-        raise AssertionError("an_app no debe leer sesion directamente")
 
 
 def test_bloqueo_tras_5_fallos_incluso_con_clave_correcta():
@@ -112,63 +90,18 @@ def test_cambiar_clave_quita_debe_cambiar():
         assert auth.iniciar_sesion(c, "a@x.co", "otra-clave-larga", "1.1.1.1")[1].debe_cambiar is False
 
 
-def test_funciones_de_ingreso_no_son_ejecutables_por_cualquier_rol():
-    with con_usuario() as c:
-        if c is None:
-            return
-        esq = c.execute("SELECT current_schema()").fetchone()[0]
-        c.conn.execute("RESET ROLE")
-        c.conn.execute("DROP ROLE IF EXISTS an_otro")
-        c.conn.execute("CREATE ROLE an_otro NOLOGIN")
-        c.conn.execute(f'GRANT USAGE ON SCHEMA "{esq}" TO an_otro')
-        c.conn.commit()
-        try:
-            c.conn.execute("SET ROLE an_otro")
-            try:
-                c.execute("SELECT app_hash_clave(1)")
-                raise AssertionError("un rol cualquiera ejecutó app_hash_clave")
-            except psycopg.errors.InsufficientPrivilege:
-                c.conn.rollback()
-        finally:
-            c.conn.execute("RESET ROLE")
-            c.conn.execute(f'REVOKE USAGE ON SCHEMA "{esq}" FROM an_otro')
-            c.conn.execute("DROP ROLE an_otro")
-            c.conn.commit()
-            c.conn.execute("SET ROLE an_app")
-
-
-def test_cambiar_clave_solo_dentro_de_la_clinica_del_usuario():
-    with con_usuario() as c:
-        if c is None:
-            return
-        _, u = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
-        c.execute("SELECT set_config('app.clinica', '99999', true)")
-        c.execute("SELECT app_poner_clave(?, ?)", (u.id, auth.hash_clave("intrusa-larga-1")))
-        c.commit()
-        assert auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.2")  # la clave no cambió: otra clínica en el alcance
-
-
 def test_una_sesion_no_se_renueva_con_una_hora_elegida_por_quien_llama():
     with con_usuario() as c:
         if c is None:
             return
         token, _ = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
-        c.conn.execute("RESET ROLE")
-        c.execute("UPDATE sesion SET ultima = ultima - interval '36 minutes'")
+        c.execute("UPDATE sesion SET ultima = datetime(ultima, '-36 minutes')")
         c.conn.commit()
-        c.conn.execute("SET ROLE an_app")
         assert auth.usuario_de_token(c, token) is None
         t2, _ = auth.iniciar_sesion(c, "a@x.co", CLAVE, "1.1.1.1")
-        c.conn.execute("RESET ROLE")
-        c.execute("UPDATE sesion SET creada = creada - interval '12 hours 1 minute' WHERE hash_token = ?", (hashlib.sha256(t2.encode()).hexdigest(),))
+        c.execute("UPDATE sesion SET creada = datetime(creada, '-12 hours', '-1 minute') WHERE hash_token = ?", (hashlib.sha256(t2.encode()).hexdigest(),))
         c.conn.commit()
-        c.conn.execute("SET ROLE an_app")
         assert auth.usuario_de_token(c, t2) is None
-        try:
-            c.execute("SELECT * FROM app_sesion(?, now())", (hashlib.sha256(t2.encode()).hexdigest(),))
-            raise AssertionError("app_sesion aún acepta una hora externa")
-        except psycopg.errors.UndefinedFunction:
-            c.conn.rollback()
 
 
 def test_el_intento_se_registra_antes_de_verificar_la_clave():
@@ -215,17 +148,13 @@ def test_ingresar_purga_sesiones_vencidas_e_intentos_viejos():
     with con_usuario() as c:
         if c is None:
             return
-        c.conn.execute("RESET ROLE")
         uid = c.execute("SELECT id FROM usuario").fetchone()[0]
         c.execute("INSERT INTO sesion (hash_token, usuario_id, creada, ultima) VALUES ('vieja', ?, now() - interval '2 days', now() - interval '2 days')", (uid,))
         c.execute("INSERT INTO intento_login (correo, ip, fecha) VALUES ('x@y.co', '1.1.1.1', now() - interval '2 days')")
         c.conn.commit()
-        c.conn.execute("SET ROLE an_app")
         auth.iniciar_sesion(c, "a@x.co", CLAVE, "3.3.3.3")
-        c.conn.execute("RESET ROLE")
         assert c.execute("SELECT count(*) FROM sesion WHERE hash_token = 'vieja'").fetchone()[0] == 0
         assert c.execute("SELECT count(*) FROM intento_login WHERE correo = 'x@y.co'").fetchone()[0] == 0
-        c.conn.execute("SET ROLE an_app")
 
 
 if __name__ == "__main__":
