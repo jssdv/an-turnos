@@ -12,3 +12,4 @@ cambios.log
 *.key
 respaldos/
 deploy/respaldo.recipients
+.DS_Store
