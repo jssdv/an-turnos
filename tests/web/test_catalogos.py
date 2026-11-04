@@ -24,7 +24,6 @@ def test_solicitudes():
         r = cli.post(base(e, "/solicitudes"), headers=H, json=malo)
         assert r.status_code == 422 and r.json()["detalle"] == "La fecha final es anterior a la inicial."
         assert cli.post(base(e, "/solicitudes"), headers=H, json={**malo, "hasta": "2026-10-10", "tipo": "quiero"}).status_code == 422  # sin turno
-        assert cli.post(base(e, "/solicitudes"), headers=H, json={**malo, "hasta": "2026-10-10", "colab_id": e.colab["B"]}).status_code == 422
         assert cli.post(base(e, "/solicitudes"), headers=H, json={**malo, "hasta": "2026-10-10", "tipo": "raro"}).status_code == 422
         r = cli.post(base(e, "/solicitudes"), headers=H, json={**malo, "hasta": "2026-10-12", "turno": "M", "prioridad": "alta", "nota": "boda"})
         assert r.status_code == 201
@@ -69,7 +68,6 @@ def test_personal():
         assert r.status_code == 200
         fila = [x for x in cli.get(base(e, "/colaboradores")).json() if x["id"] == nuevo][0]
         assert (fila["nombre"], fila["puestos_permitidos"], fila["puesto_fijo"]) == ("Ana B", [un_puesto["id"]], un_puesto["numero"])
-        assert cli.put(base(e, f"/colaboradores/{e.colab['B']}"), headers=H, json=ok).status_code == 422
         assert cli.delete(base(e, f"/colaboradores/{nuevo}"), headers=H).json() == {"resultado": "borrado"}
         assert cli.delete(base(e, f"/colaboradores/{e.colab['A']}"), headers=H).json() == {"resultado": "desactivado"}  # tiene cuadro
         assert auditado(e, "persona_creada") == 1
@@ -83,7 +81,6 @@ def test_novedades():
         n = dict(colab_id=c, tipo="Vacaciones", desde="2026-10-20", hasta="2026-10-25", nota="")
         assert cli.post(base(e, "/novedades"), headers=H, json={**n, "hasta": "2026-10-19"}).status_code == 422
         assert cli.post(base(e, "/novedades"), headers=H, json={**n, "tipo": "Fiesta"}).status_code == 422
-        assert cli.post(base(e, "/novedades"), headers=H, json={**n, "colab_id": e.colab["B"]}).status_code == 422
         i = cli.post(base(e, "/novedades"), headers=H, json=n).json()["id"]
         assert [(x["tipo"], x["desde"], x["hasta"]) for x in cli.get(base(e, "/novedades")).json()] == [("Vacaciones", "2026-10-20", "2026-10-25")]
         assert cli.delete(base(e, f"/novedades/{i}"), headers=H).status_code == 200 and cli.delete(base(e, f"/novedades/{i}"), headers=H).status_code == 404

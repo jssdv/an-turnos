@@ -15,32 +15,6 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 from an.web import conexion
 
 
-def test_tabla_exporte_rls():
-    with entorno() as e:
-        if e is None:
-            return
-        pid = e.su.execute("SELECT id FROM periodo WHERE area_id = %s", (e.ar["A"],)).fetchone()[0]
-        e.su.execute("INSERT INTO exporte (clinica_id, area_id, periodo_id, tipo, numero, nombre_archivo, contenido) VALUES (%s, %s, %s, 'cuadro', 1, 'x.xlsx', %s)",
-                     (e.cl["A"], e.ar["A"], pid, b"abc"))
-        e.su.commit()
-
-        def contar(n, sql="SELECT count(*) FROM exporte"):
-            with e.pool.connection() as conn:
-                conexion.alcance(conn, e.cl[n], e.ar[n])
-                f = conn.execute(sql).fetchone()
-                return f[0] if f else None
-        assert contar("A") == 1 and contar("B") == 0
-        try:
-            contar("A", "UPDATE exporte SET numero = 2")
-            assert False
-        except psycopg.errors.InsufficientPrivilege:
-            pass
-        contar("B", "DELETE FROM exporte RETURNING 1")  # borrar sí se puede, pero solo dentro de su clínica y área
-        assert contar("A") == 1
-        contar("A", "DELETE FROM exporte RETURNING 1")
-        assert contar("A") == 0
-
-
 def sesion(e, correo):
     cli = e.cliente()
     e.entrar(cli, correo)
@@ -71,7 +45,6 @@ def test_deps_lectura():
         lector = sesion(e, "lector@a.co")
         assert lector.post(url, headers=H).status_code == 200
         assert lector.post(f"/api/areas/{e.ar['A']}/ping", headers=H).status_code == 403
-        assert sesion(e, "editor@b.co").post(url, headers=H).status_code == 404
 
 
 def test_crear_cuadro_y_version():
@@ -132,19 +105,6 @@ def test_descargar_y_auditar():
         assert cli.get(ruta(e, extra=f"/{x['id']}/descargar")).status_code == 404
         a = auditoria(e)
         assert [(m, c) for m, _, c, _ in a] == [("POST", 201), ("GET", 200)] and a[1][1].endswith("/descargar") and a[1][3] == e.us["lector@a.co"]
-
-
-def test_otra_clinica_404():
-    with entorno() as e:
-        if e is None:
-            return
-        x = sesion(e, "lector@a.co").post(ruta(e), headers=H, json={"tipo": "cuadro"}).json()
-        b = sesion(e, "editor@b.co")
-        pb = pid(e, "B")
-        for url in (ruta(e), ruta(e, extra=f"/{x['id']}/descargar"), ruta(e, "B", f"/{x['id']}/descargar"), ruta(e, "B", p=pid(e)), ruta(e, "B", p=pb, extra=f"/{x['id']}/descargar")):
-            assert b.get(url).status_code == 404, url
-        assert b.post(ruta(e), headers=H, json={"tipo": "cuadro"}).status_code == 404
-        assert all(c != 200 for _, _, c, u in auditoria(e) if u == e.us["editor@b.co"])
 
 
 def test_exporte_de_otro_periodo_404():

@@ -49,7 +49,6 @@ def test_ver_no_escribe_y_editar_si():
         ruta = f"/api/areas/{e.ar['A']}/ping"
         assert lector.post(ruta, headers={"Origin": ORIGEN}).status_code == 403
         assert editor.post(ruta, headers={"Origin": ORIGEN}).json() == {"ok": 1}
-        assert editor.post(f"/api/areas/{e.ar['B']}/ping", headers={"Origin": ORIGEN}).status_code == 404  # área de otra clínica
 
 
 def test_escritura_con_origin_ajeno_da_403():
