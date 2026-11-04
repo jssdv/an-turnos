@@ -1,16 +1,15 @@
 """Administración por línea de comandos: clínicas, áreas, usuarios y permisos. Uso: python -m an.web.admin <comando> …
-Se conecta con AN_PG_URL como el rol dueño de las tablas (el que aplica las migraciones)."""
+Se conecta a la base SQLite de AN_BASE."""
 import argparse
 import os
 import secrets
 import sys
 
-import psycopg
 
 from an.turnos.db import BD
-from an.turnos.pg import FILAS, Conexion
+from an.turnos.puente import Conexion, UniqueViolation
 
-from . import auth, conexion
+from . import auth, conexion, sqlite_pg
 
 
 class ErrorAdmin(Exception):
@@ -25,12 +24,12 @@ def crear_area(conn, clinica_id, nombre, tipo="turnos"):
     """Crea el área; las de tipo `turnos` arrancan con los datos base del motor (turnos, puestos, tarifas, parámetros)."""
     try:
         area = conn.execute("INSERT INTO area (nombre, tipo, clinica_id) VALUES (%s, %s, %s) RETURNING id", (nombre, tipo, clinica_id)).fetchone()[0]
-    except psycopg.errors.UniqueViolation:
+    except UniqueViolation:
         conn.rollback()
         raise ErrorAdmin("esa clínica ya tiene un área con ese nombre")
     if tipo == "turnos":
         conexion.alcance(conn, clinica_id, area)
-        BD.postgres(Conexion(conn, confirmar=False)).sembrar()
+        BD.web(Conexion(conn, confirmar=False)).sembrar()
     conn.commit()
     return area
 
@@ -41,7 +40,7 @@ def crear_usuario(conn, clinica_id, correo, nombre, es_admin=False):
     try:
         uid = conn.execute("INSERT INTO usuario (correo, nombre, hash_clave, es_admin, clinica_id) VALUES (%s, %s, %s, %s, %s) RETURNING id",
                            (correo.strip().lower(), nombre, auth.hash_clave(clave), es_admin, clinica_id)).fetchone()[0]
-    except psycopg.errors.UniqueViolation:
+    except UniqueViolation:
         conn.rollback()
         raise ErrorAdmin("no se pudo crear el usuario con ese correo; usa otro")
     conn.commit()
@@ -60,7 +59,7 @@ def dar_permiso(conn, usuario_id, area_id, permiso):
     try:
         conn.execute("INSERT INTO usuario_area (usuario_id, area_id, permiso, clinica_id) VALUES (%s, %s, %s, %s) "
                      "ON CONFLICT (usuario_id, area_id) DO UPDATE SET permiso = excluded.permiso", (usuario_id, area_id, permiso, a[0]))
-    except psycopg.errors.UniqueViolation:
+    except UniqueViolation:
         conn.rollback()
         raise ErrorAdmin("esta área ya tiene un usuario que edita; cámbialo a «ver» antes")
     conn.commit()
@@ -114,7 +113,7 @@ def main(argv, conn=None):
     sub.add_parser("restablecer-clave").add_argument("usuario", type=int)
     a = p.parse_args(argv)
     propia = conn is None
-    conn = conn or psycopg.connect(os.environ["AN_PG_URL"], row_factory=FILAS)
+    conn = conn or sqlite_pg.abrir(os.environ["AN_BASE"])
     try:
         if a.cmd == "crear-clinica":
             print(crear_clinica(conn, a.nombre))

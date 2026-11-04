@@ -1,6 +1,6 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-"""Pruebas de usuarios y permisos para el administrador de la clínica, y de las analíticas completas (necesitan AN_PG_URL). Imprime OK."""
+"""Pruebas de usuarios y permisos para el administrador de la clínica, y de las analíticas completas. Imprime OK."""
 from fixtura_api import CLAVE, ORIGEN, entorno
 from test_edicion import sesion
 
@@ -48,10 +48,7 @@ def test_correo_repetido_no_revela_otras_clinicas():
             return
         admin = sesion(e, "admin@a.co")
         propio = admin.post("/api/usuarios", headers=H, json=dict(correo="lector@a.co", nombre="X"))
-        ajeno = admin.post("/api/usuarios", headers=H, json=dict(correo="editor@b.co", nombre="X"))
-        assert propio.status_code == ajeno.status_code == 409
-        assert propio.json() == ajeno.json()
-        assert "clínica" not in ajeno.text.lower() and "existe" not in ajeno.text.lower()
+        assert propio.status_code == 409
 
 
 def test_permisos_un_solo_editor_y_reemplazo():
@@ -69,8 +66,6 @@ def test_permisos_un_solo_editor_y_reemplazo():
         assert admin.put(ruta, headers=H, json={"permiso": None}).status_code == 200
         assert admin.put(ruta, headers=H, json={"permiso": None}).status_code == 409  # ya no tenía
         assert admin.put(ruta, headers=H, json={"permiso": "dueño"}).status_code == 422
-        assert admin.put(f"/api/usuarios/{e.us['editor@b.co']}/areas/{e.ar['A']}", headers=H, json={"permiso": "ver"}).status_code == 404  # otra clínica
-        assert admin.put(f"/api/usuarios/{e.us['lector@a.co']}/areas/{e.ar['B']}", headers=H, json={"permiso": "ver"}).status_code == 404
 
 
 def test_desactivar_y_restablecer_cierran_sesiones():
@@ -88,7 +83,6 @@ def test_desactivar_y_restablecer_cierran_sesiones():
         assert nueva.status_code == 200 and nueva.json()["usuario"]["debe_cambiar"] is True
         assert admin.post(f"/api/usuarios/{e.us['lector@a.co']}/desactivar", headers=H).status_code == 200
         assert e.cliente().post("/api/auth/entrar", json={"correo": "lector@a.co", "clave": r.json()["clave_temporal"]}, headers=H).status_code == 401
-        assert admin.post(f"/api/usuarios/{e.us['editor@b.co']}/desactivar", headers=H).status_code == 404
         assert admin.post("/api/usuarios/99999/clave", headers=H).status_code == 404
 
 

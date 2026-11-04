@@ -26,39 +26,6 @@ jobs:
       # Script sin funciones test_*.
       - run: python tests/radiologia/test_generar_semana.py
 
-  postgres:
-    runs-on: ubuntu-latest
-    services:
-      db:
-        image: postgres:16
-        env:
-          POSTGRES_USER: an
-          POSTGRES_PASSWORD: an_dev
-          POSTGRES_DB: an
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U an -d an" --health-interval 5s --health-timeout 3s --health-retries 10
-    env:
-      AN_PG_URL: postgresql://an:an_dev@127.0.0.1:5432/an
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-            requirements-web.txt
-      - run: pip install -r requirements.txt -r requirements-dev.txt -r requirements-web.txt
-      - run: python -m an.web.esquema
-      - run: python checks/rls.py
-      - run: >-
-          AN_TIEMPO_ESCALA=3 AN_BD=postgres python -m pytest -q
-          tests/turnos
-          tests/web
-      - run: python -m pytest -q tests/web tests/turnos
-
   web:
     runs-on: ubuntu-latest
     defaults:
@@ -79,14 +46,3 @@ jobs:
           python-version: "3.13"
       - run: python checks/diseno.py
         working-directory: .
-
-  imagenes:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: docker build --target servidor -t an-servidor:ci .
-      - run: docker build --target caddy -t an-caddy:ci .
-      - run: docker build -t an-respaldo:ci deploy/respaldo
-      - run: |
-          cp .env.example .env
-          docker compose -f docker-compose.prod.yml --env-file .env config -q

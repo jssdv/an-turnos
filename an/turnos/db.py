@@ -2,7 +2,6 @@
 import json
 import os
 import sqlite3
-import weakref
 from datetime import date, datetime, timezone
 
 from .demanda import cobertura_derivada, franjas_de
@@ -68,19 +67,10 @@ def _dt(s):
 
 class BD:
     dialecto = "sqlite"
-    _limpiar = None
 
     def __init__(self, ruta=":memory:"):
-        """SQLite (archivo o memoria). Con AN_BD=postgres, `BD()` en memoria crea un esquema temporal en PostgreSQL (pruebas)."""
+        """SQLite (archivo o memoria)."""
         self.ruta = ruta
-        if ruta == ":memory:" and os.environ.get("AN_BD") == "postgres":
-            from an.web.pruebas import esquema_temporal
-            self.dialecto = "postgres"
-            self.ruta = None
-            self.c, self._limpiar = esquema_temporal()
-            weakref.finalize(self, self._limpiar)  # sin esto cada BD() de prueba retiene su conexión hasta salir del proceso (CI: too many clients)
-            self.sembrar()
-            return
         self.c = sqlite3.connect(ruta)
         self.c.row_factory = sqlite3.Row
         if self.c.execute("PRAGMA user_version").fetchone()[0] == 0:
@@ -111,7 +101,7 @@ class BD:
 
     def _pk(self, tabla):
         """Columnas de la clave de conflicto de `tabla` (en PostgreSQL llevan además el área)."""
-        return ("area_id, " if self.dialecto == "postgres" else "") + self.CLAVES[tabla]
+        return ("area_id, " if self.dialecto == "web" else "") + self.CLAVES[tabla]
 
     def _upsert(self, tabla):
         """Cola `ON CONFLICT (clave) DO UPDATE SET …` que reemplaza las columnas no clave."""
@@ -123,10 +113,10 @@ class BD:
         return self.c.execute(sql + " RETURNING id", params).fetchone()[0]
 
     @classmethod
-    def postgres(cls, conexion):
-        """BD sobre una conexión PostgreSQL ya abierta y con alcance (app.clinica/app.area); no siembra nada."""
+    def web(cls, conexion):
+        """BD sobre una conexión de la capa web (`puente.Conexion`) ya abierta; no siembra nada."""
         bd = cls.__new__(cls)
-        bd.dialecto, bd.ruta, bd.c = "postgres", None, conexion
+        bd.dialecto, bd.ruta, bd.c = "web", None, conexion
         return bd
 
     def sembrar(self):
@@ -141,13 +131,11 @@ class BD:
             self.set_param(k, v)
         self.c.commit()
 
-    def es_postgres(self):
-        return self.dialecto == "postgres"
+    def es_web(self):
+        return self.dialecto == "web"
 
     def cerrar(self):
-        if self._limpiar:
-            self._limpiar()
-        elif self.dialecto == "sqlite":
+        if self.dialecto == "sqlite":
             self.c.close()
 
     def _migrar_a_8(self):

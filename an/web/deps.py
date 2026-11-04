@@ -2,7 +2,7 @@
 from fastapi import HTTPException, Request
 
 from an.turnos.db import BD
-from an.turnos.pg import Conexion
+from an.turnos.puente import Conexion
 
 from . import auth, conexion
 
@@ -59,7 +59,7 @@ def _contexto(area, request, exige_editar):
         if exige_editar and request.method in ESCRITURA and permiso != "editar":
             raise HTTPException(403, "Solo lectura en esta área")
         conexion.alcance(conn, u.clinica_id, area)
-        yield Contexto(BD.postgres(c), u, permiso, c)
+        yield Contexto(BD.web(c), u, permiso, c)
 
 
 def contexto_area(area: int, request: Request):

@@ -31,7 +31,7 @@ def nuevo(ruta=":memory:"):
 
 def test_esquema_v6():
     bd = db.BD()
-    if bd.es_postgres():  # PRAGMA es de SQLite; el esquema de PostgreSQL lo cubre tests/web/test_esquema.py
+    if bd.es_web():  # PRAGMA es de SQLite; el esquema de PostgreSQL lo cubre tests/web/test_esquema.py
         return
     assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
     cols = [r["name"] for r in bd.c.execute("PRAGMA table_info(cambio_turno)")]
@@ -62,7 +62,7 @@ def test_permuta_intercambia_registra_y_gasta_cupo():
     assert cambios.cupo(bd, K, 1) == (1, 2) and cambios.cupo(bd, K, 2) == (1, 2)
     fila = cambios.listar(bd, K)[0]
     assert fila["id"] == i and fila["tipo"] == "permuta" and fila["usuario"] == u and fila["motivo"] == "pedido"
-    assert bd.es_postgres() or fila["servicio"] == "esterilizacion"  # en PostgreSQL el servicio lo da area_id
+    assert bd.es_web() or fila["servicio"] == "esterilizacion"  # en PostgreSQL el servicio lo da area_id
     assert fila["celdas"] == [(1, d1, "M", "T", 0, 0), (2, d1, "T", "M", 0, 0)]
 
 

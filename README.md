@@ -8,10 +8,10 @@ Un núcleo común y un área por servicio: **Radiología** (cuadro mensual → p
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/Interfaz-React%2019-61DAFB?logo=react&logoColor=black)
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/Datos-PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![SQLite](https://img.shields.io/badge/Datos-SQLite-003B57?logo=sqlite&logoColor=white)
 ![OR-Tools](https://img.shields.io/badge/Solver-OR--Tools%20CP--SAT-4285F4?logo=google&logoColor=white)
 
-[Radiología](docs/RADIOLOGIA.md) · [Visión](docs/VISION.md) · [Reglas](docs/REGLAS.md) · [Arquitectura](docs/ARQUITECTURA.md) · [Plan web](docs/PLAN_WEB.md) · [Operación](docs/operacion.md)
+[Radiología](docs/RADIOLOGIA.md) · [Visión](docs/VISION.md) · [Reglas](docs/REGLAS.md) · [Arquitectura](docs/ARQUITECTURA.md) · [Plan web](docs/PLAN_WEB.md)
 
 <br>
 
@@ -30,7 +30,7 @@ Cada clínica tiene sus áreas; cada usuario ve las áreas en las que tiene perm
 | Área | Qué hace | Datos | Documentación |
 |---|---|---|---|
 | **Radiología** | Lee el cuadro mensual de radiólogos (Excel, hoja `Cambios …`) y genera el libro semanal `SEMANA dd AL dd DE MES.xlsx`: resumen, vista previa, alertas de descanso, equidad, agendas `.ics` y comparación entre versiones. También por línea de comandos. | Los Excel del coordinador | [RADIOLOGIA.md](docs/RADIOLOGIA.md), [PROYECTO.md](docs/PROYECTO.md) |
-| **Turnos** | Genera el cuadro mensual con OR-Tools, reparte puestos por tramo, calcula horas (art. 165 CST) y recargos, lleva banco de horas y exporta a Excel. | PostgreSQL | [Reglas](docs/REGLAS.md), [Arquitectura](docs/ARQUITECTURA.md) |
+| **Turnos** | Genera el cuadro mensual con OR-Tools, reparte puestos por tramo, calcula horas (art. 165 CST) y recargos, lleva banco de horas y exporta a Excel. | SQLite | [Reglas](docs/REGLAS.md), [Arquitectura](docs/ARQUITECTURA.md) |
 
 Pensada para coordinadoras no técnicas: solo hace falta un navegador.
 
@@ -94,10 +94,10 @@ git clone https://github.com/jssdv/an-turnos.git
 cd an-turnos
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt -r requirements-web.txt
-web/demo.sh            # Postgres, API, trabajador y front con datos de demo: http://localhost:5173
+web/demo.sh            # API, trabajador y front con datos de demo (SQLite): http://localhost:5173
 ```
 
-Usuarios de la demo: `editor@demo.co`, `lector@demo.co`, `admin@demo.co`, `nuevo@demo.co` (clave `clave-larga-1`). Producción: [docs/operacion.md](docs/operacion.md).
+Usuarios de la demo: `editor@demo.co`, `lector@demo.co`, `admin@demo.co`, `nuevo@demo.co` (clave `clave-larga-1`).
 
 **Radiología por línea de comandos** (la fecha es un lunes)
 

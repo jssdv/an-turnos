@@ -1,14 +1,13 @@
 """Rutas de la cola del solver: encolar la generación de un periodo, consultar un trabajo y cancelarlo. El cálculo lo hace an/web/trabajador.py."""
+import json
 from datetime import date
 from typing import Literal
 
-import psycopg
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
 from an.turnos import flujo
-from an.turnos.pg import Conexion
+from an.turnos.puente import Conexion, UniqueViolation
 
 from . import conexion
 from .deps import Contexto, contexto_area, leer_revision, usuario_actual
@@ -46,8 +45,8 @@ def generar(id: int, datos: Pedido = Pedido(), if_match: str | None = Header(Non
     try:
         return {"id": ctx.conn.execute(
             "INSERT INTO trabajo (periodo_id, tipo, params, revision_base, creado_por) VALUES (?, 'generar', ?, ?, ?) RETURNING id",
-            (id, Jsonb(params), revision, ctx.usuario.id)).fetchone()[0]}
-    except psycopg.errors.UniqueViolation:  # otra petición de la clínica se coló entre la comprobación y el INSERT
+            (id, json.dumps(params), revision, ctx.usuario.id)).fetchone()[0]}
+    except UniqueViolation:  # otra petición de la clínica se coló entre la comprobación y el INSERT
         raise HTTPException(409, YA_HAY)
 
 

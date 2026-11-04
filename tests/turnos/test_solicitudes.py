@@ -13,7 +13,7 @@ F = [date(2026, 10, 5) + timedelta(days=i) for i in range(14)]  # lunes 5 a domi
 
 def test_esquema_v7():
     bd = db.BD()
-    if bd.es_postgres():  # PRAGMA es de SQLite
+    if bd.es_web():  # PRAGMA es de SQLite
         return
     assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
     cols = [r["name"] for r in bd.c.execute("PRAGMA table_info(solicitud)")]
