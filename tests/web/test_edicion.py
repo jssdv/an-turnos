@@ -341,6 +341,22 @@ def test_borrar_periodo_solo_abierto_con_revision():
             assert e.su.execute(f"SELECT count(*) FROM {tabla} WHERE {columna} = %s AND area_id = %s", (valor, e.ar["A"])).fetchone()[0] == 0, tabla  # sql-ok: tabla y columna constantes
 
 
+def test_reasignar_puestos_no_toca_los_turnos():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, c = sesion(e, "editor@a.co"), e.colab["A"]
+        ruta = url(e, "/reasignar-puestos")
+        turnos = lambda: [(x["colab_id"], x["fecha"], x["turno"]) for x in cli.get(url(e, "/cuadro")).json()["celdas"]]
+        antes = turnos()
+        assert cli.post(ruta, headers={**H, "If-Match": "5"}, json={}).status_code == 409
+        assert sesion(e, "lector@a.co").post(ruta, headers={**H, "If-Match": "0"}, json={}).status_code == 403
+        assert cli.post(ruta, headers={**H, "If-Match": "0"}, json={"desde": "2026-11-30"}).status_code == 422
+        assert cli.post(ruta, headers={**H, "If-Match": "0"}, json={"desde": "2026-10-06"}).json() == {"revision": 1}
+        assert cli.post(ruta, headers={**H, "If-Match": "1"}, json={}).json() == {"revision": 2}
+        assert turnos() == antes  # los puestos pueden cambiar; los turnos no
+
+
 if __name__ == "__main__":
     import inspect
     for n, f in list(globals().items()):
