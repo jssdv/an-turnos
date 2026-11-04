@@ -34,6 +34,7 @@ def leyenda(puestos):
 
 # --- reparto por tramos horarios ----------------------------------------------------------------------------------------
 W_FALTA_P, W_DES_P, W_CAMBIO_P, W_PRIORIDAD_P = 1000, 10, 60, 500  # por persona y tramo; cambiar de puesto dentro del turno; rotación abajo
+W_PARTIR_P = 30  # premio por corrido partido (un puesto en M y otro en T) con partir_corridos
 
 
 def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
@@ -106,7 +107,17 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None):
                 continue
             for c in set(a[2]) & set(b[2]):
                 if ctx.partir_corridos and (t := ctx.turnos.get(cuadro.get((c, d)))) is not None and dem.es_corrido(t):
-                    continue  # corrido partido: M en un puesto y T en otro no cuesta
+                    for q in {k[2] for k in y if k[0] == bi and k[1] == c}:  # corrido partido: M en un puesto y T en otro se premia
+                        for q2 in nec_b[bi + 1]:
+                            if q2 == q or (bi + 1, c, q2) not in y:
+                                continue
+                            parte = m.NewBoolVar("")  # solo premia si ningún puesto de los dos queda con gente de más
+                            m.Add(parte <= y[bi, c, q])
+                            m.Add(parte <= y[bi + 1, c, q2])
+                            for b, p in ((bi, q), (bi + 1, q2)):
+                                m.Add(sum(y[b, c2, p] for c2 in bloques[b][2] if (b, c2, p) in y) <= sum(nec_b[b][p])).OnlyEnforceIf(parte)
+                            obj.append(-W_PARTIR_P * parte)
+                    continue
                 for q in {k[2] for k in y if k[0] == bi and k[1] == c}:
                     sale = m.NewBoolVar("")
                     m.Add(sale >= y[bi, c, q] - (y[bi + 1, c, q] if (bi + 1, c, q) in y else 0))
