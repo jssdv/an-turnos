@@ -94,7 +94,7 @@ def recalcular(bd, inicio, fin, ctx=None, desde=None, semilla=0):
     k, dias = clave(inicio, fin), fechas(inicio, fin)
     ctx = ctx or bd.contexto(inicio.year)
     cuadro = bd.asignaciones(k)
-    filas = puestos.asignar_tramos(ctx, cuadro, dias, fijos=bd.puestos_fijos(k), semilla=semilla)  # todo el periodo: la demanda de `desde` necesita el día anterior
+    filas = puestos.asignar_tramos(ctx, cuadro, dias, fijos=bd.puestos_fijos(k), semilla=semilla, fijos_mitad=bd.puestos_fijos_mitad(k))  # todo el periodo: la demanda de `desde` necesita el día anterior
     if desde:  # los días anteriores a `desde` conservan su reparto guardado
         filas = [f for f in bd.asignacion_puesto(k) if f.fecha < desde] + [f for f in filas if f.fecha >= desde]
     bd.guardar_asignacion_puesto(k, filas)

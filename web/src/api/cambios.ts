@@ -30,6 +30,8 @@ export interface Borrador {
   turno: string;
   /** Puesto a fijar en las celdas: "" = sin cambio, "0" = soltarlo, id = fijarlo. */
   puesto?: string;
+  /** Puesto de la tarde en un corrido (C): con él, `puesto` es el de la mañana. Sin tocar = no se fijan por mitad. */
+  puestoTarde?: string;
   tipo: "permuta" | "servicio" | "ajuste";
   motivo: string;
   excepcion: boolean;

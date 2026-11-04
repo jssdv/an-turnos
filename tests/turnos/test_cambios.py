@@ -1,3 +1,4 @@
+import json
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 """Pruebas del registro de cambios de turno (permutas, cambios de servicio, ajustes). Imprime OK."""
 import tempfile
@@ -33,7 +34,7 @@ def test_esquema_v6():
     bd = db.BD()
     if bd.es_web():  # PRAGMA es de SQLite; el esquema de PostgreSQL lo cubre tests/web/test_esquema.py
         return
-    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
+    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 9
     cols = [r["name"] for r in bd.c.execute("PRAGMA table_info(cambio_turno)")]
     assert cols == ["id", "periodo", "servicio", "tipo", "registrado_en", "usuario", "colab_a", "colab_b",
                     "celdas", "motivo", "excepcion", "anulado_en", "anulado_por"]
@@ -48,7 +49,7 @@ def test_migra_v5_a_v6():
     bd.c.commit()
     bd.c.close()
     bd = db.BD(ruta)
-    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 8
+    assert bd.c.execute("PRAGMA user_version").fetchone()[0] == 9
     assert bd.asignaciones("2026-10-01/2026-10-31") == {(1, date(2026, 10, 5)): "M"}
     assert bd.c.execute("SELECT count(*) FROM cambio_turno").fetchone()[0] == 0
     assert bd.ruta == ruta
@@ -192,8 +193,40 @@ def test_ajuste_solo_puesto_y_editado_despues():
     assert cambios.anular(bd, i, u) and bd.puestos_fijos(K) == {}
 
 
+def test_fijo_por_mitad_se_audita_y_se_anula():
+    bd = nuevo()
+    [i] = cambios.ajuste(bd, K, [(1, d1, "C", (2, 3))], "", u)  # mañana en 2, tarde en 3
+    assert bd.puestos_fijos_mitad(K) == {(1, d1): (2, 3)} and bd.puestos_fijos(K) == {}
+    assert cambios.listar(bd, K)[0]["celdas"][0][4:] == (0, (2, 3))
+    [j] = cambios.ajuste(bd, K, [(1, d1, "C", 4)], "", u)  # un puesto para todo el día reemplaza las mitades
+    assert bd.puestos_fijos_mitad(K) == {} and bd.puestos_fijos(K) == {(1, d1): 4}
+    assert cambios.anular(bd, j, u) is True and bd.puestos_fijos_mitad(K) == {(1, d1): (2, 3)}
+    bd.fijar_mitades(K, 1, d1, 2, 5)  # editada después: anular se niega
+    with raises(EditadoDespues):
+        cambios.anular(bd, i, u)
+    bd.fijar_mitades(K, 1, d1, 2, 3)
+    assert cambios.anular(bd, i, u) is True and bd.puestos_fijos_mitad(K) == {} and bd.puestos_fijos(K) == {}
+
+
+def test_fila_vieja_de_seis_campos_sigue_leyendose():
+    bd = nuevo()
+    bd.c.execute("INSERT INTO cambio_turno (periodo, tipo, registrado_en, usuario, celdas, motivo, excepcion) VALUES (?,?,?,?,?,?,0)",
+                 (K, "ajuste", "2026-01-01T00:00:00", u, json.dumps([[1, d1.isoformat(), "L", "M", 0, 2]]), ""))
+    assert cambios.listar(bd, K)[0]["celdas"] == [(1, d1, "L", "M", 0, 2)]
+
+
+def test_permuta_lleva_las_dos_mitades_de_una_c_partida():
+    from an.turnos.dominio import AsignacionPuesto
+    bd = nuevo()
+    bd.guardar_asignacion_puesto(K, [AsignacionPuesto(d1, 2, 2, 360, 720, 1), AsignacionPuesto(d1, 2, 3, 720, 1080, 1)])
+    [i] = cambios.permuta(bd, K, 1, d1, 2, d1, "", u)
+    assert bd.puestos_fijos_mitad(K)[(1, d1)] == (2, 3)  # quien recibe la C se lleva mañana y tarde
+    assert cambios.anular(bd, i, u) is True and bd.puestos_fijos_mitad(K) == {}
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_"):
             fn()
     print("OK")
+

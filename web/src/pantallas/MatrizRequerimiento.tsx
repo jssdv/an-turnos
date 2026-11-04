@@ -34,7 +34,7 @@ export function MatrizRequerimiento({ ruta, titulo, editar, turnos, conDeseable 
     const cuerpo = lista.flatMap((f) => DIAS.map((_, dia) => ({ dia, inicio: f.inicio, fin: f.fin, personas: n[clave(dia, f.inicio, f.fin)] ?? 0, obligatorio: !deseable }))).filter((x) => x.personas > 0);
     await enviar("PUT", ruta, cuerpo);
     req.recargar();
-    return "Requerimiento guardado. Regenera el cuadro para que lo tome en cuenta.";
+    return "Guardado. Genera de nuevo el cuadro para aplicarlo.";
   });
   return (
     <Seccion titulo={titulo}>

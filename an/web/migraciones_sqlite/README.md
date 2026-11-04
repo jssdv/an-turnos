@@ -1,6 +1,6 @@
 # Migraciones SQLite (entregable)
 
-- La base de esta carpeta es `../esquema_sqlite.sql`, que equivale a la versión 12.
+- La base de esta carpeta es `../esquema_sqlite.sql`, que equivale a la versión 12; la 013 agrega `puesto_fijo_mitad`.
 - Cada migración es `NNN_nombre.sql` con NNN = 013, 014… en orden. Se aplica una sola vez.
 - El archivo es SQL de SQLite, sin `BEGIN`/`COMMIT`: el código lo envuelve en una transacción y
   agrega `PRAGMA user_version = NNN`. Si una sentencia falla, no queda nada a medias.

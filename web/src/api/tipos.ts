@@ -128,7 +128,7 @@ export interface PedidoGenerar {
 export type TipoCambio = "permuta" | "servicio" | "ajuste";
 export interface CuerpoCambio {
   tipo: TipoCambio;
-  celdas: { colab_id: number; fecha: string; turno: string; puesto?: number | null }[];
+  celdas: { colab_id: number; fecha: string; turno: string; puesto?: number | null; puesto_tarde?: number | null }[];
   motivo: string;
   excepcion: boolean;
 }
@@ -149,7 +149,7 @@ export interface CambioRegistrado {
   excepcion: boolean;
   anulado_en: string | null;
   anulado_por: string | null;
-  celdas: { colab_id: number; fecha: string; antes: string; despues: string; puesto_antes?: number; puesto_despues?: number }[];
+  celdas: { colab_id: number; fecha: string; antes: string; despues: string; puesto_antes?: number | number[]; puesto_despues?: number | number[] }[];
 }
 export interface Cupo {
   colab_id: number;
