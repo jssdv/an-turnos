@@ -73,7 +73,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
       {!periodo ? null : cerrado ? <Button color="secondary" size="sm" onPress={() => abrir("reabrir")}>Reabrir</Button> : (
         <>
           <Button color="secondary" size="sm" onPress={() => abrir("reasignar")}>Reasignar puestos</Button>
-          <Button color="secondary" size="sm" onPress={() => abrir("publicar")}>Publicar</Button>
+          <Button color="secondary" size="sm" onPress={() => abrir("publicar")} data-accion="publicar">Publicar</Button>
           <Button color="secondary" size="sm" onPress={() => abrir("cerrar")}>Cerrar periodo</Button>
         </>
       )}

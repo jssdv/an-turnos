@@ -26,11 +26,14 @@ Foto a 04/11/2026 (`main` en `271170d`, PR 37). Para el detalle de cada pieza: [
 - **Verificado con la BD real (04/11):** Reasignar en 30 nov–27 dic y 2–29 nov: 0 tramos con exceso o falta, en puestos y en turnos.
 - **Puesto por mitad en una C partida:** el diálogo de doble clic muestra «Puesto de la mañana» y «Puesto de la tarde» (preseleccionados con los actuales; al cambiar uno se fijan los dos, «Automático» suelta una mitad). Tabla nueva `puesto_fijo_mitad` (migración web 013, núcleo v9), excluyente con `puesto_fijo` de la misma celda; `asignar_tramos(..., fijos_mitad=)` lo impone por bloque; `cambio_turno.celdas` guarda el fijo como id o `[mañana, tarde]` (las filas viejas se leen igual) y anular compara y restaura por mitad. La permuta con C partida lleva las dos mitades. API: `CeldaIn.puesto_tarde` (solo en turnos corridos, 422 si no).
 - **Interfaz del cuadro:** acciones del periodo en su propia fila (Generar primero, luego Reasignar, Publicar, Cerrar, Nuevo; Restaurar y Eliminar en rojo); confirmaciones con el verbo en el botón y una frase; ayuda en viñetas con «doble clic»; textos de diálogo, guardado y parámetros acortados.
+- **Pulido de interfaz (04/11):** los pasos 1-2-3 del cuadro llevan botón (Generar, Ver alertas, Publicar); el foco de celda es un borde punteado distinto de la selección; con puntero táctil las celdas miden 44 px y la columna de nombres se angosta en móvil; el resultado de un cambio se anuncia (`role="status"`) y lista las alertas nuevas; leyenda con muestras reales y «Domingo o festivo»; Parámetros agrupado en Horas, Descansos, Corridos y Permutas/banco; tarifas con nombres legibles. Reglas tomadas de las skills de Appllama (toque ≥ 44 px, una etiqueta por intención) sin instalarlas: son para apps nativas y `npx skills` ejecuta código de terceros.
 
 ## Límites conocidos
 
 - Sobrecobertura en el cuadro de turnos (no en puestos): `W_SOBRA` del solver es bajo frente al peso de las horas contratadas. Subirlo exige medir con datos reales.
 - Partir corridos es un castigo (`W_PARTIR_P` = 150), no una obligación; quien queda en apoyo todo el día ve una sola fila.
+- Fijar puesto por mitad con varias celdas seleccionadas aplica lo mismo a todas, sin mirar cada una.
+- Sin verificar con lector de pantalla real ni en un teléfono físico; solo con el panel del navegador.
 - `cambios.puesto_de` relee el reparto por cada celda; el cuadro ya no lo necesita para la lista de puestos, pero sigue usándolo para el principal.
 - Reasignar con `desde`: los días anteriores se conservan, pero el historial de rotación se recalcula sobre el cuadro actual.
 
