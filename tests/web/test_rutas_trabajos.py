@@ -30,7 +30,7 @@ def test_generar_encola_y_responde_202():
         g = cli.get(f"/api/trabajos/{tid}")
         assert g.status_code == 200 and g.json()["estado"] == "en_cola" and g.json()["tipo"] == "generar"
         f = e.su.execute("SELECT params, revision_base, creado_por FROM trabajo WHERE id = %s", (tid,)).fetchone()
-        assert f["params"] == {"modo": "cero", "lunes": None, "tiempo": 20, "semilla": 0}
+        assert f["params"] == {"modo": "cero", "lunes": None, "desde": None, "tiempo": 20, "semilla": 0}
         assert f["revision_base"] == 0 and f["creado_por"] == e.us["editor@a.co"]
 
 
