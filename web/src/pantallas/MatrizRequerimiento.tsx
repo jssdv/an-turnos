@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { aHHMM, enviar, usar } from "../api/catalogos";
 import type { Requerimiento, Turno } from "../api/tipos";
 import { Fila, useAccion, Seccion } from "./comun";
@@ -8,6 +8,22 @@ import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { Alert } from "@/components/application/alerts/alert";
 
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom", "Festivo"];
+const DIA_LARGO = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo", "festivo"];
+
+/** Celda con texto informativo al pasar el mouse o al enfocar su campo. Posición fija: el scroll de la tabla no lo recorta. */
+function CeldaConPista({ texto, children }: { texto: string; children: (id: string | undefined) => ReactNode }) {
+  const ref = useRef<HTMLTableCellElement>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const id = useId();
+  const mostrar = () => { const r = ref.current!.getBoundingClientRect(); setPos({ x: r.left + r.width / 2, y: r.bottom + 4 }); };
+  return (
+    <td ref={ref} className="p-1" onPointerEnter={mostrar} onPointerLeave={() => setPos(null)} onFocusCapture={mostrar} onBlurCapture={() => setPos(null)}>
+      {children(pos ? id : undefined)}
+      {pos && <span id={id} role="tooltip" style={{ left: pos.x, top: pos.y }} className="pointer-events-none fixed z-50 w-60 -translate-x-1/2 rounded-lg bg-primary-solid px-3 py-2 text-xs font-medium text-white shadow-lg">{texto}</span>}
+    </td>
+  );
+}
+
 const clave = (dia: number, inicio: number, fin: number) => `${dia}|${inicio}|${fin}`;
 
 /** Personas pedidas por horario de turno y día de la semana: del área (sin puestos) o de un puesto (`deseable` = casilla del puesto).
@@ -46,8 +62,12 @@ export function MatrizRequerimiento({ ruta, titulo, editar, turnos, conDeseable 
           const nombre = f.codigos.length ? f.codigos.join(" / ") : "Sin turno";
           return (
             <tr key={`${f.inicio}|${f.fin}`}><th className="sticky left-0 z-10 bg-primary p-1 pr-2 text-left font-medium whitespace-nowrap">{nombre}<span className="block text-xs font-normal text-tertiary">{aHHMM(f.inicio)} – {aHHMM(f.fin)}</span></th>
-              {DIAS.map((d, dia) => <td key={d} className="p-1"><Input aria-label={`${nombre} ${aHHMM(f.inicio)} ${d}`} type="number" size="sm" className="w-20" isDisabled={!editar} value={String(n[clave(dia, f.inicio, f.fin)] ?? 0)}
-                onChange={(x) => setN({ ...n, [clave(dia, f.inicio, f.fin)]: Math.max(0, Number(x)) })} /></td>)}
+              {DIAS.map((d, dia) => (
+                <CeldaConPista key={d} texto={`Personas que hacen falta en ${nombre} (${aHHMM(f.inicio)}–${aHHMM(f.fin)}) el ${DIA_LARGO[dia]}${conDeseable ? " en este puesto" : ""}. ${editar ? "Escribe 0 si no hace falta nadie." : ""}`}>
+                  {(pista) => <Input aria-label={`${nombre} ${aHHMM(f.inicio)} ${d}`} aria-describedby={pista} type="number" size="sm" className="w-20" isDisabled={!editar} value={String(n[clave(dia, f.inicio, f.fin)] ?? 0)}
+                    onChange={(x) => setN({ ...n, [clave(dia, f.inicio, f.fin)]: Math.max(0, Number(x)) })} />}
+                </CeldaConPista>
+              ))}
             </tr>);
         })}</tbody></table></div>
       {lista.length === 0 && <p>Primero define los turnos del área.</p>}

@@ -5,9 +5,10 @@ import { base, rutaSemana, subirCuadro, rutaDescarga, type Archivo, type Exporte
 import type { Area } from "../api/tipos";
 import { Agendas, Alertas, Cambios, Equidad, Previa, Resumen } from "./RadiologiaVistas";
 import { Button } from "@/components/base/buttons/button";
-import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert } from "@/components/application/alerts/alert";
 import { cx } from "@/utils/cx";
+import { ArrowLeft, ArrowRight, Calendar, Download01, Home02, Upload01 } from "@untitledui/icons";
+import { Filtro, Pagina, Pista } from "./comun";
 
 export const SECCIONES: [string, string][] = [["Resumen", "resumen"], ["Vista previa", "previa"], ["Alertas", "alertas"], ["Equidad y horas", "equidad"], ["Agendas", "agendas"], ["Cambios", "cambios"]];
 
@@ -64,38 +65,35 @@ export function Radiologia() {
   const error = archivos.error ?? semanas.error ?? semana.error;
 
   return (
-    <div className="flex max-w-[1500px] flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><h1 className="text-display-xs font-semibold text-primary">Radiología</h1><p className="mt-1 text-md text-tertiary">Planilla semanal a partir del cuadro mensual de turnos.</p></div>
+    <Pagina titulo="Radiología" icono={Home02} sub="Planilla semanal a partir del cuadro mensual de turnos."
+      filtros={id && semanas.datos && <>
+        {archivos.datos && archivos.datos.length > 1 && (
+          <Filtro etiqueta="Cuadro mensual" value={id} onChange={(ev) => setElegido(Number(ev.target.value))}>
+            {archivos.datos.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+          </Filtro>
+        )}
+        <Button color="secondary" size="sm" iconLeading={ArrowLeft} isDisabled={i <= 0} onPress={() => { setLunes(lista[i - 1].lunes); setGuardado(null); }} aria-label="Semana anterior" />
+        <Filtro etiqueta="Semana" icono={Calendar} value={actual ?? ""} onChange={(ev) => { setLunes(ev.target.value); setGuardado(null); }}>
+          {lista.map((s) => <option key={s.lunes} value={s.lunes}>{s.etiqueta}</option>)}
+        </Filtro>
+        <Button color="secondary" size="sm" iconLeading={ArrowRight} isDisabled={i < 0 || i >= lista.length - 1} onPress={() => { setLunes(lista[i + 1].lunes); setGuardado(null); }} aria-label="Semana siguiente" />
+      </>}
+      acciones={(editar || (id && actual && semanas.datos)) && <>
+        {id && actual && semanas.datos && <Pista texto="Guarda la semana en el historial y descarga el libro de Excel."><Button color="primary" size="sm" iconLeading={Download01} onPress={guardar}>Guardar y descargar libro</Button></Pista>}
         {editar && (
           <>
             <input ref={entrada} className="sr-only" type="file" accept=".xlsx" aria-label="Elegir cuadro mensual" tabIndex={-1} onChange={(ev) => { subir(ev.target.files?.[0]); ev.target.value = ""; }} />
-            <Button color="primary" size="sm" isDisabled={subiendo} onPress={() => entrada.current?.click()}>{subiendo ? "Subiendo…" : "Elegir cuadro mensual…"}</Button>
+            <Pista texto="Sube el cuadro mensual de turnos (.xlsx), guardado antes en Excel."><Button color={id ? "secondary" : "primary"} size="sm" iconLeading={Upload01} isDisabled={subiendo} onPress={() => entrada.current?.click()}>{subiendo ? "Subiendo…" : "Elegir cuadro mensual…"}</Button></Pista>
           </>
         )}
-      </div>
+      </>}>
       {guardado && <Alert color="success">{guardado}</Alert>}
       {errorSubida && <Alert color="error">{errorSubida}</Alert>}
       {error && <Alert color="error">{error}</Alert>}
       {archivos.datos && archivos.datos.length === 0 && (
-        <div className={cx("flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-primary bg-primary p-8 text-center text-tertiary", encima && "border-brand bg-brand-primary")} onDragOver={(ev) => { ev.preventDefault(); setEncima(true); }} onDragLeave={() => setEncima(false)} onDrop={soltar}>
+        <div className={cx("tarjeta flex flex-col items-center gap-3 border-2 border-dashed border-primary p-8 text-center text-tertiary", encima && "border-brand bg-brand-primary")} onDragOver={(ev) => { ev.preventDefault(); setEncima(true); }} onDragLeave={() => setEncima(false)} onDrop={soltar}>
           <strong>Aún no hay un cuadro mensual</strong>
           <span>{editar ? "Arrastra aquí el cuadro mensual de turnos (.xlsx) o elígelo con el botón. Guárdalo en Excel antes de subirlo." : "Pide a quien coordina que suba el cuadro mensual."}</span>
-        </div>
-      )}
-      {id && semanas.datos && (
-        <div className="flex flex-wrap items-end gap-3 print:hidden">
-          {archivos.datos && archivos.datos.length > 1 && (
-            <NativeSelect size="sm" label="Cuadro mensual" value={id} onChange={(ev) => setElegido(Number(ev.target.value))}>
-              {archivos.datos.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-            </NativeSelect>
-          )}
-          <Button color="secondary" size="sm" isDisabled={i <= 0} onPress={() => { setLunes(lista[i - 1].lunes); setGuardado(null); }} aria-label="Semana anterior">←</Button>
-          <NativeSelect size="sm" label="Semana" value={actual ?? ""} onChange={(ev) => { setLunes(ev.target.value); setGuardado(null); }}>
-            {lista.map((s) => <option key={s.lunes} value={s.lunes}>{s.etiqueta}</option>)}
-          </NativeSelect>
-          <Button color="secondary" size="sm" isDisabled={i < 0 || i >= lista.length - 1} onPress={() => { setLunes(lista[i + 1].lunes); setGuardado(null); }} aria-label="Semana siguiente">→</Button>
-          {actual && <Button color="primary" size="sm" onPress={guardar}>Guardar y descargar libro</Button>}
         </div>
       )}
       {semana.datos?.resumen.aviso && seccion !== "resumen" && <Alert color="warning">{semana.datos.resumen.aviso}</Alert>}
@@ -107,6 +105,6 @@ export function Radiologia() {
         seccion === "cambios" ? <Cambios datos={semana.datos.cambios} /> :
         <Resumen datos={semana.datos.resumen} />
       )}
-    </div>
+    </Pagina>
   );
 }

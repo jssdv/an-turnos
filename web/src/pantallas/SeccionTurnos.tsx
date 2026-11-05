@@ -1,8 +1,9 @@
+import { Plus, Trash01 } from "@untitledui/icons";
 import { useState } from "react";
 import { aHHMM, aMinutos, enviar, type usar } from "../api/catalogos";
 import type { Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, useAccion, Seccion } from "./comun";
+import { Fila, Formulario, useAccion, Seccion, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
@@ -14,6 +15,7 @@ const TURNO_NUEVO = { codigo: "", nombre: "", inicio: 360, fin: 720, color: "FFF
 /** Turnos del área: la base de la necesidad, que se pide por el horario de cada turno. */
 export function SeccionTurnos({ base, editar, turnos }: { base: string; editar: boolean; turnos: ReturnType<typeof usar<Turno[]>> }) {
   const { ocupado, aviso, hacer, avisar } = useAccion();
+  const [ventana, setVentana] = useState(false);
   const [t, setT] = useState(TURNO_NUEVO);
   const [nuevo, setNuevo] = useState(true);
   const elegirTurno = (x: Turno | null) => {
@@ -28,21 +30,23 @@ export function SeccionTurnos({ base, editar, turnos }: { base: string; editar: 
     setNuevo(false);
     return `Turno «${t.codigo.toUpperCase()}» guardado. El cuadro existente se revalida; regenera si hay alertas.`;
   });
-  const borrarTurno = () => window.confirm(`¿Eliminar el turno «${t.codigo}»?`) && hacer(async () => {
+  const borrarTurno = () => window.confirm(`¿Eliminar el turno «${t.codigo}»?`) && (setVentana(false), hacer(async () => {
     const r = await enviar<{ resultado: string }>("DELETE", `${base}/turnos/${t.codigo}`);
     elegirTurno(null); turnos.recargar();
     avisar({ nivel: r.resultado === "borrado" ? "ok" : "aviso", texto: r.resultado === "borrado" ? "Turno eliminado." : "Ya está en cuadros guardados, así que quedó inactivo en lugar de borrarse." });
-  });
+  }));
 
   return (
     <>
       {aviso && <Alert color={aviso.nivel === "ok" ? "success" : "error"}>{aviso.texto}</Alert>}
-      <Seccion titulo="Turnos">
+      <Seccion titulo="Turnos" acciones={editar && <Button color="secondary" size="sm" iconLeading={Plus} onPress={() => { elegirTurno(null); setVentana(true); }}>Nuevo turno</Button>}>
         <Tabla descripcion="Turnos del área" cargando={!turnos.datos && !turnos.error} vacio="Sin turnos." columnas={["Código", "Nombre", "Horario", "Estado", ""]}
           filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, <Badge size="sm" color={x.activo ? "success" : "gray"}>{x.activo ? "Activo" : "Inactivo"}</Badge>,
-            editar ? <Button color="link-color" size="sm" onPress={() => elegirTurno(x)}>Editar</Button> : null])} />
+            editar ? <Button color="link-color" size="sm" onPress={() => { elegirTurno(x); setVentana(true); }}>Editar</Button> : null])} />
         {editar && (
-          <Formulario onSubmit={(x) => { x.preventDefault(); void guardarTurno(); }}>
+          <Ventana abierto={ventana} alCambiar={setVentana} titulo={nuevo ? "Nuevo turno" : `Turno ${t.codigo}`} ancha>
+          {aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>}
+          <Formulario onSubmit={(x) => { x.preventDefault(); void guardarTurno().then((ok) => ok && setVentana(false)); }}>
             <Input value={String(t.codigo)} label="Código" isRequired maxLength={6} isDisabled={!nuevo} onChange={(x) => setT({ ...t, codigo: x })} />
             <Input value={String(t.nombre)} label="Nombre" maxLength={60} onChange={(x) => setT({ ...t, nombre: x })} />
             <Input value={String(aHHMM(t.inicio))} label="Entra" type="time" onChange={(x) => setT({ ...t, inicio: aMinutos(x) })} />
@@ -55,11 +59,12 @@ export function SeccionTurnos({ base, editar, turnos }: { base: string; editar: 
             <Checkbox label="Lo usa el solver" isSelected={t.solver} onChange={(x) => setT({ ...t, solver: x })} />
             <Checkbox label="Activo" isSelected={t.activo} onChange={(x) => setT({ ...t, activo: x })} />
             <Fila>
+              {!nuevo && <Button color="secondary-destructive" size="sm" className="mr-auto" iconLeading={Trash01} isDisabled={ocupado} onPress={borrarTurno}>Eliminar</Button>}
+              <Button color="secondary" size="sm" onPress={() => setVentana(false)}>Cancelar</Button>
               <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !t.codigo.trim()}>Guardar turno</Button>
-              <Button color="secondary" size="sm" onPress={() => elegirTurno(null)}>Nuevo turno</Button>
-              {!nuevo && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrarTurno}>Eliminar</Button>}
             </Fila>
           </Formulario>
+          </Ventana>
         )}
       </Seccion>
     </>

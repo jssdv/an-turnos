@@ -50,6 +50,15 @@ def generar(id: int, datos: Pedido = Pedido(), if_match: str | None = Header(Non
         raise HTTPException(409, YA_HAY)
 
 
+@router.get("/areas/{area}/trabajos")
+def recientes(area: int, limite: int = 5, ctx: Contexto = Depends(contexto_area, scope="function")):
+    """Últimos trabajos del área, el más nuevo primero (la campana muestra si la última generación terminó o falló)."""
+    filas = ctx.conn.execute(
+        "SELECT t.id, t.periodo_id, t.tipo, t.estado, t.error, t.creado, t.terminado FROM trabajo t JOIN periodo p ON p.id = t.periodo_id "
+        "WHERE p.area_id = ? ORDER BY t.id DESC LIMIT ?", (area, max(1, min(limite, 20)))).fetchall()
+    return [dict(f) for f in filas]
+
+
 def _con_trabajo(request, u, id, escribir, accion=None):
     """Busca el trabajo en la clínica del usuario, exige permiso (`ver`, o `editar` si `escribir`) en su área, aplica `accion(conexion, fila)` y lo devuelve."""
     with request.app.state.pool.connection() as conn:
