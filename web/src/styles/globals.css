@@ -67,7 +67,7 @@ input[type="search"]::-webkit-search-cancel-button {
 @font-face { font-family: "Inter"; font-weight: 700; src: url("../fuentes/Inter-Bold.ttf") format("truetype"); font-display: swap; }
 
 @layer base {
-    html, body, #raiz { height: 100%; }
+    html, body, #raiz { height: 100dvh; }
     body { margin: 0; color: var(--color-text-secondary); background: linear-gradient(135deg, var(--color-fondo-1), var(--color-bg-primary) 50%, var(--color-fondo-2)) fixed; }
     :focus-visible { outline: 2px solid var(--color-brand-600); outline-offset: 2px; }
 }
@@ -89,7 +89,7 @@ input[type="search"]::-webkit-search-cancel-button {
 @page { size: landscape; margin: 10mm; }
 @media print {
     * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-    html, body, #raiz { height: auto; }
+    html, body, #raiz { height: auto !important; }
     body { background: transparent; }
     aside, [data-no-imprimir], .saltar { display: none !important; }
     *:has(> #contenido) { display: block !important; height: auto !important; }

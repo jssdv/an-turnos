@@ -34,7 +34,7 @@ export function Ingresar() {
 
   return (
     <main className="grid min-h-full place-items-center p-4">
-      <div className="tarjeta flex w-full max-w-md flex-col gap-5 p-8 sm:p-9">
+      <div className="tarjeta flex w-full max-w-md flex-col gap-5 p-6 sm:p-8">
         <AnLogo area="Turnos claros para todo el equipo" />
         <div>
           <h1 className="text-display-xs font-semibold text-primary">Ingresar</h1>

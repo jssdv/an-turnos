@@ -119,7 +119,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
   };
 
   return (
-    <div className="max-w-full overflow-auto">
+    <div className="max-w-full overflow-x-auto">
       <table className="w-max min-w-full border-separate border-spacing-0 text-sm [&_td]:px-0.5 [&_td]:py-[3px] [&_td]:text-center [&_th]:px-0.5 [&_th]:py-[3px] [&_th]:text-center [&_thead_th]:bg-secondary [&_thead_th:first-child]:rounded-l-xl [&_thead_th:last-child]:rounded-r-xl [&_thead_th]:py-1.5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:text-tertiary [&_tfoot_td]:border-t [&_tfoot_td]:border-secondary [&_tfoot_td]:text-[11px] [&_tfoot_td]:text-tertiary [&_tfoot_th]:border-t [&_tfoot_th]:border-secondary [&_tfoot_th]:text-[11px] [&_tfoot_th]:font-semibold [&_tfoot_th]:text-tertiary" role="grid" aria-multiselectable="true" aria-label={descripcion} aria-rowcount={filas.length + 1} aria-colcount={dias.length + 2 + (semanal ? dias.filter((_, i) => cierraSemana(dias, i)).length : 0)}>
         <thead>
           <tr>

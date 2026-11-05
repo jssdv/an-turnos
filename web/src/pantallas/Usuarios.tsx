@@ -6,7 +6,7 @@ import type { Area, UsuarioClinica } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
 import { Plus, UserCheck01 } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -21,6 +21,7 @@ export function Usuarios() {
   const lista = usar<UsuarioClinica[]>(usuario?.es_admin ? "/api/usuarios" : null);
   const areas = usar<Area[]>(usuario?.es_admin ? "/api/areas" : null);
   const { ocupado, aviso, hacer, avisar } = useAccion();
+  const [pedir, confirmacion] = useConfirmar();
   const [ventana, setVentana] = useState(false);
   const [f, setF] = useState({ correo: "", nombre: "", es_admin: false });
   const [clave, setClave] = useState<{ para: string; valor: string } | null>(null);
@@ -51,15 +52,15 @@ export function Usuarios() {
     setF({ correo: "", nombre: "", es_admin: false });
     lista.recargar();
   });
-  const restablecer = (u: UsuarioClinica) => window.confirm(`¿Restablecer la contraseña de ${u.nombre}? Se cerrarán sus sesiones.`) && hacer(async () => {
+  const restablecer = (u: UsuarioClinica) => pedir(`¿Restablecer la contraseña de ${u.nombre}?`, "Restablecer contraseña", () => void hacer(async () => {
     const r = await enviar<{ clave_temporal: string }>("POST", `/api/usuarios/${u.id}/clave`);
     setClave({ para: u.correo, valor: r.clave_temporal });
-  });
-  const desactivar = (u: UsuarioClinica) => window.confirm(`¿Desactivar a ${u.nombre}? No podrá ingresar.`) && hacer(async () => {
+  }), "Se cerrarán sus sesiones y recibirá una contraseña temporal.");
+  const desactivar = (u: UsuarioClinica) => pedir(`¿Desactivar a ${u.nombre}?`, "Desactivar usuario", () => void hacer(async () => {
     await enviar("POST", `/api/usuarios/${u.id}/desactivar`);
     lista.recargar();
     avisar({ nivel: "ok", texto: "Usuario desactivado." });
-  });
+  }), "No podrá ingresar hasta que se reactive.");
   const permisoDe = (u: UsuarioClinica, a: number) => u.permisos.find((p) => p.area_id === a)?.permiso ?? "";
 
   return (
@@ -103,6 +104,7 @@ export function Usuarios() {
           ])}
         />
       </Seccion>
+      {confirmacion}
     </Pagina>
   );
 }

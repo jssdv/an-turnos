@@ -6,7 +6,7 @@ import { MatrizRequerimiento } from "./MatrizRequerimiento";
 import type { Area, Demanda, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Building02, Plus, Trash01 } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -22,6 +22,7 @@ export function Puestos() {
   const parametros = usar<Record<string, string>>(`${base}/parametros`);
   const turnos = usar<Turno[]>(`${base}/turnos`);
   const { ocupado, aviso, hacer, avisar } = useAccion();
+  const [pedir, confirmacion] = useConfirmar();
   const [ventana, setVentana] = useState(false);
   const usaPuestos = parametros.datos?.usa_puestos !== "0";
   const [sel, setSel] = useState<Puesto | null>(null);
@@ -44,11 +45,11 @@ export function Puestos() {
     setSel({ id: r.id, ...p });
     return "Guardado. Genera de nuevo el cuadro para aplicarlo.";
   });
-  const borrar = () => window.confirm(`¿Eliminar el puesto «${sel!.nombre}»?`) && (setVentana(false), hacer(async () => {
+  const borrar = () => pedir(`¿Eliminar el puesto «${sel!.nombre}»?`, "Eliminar puesto", () => { setVentana(false); void hacer(async () => {
     const r = await enviar<{ resultado: string }>("DELETE", `${base}/puestos/${sel!.id}`);
     elegir(null); puestos.recargar(); demandas.recargar();
     avisar({ nivel: r.resultado === "borrado" ? "ok" : "aviso", texto: r.resultado === "borrado" ? "Puesto eliminado." : "Tiene historial o es el único puesto de alguien, así que quedó inactivo." });
-  }));
+  }); }, "Si ya tiene historial, quedará inactivo en lugar de borrarse.");
 
   return (
     <Pagina titulo="Requerimiento" icono={Building02}
@@ -61,12 +62,12 @@ export function Puestos() {
       <Seccion titulo="Puestos">
         <Tabla descripcion="Puestos del área" cargando={!puestos.datos && !puestos.error} vacio="Aún no hay puestos." columnas={["N.º", "Nombre", "Estado", "Reglas", ""]}
           filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, <Badge size="sm" color={q.activo ? "success" : "gray"}>{q.activo ? "Activo" : "Inactivo"}</Badge>, (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
-            editar ? <Button color="link-color" size="sm" onPress={() => { elegir(q); setVentana(true); }}>{sel?.id === q.id ? "Editando" : "Editar"}</Button> : null])} />
+            editar ? <Button color="link-color" size="sm" onPress={() => { elegir(q); setVentana(true); }}>Editar</Button> : null])} />
       </Seccion>
       {editar && (
         <Ventana abierto={ventana} alCambiar={setVentana} titulo={sel ? `Puesto ${sel.numero}` : "Nuevo puesto"} ancha>
           {aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>}
-          <Formulario onSubmit={(x) => { x.preventDefault(); void guardar().then((ok) => ok && setVentana(false)); }}>
+          <Formulario onSubmit={(x) => { x.preventDefault(); void guardar().then((ok) => ok && sel && setVentana(false)); }}>
             <Input value={String(p.numero)} label="Número" type="number" isRequired onChange={(x) => setP({ ...p, numero: Number(x) })} />
             <Input value={String(p.nombre)} label="Nombre" isRequired maxLength={60} onChange={(x) => setP({ ...p, nombre: x })} />
             <Input value={String(`#${p.color}`)} label="Color en el cuadro" type="color" onChange={(x) => setP({ ...p, color: x.slice(1).toUpperCase() })} />
@@ -77,10 +78,11 @@ export function Puestos() {
               <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !p.nombre.trim()}>{ocupado ? "Guardando…" : "Guardar"}</Button>
             </Fila>
           </Formulario>
+          {sel && <MatrizRequerimiento key={sel.id} className="p-0 shadow-none" ruta={`${base}/puestos/${sel.id}/requerimiento`} titulo={`Necesidad del puesto ${sel.numero}`} editar={editar} turnos={turnos.datos ?? []} conDeseable />}
         </Ventana>
       )}
-      {sel && <MatrizRequerimiento key={sel.id} ruta={`${base}/puestos/${sel.id}/requerimiento`} titulo={`Necesidad del puesto ${sel.numero}`} editar={editar} turnos={turnos.datos ?? []} conDeseable />}
       </>}
+      {confirmacion}
     </Pagina>
   );
 }

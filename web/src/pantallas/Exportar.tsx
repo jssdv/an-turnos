@@ -61,7 +61,7 @@ export function Exportar({ area, periodo, hayCuadro }: Props) {
         </div>
         {!hayCuadro && <p className="text-tertiary">Este periodo no tiene cuadro todavía.</p>}
         {lista && (lista.length === 0 ? <p className="text-tertiary">No hay exportes pendientes de descargar.</p> : (
-          <ul className="max-h-[260px] overflow-auto" aria-label="Exportes pendientes de descargar">
+          <ul className="max-h-[40dvh] overflow-auto" aria-label="Exportes pendientes de descargar">
             {lista.map((x) => (
               <li key={x.id} className="flex items-center justify-between gap-3 border-t border-secondary py-2 first:border-t-0">
                 <div>

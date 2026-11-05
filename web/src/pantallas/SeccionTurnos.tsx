@@ -3,7 +3,7 @@ import { useState } from "react";
 import { aHHMM, aMinutos, enviar, type usar } from "../api/catalogos";
 import type { Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, useAccion, Seccion, Ventana } from "./comun";
+import { Fila, Formulario, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
@@ -15,6 +15,7 @@ const TURNO_NUEVO = { codigo: "", nombre: "", inicio: 360, fin: 720, color: "FFF
 /** Turnos del área: la base de la necesidad, que se pide por el horario de cada turno. */
 export function SeccionTurnos({ base, editar, turnos }: { base: string; editar: boolean; turnos: ReturnType<typeof usar<Turno[]>> }) {
   const { ocupado, aviso, hacer, avisar } = useAccion();
+  const [pedir, confirmacion] = useConfirmar();
   const [ventana, setVentana] = useState(false);
   const [t, setT] = useState(TURNO_NUEVO);
   const [nuevo, setNuevo] = useState(true);
@@ -30,11 +31,11 @@ export function SeccionTurnos({ base, editar, turnos }: { base: string; editar: 
     setNuevo(false);
     return `Turno «${t.codigo.toUpperCase()}» guardado. El cuadro existente se revalida; regenera si hay alertas.`;
   });
-  const borrarTurno = () => window.confirm(`¿Eliminar el turno «${t.codigo}»?`) && (setVentana(false), hacer(async () => {
+  const borrarTurno = () => pedir(`¿Eliminar el turno «${t.codigo}»?`, "Eliminar turno", () => { setVentana(false); void hacer(async () => {
     const r = await enviar<{ resultado: string }>("DELETE", `${base}/turnos/${t.codigo}`);
     elegirTurno(null); turnos.recargar();
     avisar({ nivel: r.resultado === "borrado" ? "ok" : "aviso", texto: r.resultado === "borrado" ? "Turno eliminado." : "Ya está en cuadros guardados, así que quedó inactivo en lugar de borrarse." });
-  }));
+  }); }, "Si ya está en cuadros guardados, quedará inactivo en lugar de borrarse.");
 
   return (
     <>
@@ -67,6 +68,7 @@ export function SeccionTurnos({ base, editar, turnos }: { base: string; editar: 
           </Ventana>
         )}
       </Seccion>
+      {confirmacion}
     </>
   );
 }
