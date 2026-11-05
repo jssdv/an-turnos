@@ -6,7 +6,7 @@ import { ProgressBar } from "@/components/base/progress-indicators/progress-indi
 import { Stars02 } from "@untitledui/icons";
 import { Pista, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
-import { Input } from "@/components/base/input/input";
+import { CampoFecha } from "../componentes/CampoFecha";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
 
@@ -118,10 +118,10 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
               <option value="semana">Una semana</option>
               <option value="desde">Desde una fecha</option>
             </NativeSelect>
-            {modo === "semana" && <Input value={String(lunes)} label="Lunes de la semana" type="date" onChange={(x) => setLunes(x)} />}
+            {modo === "semana" && <CampoFecha value={lunes} label="Lunes de la semana" onChange={(x) => setLunes(x)} />}
             {modo === "desde" && (
               <>
-                <Input value={desde} label="Desde el día" type="date" onChange={(x) => setDesde(x)} />
+                <CampoFecha value={desde} label="Desde el día" onChange={(x) => setDesde(x)} />
                 <p className="text-xs text-tertiary">Entre {limiteIni} y {limiteFin}. Los días anteriores a esa fecha no cambian y las celdas editadas a mano se respetan. Solo cambia la copia de trabajo, no el cuadro publicado.</p>
                 {fueraDePeriodo && <Alert color="error">La fecha debe estar dentro del periodo ({limiteIni} a {limiteFin}).</Alert>}
               </>

@@ -6,7 +6,7 @@ import type { Periodo } from "../api/tipos";
 import { CalendarPlus01, Lock01, LockUnlocked01, RefreshCcw01, Send01, SwitchHorizontal01, Trash01 } from "@untitledui/icons";
 import { Pista, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
-import { Input } from "@/components/base/input/input";
+import { CampoFecha } from "../componentes/CampoFecha";
 import { Alert } from "@/components/application/alerts/alert";
 
 type Accion = "publicar" | "restaurar" | "cerrar" | "reabrir" | "eliminar" | "reasignar";
@@ -91,12 +91,12 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
         {error && <Alert color="error">{error}</Alert>}
         {accion === "nuevo" && (
           <div className="flex flex-col gap-4">
-            <Input value={String(inicio)} label="Desde" type="date" onChange={(x) => setInicio(x)} />
-            <Input value={String(fin)} label="Hasta" type="date" onChange={(x) => setFin(x)} />
+            <CampoFecha value={inicio} label="Desde" onChange={(x) => setInicio(x)} />
+            <CampoFecha value={fin} label="Hasta" onChange={(x) => setFin(x)} />
           </div>
         )}
         {accion === "reasignar" && periodo && (
-          <Input value={desde} label="Desde (opcional)" type="date" onChange={(x) => setDesde(x)} />
+          <CampoFecha value={desde} label="Desde (opcional)" onChange={(x) => setDesde(x)} />
         )}
         <div className="flex flex-wrap justify-end gap-2">
           <Button color="secondary" size="sm" onPress={() => setAccion(null)}>Cancelar</Button>

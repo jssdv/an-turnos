@@ -105,11 +105,11 @@ export function Disposicion() {
 
   return (
     <ProveedorAvisos value={avisos}>
-      <div className="flex h-full flex-col lg:flex-row lg:gap-5 lg:p-5">
+      <div className="flex h-full flex-col lg:flex-row lg:gap-4 lg:p-4">
         <a className="saltar" href="#contenido">Saltar al contenido</a>
         <MobileNavigationHeader key={pathname} extra={<Campana />}>{lateral(true)}</MobileNavigationHeader>{/* key: al navegar, el menú móvil se cierra */}
         <div className="hidden lg:flex" data-no-imprimir>{lateral(false)}</div>
-        <main className="min-w-0 flex-1 overflow-auto px-4 py-4 outline-none lg:px-0 lg:py-0" id="contenido" tabIndex={-1}>
+        <main className="min-w-0 flex-1 overflow-auto px-4 pt-4 pb-6 outline-none lg:px-0 lg:pt-0 lg:pb-16" id="contenido" tabIndex={-1}>
           {actual.permiso !== "editar" && (
             <div className="mb-4" data-no-imprimir>
               <Alert>Modo consulta: puedes ver y exportar, pero no cambiar nada. Si necesitas editar, pídeselo a quien administra la clínica.</Alert>
@@ -118,7 +118,7 @@ export function Disposicion() {
           <Outlet context={actual} />
         </main>
         <Button color="primary" size="sm" iconLeading={Headphones02} aria-label="Ayuda y tutorial" onPress={() => setTutorial(true)}
-          className="fixed right-5 bottom-5 z-30 size-13 rounded-full shadow-lg" data-no-imprimir />
+          className="fixed max-lg:hidden right-5 bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-30 size-13 rounded-full shadow-lg" data-no-imprimir />
         <Tutorial abierto={tutorial} alCambiar={setTutorial} />
       </div>
     </ProveedorAvisos>

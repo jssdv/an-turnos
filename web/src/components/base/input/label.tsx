@@ -56,7 +56,7 @@ export const Label = ({ isInvalid, isRequired, tooltip, tooltipDescription, clas
                         // field is disabled.
                         isDisabled={false}
                         aria-label={tooltip}
-                        className="cursor-pointer text-fg-quaternary transition duration-200 hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover"
+                        className="relative cursor-pointer text-fg-quaternary before:absolute before:-inset-3 before:content-['']  transition duration-200 hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover"
                     >
                         <HelpCircle className="size-4" />
                     </TooltipTrigger>

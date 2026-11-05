@@ -8,6 +8,7 @@ import { Fila, Filtro, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } 
 import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
+import { CampoFecha } from "../componentes/CampoFecha";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Badge } from "@/components/base/badges/badges";
@@ -65,8 +66,8 @@ export function Solicitudes() {
                 {(turnos.datos ?? []).filter((t) => t.activo).map((t) => <option key={t.codigo} value={t.codigo}>{t.codigo} · {t.nombre}</option>)}
               </NativeSelect>
             )}
-            <Input value={String(f.desde)} label="Desde" type="date" isRequired onChange={(x) => setF({ ...f, desde: x })} />
-            <Input value={String(f.hasta)} label="Hasta" type="date" isRequired onChange={(x) => setF({ ...f, hasta: x })} />
+            <CampoFecha value={f.desde} label="Desde" isRequired onChange={(x) => setF({ ...f, desde: x })} />
+            <CampoFecha value={f.hasta} label="Hasta" isRequired onChange={(x) => setF({ ...f, hasta: x })} />
             <NativeSelect size="sm" label="Prioridad" value={f.prioridad} onChange={(x) => setF({ ...f, prioridad: x.target.value })}>
               <option value="normal">Normal</option><option value="alta">Alta</option>
             </NativeSelect>

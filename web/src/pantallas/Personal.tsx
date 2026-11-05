@@ -4,7 +4,7 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Plus, Trash01, Users01 } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Grupo, Ventana } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Grupo, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -26,6 +26,7 @@ export function Personal() {
   const turnosL = usar<Turno[]>(`${base}/turnos`);
   const puestosL = usar<Puesto[]>(`${base}/puestos`);
   const { ocupado, aviso, hacer, avisar } = useAccion();
+  const [pedir, confirmacion] = useConfirmar();
   const [ventana, setVentana] = useState(false);
   const turnos = (turnosL.datos ?? []).filter((t) => t.activo), puestos = (puestosL.datos ?? []).filter((p) => p.activo);
   const [sel, setSel] = useState<number | null>(null);
@@ -52,11 +53,11 @@ export function Personal() {
     lista.recargar();
     return `«${actual.nombre.trim()}» guardado. Regenera el cuadro para que lo tome en cuenta.`;
   });
-  const borrar = () => window.confirm(`¿Eliminar a «${actual.nombre}»?`) && (setVentana(false), hacer(async () => {
+  const borrar = () => pedir(`¿Eliminar a «${actual.nombre}»?`, "Eliminar persona", () => { setVentana(false); void hacer(async () => {
     const r = await enviar<{ resultado: string }>("DELETE", `${base}/colaboradores/${sel}`);
     nuevo(); lista.recargar();
     avisar({ nivel: r.resultado === "borrado" ? "ok" : "aviso", texto: r.resultado === "borrado" ? "Colaborador eliminado." : "Tiene cuadros o novedades en su historial, así que quedó inactivo en lugar de borrarse." });
-  }));
+  }); }, "Si tiene cuadros o novedades en su historial, quedará inactiva en lugar de borrarse.");
 
   return (
     <Pagina titulo="Personal" icono={Users01}
@@ -69,7 +70,7 @@ export function Personal() {
           columnas={["Nombre", "Tipo", "Horas/sem", "Dedicación", "Estado", ""]}
           filas={(lista.datos ?? []).filter((p) => p.activo || verInactivos).map((p) => [
             p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, <Badge size="sm" color={p.activo ? "success" : "gray"}>{p.activo ? "Activo" : "Inactivo"}</Badge>,
-            editar ? <Button color="link-color" size="sm" onPress={() => { elegir(p); setVentana(true); }} aria-pressed={sel === p.id}>{sel === p.id ? "Editando" : "Editar"}</Button> : null,
+            editar ? <Button color="link-color" size="sm" onPress={() => { elegir(p); setVentana(true); }} >Editar</Button> : null,
           ])}
         />
       </Seccion>
@@ -101,6 +102,7 @@ export function Personal() {
           </Formulario>
         </Ventana>
       )}
+      {confirmacion}
     </Pagina>
   );
 }

@@ -7,6 +7,7 @@ import { Check, RefreshCcw01, Settings01 } from "@untitledui/icons";
 import { Fila, Formulario, Pagina, Pista, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
+import { CampoFecha } from "../componentes/CampoFecha";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 
@@ -100,7 +101,7 @@ export function Parametros() {
           <Formulario onSubmit={(x) => { x.preventDefault(); void agregarTarifa(); }}>
             <NativeSelect size="sm" label="Concepto" value={tar.concepto} onChange={(x) => setTar({ ...tar, concepto: x.target.value })}>{CONCEPTOS.map((c) => <option key={c} value={c}>{nombreConcepto(c)}</option>)}</NativeSelect>
             <Input value={String(tar.valor)} label={tar.concepto === "noche_inicio" ? "Valor (minutos)" : "Valor (%)"} type="number" isRequired onChange={(x) => setTar({ ...tar, valor: x })} />
-            <Input value={String(tar.desde)} label="Rige desde" type="date" isRequired onChange={(x) => setTar({ ...tar, desde: x })} />
+            <CampoFecha value={tar.desde} label="Rige desde" isRequired onChange={(x) => setTar({ ...tar, desde: x })} />
             <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !tar.valor || !tar.desde}>Agregar tarifa</Button></Fila>
           </Formulario>
         )}

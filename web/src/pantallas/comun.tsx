@@ -48,7 +48,7 @@ export function Pagina({ titulo, sub, icono: Icono, estado, filtros, acciones, a
 /** Bloque de contenido en tarjeta blanca, con título y acciones a la derecha. */
 export function Seccion({ titulo, acciones, children, className, ...r }: { titulo?: ReactNode; acciones?: ReactNode } & HTMLAttributes<HTMLElement>) {
   return (
-    <section className={cx("tarjeta p-5", className)} {...r}>
+    <section className={cx("tarjeta p-4 sm:p-5", className)} {...r}>
       {(titulo || acciones) && (
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-primary">{titulo}</h2>
@@ -93,7 +93,7 @@ const recordar = (clave: string, abierta?: boolean) => {
 export function Ayuda({ titulo = "¿Cómo se usa esta sección?", clave, children }: { titulo?: string; clave: string; children: ReactNode }) {
   const [abierta] = useState(() => recordar(`ayuda2/${clave}`));
   return (
-    <details className="group tarjeta px-5 py-3.5 text-sm text-secondary" open={abierta} data-no-imprimir
+    <details className="group tarjeta px-4 py-3 text-sm sm:px-5 text-secondary" open={abierta} data-no-imprimir
       onToggle={(x) => recordar(`ayuda2/${clave}`, x.currentTarget.open)}>
       <summary className="flex cursor-pointer list-none items-center gap-3 font-semibold text-primary">
         <HelpCircle aria-hidden="true" className="size-5 shrink-0 text-brand-600" />{titulo}
@@ -147,8 +147,8 @@ export const Grupo = ({ leyenda, children }: { leyenda: string; children: ReactN
 export function Ventana({ abierto, alCambiar, titulo, descripcion, bloqueado, ancha, children }: { abierto: boolean; alCambiar: (abierto: boolean) => void; titulo: string; descripcion?: string; bloqueado?: boolean; ancha?: boolean; children: ReactNode }) {
   return (
     <ModalOverlay isOpen={abierto} onOpenChange={alCambiar} isDismissable={!bloqueado} isKeyboardDismissDisabled={bloqueado}>
-      <Modal className={cx("overflow-y-auto", ancha ? "max-w-3xl" : "max-w-xl")}>
-        <Dialog className="flex flex-col gap-4 p-6">
+      <Modal className={ancha ? "max-w-3xl" : "max-w-xl"}>
+        <Dialog className="flex flex-col gap-4 p-4 sm:p-6">
           <div>
             <h2 slot="title" className="text-lg font-semibold text-primary">{titulo}</h2>
             {descripcion && <p className="mt-1 text-sm text-tertiary">{descripcion}</p>}
@@ -158,6 +158,22 @@ export function Ventana({ abierto, alCambiar, titulo, descripcion, bloqueado, an
       </Modal>
     </ModalOverlay>
   );
+}
+
+/** Confirmación propia (en vez de `window.confirm`): título claro y botón con el verbo de la acción. Poner `nodo` una vez en la pantalla. */
+export function useConfirmar() {
+  const [p, setP] = useState<{ titulo: string; texto?: string; verbo: string; ok: () => void } | null>(null);
+  const [abierto, setAbierto] = useState(false);
+  const pedir = (titulo: string, verbo: string, ok: () => void, texto?: string) => { setP({ titulo, texto, verbo, ok }); setAbierto(true); };
+  const nodo = (
+    <Ventana abierto={abierto} alCambiar={setAbierto} titulo={p?.titulo ?? ""} descripcion={p?.texto}>
+      <Fila>
+        <Button color="secondary" size="sm" onPress={() => setAbierto(false)}>Cancelar</Button>
+        <Button color="primary-destructive" size="sm" onPress={() => { setAbierto(false); p?.ok(); }}>{p?.verbo}</Button>
+      </Fila>
+    </Ventana>
+  );
+  return [pedir, nodo] as const;
 }
 
 /** Junta alertas de texto idéntico (p. ej. el mismo turno prohibido en dos celdas) para no repetir la misma línea. */

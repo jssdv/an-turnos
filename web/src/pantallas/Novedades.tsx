@@ -8,6 +8,7 @@ import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./
 import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
+import { CampoFecha } from "../componentes/CampoFecha";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 
@@ -46,8 +47,8 @@ export function Novedades() {
             <NativeSelect size="sm" label="Tipo" value={f.tipo} onChange={(x) => setF({ ...f, tipo: x.target.value })}>
               {TIPOS.map((t) => <option key={t}>{t}</option>)}
             </NativeSelect>
-            <Input value={String(f.desde)} label="Desde" type="date" isRequired onChange={(x) => setF({ ...f, desde: x })} />
-            <Input value={String(f.hasta)} label="Hasta" type="date" isRequired onChange={(x) => setF({ ...f, hasta: x })} />
+            <CampoFecha value={f.desde} label="Desde" isRequired onChange={(x) => setF({ ...f, desde: x })} />
+            <CampoFecha value={f.hasta} label="Hasta" isRequired onChange={(x) => setF({ ...f, hasta: x })} />
             <Input value={String(f.nota)} label="Nota" maxLength={300} onChange={(x) => setF({ ...f, nota: x })} />
             <Fila><Button color="secondary" size="sm" onPress={() => setVentana(false)}>Cancelar</Button><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
           </Formulario>

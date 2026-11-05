@@ -28,7 +28,7 @@ const clave = (dia: number, inicio: number, fin: number) => `${dia}|${inicio}|${
 
 /** Personas pedidas por horario de turno y día de la semana: del área (sin puestos) o de un puesto (`deseable` = casilla del puesto).
  *  Un horario = una fila (los turnos con el mismo horario la comparten). */
-export function MatrizRequerimiento({ ruta, titulo, editar, turnos, conDeseable = false }: { ruta: string; titulo: string; editar: boolean; turnos: Turno[]; conDeseable?: boolean }) {
+export function MatrizRequerimiento({ ruta, titulo, editar, turnos, conDeseable = false, className }: { ruta: string; titulo: string; editar: boolean; turnos: Turno[]; conDeseable?: boolean; className?: string }) {
   const req = usar<Requerimiento[]>(ruta);
   const { ocupado, aviso, hacer } = useAccion();
   const [n, setN] = useState<Record<string, number>>({});
@@ -53,7 +53,7 @@ export function MatrizRequerimiento({ ruta, titulo, editar, turnos, conDeseable 
     return "Guardado. Genera de nuevo el cuadro para aplicarlo.";
   });
   return (
-    <Seccion titulo={titulo}>
+    <Seccion titulo={titulo} className={className}>
       {(aviso || req.error) && <Alert color={aviso?.nivel === "ok" ? "success" : "error"}>{aviso?.texto ?? req.error}</Alert>}
       <p className="text-sm text-tertiary">Cuántas personas hacen falta en el horario de cada turno, según el día de la semana. El festivo reemplaza al día de la semana. Si dos filas se solapan (por ejemplo un corrido y una mañana), las personas se suman en las horas comunes.</p>
       {mezcla && <Alert color="warning">Este puesto mezclaba cobertura obligatoria y deseable. Al guardar, la casilla de abajo se aplica a todo.</Alert>}

@@ -70,7 +70,7 @@ export function Previa({ area, archivo, lunes }: { area: number; archivo: number
       <div className="mb-3 flex flex-wrap gap-1 border-b border-secondary print:hidden" role="tablist">
         {hojas.datos!.map((h, i) => <button key={h.hoja} role="tab" aria-selected={i === sel} className="cursor-pointer border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-quaternary aria-selected:border-brand aria-selected:text-brand-secondary" onClick={() => setSel(i)}>{h.titulo}</button>)}
       </div>
-      <div className="max-h-[70vh] overflow-auto print:max-h-none print:overflow-visible [&_table]:border-collapse [&_table]:text-xs [&_td]:min-w-[150px] [&_td]:px-2 [&_td]:py-1 [&_td]:align-middle">
+      <div className="max-h-[70dvh] overflow-auto print:max-h-none print:overflow-visible [&_table]:border-collapse [&_table]:text-xs [&_td]:min-w-[150px] [&_td]:px-2 [&_td]:py-1 [&_td]:align-middle">
         <table>
           <tbody>
             {hoja.filas.map((fila, i) => (
@@ -184,7 +184,7 @@ export function Agendas({ area, archivo, lunes, agendas }: { area: number; archi
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(220px,300px)_1fr]">
         <Seccion>
           <input type="search" aria-label="Buscar médico" placeholder="Buscar médico…" value={buscar} onChange={(ev) => setBuscar(ev.target.value)} />
-          <ul className="mt-2 max-h-[60vh] overflow-auto [&_button]:block [&_button]:w-full [&_button]:cursor-pointer [&_button]:rounded-md [&_button]:p-2 [&_button]:text-left [&_button]:text-secondary [&_button[aria-current=true]]:bg-brand-primary [&_button[aria-current=true]]:font-semibold [&_button[aria-current=true]]:text-brand-secondary">
+          <ul className="mt-2 max-h-[60dvh] overflow-auto [&_button]:block [&_button]:w-full [&_button]:cursor-pointer [&_button]:rounded-md [&_button]:p-2 [&_button]:text-left [&_button]:text-secondary [&_button[aria-current=true]]:bg-brand-primary [&_button[aria-current=true]]:font-semibold [&_button[aria-current=true]]:text-brand-secondary">
             {nombres.map((n) => <li key={n}><button aria-current={n === actual} onClick={() => setElegido(n)}>{n}</button></li>)}
           </ul>
         </Seccion>
