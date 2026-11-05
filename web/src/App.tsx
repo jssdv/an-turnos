@@ -5,6 +5,8 @@ import { CambiarClave } from "./pantallas/CambiarClave";
 import { Analiticas } from "./pantallas/Analiticas";
 import { Cuadro } from "./pantallas/Cuadro";
 import { Disposicion } from "./pantallas/Disposicion";
+import { Inicio as InicioArea } from "./pantallas/Inicio";
+import { Reportes } from "./pantallas/Reportes";
 import { Ingresar } from "./pantallas/Ingresar";
 import { Novedades } from "./pantallas/Novedades";
 import { Parametros } from "./pantallas/Parametros";
@@ -41,7 +43,9 @@ export default function App() {
       <Route element={<Protegida />}>
         <Route path="/areas" element={<Disposicion />} />
         <Route path="/areas/:area" element={<Disposicion />}>
-          <Route index element={<Navigate to="cuadro" replace />} />
+          <Route index element={<Navigate to="inicio" replace />} />
+          <Route path="inicio" element={<InicioArea />} />
+          <Route path="reportes" element={<Reportes />} />
           <Route path="cuadro" element={<Cuadro />} />
           <Route path="cuadro/:periodo" element={<Cuadro />} />
           <Route path="solicitudes" element={<Solicitudes />} />

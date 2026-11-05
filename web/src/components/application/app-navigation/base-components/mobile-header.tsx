@@ -1,6 +1,6 @@
 "use client";
 
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 import { X as CloseIcon, Menu02 } from "@untitledui/icons";
 import {
     Button as AriaButton,
@@ -12,11 +12,14 @@ import {
 import { AnLogo } from "@/components/foundations/logo/an-logo";
 import { cx } from "@/utils/cx";
 
-export const MobileNavigationHeader = ({ children }: PropsWithChildren) => {
+export const MobileNavigationHeader = ({ children, extra }: PropsWithChildren<{ extra?: ReactNode }>) => {
     return (
         <AriaDialogTrigger>
             <header className="flex h-14 items-center justify-between border-b border-secondary bg-primary p-3 pl-4 lg:hidden">
                 <AnLogo />
+
+                {/* An: la campana va en la barra móvil (en escritorio está en el encabezado de cada pantalla). */}
+                <span className="ml-auto mr-2">{extra}</span>
 
                 <AriaButton
                     aria-label="Expand navigation menu"

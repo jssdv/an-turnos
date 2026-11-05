@@ -15,9 +15,9 @@ export function Tabla({ columnas, filas, vacio, descripcion, cargando }: Props) 
   if (cargando) return <p className="p-6 text-center text-tertiary" aria-busy="true">Cargando…</p>;
   if (!filas.length) return <p className="p-6 text-center text-tertiary">{vacio}</p>;
   return (
-    <div className="-mx-5 overflow-x-auto">
+    <div className="-mx-2 overflow-x-auto">
       <Table aria-label={descripcion} size="sm">
-        <Table.Header>
+        <Table.Header bordered={false} className="[&>tr>th:first-child]:rounded-l-xl [&>tr>th:last-child]:rounded-r-xl">
           {columnas.map((c, i) => <Table.Head key={i} id={`c${i}`} label={c} isRowHeader={i === 0} />)}
         </Table.Header>
         <Table.Body>

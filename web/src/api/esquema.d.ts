@@ -853,6 +853,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/areas/{area}/trabajos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recientes
+         * @description Últimos trabajos del área, el más nuevo primero (la campana muestra si la última generación terminó o falló).
+         */
+        get: operations["recientes_api_areas__area__trabajos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/trabajos/{id}": {
         parameters: {
             query?: never;
@@ -1003,6 +1023,8 @@ export interface components {
             turno: string;
             /** Puesto */
             puesto?: number | null;
+            /** Puesto Tarde */
+            puesto_tarde?: number | null;
         };
         /** ColaboradorIn */
         ColaboradorIn: {
@@ -3403,6 +3425,39 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recientes_api_areas__area__trabajos_get: {
+        parameters: {
+            query?: {
+                limite?: number;
+            };
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

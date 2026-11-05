@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { exportes } from "../api/exportes";
 import { ErrorApi } from "../api/cliente";
 import type { Exporte, TipoExporte } from "../api/tipos";
-import { Ventana } from "./comun";
+import { Download01 } from "@untitledui/icons";
+import { Pista, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Alert } from "@/components/application/alerts/alert";
 
@@ -46,7 +47,7 @@ export function Exportar({ area, periodo, hayCuadro }: Props) {
 
   return (
     <>
-      <Button color="secondary" size="sm" onPress={() => setAbierto(true)}>Exportar</Button>
+      <Pista texto="Descarga el cuadro, los puestos o las horas en Excel."><Button color="secondary" size="sm" iconLeading={Download01} onPress={() => setAbierto(true)}>Exportar</Button></Pista>
       <Ventana abierto={abierto} alCambiar={setAbierto} titulo="Exportar a Excel"
         descripcion="Cada exportación reemplaza la anterior del mismo tipo. El archivo se elimina del servidor al descargarlo.">
         {error && <Alert color="error">{error}</Alert>}

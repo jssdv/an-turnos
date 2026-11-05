@@ -107,6 +107,12 @@
     --color-alpha-white: rgb(255 255 255);
     --color-alpha-black: rgb(0 0 0);
 
+    /* An: fondo del marco y acciones destructivas suaves (tokens.css, desde FigCraft). */
+    --color-fondo-1: var(--fondo-1);
+    --color-fondo-2: var(--fondo-2);
+    --color-peligro-fondo: var(--peligro-fondo);
+    --color-peligro-texto: var(--peligro-texto);
+
     --color-brand-50: var(--an-brand-50);
     --color-brand-100: var(--an-brand-100);
     --color-brand-200: var(--an-brand-200);

@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { cambios } from "../api/cambios";
 import { ErrorApi } from "../api/cliente";
 import type { Periodo } from "../api/tipos";
-import { Ventana } from "./comun";
+import { CalendarPlus01, Lock01, LockUnlocked01, RefreshCcw01, Send01, SwitchHorizontal01, Trash01 } from "@untitledui/icons";
+import { Pista, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Alert } from "@/components/application/alerts/alert";
@@ -70,18 +71,18 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
 
   return (
     <>
-      {!periodo ? null : cerrado ? <Button color="secondary" size="sm" onPress={() => abrir("reabrir")}>Reabrir</Button> : (
+      {!periodo ? null : cerrado ? <Pista texto={TEXTO.reabrir[1]}><Button color="secondary" size="sm" iconLeading={LockUnlocked01} onPress={() => abrir("reabrir")}>Reabrir</Button></Pista> : (
         <>
-          <Button color="secondary" size="sm" onPress={() => abrir("reasignar")}>Reasignar puestos</Button>
-          <Button color="secondary" size="sm" onPress={() => abrir("publicar")} data-accion="publicar">Publicar</Button>
-          <Button color="secondary" size="sm" onPress={() => abrir("cerrar")}>Cerrar periodo</Button>
+          <Pista texto={TEXTO.reasignar[1]}><Button color="secondary" size="sm" iconLeading={SwitchHorizontal01} onPress={() => abrir("reasignar")}>Reasignar puestos</Button></Pista>
+          <Pista texto={TEXTO.publicar[1]}><Button color="secondary" size="sm" iconLeading={Send01} onPress={() => abrir("publicar")} data-accion="publicar">Publicar</Button></Pista>
+          <Pista texto={TEXTO.cerrar[1]}><Button color="secondary" size="sm" iconLeading={Lock01} onPress={() => abrir("cerrar")}>Cerrar periodo</Button></Pista>
         </>
       )}
-      <Button color="secondary" size="sm" onPress={() => abrir("nuevo")}>Nuevo periodo</Button>
+      <Pista texto="Crea el siguiente periodo: elige desde y hasta."><Button color={periodo ? "secondary" : "primary"} size="sm" iconLeading={CalendarPlus01} onPress={() => abrir("nuevo")}>Nuevo periodo</Button></Pista>
       {periodo && !cerrado && (
         <>
-          <Button color="secondary-destructive" size="sm" onPress={() => abrir("restaurar")}>Restaurar</Button>
-          <Button color="secondary-destructive" size="sm" onPress={() => abrir("eliminar")}>Eliminar periodo</Button>
+          <Pista texto={TEXTO.restaurar[1]}><Button color="secondary-destructive" size="sm" iconLeading={RefreshCcw01} onPress={() => abrir("restaurar")}>Restaurar</Button></Pista>
+          <Pista texto={TEXTO.eliminar[1]}><Button color="secondary-destructive" size="sm" iconLeading={Trash01} onPress={() => abrir("eliminar")}>Eliminar periodo</Button></Pista>
         </>
       )}
       <Ventana abierto={accion !== null} alCambiar={(a) => !a && setAccion(null)}
