@@ -282,7 +282,6 @@ export function Cuadro() {
                 const h = vista.horas.get(c.id);
                 return { id: c.id, nombre: c.nombre, extra: h ? h.trabajadas : "", extraAlto: !!h && h.trabajadas > h.contratadas };
               })}
-              columnaExtra="Horas"
               semanal={(id, lunes) => { const v = vista.horas.get(id)?.semanas[lunes]; return v ? Math.round(v * 10) / 10 : ""; }}
               foco={foco}
               editable={puedeEditar ? editable : undefined}
@@ -310,7 +309,7 @@ export function Cuadro() {
               <span className="flex items-center gap-1.5"><Ficha codigo="L" />Libre</span>
               {verPuestos && usaPuestos && datos.puestos.filter((q) => q.activo).map((q) => <span key={q.id}><strong className="text-secondary">{q.numero}</strong> {q.nombre}</span>)}
               <span className="flex items-center gap-1.5"><Ficha codigo="M" cambiada />Editada a mano</span>
-              <span className="flex items-center gap-1.5"><span className="inline-block h-4 w-5 rounded-sm bg-tertiary" aria-hidden="true" />Domingo o festivo</span>
+              <span className="flex items-center gap-1.5"><strong className="text-brand-secondary" aria-hidden="true">D</strong>Domingo o festivo (letra verde)</span>
             </div>
             <HorasSemana horas={datos.horas} colabs={datos.colabs.filter((c) => c.activo)} />
           </>

@@ -120,17 +120,17 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
 
   return (
     <div className="max-w-full overflow-auto">
-      <table className="w-max min-w-full border-separate border-spacing-0 text-sm [&_td]:px-0.5 [&_td]:py-[3px] [&_td]:text-center [&_th]:px-0.5 [&_th]:py-[3px] [&_th]:text-center [&_thead_th]:bg-secondary [&_thead_th]:py-1.5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:text-tertiary [&_tfoot_td]:border-t [&_tfoot_td]:border-secondary [&_tfoot_td]:text-[11px] [&_tfoot_td]:text-tertiary [&_tfoot_th]:border-t [&_tfoot_th]:border-secondary [&_tfoot_th]:text-[11px] [&_tfoot_th]:font-semibold [&_tfoot_th]:text-tertiary" role="grid" aria-multiselectable="true" aria-label={descripcion} aria-rowcount={filas.length + 1} aria-colcount={dias.length + 2 + (semanal ? dias.filter((_, i) => cierraSemana(dias, i)).length : 0)}>
+      <table className="w-max min-w-full border-separate border-spacing-0 text-sm [&_td]:px-0.5 [&_td]:py-[3px] [&_td]:text-center [&_th]:px-0.5 [&_th]:py-[3px] [&_th]:text-center [&_thead_th]:bg-secondary [&_thead_th:first-child]:rounded-l-xl [&_thead_th:last-child]:rounded-r-xl [&_thead_th]:py-1.5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:text-tertiary [&_tfoot_td]:border-t [&_tfoot_td]:border-secondary [&_tfoot_td]:text-[11px] [&_tfoot_td]:text-tertiary [&_tfoot_th]:border-t [&_tfoot_th]:border-secondary [&_tfoot_th]:text-[11px] [&_tfoot_th]:font-semibold [&_tfoot_th]:text-tertiary" role="grid" aria-multiselectable="true" aria-label={descripcion} aria-rowcount={filas.length + 1} aria-colcount={dias.length + 2 + (semanal ? dias.filter((_, i) => cierraSemana(dias, i)).length : 0)}>
         <thead>
           <tr>
-            <th scope="col" className="sticky left-0 z-[1] min-w-28 bg-primary sm:min-w-40 pr-4! pl-3! text-left! font-medium whitespace-nowrap">Persona</th>
+            <th scope="col" className="sticky left-0 z-[1] min-w-28 sm:min-w-52 pr-4! pl-3! text-left! text-xs! font-semibold whitespace-nowrap">Persona</th>
             {dias.map((d, i) => (
               <Fragment key={d.fecha}>
-                <th scope="col" className={cx("min-w-7", d.gris && "bg-tertiary! text-primary!")} aria-label={`${d.nombre} ${d.n}`}>
-                  <span className="block text-[11px]">{d.letra}</span>
-                  <span>{d.n}</span>
+                <th scope="col" className={cx("min-w-7", d.gris && "text-brand-secondary!")} aria-label={`${d.nombre} ${d.n}`}>
+                  <span className="block text-[11px] font-medium">{d.letra}</span>
+                  <span className="text-xs">{d.n}</span>
                 </th>
-                {semanal && cierraSemana(dias, i) && <th scope="col" className="min-w-9 bg-tertiary! text-primary!" aria-label="Horas de la semana">Σ sem</th>}
+                {semanal && cierraSemana(dias, i) && <th scope="col" className="min-w-10" aria-label="Horas de la semana">Σ sem</th>}
               </Fragment>
             ))}
             {columnaExtra && <th scope="col" className="min-w-14">{columnaExtra}</th>}
@@ -139,7 +139,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
         <tbody ref={cuerpo} onKeyDown={tecla}>
           {filas.map((f, r) => (
             <tr key={f.id}>
-              <th scope="row" className="sticky left-0 z-[1] min-w-28 bg-primary sm:min-w-40 pr-4! pl-3! text-left! font-medium whitespace-nowrap">{f.nombre}</th>
+              <th scope="row" className="sticky left-0 z-[1] max-w-52 min-w-28 truncate bg-primary sm:min-w-52 pr-4! pl-3! text-left! text-xs font-medium text-primary">{f.nombre}</th>
               {dias.map((d, c) => {
                 const { etiqueta, ...ficha } = celda(f.id, d.fecha);
                 const ed = puede(r, c), elegida = sel.has(`${f.id}|${d.fecha}`);
@@ -152,7 +152,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
                     tabIndex={activa[0] === r && activa[1] === c ? 0 : -1}
                     aria-label={`${f.nombre}, ${d.nombre} ${d.n}: ${etiqueta}`}
                     aria-selected={ed ? elegida : undefined}
-                    className={cx("h-[30px] pointer-coarse:h-11 pointer-coarse:min-w-10 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dashed focus-visible:outline-fg-primary", d.gris && "bg-secondary", ed && "cursor-pointer", elegida && "rounded-sm bg-brand-primary outline-2 -outline-offset-2 outline-brand")}
+                    className={cx("h-[30px] pointer-coarse:h-11 pointer-coarse:min-w-10 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dashed focus-visible:outline-fg-primary", ed && "cursor-pointer", elegida && "rounded-sm bg-brand-primary outline-2 -outline-offset-2 outline-brand")}
                     onFocus={() => setActiva([r, c])}
                     onClick={(ev: MouseEvent) => { setActiva([r, c]); elegir(r, c, ev); }}
                     onDoubleClick={() => accionar(r, c)}
@@ -168,7 +168,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
                   >
                     <Ficha {...ficha} />
                   </td>
-                  {semanal && cierraSemana(dias, c) && <td className="bg-tertiary font-semibold text-primary tabular-nums">{semanal(f.id, lunesDe(d.fecha))}</td>}
+                  {semanal && cierraSemana(dias, c) && <td className="font-semibold text-primary tabular-nums">{semanal(f.id, lunesDe(d.fecha))}</td>}
                   </Fragment>
                 );
               })}
@@ -180,10 +180,10 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
           <tfoot>
             {pie.map((p) => (
               <tr key={p.titulo}>
-                <th scope="row" className="sticky left-0 z-[1] min-w-28 bg-primary sm:min-w-40 pr-4! pl-3! text-left! font-medium whitespace-nowrap">{p.titulo}</th>
+                <th scope="row" className="sticky left-0 z-[1] min-w-28 bg-primary sm:min-w-52 pr-4! pl-3! text-left! font-normal whitespace-nowrap">{p.titulo}</th>
                 {dias.map((d, i) => (
                   <Fragment key={d.fecha}>
-                    <td className={cx("tabular-nums", d.gris && "bg-secondary", p.alerta?.(d.fecha) && "bg-utility-red-50 font-bold text-utility-red-700")}>{p.valor(d.fecha)}</td>
+                    <td className={cx("tabular-nums", p.alerta?.(d.fecha) && "bg-utility-red-50 font-bold text-utility-red-700")}>{p.valor(d.fecha)}</td>
                     {semanal && cierraSemana(dias, i) && <td />}
                   </Fragment>
                 ))}

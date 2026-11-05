@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Tarifa } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Check, Settings01 } from "@untitledui/icons";
+import { Check, RefreshCcw01, Settings01 } from "@untitledui/icons";
 import { Fila, Formulario, Pagina, Pista, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
@@ -69,7 +69,10 @@ export function Parametros() {
 
   return (
     <Pagina titulo="Parámetros" icono={Settings01}
-      acciones={editar && params.datos && <Pista texto="Guarda las reglas. El cuadro ya armado no cambia: genera de nuevo para aplicarlas."><Button color="primary" size="sm" iconLeading={Check} type="submit" form="reglas" isDisabled={ocupado}>Guardar reglas</Button></Pista>} sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? tarifas.error} aviso={aviso}>
+      acciones={editar && params.datos && <>
+        <Pista texto="Guarda las reglas. El cuadro ya armado no cambia: genera de nuevo para aplicarlas."><Button color="primary" size="sm" iconLeading={Check} type="submit" form="reglas" isDisabled={ocupado}>Guardar reglas</Button></Pista>
+        <Pista texto="Descarta lo que cambiaste y vuelve a los valores guardados."><Button color="secondary" size="sm" iconLeading={RefreshCcw01} onPress={() => setV(params.datos!)}>Deshacer</Button></Pista>
+      </>} sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? tarifas.error} aviso={aviso}>
       {!params.datos ? !params.error && <p className="tarjeta p-5" aria-busy="true">Cargando…</p> : (
         <form id="reglas" aria-label="Reglas" className="grid items-start gap-4 lg:grid-cols-2" onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
           {GRUPOS.map(([titulo, claves], i) => (

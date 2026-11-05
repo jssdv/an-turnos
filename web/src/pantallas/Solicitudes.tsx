@@ -4,7 +4,8 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, EstadoSolicitud, Periodo, Solicitud, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Inbox01, Plus, Users01 } from "@untitledui/icons";
-import { Fila, Filtro, Formulario, irA, Pagina, Pista, useAccion, Seccion } from "./comun";
+import { Fila, Filtro, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
+import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -24,6 +25,7 @@ export function Solicitudes() {
   const ultimo = periodos.datos?.at(-1);
   const estados = usar<EstadoSolicitud[]>(ultimo ? `${base}/periodos/${ultimo.id}/solicitudes` : null);
   const { ocupado, aviso, hacer } = useAccion();
+  const [ventana, setVentana] = useState(false);
   const [f, setF] = useState({ colab_id: "", tipo: "libre", desde: "", hasta: "", turno: "", prioridad: "normal", nota: "" });
   const nombre = useMemo(() => new Map((personas.datos ?? []).map((p) => [p.id, p.nombre])), [personas.datos]);
   const estado = useMemo(() => new Map((estados.datos ?? []).map((s) => [s.id, s])), [estados.datos]);
@@ -45,10 +47,11 @@ export function Solicitudes() {
         <option value="">Todas las personas</option>
         {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
       </Filtro>}
-      acciones={editar && <Pista texto="Registra un deseo de una persona: día libre, turno preferido o turno a evitar."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => irA("nueva-solicitud")}>Nueva solicitud</Button></Pista>} ayuda={<>Una solicitud es un <strong>deseo, no una garantía</strong>: el sistema intenta cumplirla al generar, pero primero cubre los puestos y respeta las reglas legales. Usa prioridad <strong>alta</strong> solo para lo importante (una cita médica, un compromiso familiar). Después de generar verás si cada solicitud se cumplió.</>} error={lista.error ?? personas.error} aviso={aviso}>
+      acciones={editar && <Pista texto="Registra un deseo de una persona: día libre, turno preferido o turno a evitar."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => setVentana(true)}>Nueva solicitud</Button></Pista>} ayuda={<>Una solicitud es un <strong>deseo, no una garantía</strong>: el sistema intenta cumplirla al generar, pero primero cubre los puestos y respeta las reglas legales. Usa prioridad <strong>alta</strong> solo para lo importante (una cita médica, un compromiso familiar). Después de generar verás si cada solicitud se cumplió.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
-        <Seccion titulo="Nueva solicitud" id="nueva-solicitud">
-          <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
+        <Ventana abierto={ventana} alCambiar={setVentana} titulo="Nueva solicitud" ancha descripcion="Un deseo, no una garantía: se intenta cumplir al generar.">
+          {aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>}
+          <Formulario onSubmit={(x) => { x.preventDefault(); void guardar().then((ok) => ok && setVentana(false)); }}>
             <NativeSelect size="sm" label="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>
               {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
@@ -68,9 +71,9 @@ export function Solicitudes() {
               <option value="normal">Normal</option><option value="alta">Alta</option>
             </NativeSelect>
             <Input value={String(f.nota)} label="Nota" maxLength={300} onChange={(x) => setF({ ...f, nota: x })} />
-            <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
+            <Fila><Button color="secondary" size="sm" onPress={() => setVentana(false)}>Cancelar</Button><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
           </Formulario>
-        </Seccion>
+        </Ventana>
       )}
       <Seccion titulo="Solicitudes registradas">
         {persona && ultimo && <p className="mb-3 text-md text-tertiary">{visibles.length ? `${cumplidas} de ${visibles.length} cumplidas en el último periodo.` : "Esta persona no tiene solicitudes."}</p>}

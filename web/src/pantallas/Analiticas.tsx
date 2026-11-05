@@ -3,8 +3,8 @@ import { useOutletContext } from "react-router";
 import { usar } from "../api/catalogos";
 import type { Area } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { LineChartUp01 } from "@untitledui/icons";
-import { Pagina, Seccion } from "./comun";
+import { AlertTriangle, CalendarMinus01, LineChartUp01, SwitchHorizontal01, Users01 } from "@untitledui/icons";
+import { Indicador, Pagina, Seccion } from "./comun";
 import { fechaCorta, nombrePeriodo } from "./fechas";
 import { Input } from "@/components/base/input/input";
 
@@ -22,6 +22,27 @@ const TIPOS = ["Vacaciones", "Incapacidad", "Licencia", "Libre solicitado"];
 const hoy = new Date();
 const mes = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const ultimoDia = (m: string) => { const [y, n] = m.split("-").map(Number); return `${m}-${String(new Date(y, n, 0).getDate()).padStart(2, "0")}`; };
+
+/** Barras horizontales por persona (la más alta = 100 %), ordenadas de mayor a menor. */
+function Barras({ titulo, unidad, datos }: { titulo: string; unidad: string; datos: [string, number][] }) {
+  const max = Math.max(1, ...datos.map(([, v]) => v));
+  return (
+    <Seccion titulo={titulo}>
+      {datos.length === 0 ? <p className="text-tertiary">Sin datos en el rango.</p> : (
+        <ul className="flex flex-col gap-2.5" aria-label={titulo}>
+          {[...datos].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p, v], i) => (
+            <li key={p} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs">
+              <span className="truncate font-medium text-secondary">{p}</span>
+              <span className="h-3.5 rounded-full bg-secondary"><span className={i % 2 ? "block h-full rounded-full bg-brand-400" : "block h-full rounded-full bg-brand-500"} style={{ width: `${(v / max) * 100}%` }} /></span>
+              <span className="text-tertiary tabular-nums">{v} {unidad}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {datos.length > 10 && <p className="mt-3 text-xs text-tertiary">Las 10 más altas de {datos.length}; el detalle completo está en las tablas de abajo.</p>}
+    </Seccion>
+  );
+}
 
 /** Solo lectura: ausentismo, cobertura, cambios, horas extra, recargos, equidad y banco de horas de un rango de meses. «Costo» = horas equivalentes. */
 export function Analiticas() {
@@ -42,16 +63,20 @@ export function Analiticas() {
   return (
     <Pagina titulo="Analíticas" icono={LineChartUp01}
       filtros={<div className="flex flex-wrap items-start gap-3">
-        <Input className="w-40" value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
-        <Input className="w-40" value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!ok} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
+        <Input className="w-48 [&_label]:sr-only" value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
+        <Input className="w-48 [&_label]:sr-only" value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!ok} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
       </div>} sub="Cifras de lo ya registrado. Solo se consulta: aquí no se cambia nada." ayuda={<>Elige el rango de meses. Arriba ves el resumen: <strong>ausentismo</strong> (porcentaje de días perdidos por ausencias), cuántas personas faltaron <strong>a la vez</strong>, días con <strong>déficit</strong> (faltó gente en algún puesto) y cambios de turno. Las tablas de abajo muestran el detalle por persona y por periodo.</>} error={r.error}>
       {!d || !total ? <p aria-busy="true">Cargando…</p> : (
         <>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4" role="list" aria-label="Resumen">
-            <div className="tarjeta flex flex-col gap-1 p-5 [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{n(d.ausentismo.pct)} %</strong><span>Ausentismo · {total.ausencias} días de ausencia</span></div>
-            <div className="tarjeta flex flex-col gap-1 p-5 [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{d.simultaneos.maximo}</strong><span>Ausentes a la vez (máximo){d.simultaneos.fecha_maximo ? ` · ${fechaCorta(d.simultaneos.fecha_maximo)}` : ""}</span></div>
-            <div className="tarjeta flex flex-col gap-1 p-5 [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{total.deficit}</strong><span>Días con déficit · {d.simultaneos.dias_riesgo.length} con ausentes en riesgo</span></div>
-            <div className="tarjeta flex flex-col gap-1 p-5 [&_span]:text-sm [&_span]:text-tertiary [&_strong]:text-display-sm [&_strong]:font-semibold [&_strong]:text-primary" role="listitem"><strong>{total.cambios}</strong><span>Cambios de turno · {total.excepciones} con excepción</span></div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4" role="list" aria-label="Resumen">
+            <Indicador icono={CalendarMinus01} titulo="Ausentismo" valor={`${n(d.ausentismo.pct)} %`} nota={`${total.ausencias} días de ausencia`} />
+            <Indicador icono={Users01} titulo="Ausentes a la vez (máximo)" valor={String(d.simultaneos.maximo)} nota={d.simultaneos.fecha_maximo ? `El ${fechaCorta(d.simultaneos.fecha_maximo)}` : "Sin ausencias simultáneas"} />
+            <Indicador icono={AlertTriangle} titulo="Días con déficit" valor={String(total.deficit)} nota={`${d.simultaneos.dias_riesgo.length} con ausentes en riesgo`} />
+            <Indicador icono={SwitchHorizontal01} titulo="Cambios de turno" valor={String(total.cambios)} nota={`${total.excepciones} con excepción`} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Barras titulo="Equidad de domingos y festivos" unidad="días" datos={Object.entries(d.equidad.por_persona).map(([p, o]) => [p, o.domingos + o.festivos])} />
+            <Barras titulo="Recargos por persona" unidad="h equivalentes" datos={Object.entries(d.recargos).map(([p, r2]) => [p, Math.round(r2.equivalentes * 10) / 10])} />
           </div>
           <Seccion titulo="Ausentismo por persona (días)">
             <Tabla descripcion="Ausencias por persona" vacio="Sin ausencias en el rango." columnas={["Persona", "Total", ...TIPOS]}

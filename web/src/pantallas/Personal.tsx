@@ -4,7 +4,8 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Plus, Trash01, Users01 } from "@untitledui/icons";
-import { Fila, Formulario, irA, Pagina, Pista, useAccion, Seccion, Grupo } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Grupo, Ventana } from "./comun";
+import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -25,6 +26,7 @@ export function Personal() {
   const turnosL = usar<Turno[]>(`${base}/turnos`);
   const puestosL = usar<Puesto[]>(`${base}/puestos`);
   const { ocupado, aviso, hacer, avisar } = useAccion();
+  const [ventana, setVentana] = useState(false);
   const turnos = (turnosL.datos ?? []).filter((t) => t.activo), puestos = (puestosL.datos ?? []).filter((p) => p.activo);
   const [sel, setSel] = useState<number | null>(null);
   const [b, setB] = useState<Borrador | null>(null);
@@ -50,15 +52,15 @@ export function Personal() {
     lista.recargar();
     return `«${actual.nombre.trim()}» guardado. Regenera el cuadro para que lo tome en cuenta.`;
   });
-  const borrar = () => window.confirm(`¿Eliminar a «${actual.nombre}»?`) && hacer(async () => {
+  const borrar = () => window.confirm(`¿Eliminar a «${actual.nombre}»?`) && (setVentana(false), hacer(async () => {
     const r = await enviar<{ resultado: string }>("DELETE", `${base}/colaboradores/${sel}`);
     nuevo(); lista.recargar();
     avisar({ nivel: r.resultado === "borrado" ? "ok" : "aviso", texto: r.resultado === "borrado" ? "Colaborador eliminado." : "Tiene cuadros o novedades en su historial, así que quedó inactivo en lugar de borrarse." });
-  });
+  }));
 
   return (
     <Pagina titulo="Personal" icono={Users01}
-      acciones={editar && <Pista texto="Agrega a alguien al área: horas, turnos y puestos que puede cubrir."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { nuevo(); irA("persona"); }}>Agregar persona</Button></Pista>} sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
+      acciones={editar && <Pista texto="Agrega a alguien al área: horas, turnos y puestos que puede cubrir."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { nuevo(); setVentana(true); }}>Agregar persona</Button></Pista>} sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
       <Seccion titulo="Colaboradores" acciones={<Checkbox label="Mostrar inactivos" isSelected={verInactivos} onChange={(x) => setVerInactivos(x)} />}>
         <Tabla
           descripcion="Personal del área"
@@ -67,13 +69,14 @@ export function Personal() {
           columnas={["Nombre", "Tipo", "Horas/sem", "Dedicación", "Estado", ""]}
           filas={(lista.datos ?? []).filter((p) => p.activo || verInactivos).map((p) => [
             p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, <Badge size="sm" color={p.activo ? "success" : "gray"}>{p.activo ? "Activo" : "Inactivo"}</Badge>,
-            editar ? <Button color="link-color" size="sm" onPress={() => { elegir(p); irA("persona"); }} aria-pressed={sel === p.id}>{sel === p.id ? "Editando" : "Editar"}</Button> : null,
+            editar ? <Button color="link-color" size="sm" onPress={() => { elegir(p); setVentana(true); }} aria-pressed={sel === p.id}>{sel === p.id ? "Editando" : "Editar"}</Button> : null,
           ])}
         />
       </Seccion>
       {editar && (
-        <Seccion titulo={sel ? "Editar persona" : "Nueva persona"} id="persona">
-          <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
+        <Ventana abierto={ventana} alCambiar={setVentana} titulo={sel ? "Editar persona" : "Nueva persona"} ancha>
+          {aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>}
+          <Formulario onSubmit={(x) => { x.preventDefault(); void guardar().then((ok) => ok && setVentana(false)); }}>
             <Input value={String(actual.nombre)} label="Nombre" isRequired maxLength={120} onChange={(x) => set({ nombre: x })} />
             <NativeSelect size="sm" label="Tipo" value={actual.tipo} onChange={(x) => set({ tipo: x.target.value })}>{TIPOS.map((t) => <option key={t}>{t}</option>)}</NativeSelect>
             <Input value={String(actual.horas_sem)} label="Horas por semana" type="text" inputMode="decimal" onChange={(x) => set({ horas_sem: Number(x.replace(",", ".")) })} />
@@ -91,12 +94,12 @@ export function Personal() {
             </Grupo>
             <Checkbox label="Activo" isSelected={actual.activo} onChange={(x) => set({ activo: x })} />
             <Fila>
+              {sel && <Button color="secondary-destructive" size="sm" className="mr-auto" iconLeading={Trash01} isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
+              <Button color="secondary" size="sm" onPress={() => setVentana(false)}>Cancelar</Button>
               <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !actual.nombre.trim() || !actual.permitidos.length || !actual.puestos.length}>{ocupado ? "Guardando…" : "Guardar"}</Button>
-              <Button color="secondary" size="sm" onPress={nuevo}>Nueva persona</Button>
-              {sel && <Button color="secondary-destructive" size="sm" iconLeading={Trash01} isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
             </Fila>
           </Formulario>
-        </Seccion>
+        </Ventana>
       )}
     </Pagina>
   );
