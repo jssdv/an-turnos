@@ -6,7 +6,7 @@ import { usar } from "../api/catalogos";
 import type { Alerta, Area, Colaborador, Cuadro, EstadoSolicitud, Novedad, Periodo } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
-import { agrupar, Pagina, Pasos, Seccion } from "./comun";
+import { agrupar, Indicador, Pagina, Pasos, Seccion } from "./comun";
 import { fechaCorta, isoHoy, nombrePeriodo, vigente } from "./fechas";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -16,18 +16,6 @@ interface Resumen {
   horas_extra: { ventana: number; semanas: { diurna: number; nocturna: number } }[];
 }
 const COLOR_AUSENCIA: Record<string, "warning" | "error" | "gray"> = { Vacaciones: "warning", Incapacidad: "error" };
-
-function Indicador({ icono: Icono, titulo, valor, nota }: { icono: FC<{ className?: string }>; titulo: string; valor: string; nota: string }) {
-  return (
-    <div className="tarjeta flex flex-col gap-3 p-5" role="listitem">
-      <span className="flex items-center gap-2.5 text-sm font-medium text-tertiary">
-        <span className="grid size-9 place-items-center rounded-lg bg-brand-50 text-brand-600" aria-hidden="true"><Icono className="size-4.5" /></span>{titulo}
-      </span>
-      <strong className="text-display-xs font-semibold text-primary">{valor}</strong>
-      <span className="text-xs text-tertiary">{nota}</span>
-    </div>
-  );
-}
 
 /** Resumen del periodo vigente: pasos, indicadores, ausentes de hoy y accesos rápidos. Solo lee lo que ya existe. */
 export function Inicio() {

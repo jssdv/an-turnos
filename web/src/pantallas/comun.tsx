@@ -1,5 +1,5 @@
 import { useState, type FC, type HTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from "react";
-import { ChevronDown, ChevronRight, HelpCircle } from "@untitledui/icons";
+import { Check, ChevronDown, ChevronRight, HelpCircle } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
 import { mensaje } from "../api/catalogos";
 import type { Alerta } from "../api/tipos";
@@ -33,7 +33,7 @@ export function Pagina({ titulo, sub, icono: Icono, estado, filtros, acciones, a
               {sub && <p className="mt-0.5 text-sm text-tertiary">{sub}</p>}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3" data-no-imprimir>{filtros}<Campana /></div>
+          <div className="flex flex-wrap items-center gap-2.5" data-no-imprimir>{filtros}<span className="hidden lg:contents"><Campana /></span></div>
         </div>
         {acciones && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Acciones" data-no-imprimir>{acciones}</div>}
       </header>
@@ -83,18 +83,18 @@ export const irA = (id: string) => {
 
 const recordar = (clave: string, abierta?: boolean) => {
   try {
-    if (abierta === undefined) return localStorage.getItem(clave) !== "cerrada";
+    if (abierta === undefined) return localStorage.getItem(clave) === "abierta";
     localStorage.setItem(clave, abierta ? "abierta" : "cerrada");
-  } catch { /* almacenamiento bloqueado: se muestra abierta */ }
-  return true;
+  } catch { /* almacenamiento bloqueado: se muestra plegada */ }
+  return false;
 };
 
-/** Recuadro «¿Cómo se usa?». Abierto la primera vez; si se cierra, este navegador lo recuerda. */
+/** Recuadro «¿Cómo se usa?». Plegado por defecto (como el diseño); si se abre, este navegador lo recuerda. */
 export function Ayuda({ titulo = "¿Cómo se usa esta sección?", clave, children }: { titulo?: string; clave: string; children: ReactNode }) {
-  const [abierta] = useState(() => recordar(`ayuda/${clave}`));
+  const [abierta] = useState(() => recordar(`ayuda2/${clave}`));
   return (
     <details className="group tarjeta px-5 py-3.5 text-sm text-secondary" open={abierta} data-no-imprimir
-      onToggle={(x) => recordar(`ayuda/${clave}`, x.currentTarget.open)}>
+      onToggle={(x) => recordar(`ayuda2/${clave}`, x.currentTarget.open)}>
       <summary className="flex cursor-pointer list-none items-center gap-3 font-semibold text-primary">
         <HelpCircle aria-hidden="true" className="size-5 shrink-0 text-brand-600" />{titulo}
         <span className="ml-auto flex items-center gap-1 text-sm font-semibold text-brand-secondary">
@@ -133,7 +133,7 @@ export const Formulario = ({ children, ...r }: React.FormHTMLAttributes<HTMLForm
   <form className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] items-start gap-4" {...r}>{children}</form>
 );
 /** Fila de botones o casillas a lo ancho del formulario. */
-export const Fila = ({ children }: { children: ReactNode }) => <div className="col-span-full flex flex-wrap items-center gap-3">{children}</div>;
+export const Fila = ({ children }: { children: ReactNode }) => <div className="col-span-full flex flex-wrap items-center gap-3 in-[[role=dialog]]:justify-end">{children}</div>;
 /** Grupo de casillas con leyenda, a lo ancho del formulario. */
 export const Grupo = ({ leyenda, children }: { leyenda: string; children: ReactNode }) => (
   <fieldset className="col-span-full flex flex-wrap gap-x-5 gap-y-2">
@@ -144,10 +144,10 @@ export const Grupo = ({ leyenda, children }: { leyenda: string; children: ReactN
 
 /** Ventana modal con título: Untitled UI trae solo las piezas (fondo, caja, diálogo); el título y el relleno van aquí.
  * `bloqueado`: un trabajo en marcha no se cierra con Escape ni con un clic fuera. */
-export function Ventana({ abierto, alCambiar, titulo, descripcion, bloqueado, children }: { abierto: boolean; alCambiar: (abierto: boolean) => void; titulo: string; descripcion?: string; bloqueado?: boolean; children: ReactNode }) {
+export function Ventana({ abierto, alCambiar, titulo, descripcion, bloqueado, ancha, children }: { abierto: boolean; alCambiar: (abierto: boolean) => void; titulo: string; descripcion?: string; bloqueado?: boolean; ancha?: boolean; children: ReactNode }) {
   return (
     <ModalOverlay isOpen={abierto} onOpenChange={alCambiar} isDismissable={!bloqueado} isKeyboardDismissDisabled={bloqueado}>
-      <Modal className="max-w-xl">
+      <Modal className={cx("overflow-y-auto", ancha ? "max-w-3xl" : "max-w-xl")}>
         <Dialog className="flex flex-col gap-4 p-6">
           <div>
             <h2 slot="title" className="text-lg font-semibold text-primary">{titulo}</h2>
@@ -189,10 +189,24 @@ export function Pasos({ hay, alertas, publicado, alGenerar, alVerAlertas, alPubl
           className={cx("flex items-center gap-3.5 rounded-2xl bg-primary px-4 py-3.5 shadow-xs ring-1 ring-secondary ring-inset",
             p.hecho && "bg-linear-to-r from-utility-green-50 to-primary ring-utility-green-200", !p.hecho && i === actual && "bg-linear-to-r from-utility-yellow-50 to-primary ring-utility-yellow-200")}>
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary font-bold text-tertiary in-data-hecho:bg-success-solid in-data-hecho:text-white in-data-actual:bg-warning-solid in-data-actual:text-white" aria-hidden="true">{p.hecho ? "✓" : i + 1}</span>
-          <span className="min-w-0 flex-1"><strong className="text-md text-primary in-data-hecho:text-utility-green-700">{i + 1}. {p.titulo}</strong><span className="mt-0.5 block text-xs text-tertiary in-data-actual:text-utility-yellow-700 in-data-hecho:text-utility-green-700">{p.texto}</span></span>
-          {p.boton && <Button color="secondary" size="sm" iconTrailing={ChevronRight} onPress={p.boton[1]}>{p.boton[0]}</Button>}
+          <span className="min-w-0 flex-1"><strong className="text-[15px] text-primary in-data-hecho:text-utility-green-700">{i + 1}. {p.titulo}</strong><span className="mt-0.5 block text-xs text-tertiary in-data-actual:text-utility-yellow-700 in-data-hecho:text-utility-green-700">{p.texto}</span></span>
+          {p.boton ? <Button color="secondary" size="sm" iconTrailing={ChevronRight} onPress={p.boton[1]}>{p.boton[0]}</Button>
+            : p.hecho && <Check aria-hidden="true" className="size-5 shrink-0 text-fg-success-secondary" />}
         </li>
       ))}
     </ol>
+  );
+}
+
+/** Indicador en tarjeta: ícono y título, valor grande y una nota (Inicio, Analíticas). */
+export function Indicador({ icono: Icono, titulo, valor, nota }: { icono: Icono; titulo: string; valor: string; nota: string }) {
+  return (
+    <div className="tarjeta flex flex-col gap-3 p-5" role="listitem">
+      <span className="flex items-center gap-2.5 text-sm font-medium text-tertiary">
+        <span className="grid size-9 place-items-center rounded-lg bg-brand-50 text-brand-600" aria-hidden="true"><Icono className="size-4.5" /></span>{titulo}
+      </span>
+      <strong className="text-display-xs font-semibold text-primary">{valor}</strong>
+      <span className="text-xs text-tertiary">{nota}</span>
+    </div>
   );
 }

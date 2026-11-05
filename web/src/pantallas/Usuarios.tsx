@@ -6,7 +6,7 @@ import type { Area, UsuarioClinica } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
 import { Plus, UserCheck01 } from "@untitledui/icons";
-import { Fila, Formulario, irA, Pagina, Pista, useAccion, Seccion } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -21,6 +21,7 @@ export function Usuarios() {
   const lista = usar<UsuarioClinica[]>(usuario?.es_admin ? "/api/usuarios" : null);
   const areas = usar<Area[]>(usuario?.es_admin ? "/api/areas" : null);
   const { ocupado, aviso, hacer, avisar } = useAccion();
+  const [ventana, setVentana] = useState(false);
   const [f, setF] = useState({ correo: "", nombre: "", es_admin: false });
   const [clave, setClave] = useState<{ para: string; valor: string } | null>(null);
   const [choque, setChoque] = useState<{ id: number; area: number; texto: string } | null>(null);
@@ -63,7 +64,7 @@ export function Usuarios() {
 
   return (
     <Pagina titulo="Usuarios" icono={UserCheck01}
-      acciones={<Pista texto="Crea un acceso con contraseña temporal; la persona la cambia al entrar."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => irA("nuevo-usuario")}>Nuevo usuario</Button></Pista>} sub="Quién ingresa a la clínica y qué puede hacer en cada área." ayuda={<>Cada persona puede tener, por área: <strong>Editar</strong> (genera y cambia el cuadro), <strong>Ver</strong> (solo consulta y exporta) o <strong>Sin acceso</strong>. Al crear un usuario se le asigna una contraseña temporal que deberá cambiar la primera vez que entre.</>} error={lista.error ?? areas.error} aviso={aviso}>
+      acciones={<Pista texto="Crea un acceso con contraseña temporal; la persona la cambia al entrar."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => setVentana(true)}>Nuevo usuario</Button></Pista>} sub="Quién ingresa a la clínica y qué puede hacer en cada área." ayuda={<>Cada persona puede tener, por área: <strong>Editar</strong> (genera y cambia el cuadro), <strong>Ver</strong> (solo consulta y exporta) o <strong>Sin acceso</strong>. Al crear un usuario se le asigna una contraseña temporal que deberá cambiar la primera vez que entre.</>} error={lista.error ?? areas.error} aviso={aviso}>
       {clave && (
         <Alert color="warning" action={<Button color="secondary" size="sm" onPress={() => setClave(null)}>Ya la copié</Button>}>
           Contraseña temporal de {clave.para}: <strong>{clave.valor}</strong>. Se muestra una sola vez; la persona debe cambiarla al ingresar.
@@ -72,14 +73,15 @@ export function Usuarios() {
       {choque && (
         <Alert color="warning" action={<Button color="primary" size="sm" isDisabled={ocupado} onPress={() => reemplazar(choque.id, choque.area)}>Pasar al editor actual a «ver»</Button>}>{choque.texto}</Alert>
       )}
-      <Seccion titulo="Nuevo usuario" id="nuevo-usuario">
-        <Formulario onSubmit={(x) => { x.preventDefault(); void crear(); }}>
+      <Ventana abierto={ventana} alCambiar={setVentana} titulo="Nuevo usuario" ancha descripcion="Recibe una contraseña temporal que cambia al entrar.">
+          {aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>}
+        <Formulario onSubmit={(x) => { x.preventDefault(); void crear().then((ok) => ok && setVentana(false)); }}>
           <Input value={String(f.correo)} label="Correo" type="email" isRequired onChange={(x) => setF({ ...f, correo: x })} />
           <Input value={String(f.nombre)} label="Nombre" isRequired maxLength={120} onChange={(x) => setF({ ...f, nombre: x })} />
           <Checkbox label="Administra la clínica" isSelected={f.es_admin} onChange={(x) => setF({ ...f, es_admin: x })} />
-          <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.correo || !f.nombre.trim()}>Crear usuario</Button></Fila>
+          <Fila><Button color="secondary" size="sm" onPress={() => setVentana(false)}>Cancelar</Button><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.correo || !f.nombre.trim()}>Crear usuario</Button></Fila>
         </Formulario>
-      </Seccion>
+      </Ventana>
       <Seccion titulo="Usuarios y permisos">
         <Tabla
           descripcion="Usuarios de la clínica"

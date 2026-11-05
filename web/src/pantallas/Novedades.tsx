@@ -4,7 +4,8 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Novedad } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { CalendarMinus01, Plus } from "@untitledui/icons";
-import { Fila, Formulario, irA, Pagina, Pista, useAccion, Seccion } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
+import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -19,6 +20,7 @@ export function Novedades() {
   const lista = usar<Novedad[]>(`${base}/novedades`);
   const personas = usar<Colaborador[]>(`${base}/colaboradores`);
   const { ocupado, aviso, hacer } = useAccion();
+  const [ventana, setVentana] = useState(false);
   const [f, setF] = useState({ colab_id: "", tipo: TIPOS[0], desde: "", hasta: "", nota: "" });
   const nombre = useMemo(() => new Map((personas.datos ?? []).map((p) => [p.id, p.nombre])), [personas.datos]);
   const editar = area.permiso === "editar";
@@ -32,10 +34,11 @@ export function Novedades() {
 
   return (
     <Pagina titulo="Ausencias" icono={CalendarMinus01}
-      acciones={editar && <Pista texto="Vacaciones, incapacidad, licencia o día libre concedido: esa persona no se programa esos días."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => irA("nueva-ausencia")}>Registrar ausencia</Button></Pista>} sub="Vacaciones, incapacidades, licencias y días libres concedidos." ayuda={<>Registra aquí cuándo alguien <strong>no puede trabajar</strong>. Al generar el cuadro, el sistema no le asigna turnos esos días. Si el cuadro ya existe, las alertas te avisan de los turnos que chocan con una ausencia.</>} error={lista.error ?? personas.error} aviso={aviso}>
+      acciones={editar && <Pista texto="Vacaciones, incapacidad, licencia o día libre concedido: esa persona no se programa esos días."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => setVentana(true)}>Registrar ausencia</Button></Pista>} sub="Vacaciones, incapacidades, licencias y días libres concedidos." ayuda={<>Registra aquí cuándo alguien <strong>no puede trabajar</strong>. Al generar el cuadro, el sistema no le asigna turnos esos días. Si el cuadro ya existe, las alertas te avisan de los turnos que chocan con una ausencia.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
-        <Seccion titulo="Nueva ausencia" id="nueva-ausencia">
-          <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
+        <Ventana abierto={ventana} alCambiar={setVentana} titulo="Nueva ausencia" ancha descripcion="Esa persona no se programa esos días.">
+          {aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>}
+          <Formulario onSubmit={(x) => { x.preventDefault(); void guardar().then((ok) => ok && setVentana(false)); }}>
             <NativeSelect size="sm" label="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>
               {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
@@ -46,9 +49,9 @@ export function Novedades() {
             <Input value={String(f.desde)} label="Desde" type="date" isRequired onChange={(x) => setF({ ...f, desde: x })} />
             <Input value={String(f.hasta)} label="Hasta" type="date" isRequired onChange={(x) => setF({ ...f, hasta: x })} />
             <Input value={String(f.nota)} label="Nota" maxLength={300} onChange={(x) => setF({ ...f, nota: x })} />
-            <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
+            <Fila><Button color="secondary" size="sm" onPress={() => setVentana(false)}>Cancelar</Button><Button color="primary" size="sm" type="submit" isDisabled={ocupado || !f.colab_id || !f.desde || !f.hasta}>{ocupado ? "Guardando…" : "Guardar"}</Button></Fila>
           </Formulario>
-        </Seccion>
+        </Ventana>
       )}
       <Seccion titulo="Ausencias registradas">
         <Tabla

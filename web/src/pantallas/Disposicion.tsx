@@ -11,7 +11,7 @@ import { AnLogo } from "@/components/foundations/logo/an-logo";
 import { cx } from "@/utils/cx";
 import { leer } from "../api/cliente";
 import type { Area } from "../api/tipos";
-import { ProveedorAvisos, useCargarAvisos } from "../componentes/Avisos";
+import { Campana, ProveedorAvisos, useCargarAvisos } from "../componentes/Avisos";
 import { Tutorial } from "../componentes/Tutorial";
 import { useSesion } from "../Sesion";
 import { SECCIONES } from "./Radiologia";
@@ -107,7 +107,7 @@ export function Disposicion() {
     <ProveedorAvisos value={avisos}>
       <div className="flex h-full flex-col lg:flex-row lg:gap-5 lg:p-5">
         <a className="saltar" href="#contenido">Saltar al contenido</a>
-        <MobileNavigationHeader key={pathname}>{lateral(true)}</MobileNavigationHeader>{/* key: al navegar, el menú móvil se cierra */}
+        <MobileNavigationHeader key={pathname} extra={<Campana />}>{lateral(true)}</MobileNavigationHeader>{/* key: al navegar, el menú móvil se cierra */}
         <div className="hidden lg:flex" data-no-imprimir>{lateral(false)}</div>
         <main className="min-w-0 flex-1 overflow-auto px-4 py-4 outline-none lg:px-0 lg:py-0" id="contenido" tabIndex={-1}>
           {actual.permiso !== "editar" && (
