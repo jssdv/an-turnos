@@ -11,7 +11,8 @@ MIN_CONTRASTE = 4.5
 FIJOS = {"white": "#FFFFFF", "neutral-900": "#171717"}  # neutral-900 de Tailwind = color-text-primary
 # (texto, fondo) que el diseño usa de verdad. Los controles deshabilitados quedan fuera (WCAG 1.4.3 los exime).
 PARES = [("white", "an-brand-600"), ("white", "an-brand-700"), ("an-brand-700", "white"),
-         ("neutral-900", "turno-M"), ("neutral-900", "turno-T"), ("neutral-900", "turno-C"), ("neutral-900", "turno-NC")]
+         ("neutral-900", "turno-M"), ("neutral-900", "turno-T"), ("neutral-900", "turno-C"), ("neutral-900", "turno-NC"),
+         ("peligro-texto", "peligro-fondo"), ("an-brand-700", "an-brand-50")]
 COLOR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(|:\s*(?:white|black)\b", re.I)
 IGNORAR = {"tokens.css", "theme.css", "esquema.d.ts"}  # theme.css: copiado de Untitled UI, define su paleta
 # Clases de Tailwind en .ts/.tsx: tamaño arbitrario (`text-[9px]`) y pares sin variante (`text-x bg-y`, no `hover:bg-y`) en una misma cadena.

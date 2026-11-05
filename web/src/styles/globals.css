@@ -68,8 +68,15 @@ input[type="search"]::-webkit-search-cancel-button {
 
 @layer base {
     html, body, #raiz { height: 100%; }
-    body { margin: 0; color: var(--color-text-secondary); background: var(--color-bg-secondary); }
+    body { margin: 0; color: var(--color-text-secondary); background: linear-gradient(135deg, var(--color-fondo-1), var(--color-bg-primary) 50%, var(--color-fondo-2)) fixed; }
     :focus-visible { outline: 2px solid var(--color-brand-600); outline-offset: 2px; }
+}
+
+/* Tarjeta del marco: blanca, redondeada y con sombra suave (encabezado, secciones, barra lateral). */
+@utility tarjeta {
+    border-radius: 20px;
+    background: var(--color-bg-primary);
+    box-shadow: 0 6px 18px -4px color-mix(in srgb, var(--color-alpha-black) 7%, transparent), 0 1px 3px color-mix(in srgb, var(--color-alpha-black) 4%, transparent);
 }
 
 /* Enlace «Saltar al contenido»: oculto hasta recibir el foco. */

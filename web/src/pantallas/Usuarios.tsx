@@ -5,7 +5,8 @@ import { ErrorApi } from "../api/cliente";
 import type { Area, UsuarioClinica } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
-import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
+import { Plus, UserCheck01 } from "@untitledui/icons";
+import { Fila, Formulario, irA, Pagina, Pista, useAccion, Seccion } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -61,7 +62,8 @@ export function Usuarios() {
   const permisoDe = (u: UsuarioClinica, a: number) => u.permisos.find((p) => p.area_id === a)?.permiso ?? "";
 
   return (
-    <Pagina titulo="Usuarios" sub="Quién ingresa a la clínica y qué puede hacer en cada área." ayuda={<>Cada persona puede tener, por área: <strong>Editar</strong> (genera y cambia el cuadro), <strong>Ver</strong> (solo consulta y exporta) o <strong>Sin acceso</strong>. Al crear un usuario se le asigna una contraseña temporal que deberá cambiar la primera vez que entre.</>} error={lista.error ?? areas.error} aviso={aviso}>
+    <Pagina titulo="Usuarios" icono={UserCheck01}
+      acciones={<Pista texto="Crea un acceso con contraseña temporal; la persona la cambia al entrar."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => irA("nuevo-usuario")}>Nuevo usuario</Button></Pista>} sub="Quién ingresa a la clínica y qué puede hacer en cada área." ayuda={<>Cada persona puede tener, por área: <strong>Editar</strong> (genera y cambia el cuadro), <strong>Ver</strong> (solo consulta y exporta) o <strong>Sin acceso</strong>. Al crear un usuario se le asigna una contraseña temporal que deberá cambiar la primera vez que entre.</>} error={lista.error ?? areas.error} aviso={aviso}>
       {clave && (
         <Alert color="warning" action={<Button color="secondary" size="sm" onPress={() => setClave(null)}>Ya la copié</Button>}>
           Contraseña temporal de {clave.para}: <strong>{clave.valor}</strong>. Se muestra una sola vez; la persona debe cambiarla al ingresar.
@@ -70,7 +72,7 @@ export function Usuarios() {
       {choque && (
         <Alert color="warning" action={<Button color="primary" size="sm" isDisabled={ocupado} onPress={() => reemplazar(choque.id, choque.area)}>Pasar al editor actual a «ver»</Button>}>{choque.texto}</Alert>
       )}
-      <Seccion titulo="Nuevo usuario">
+      <Seccion titulo="Nuevo usuario" id="nuevo-usuario">
         <Formulario onSubmit={(x) => { x.preventDefault(); void crear(); }}>
           <Input value={String(f.correo)} label="Correo" type="email" isRequired onChange={(x) => setF({ ...f, correo: x })} />
           <Input value={String(f.nombre)} label="Nombre" isRequired maxLength={120} onChange={(x) => setF({ ...f, nombre: x })} />

@@ -3,7 +3,8 @@ import { ErrorApi } from "../api/cliente";
 import type { PedidoGenerar, Periodo, Trabajo } from "../api/tipos";
 import { trabajos, trabajosSimulados } from "../api/trabajos";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
-import { Ventana } from "./comun";
+import { Stars02 } from "@untitledui/icons";
+import { Pista, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -95,7 +96,11 @@ export function Generar({ area, periodo, bloqueado, alTerminar }: Props) {
 
   return (
     <>
-      <span title={bloqueado ? "El periodo está cerrado" : undefined}><Button color="primary" size="sm" onPress={abrir} isDisabled={bloqueado} data-accion="generar">Generar</Button></span>
+      <span title={bloqueado ? "El periodo está cerrado" : undefined}>
+        <Pista texto="Arma el cuadro con las reglas, ausencias y solicitudes actuales. Puedes respetar lo editado a mano.">
+          <Button color="primary" size="sm" iconLeading={Stars02} onPress={abrir} isDisabled={bloqueado} data-accion="generar">Generar</Button>
+        </Pista>
+      </span>
       <Ventana
         abierto={abierto}
         alCambiar={setAbierto}

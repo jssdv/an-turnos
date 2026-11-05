@@ -3,7 +3,8 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Novedad } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
+import { CalendarMinus01, Plus } from "@untitledui/icons";
+import { Fila, Formulario, irA, Pagina, Pista, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -30,9 +31,10 @@ export function Novedades() {
   });
 
   return (
-    <Pagina titulo="Ausencias" sub="Vacaciones, incapacidades, licencias y días libres concedidos." ayuda={<>Registra aquí cuándo alguien <strong>no puede trabajar</strong>. Al generar el cuadro, el sistema no le asigna turnos esos días. Si el cuadro ya existe, las alertas te avisan de los turnos que chocan con una ausencia.</>} error={lista.error ?? personas.error} aviso={aviso}>
+    <Pagina titulo="Ausencias" icono={CalendarMinus01}
+      acciones={editar && <Pista texto="Vacaciones, incapacidad, licencia o día libre concedido: esa persona no se programa esos días."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => irA("nueva-ausencia")}>Registrar ausencia</Button></Pista>} sub="Vacaciones, incapacidades, licencias y días libres concedidos." ayuda={<>Registra aquí cuándo alguien <strong>no puede trabajar</strong>. Al generar el cuadro, el sistema no le asigna turnos esos días. Si el cuadro ya existe, las alertas te avisan de los turnos que chocan con una ausencia.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
-        <Seccion titulo="Nueva ausencia">
+        <Seccion titulo="Nueva ausencia" id="nueva-ausencia">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <NativeSelect size="sm" label="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>

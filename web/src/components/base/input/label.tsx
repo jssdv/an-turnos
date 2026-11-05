@@ -55,6 +55,7 @@ export const Label = ({ isInvalid, isRequired, tooltip, tooltipDescription, clas
                         // but we don't that. We want the tooltip be enabled even if the parent
                         // field is disabled.
                         isDisabled={false}
+                        aria-label={tooltip}
                         className="cursor-pointer text-fg-quaternary transition duration-200 hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover"
                     >
                         <HelpCircle className="size-4" />

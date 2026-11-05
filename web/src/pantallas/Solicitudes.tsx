@@ -3,7 +3,8 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, EstadoSolicitud, Periodo, Solicitud, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
+import { Inbox01, Plus, Users01 } from "@untitledui/icons";
+import { Fila, Filtro, Formulario, irA, Pagina, Pista, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -39,9 +40,14 @@ export function Solicitudes() {
   });
 
   return (
-    <Pagina titulo="Solicitudes" sub="Preferencias del personal para el próximo cuadro." ayuda={<>Una solicitud es un <strong>deseo, no una garantía</strong>: el sistema intenta cumplirla al generar, pero primero cubre los puestos y respeta las reglas legales. Usa prioridad <strong>alta</strong> solo para lo importante (una cita médica, un compromiso familiar). Después de generar verás si cada solicitud se cumplió.</>} error={lista.error ?? personas.error} aviso={aviso}>
+    <Pagina titulo="Solicitudes" icono={Inbox01} sub="Preferencias del personal para el próximo cuadro."
+      filtros={<Filtro etiqueta="Persona" icono={Users01} value={persona} onChange={(x) => ver(x.target.value)}>
+        <option value="">Todas las personas</option>
+        {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+      </Filtro>}
+      acciones={editar && <Pista texto="Registra un deseo de una persona: día libre, turno preferido o turno a evitar."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => irA("nueva-solicitud")}>Nueva solicitud</Button></Pista>} ayuda={<>Una solicitud es un <strong>deseo, no una garantía</strong>: el sistema intenta cumplirla al generar, pero primero cubre los puestos y respeta las reglas legales. Usa prioridad <strong>alta</strong> solo para lo importante (una cita médica, un compromiso familiar). Después de generar verás si cada solicitud se cumplió.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
-        <Seccion titulo="Nueva solicitud">
+        <Seccion titulo="Nueva solicitud" id="nueva-solicitud">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <NativeSelect size="sm" label="Persona" required value={f.colab_id} onChange={(x) => setF({ ...f, colab_id: x.target.value })}>
               <option value="">Elige…</option>
@@ -67,11 +73,7 @@ export function Solicitudes() {
         </Seccion>
       )}
       <Seccion titulo="Solicitudes registradas">
-        <NativeSelect size="sm" className="w-64" label="Persona" value={persona} onChange={(x) => ver(x.target.value)}>
-          <option value="">Todas</option>
-          {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-        </NativeSelect>
-        {persona && ultimo && <p className="mt-1 text-md text-tertiary">{visibles.length ? `${cumplidas} de ${visibles.length} cumplidas en el último periodo.` : "Esta persona no tiene solicitudes."}</p>}
+        {persona && ultimo && <p className="mb-3 text-md text-tertiary">{visibles.length ? `${cumplidas} de ${visibles.length} cumplidas en el último periodo.` : "Esta persona no tiene solicitudes."}</p>}
         <Tabla
           descripcion="Solicitudes del área"
           cargando={!lista.datos && !lista.error}

@@ -31,7 +31,8 @@ export const styles = sortCx({
         },
         sm: {
             root: [
-                "gap-1 rounded-lg px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2",
+                // An: 40 px de alto y radio 12 en todas las acciones (rediseño 2026-11).
+                "h-10 gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold before:rounded-[11px] data-icon-only:w-10 data-icon-only:p-2",
                 "in-data-input-wrapper:px-3.5 in-data-input-wrapper:py-2.5 in-data-input-wrapper:data-icon-only:p-2.5",
             ].join(" "),
             linkRoot: "gap-1 *:data-text:underline-offset-3",
@@ -56,11 +57,11 @@ export const styles = sortCx({
     colors: {
         primary: {
             root: [
-                "bg-brand-solid text-white shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:bg-brand-solid_hover data-loading:bg-brand-solid_hover",
+                "bg-linear-to-b from-brand-600 to-brand-700 text-white shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:from-brand-700 hover:to-brand-700 data-loading:bg-brand-solid_hover",
                 // Inner border gradient
                 "before:absolute before:inset-px before:border before:border-white/12 before:mask-b-from-0%",
                 // Icon styles
-                "*:data-icon:text-white/60 hover:*:data-icon:text-white/70",
+                "*:data-icon:text-white/80 hover:*:data-icon:text-white",
             ].join(" "),
         },
         secondary: {
@@ -106,9 +107,9 @@ export const styles = sortCx({
         },
         "secondary-destructive": {
             root: [
-                "bg-primary text-error-primary shadow-xs-skeuomorphic ring-1 ring-error_subtle outline-error ring-inset hover:bg-error-primary hover:text-error-primary_hover data-loading:bg-error-primary",
+                "bg-peligro-fondo text-peligro-texto ring-1 ring-error_subtle outline-error ring-inset hover:bg-error-secondary data-loading:bg-error-primary",
                 // Icon styles
-                "*:data-icon:text-fg-error-secondary hover:*:data-icon:text-fg-error-primary",
+                "*:data-icon:text-peligro-texto",
             ].join(" "),
         },
         "tertiary-destructive": {

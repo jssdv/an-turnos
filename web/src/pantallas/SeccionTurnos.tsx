@@ -1,3 +1,4 @@
+import { Trash01 } from "@untitledui/icons";
 import { useState } from "react";
 import { aHHMM, aMinutos, enviar, type usar } from "../api/catalogos";
 import type { Turno } from "../api/tipos";
@@ -57,7 +58,7 @@ export function SeccionTurnos({ base, editar, turnos }: { base: string; editar: 
             <Fila>
               <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !t.codigo.trim()}>Guardar turno</Button>
               <Button color="secondary" size="sm" onPress={() => elegirTurno(null)}>Nuevo turno</Button>
-              {!nuevo && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrarTurno}>Eliminar</Button>}
+              {!nuevo && <Button color="secondary-destructive" size="sm" iconLeading={Trash01} isDisabled={ocupado} onPress={borrarTurno}>Eliminar</Button>}
             </Fila>
           </Formulario>
         )}
