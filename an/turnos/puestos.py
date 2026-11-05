@@ -1,5 +1,6 @@
 """Reparto diario de personas en los puestos, por tramos horarios, y textos para mostrarlo."""
 from collections import defaultdict
+import random
 from datetime import timedelta
 
 from ortools.sat.python import cp_model
@@ -147,6 +148,9 @@ def asignar_tramos(ctx, cuadro, fechas, tiempo=3, fijos=None, semilla=0, fijos_m
                 usa[c, q] = m.NewBoolVar("")
                 obj.append((10 * hist[c][q] + (100 if ayer_p.get(c) == q else 0)) * usa[c, q])
             m.Add(usa[c, q] >= v)
+        if semilla:  # Reasignar: ruido de desempate (< 10, el menor peso real) para que cada pulsación explore otro reparto igual de bueno
+            azar = random.Random(semilla * 1000 + d.toordinal())
+            obj += [azar.randint(0, 9) * v for v in y.values()]
         m.Minimize(sum(obj))
         sol = cp_model.CpSolver()
         sol.parameters.max_time_in_seconds = tiempo
