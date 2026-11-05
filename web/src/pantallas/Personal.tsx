@@ -3,7 +3,8 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, Pagina, useAccion, Seccion, Grupo } from "./comun";
+import { Plus, Trash01, Users01 } from "@untitledui/icons";
+import { Fila, Formulario, irA, Pagina, Pista, useAccion, Seccion, Grupo } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
@@ -56,7 +57,8 @@ export function Personal() {
   });
 
   return (
-    <Pagina titulo="Personal" sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
+    <Pagina titulo="Personal" icono={Users01}
+      acciones={editar && <Pista texto="Agrega a alguien al área: horas, turnos y puestos que puede cubrir."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { nuevo(); irA("persona"); }}>Agregar persona</Button></Pista>} sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
       <Seccion titulo="Colaboradores" acciones={<Checkbox label="Mostrar inactivos" isSelected={verInactivos} onChange={(x) => setVerInactivos(x)} />}>
         <Tabla
           descripcion="Personal del área"
@@ -65,12 +67,12 @@ export function Personal() {
           columnas={["Nombre", "Tipo", "Horas/sem", "Dedicación", "Estado", ""]}
           filas={(lista.datos ?? []).filter((p) => p.activo || verInactivos).map((p) => [
             p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, <Badge size="sm" color={p.activo ? "success" : "gray"}>{p.activo ? "Activo" : "Inactivo"}</Badge>,
-            editar ? <Button color="link-color" size="sm" onPress={() => elegir(p)} aria-pressed={sel === p.id}>{sel === p.id ? "Editando" : "Editar"}</Button> : null,
+            editar ? <Button color="link-color" size="sm" onPress={() => { elegir(p); irA("persona"); }} aria-pressed={sel === p.id}>{sel === p.id ? "Editando" : "Editar"}</Button> : null,
           ])}
         />
       </Seccion>
       {editar && (
-        <Seccion titulo={sel ? "Editar persona" : "Nueva persona"}>
+        <Seccion titulo={sel ? "Editar persona" : "Nueva persona"} id="persona">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <Input value={String(actual.nombre)} label="Nombre" isRequired maxLength={120} onChange={(x) => set({ nombre: x })} />
             <NativeSelect size="sm" label="Tipo" value={actual.tipo} onChange={(x) => set({ tipo: x.target.value })}>{TIPOS.map((t) => <option key={t}>{t}</option>)}</NativeSelect>
@@ -91,7 +93,7 @@ export function Personal() {
             <Fila>
               <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !actual.nombre.trim() || !actual.permitidos.length || !actual.puestos.length}>{ocupado ? "Guardando…" : "Guardar"}</Button>
               <Button color="secondary" size="sm" onPress={nuevo}>Nueva persona</Button>
-              {sel && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
+              {sel && <Button color="secondary-destructive" size="sm" iconLeading={Trash01} isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
             </Fila>
           </Formulario>
         </Seccion>

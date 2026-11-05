@@ -34,6 +34,16 @@ def test_generar_encola_y_responde_202():
         assert f["revision_base"] == 0 and f["creado_por"] == e.us["editor@a.co"]
 
 
+def test_recientes_lista_el_ultimo_primero():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "editor@a.co")
+        tid = cli.post(ruta_generar(e), headers={**H, "If-Match": "0"}).json()["id"]
+        r = cli.get(f"/api/areas/{e.ar['A']}/trabajos?limite=1")
+        assert r.status_code == 200 and [x["id"] for x in r.json()] == [tid] and r.json()[0]["estado"] == "en_cola"
+
+
 def test_if_match_ausente_da_428_vencido_409_y_con_comillas_vale():
     with entorno() as e:
         if e is None:

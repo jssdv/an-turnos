@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useOutletContext, useParams } from "react-router";
+import { useNavigate, useOutletContext, useParams, useSearchParams } from "react-router";
 import { borrador as guardado, cambios, type Borrador } from "../api/cambios";
 import { ErrorApi, leer } from "../api/cliente";
 import { useSesion } from "../Sesion";
@@ -9,15 +9,15 @@ import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
 import { Tabla } from "../componentes/Tabla";
 import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
-import { dias as diasDe, fechaCorta, mesDe, nombrePeriodo } from "./fechas";
+import { dias as diasDe, fechaCorta, nombrePeriodo } from "./fechas";
 import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
 import { RegistrarCambio, esCorrido, sinCupo } from "./RegistrarCambio";
 import { Button } from "@/components/base/buttons/button";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
-import { Seccion, Ayuda } from "./comun";
-import { cx } from "@/utils/cx";
+import { Ayuda, agrupar, Filtro, Pagina, Pasos, Pista, Seccion } from "./comun";
+import { Calendar, Printer } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 
 interface Datos {
@@ -29,15 +29,6 @@ interface Datos {
   puestos: Puesto[];
   novedades: Novedad[];
   analiticas: Analiticas;
-}
-/** Junta alertas de texto idéntico (p. ej. el mismo turno prohibido en dos celdas) para no repetir la misma línea. */
-function agrupar(alertas: Alerta[]) {
-  const g = new Map<string, { alerta: Alerta; veces: number }>();
-  for (const a of alertas) {
-    const x = g.get(a.texto);
-    if (x) x.veces++; else g.set(a.texto, { alerta: a, veces: 1 });
-  }
-  return [...g.values()];
 }
 const SIGLA_NOVEDAD: Record<string, string> = { Vacaciones: "V", Incapacidad: "I", Licencia: "Li", "Libre solicitado": "LS" };
 
@@ -108,6 +99,14 @@ export function Cuadro() {
       performance.measure("cuadro:pintado-ms", "cuadro:datos", "cuadro:pintado");
     });
   }, [datos]);
+
+  // «Imprimir el cuadro» de Reportes llega con ?imprimir=1: se imprime una vez, ya con la grilla pintada.
+  const [busqueda, setBusqueda] = useSearchParams();
+  useEffect(() => {
+    if (!datos || !busqueda.has("imprimir")) return;
+    setBusqueda({}, { replace: true });
+    setTimeout(() => window.print(), 300);
+  }, [datos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dias = useMemo(() => (actual ? diasDe(actual.clave) : []), [actual]);
   const vista = useMemo(() => {
@@ -204,56 +203,46 @@ export function Cuadro() {
   };
   const cerrarCambio = (b: Borrador | null) => { if (!b) { guardado.borrar(); setErrorCambio(null); } setBorrador(b); };
 
-  if (error) return <div className="flex max-w-[1500px] flex-col gap-5"><Alert color="error" action={<Button color="secondary" size="sm" onPress={() => setRecarga((n) => n + 1)}>Reintentar</Button>}>{error}</Alert></div>;
+  const recargar = () => setRecarga((n) => n + 1);
+  const cabecera = { titulo: <>Cuadro de turnos<span className="hidden print:inline">{actual && ` · ${nombrePeriodo(actual.clave)}`}</span></>, icono: Calendar };
+  if (error) return <Pagina {...cabecera}><Alert color="error" action={<Button color="secondary" size="sm" onPress={recargar}>Reintentar</Button>}>{error}</Alert></Pagina>;
   if (!periodos) return <p className="p-6 text-center text-tertiary" aria-busy="true">Cargando…</p>;
   if (!actual) return (
-    <div className="flex flex-col items-center gap-4 p-6 text-center text-tertiary">
-      <p>Esta área aún no tiene periodos. Crea uno para poder generar el cuadro.</p>
-      {area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={null} alTerminar={() => setRecarga((n) => n + 1)} />}
-    </div>
+    <Pagina {...cabecera} sub="Esta área aún no tiene periodos. Crea uno para poder generar el cuadro."
+      acciones={area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={null} alTerminar={recargar} />}>{null}</Pagina>
   );
 
   const deficit = datos?.analiticas.cobertura[0];
   const irA = (a: Alerta) => a.fecha && setFoco({ fila: a.colab_id, fecha: a.fecha, marca: Date.now() });
+  const pulsar = (accion: string) => () => document.querySelector<HTMLElement>(`[data-accion=${accion}]`)?.click();
 
   return (
-    <div className="flex max-w-[1500px] flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-display-xs font-semibold text-primary">Cuadro de {mesDe(actual.clave)}</h1>
-          <p className="mt-1 text-md text-tertiary">
-            {dias.length} días
-            {deficit && (deficit.dias_deficit || deficit.puestos_sin_cubrir
-              ? ` · ${deficit.dias_deficit} días con falta de personal, ${deficit.puestos_sin_cubrir} puestos sin cubrir`
-              : " · todos los puestos cubiertos")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-3" data-no-imprimir>
-          {actual.cerrado_en ? <Badge color="gray">Cerrado</Badge> : actual.publicado_en && <Badge color="success">Publicado</Badge>}
-          <NativeSelect size="sm" className="w-56" label="Periodo" value={actual.id} onChange={(x) => ir(`/areas/${area.id}/cuadro/${x.target.value}`)}>
-            {periodos.map((p) => <option key={p.id} value={p.id}>{nombrePeriodo(p.clave)}</option>)}
-          </NativeSelect>
-          <NativeSelect size="sm" className="w-40" label="Planilla" value={version} onChange={(x) => setVersion(x.target.value as "cambios" | "original")}>
-            <option value="cambios">Cambios (vigente)</option>
-            <option value="original">Original (publicada)</option>
-          </NativeSelect>
-          {usaPuestos && (
-            <label className="flex items-center gap-2 pb-2 text-sm text-secondary">
-              <input type="checkbox" checked={verPuestos} onChange={(x) => setVerPuestos(x.target.checked)} /> Ver puestos
-            </label>
-          )}
-          <Exportar area={area.id} periodo={actual.id} hayCuadro={!datos || datos.cuadro.celdas.length > 0} />
-          <Button color="secondary" size="sm" onPress={() => window.print()}>Imprimir</Button>
-        </div>
-      </div>
-      {area.permiso === "editar" && (
-        <div className="flex flex-wrap items-center gap-2" data-no-imprimir aria-label="Acciones del periodo" role="group">
-          <Generar area={area.id} periodo={actual} bloqueado={!!actual.cerrado_en} alTerminar={() => setRecarga((n) => n + 1)} />
-          <AccionesPeriodo area={area.id} periodo={actual} alTerminar={() => setRecarga((n) => n + 1)} />
-        </div>
-      )}
+    <Pagina {...cabecera}
+      sub={`${dias.length} días${deficit ? (deficit.dias_deficit || deficit.puestos_sin_cubrir ? ` · ${deficit.dias_deficit} días con falta de personal, ${deficit.puestos_sin_cubrir} puestos sin cubrir` : " · todos los puestos cubiertos") : ""}`}
+      estado={actual.cerrado_en ? <Badge color="gray" size="sm">Cerrado</Badge> : actual.publicado_en && <Badge color="success" size="sm">Publicado</Badge>}
+      filtros={<>
+        <Filtro etiqueta="Periodo" icono={Calendar} value={actual.id} onChange={(x) => ir(`/areas/${area.id}/cuadro/${x.target.value}`)}>
+          {periodos.map((p) => <option key={p.id} value={p.id}>{nombrePeriodo(p.clave)}</option>)}
+        </Filtro>
+        <Filtro etiqueta="Planilla" value={version} onChange={(x) => setVersion(x.target.value as "cambios" | "original")}>
+          <option value="cambios">Cambios (vigente)</option>
+          <option value="original">Original (publicada)</option>
+        </Filtro>
+        {usaPuestos && (
+          <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-primary px-3.5 text-sm font-medium text-secondary shadow-xs ring-1 ring-primary ring-inset">
+            <input type="checkbox" className="accent-brand-600" checked={verPuestos} onChange={(x) => setVerPuestos(x.target.checked)} /> Ver puestos
+          </label>
+        )}
+        <Exportar area={area.id} periodo={actual.id} hayCuadro={!datos || datos.cuadro.celdas.length > 0} />
+        <Pista texto="Imprimir el cuadro"><Button color="secondary" size="sm" iconLeading={Printer} aria-label="Imprimir" onPress={() => window.print()} /></Pista>
+      </>}
+      acciones={area.permiso === "editar" && <>
+        <Generar area={area.id} periodo={actual} bloqueado={!!actual.cerrado_en} alTerminar={recargar} />
+        <AccionesPeriodo area={area.id} periodo={actual} alTerminar={recargar} />
+      </>}>
 
-      {datos && area.permiso === "editar" && <Pasos hay={datos.cuadro.celdas.length > 0} alertas={datos.alertas} publicado={!!actual.publicado_en} />}
+      {datos && area.permiso === "editar" && <Pasos hay={datos.cuadro.celdas.length > 0} alertas={datos.alertas} publicado={!!actual.publicado_en}
+        alGenerar={pulsar("generar")} alPublicar={pulsar("publicar")} alVerAlertas={() => document.getElementById("alertas")?.scrollIntoView({ behavior: "smooth", block: "start" })} />}
 
       <Ayuda titulo="¿Cómo se usa el cuadro?" clave="cuadro">
         <ul className="list-disc pl-5">
@@ -382,31 +371,7 @@ export function Cuadro() {
           alAnular={(a) => { setResultado({ nivel: a.length ? "aviso" : "ok", texto: "Cambio anulado." + (a.length ? "\nNuevas alertas:\n• " + a.slice(0, 3).join("\n• ") : "") }); setRecarga((n) => n + 1); }} />
         </div>
       )}
-    </div>
-  );
-}
-
-/** Guía de tres pasos del periodo: generar → revisar alertas → publicar. Solo informa; las acciones están arriba. */
-function Pasos({ hay, alertas, publicado }: { hay: boolean; alertas: Alerta[]; publicado: boolean }) {
-  // Mismas cuentas que la lista de alertas (agrupada), para que los números coincidan.
-  const errores = agrupar(alertas.filter((a) => a.nivel === "error")).length, avisos = agrupar(alertas.filter((a) => a.nivel === "aviso")).length;
-  const pasos = [
-    { titulo: "Generar", hecho: hay, texto: hay ? "Hecho: el cuadro está armado." : "Aún sin cuadro.", boton: hay ? null : ["Generar", () => document.querySelector<HTMLElement>("[data-accion=generar]")?.click()] as const },
-    { titulo: "Revisar alertas", hecho: hay && !errores, texto: errores ? `${errores} por corregir · ${avisos} para revisar` : avisos ? `Sin errores · ${avisos} recomendaciones` : "Sin alertas.", boton: errores || avisos ? ["Ver alertas", () => document.getElementById("alertas")?.scrollIntoView({ behavior: "smooth", block: "start" })] as const : null },
-    { titulo: "Publicar", hecho: publicado, texto: publicado ? "Publicado: el equipo ve esta versión." : "Aún no publicado.", boton: hay && !publicado && !errores ? ["Publicar", () => document.querySelector<HTMLElement>("[data-accion=publicar]")?.click()] as const : null },
-  ];
-  const actual = pasos.findIndex((p) => !p.hecho);
-  return (
-    <ol className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 print:hidden" aria-label="Pasos del periodo" data-no-imprimir>
-      {pasos.map((p, i) => (
-        <li key={p.titulo} data-hecho={p.hecho || undefined} data-actual={(!p.hecho && i === actual) || undefined}
-          className={cx("flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary ring-1 ring-secondary ring-inset", p.hecho && "bg-utility-green-50 text-utility-green-700 ring-utility-green-200", !p.hecho && i === actual && "bg-utility-yellow-50 text-utility-yellow-700 ring-utility-yellow-200")} aria-current={i === actual ? "step" : undefined}>
-          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-secondary font-bold text-tertiary in-data-hecho:bg-success-solid in-data-hecho:text-white in-data-actual:bg-warning-solid in-data-actual:text-white" aria-hidden="true">{p.hecho ? "✓" : i + 1}</span>
-          <span><strong>{i + 1}. {p.titulo}</strong><span className="mt-0.5 block text-xs text-tertiary in-data-actual:text-utility-yellow-700 in-data-hecho:text-utility-green-700">{p.texto}</span></span>
-          {p.boton && <Button color="secondary" size="sm" className="ml-auto" onPress={p.boton[1]}>{p.boton[0]}</Button>}
-        </li>
-      ))}
-    </ol>
+    </Pagina>
   );
 }
 

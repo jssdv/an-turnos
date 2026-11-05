@@ -4,12 +4,12 @@ import type { FC, HTMLAttributes, MouseEventHandler, ReactNode, RefAttributes } 
 import { ChevronDown, Share04 } from "@untitledui/icons";
 import type { LinkProps as AriaLinkProps } from "react-aria-components";
 import { Link as AriaLink } from "react-aria-components";
-import { Badge } from "@/components/base/badges/badges";
 import { cx, sortCx } from "@/utils/cx";
 
 const styles = sortCx({
-    root: "group relative flex max-h-9 w-full cursor-pointer items-center rounded-md bg-primary outline-focus-ring transition duration-100 ease-linear select-none hover:bg-primary_hover focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2",
-    rootSelected: "bg-secondary hover:bg-secondary_hover",
+    // An: ítem de 44 px, activo en píldora de marca con barra a la izquierda (rediseño 2026-11).
+    root: "group relative flex h-11 w-full cursor-pointer items-center rounded-xl bg-primary outline-focus-ring transition duration-100 ease-linear select-none hover:bg-primary_hover focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2",
+    rootSelected: "bg-brand-50 hover:bg-brand-50 before:absolute before:inset-y-2.5 before:left-0 before:w-[3px] before:rounded-full before:bg-brand-500",
 });
 
 /**
@@ -58,27 +58,28 @@ export const NavItemBase = (props: NavItemBaseProps) => {
         <Icon
             aria-hidden="true"
             className={cx(
-                "mr-2 size-5 shrink-0 text-fg-quaternary transition-inherit-all group-hover/item:text-fg-quaternary_hover",
-                current && "text-fg-quaternary_hover",
+                "mr-3 size-5 shrink-0 text-fg-quaternary transition-inherit-all group-hover/item:text-fg-quaternary_hover",
+                current && "text-brand-600 group-hover/item:text-brand-600",
             )}
         />
     );
 
     const badgeElement =
         badge && (typeof badge === "string" || typeof badge === "number") ? (
-            <Badge className="ml-3" color="gray" type="pill-color" size="sm">
+            <span data-texto className="ml-3 rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
                 {badge}
-            </Badge>
+            </span>
         ) : (
             badge
         );
 
     const labelElement = (
         <span
+            data-texto
             className={cx(
-                "flex-1 text-sm font-semibold text-secondary transition-inherit-all group-hover/item:text-secondary_hover",
+                "flex-1 text-sm font-medium text-secondary transition-inherit-all group-hover/item:text-secondary_hover",
                 truncate && "truncate",
-                current && "text-secondary_hover",
+                current && "font-semibold text-brand-secondary group-hover/item:text-brand-secondary",
             )}
         >
             {children}
@@ -116,7 +117,7 @@ export const NavItemBase = (props: NavItemBaseProps) => {
             isDisabled={isDisabled}
             onClick={onClick}
             className={cx(
-                type === "collapsible-child" ? "py-2 pr-3 pl-10" : "group/item p-2",
+                type === "collapsible-child" ? "py-2 pr-3 pl-10" : "group/item px-3.5",
                 styles.root,
                 current && styles.rootSelected,
                 "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",

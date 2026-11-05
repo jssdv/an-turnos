@@ -18,6 +18,7 @@ Architecture: `docs/ARQUITECTURA.md`. Roadmap toward a full scheduling system: `
 
 ## Layout
 - `an/nucleo/xlsx.py` — `poner_texto`, shared by the xlsx exports.
+- `web/src/pantallas/comun.tsx` — `Pagina` (encabezado común: ícono, título, estado, filtros, campana, acciones), `Seccion`, `Pista` (tooltip de botón), `Filtro`, `Pasos`; marco y menú en `Disposicion.tsx`; campana en `componentes/Avisos.tsx`. Every screen uses `Pagina` so order and alignment stay the same (design: `docs/diseno/rediseno/`).
 - `an/web/` — API (routes `rutas_*.py`, auth, `sqlite_pg.py` adapter, `esquema.py`/`migraciones_sqlite/`), solver worker `trabajador.py`, admin CLI, `entregable.py` (portable launcher). `web/` — React front; colors come from FigCraft (`docs/diseno/An_UI.figcraft`) via `checks/tokens.py` → `web/src/tokens.css`.
 - `an/radiologia/` — `generar_semana.py` (core), `analisis.py` (pure functions), `plantilla_semana.xlsx`.
 - `an/turnos/` — pure core (`dominio`, `db`, `puente`, `reglas`, `solver`, `demanda`, `dotacion`, `puestos`, `capacitacion`, `recargos`, `flujo`, `cambios`, `solicitudes`, `analitica`, `exportar`). Imports inside the package are relative. `BD` works on a SQLite file/memory (core tests) and, through `BD.web`, on the web layer's connection.

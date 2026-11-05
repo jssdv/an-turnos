@@ -15,6 +15,10 @@ Supuestos míos (corregibles): avatar con **iniciales** (no hay fotos en la BD);
 
 Hoy el front ya tiene la estructura (acciones del periodo en fila, `Pasos`, `Ayuda`, `Seccion`, `Pagina`) en `web/src/pantallas/Cuadro.tsx`, `AccionesPeriodo.tsx`, `comun.tsx`, `Disposicion.tsx`. El cambio es de marco, estilo y cuatro piezas nuevas; la lógica de cada pantalla no cambia.
 
+## Ajuste pedido tras el diseño
+
+Tooltips (al pasar el mouse y con el foco) en los botones de acción, en un «?» junto a cada campo de Parámetros y en cada celda de Requerimiento.
+
 ## Orden del menú
 
 Inicio · Cuadro de turnos · Solicitudes (contador) · Personal · Ausencias · Requerimiento · Reportes · Parámetros · Analíticas · Usuarios (solo admin).

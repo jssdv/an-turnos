@@ -5,7 +5,8 @@ import { SeccionTurnos } from "./SeccionTurnos";
 import { MatrizRequerimiento } from "./MatrizRequerimiento";
 import type { Area, Demanda, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
+import { Building02, Plus, Trash01 } from "@untitledui/icons";
+import { Fila, Formulario, irA, Pagina, Pista, useAccion, Seccion } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
@@ -48,7 +49,8 @@ export function Puestos() {
   });
 
   return (
-    <Pagina titulo="Requerimiento" sub="Los turnos del área, si el servicio usa puestos y cuántas personas hacen falta." ayuda={<>Primero define los <strong>turnos</strong> (sus horarios son la base). Luego elige si trabajan por puestos. Con puestos, cada uno tiene su propia <strong>necesidad por turno y día</strong>; sin puestos, la necesidad es la del área. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error ?? parametros.error ?? turnos.error} aviso={aviso}>
+    <Pagina titulo="Requerimiento" icono={Building02}
+      acciones={editar && usaPuestos && <Pista texto="Crea un puesto y define cuántas personas necesita por turno y día."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { elegir(null); irA("puesto"); }}>Agregar puesto</Button></Pista>} sub="Los turnos del área, si el servicio usa puestos y cuántas personas hacen falta." ayuda={<>Primero define los <strong>turnos</strong> (sus horarios son la base). Luego elige si trabajan por puestos. Con puestos, cada uno tiene su propia <strong>necesidad por turno y día</strong>; sin puestos, la necesidad es la del área. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error ?? parametros.error ?? turnos.error} aviso={aviso}>
       <SeccionTurnos base={base} editar={editar} turnos={turnos} />
       {editar && <Seccion titulo="Cómo se define la necesidad"><Checkbox label="Este servicio trabaja por puestos" hint="Apagado: solo se pide un número de personas por jornada y día de la semana."
         isSelected={usaPuestos} isDisabled={ocupado || !parametros.datos} onChange={cambiarModo} /></Seccion>}
@@ -60,7 +62,7 @@ export function Puestos() {
             editar ? <Button color="link-color" size="sm" onPress={() => elegir(q)}>{sel?.id === q.id ? "Editando" : "Editar"}</Button> : null])} />
       </Seccion>
       {editar && (
-        <Seccion titulo={sel ? `Puesto ${sel.numero}` : "Nuevo puesto"}>
+        <Seccion titulo={sel ? `Puesto ${sel.numero}` : "Nuevo puesto"} id="puesto">
           <Formulario onSubmit={(x) => { x.preventDefault(); void guardar(); }}>
             <Input value={String(p.numero)} label="Número" type="number" isRequired onChange={(x) => setP({ ...p, numero: Number(x) })} />
             <Input value={String(p.nombre)} label="Nombre" isRequired maxLength={60} onChange={(x) => setP({ ...p, nombre: x })} />
@@ -69,7 +71,7 @@ export function Puestos() {
             <Fila>
               <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !p.nombre.trim()}>{ocupado ? "Guardando…" : "Guardar"}</Button>
               <Button color="secondary" size="sm" onPress={() => elegir(null)}>Nuevo puesto</Button>
-              {sel && <Button color="primary-destructive" size="sm" isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
+              {sel && <Button color="secondary-destructive" size="sm" iconLeading={Trash01} isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
             </Fila>
           </Formulario>
         </Seccion>

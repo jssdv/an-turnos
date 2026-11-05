@@ -3,7 +3,8 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Tarifa } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, Pagina, useAccion, Seccion } from "./comun";
+import { Check, Settings01 } from "@untitledui/icons";
+import { Fila, Formulario, Pagina, Pista, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -67,25 +68,27 @@ export function Parametros() {
   });
 
   return (
-    <Pagina titulo="Parámetros" sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? tarifas.error} aviso={aviso}>
-      <Seccion titulo="Reglas" aria-busy={!params.datos}>
-        {!params.datos ? !params.error && <p aria-busy="true">Cargando…</p> : (
-          <Formulario onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
-            <NativeSelect size="sm" label="Periodo" hint="Cómo se corta cada cuadro." disabled={!editar} value={v.periodo_modo ?? "mes"} onChange={(x) => setV({ ...v, periodo_modo: x.target.value })}>
-              <option value="mes">Mes calendario</option><option value="semanas">Semanas desde un lunes</option>
-            </NativeSelect>
-            {GRUPOS.map(([titulo, claves]) => (
-              <fieldset key={titulo} className="col-span-full grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
-                <legend className="mb-2 text-sm font-semibold text-secondary">{titulo}</legend>
+    <Pagina titulo="Parámetros" icono={Settings01}
+      acciones={editar && params.datos && <Pista texto="Guarda las reglas. El cuadro ya armado no cambia: genera de nuevo para aplicarlas."><Button color="primary" size="sm" iconLeading={Check} type="submit" form="reglas" isDisabled={ocupado}>Guardar reglas</Button></Pista>} sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? tarifas.error} aviso={aviso}>
+      {!params.datos ? !params.error && <p className="tarjeta p-5" aria-busy="true">Cargando…</p> : (
+        <form id="reglas" aria-label="Reglas" className="grid items-start gap-4 lg:grid-cols-2" onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
+          {GRUPOS.map(([titulo, claves], i) => (
+            <Seccion key={titulo} titulo={titulo}>
+              <fieldset className="flex flex-col gap-4">
+                <legend className="sr-only">{titulo}</legend>
+                {i === 0 && (
+                  <NativeSelect size="sm" label="Periodo" hint="Cómo se corta cada cuadro." disabled={!editar} value={v.periodo_modo ?? "mes"} onChange={(x) => setV({ ...v, periodo_modo: x.target.value })}>
+                    <option value="mes">Mes calendario</option><option value="semanas">Semanas desde un lunes</option>
+                  </NativeSelect>
+                )}
                 {NUM.filter(([k]) => claves.includes(k)).map(([k, etiqueta, lo, hi, ayuda]) => (
-                  <Input value={String(v[k] ?? "")} key={k} label={etiqueta} hint={`${ayuda} (${lo}–${hi})`} type="number" isDisabled={!editar} onChange={(x) => setV({ ...v, [k]: x })} />
+                  <Input value={String(v[k] ?? "")} key={k} label={etiqueta} ayuda={ayuda} hint={`Entre ${lo} y ${hi}.`} type="number" isDisabled={!editar} onChange={(x) => setV({ ...v, [k]: x })} />
                 ))}
               </fieldset>
-            ))}
-            {editar && <Fila><Button color="primary" size="sm" type="submit" isDisabled={ocupado}>Guardar reglas</Button></Fila>}
-          </Formulario>
-        )}
-      </Seccion>
+            </Seccion>
+          ))}
+        </form>
+      )}
 
       <Seccion titulo="Tarifas">
         <Tabla descripcion="Tarifas vigentes por fecha" cargando={!tarifas.datos && !tarifas.error} vacio="Sin tarifas." columnas={["Concepto", "Valor", "Desde"]}

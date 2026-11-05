@@ -36,3 +36,13 @@ export function nombrePeriodo(clave: string) {
 
 export const mesDe = (clave: string) => fmt(clave.split("/")[0], { month: "long" });
 export const fechaCorta = (iso: string) => fmt(iso, { weekday: "short", day: "numeric", month: "short" });
+
+/** Hoy en ISO local (AAAA-MM-DD) y `n` días después. */
+export const isoHoy = (n = 0) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+/** El periodo que contiene hoy; si ninguno, el último. */
+export const vigente = <P extends { clave: string }>(periodos: P[]) => {
+  const hoy = isoHoy();
+  return periodos.find((p) => { const [a, b] = p.clave.split("/"); return a <= hoy && hoy <= b; }) ?? periodos.at(-1) ?? null;
+};
+/** Fecha y hora de la API (SQLite guarda UTC sin zona: «AAAA-MM-DD HH:MM:SS»). */
+export const instante = (s: string) => new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : `${s.replace(" ", "T")}Z`);

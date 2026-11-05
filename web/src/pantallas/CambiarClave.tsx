@@ -5,6 +5,7 @@ import { useSesion } from "../Sesion";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Alert } from "@/components/application/alerts/alert";
+import { AnLogo } from "@/components/foundations/logo/an-logo";
 
 export function CambiarClave() {
   const { usuario, recargar, salir } = useSesion();
@@ -36,8 +37,9 @@ export function CambiarClave() {
   };
 
   return (
-    <main className="grid min-h-full place-items-center bg-secondary p-4">
-      <div className="flex w-full max-w-md flex-col gap-5 rounded-2xl bg-primary p-8 shadow-lg ring-1 ring-secondary ring-inset">
+    <main className="grid min-h-full place-items-center p-4">
+      <div className="tarjeta flex w-full max-w-md flex-col gap-5 p-8 sm:p-9">
+        <AnLogo area="Turnos claros para todo el equipo" />
         <div>
           <h1 className="text-display-xs font-semibold text-primary">Cambiar contraseña</h1>
           <p className="text-md text-tertiary">
@@ -49,7 +51,7 @@ export function CambiarClave() {
           <Input value={String(actual)} label="Contraseña actual" hint={usuario.debe_cambiar ? "La temporal que te dio quien administra." : undefined} type="password" autoComplete="current-password" isRequired autoFocus onChange={(x) => setActual(x)} />
           <Input value={String(nueva)} label="Contraseña nueva" hint="Al menos 10 caracteres. Una frase corta es fácil de recordar." type="password" autoComplete="new-password" isRequired onChange={(x) => setNueva(x)} />
           <Input value={String(repetida)} hint={distinta} isInvalid={!!(distinta)} label="Repite la nueva" type="password" autoComplete="new-password" isRequired onChange={(x) => setRepetida(x)} />
-          <Button color="primary" size="md" type="submit" isDisabled={enviando || !actual || !nueva || nueva !== repetida}>{enviando ? "Guardando…" : "Guardar contraseña"}</Button>
+          <Button color="primary" size="sm" className="h-11" type="submit" isDisabled={enviando || !actual || !nueva || nueva !== repetida}>{enviando ? "Guardando…" : "Guardar contraseña"}</Button>
           <Button color="link-color" size="sm" onPress={salir}>Salir</Button>
         </form>
       </div>
