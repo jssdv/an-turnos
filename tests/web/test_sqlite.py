@@ -48,35 +48,36 @@ def test_flujo_basico():
 def test_base_nueva_queda_en_la_ultima_version():
     ruta = str(_carpeta() / "an.db")
     entregable.preparar_base(ruta, _carpeta())
-    assert _version(ruta) == esquema.ultima_sqlite() == 13
+    assert _version(ruta) == esquema.ultima_sqlite() == 14
+    assert _version(str(Path(ruta).with_name("area_1.db"))) == esquema.ultima_area() == 1
 
 
-def test_migracion_de_prueba_sube_desde_13():
+def test_migracion_de_prueba_sube_desde_14():
     d = _carpeta()
     migraciones = d / "migraciones"
     migraciones.mkdir()
-    (migraciones / "014_prueba.sql").write_text("CREATE TABLE prueba (id INTEGER PRIMARY KEY);", encoding="utf-8")
-    (migraciones / "015_rota.sql").write_text("CREATE TABLE rota (id INTEGER); SELECT no_existe();", encoding="utf-8")
+    (migraciones / "015_prueba.sql").write_text("CREATE TABLE prueba (id INTEGER PRIMARY KEY);", encoding="utf-8")
+    (migraciones / "016_rota.sql").write_text("CREATE TABLE rota (id INTEGER); SELECT no_existe();", encoding="utf-8")
     ruta = str(d / "an.db")
     con = sqlite_pg.abrir(ruta)
-    assert esquema.aplicar_sqlite(con) == 13  # base nueva: solo las migraciones de la carpeta real
+    assert esquema.aplicar_sqlite(con) == 14  # base nueva: solo las migraciones de la carpeta real
     con.close()
     con = sqlite_pg.abrir(ruta)
     try:
-        esquema.aplicar_sqlite(con, migraciones)  # 014 sube, 015 falla y se revierte entera
-        raise AssertionError("la migración 015 debía fallar")
+        esquema.aplicar_sqlite(con, migraciones)  # 015 sube, 016 falla y se revierte entera
+        raise AssertionError("la migración 016 debía fallar")
     except sqlite3.Error:
         pass
     finally:
         con.close()
-    assert _version(ruta) == 14
+    assert _version(ruta) == 15
     raw = sqlite3.connect(ruta)
     tablas = {r[0] for r in raw.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     raw.close()
     assert "prueba" in tablas and "rota" not in tablas
-    (migraciones / "015_rota.sql").write_text("CREATE TABLE ok (id INTEGER);", encoding="utf-8")
+    (migraciones / "016_rota.sql").write_text("CREATE TABLE ok (id INTEGER);", encoding="utf-8")
     con = sqlite_pg.abrir(ruta)
-    assert esquema.aplicar_sqlite(con, migraciones) == 15
+    assert esquema.aplicar_sqlite(con, migraciones) == 16
     con.close()
 
 
@@ -87,7 +88,7 @@ def test_base_del_formato_anterior_se_marca_12():
     raw.executescript(esquema.BASE_SQLITE.read_text(encoding="utf-8"))  # como la creaba el código anterior: sin user_version
     raw.close()
     entregable.preparar_base(ruta, d / "respaldos")
-    assert _version(ruta) == 13
+    assert _version(ruta) == 14
 
 
 def test_base_del_formato_anterior_con_tabla_que_falta_se_rechaza():
@@ -154,15 +155,16 @@ def test_respaldo_al_abrir_con_poda():
     respaldos = d / "respaldos"
     entregable.preparar_base(ruta, respaldos)
     entregable.preparar_base(ruta, respaldos)
-    assert len(list(respaldos.glob("an_*.db"))) == 1  # la segunda apertura dejó su copia
+    copias = lambda: sorted(d for d in respaldos.iterdir() if d.is_dir())
+    assert len(copias()) == 1 and {f.name for f in copias()[0].iterdir()} == {"an.db", "area_1.db"}  # la segunda apertura copió base y área
     for i in range(entregable.RESPALDOS_MAX + 2):  # copias viejas: la poda deja las últimas RESPALDOS_MAX
-        (respaldos / f"an_1999{i:04d}.db").write_bytes(b"x")
+        (respaldos / f"1999{i:04d}_000000").mkdir()
     entregable.respaldar(Path(ruta), respaldos)
-    assert len(list(respaldos.glob("an_*.db"))) == entregable.RESPALDOS_MAX
+    assert len(copias()) == entregable.RESPALDOS_MAX
 
 
 if __name__ == "__main__":
-    for prueba in [test_flujo_basico, test_base_nueva_queda_en_la_ultima_version, test_migracion_de_prueba_sube_desde_13,
+    for prueba in [test_flujo_basico, test_base_nueva_queda_en_la_ultima_version, test_migracion_de_prueba_sube_desde_14,
                    test_base_del_formato_anterior_se_marca_12, test_base_del_formato_anterior_con_tabla_que_falta_se_rechaza,
                    test_version_mas_nueva_se_rechaza_sin_tocarla, test_base_danada_no_se_toca_y_ofrece_el_respaldo,
                    test_cero_bytes_es_base_nueva, test_respaldo_al_abrir_con_poda]:

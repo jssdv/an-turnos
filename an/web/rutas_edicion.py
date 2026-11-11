@@ -204,10 +204,10 @@ def crear_periodo(datos: NuevoPeriodo, request: Request, ctx: Contexto = Depends
 def borrar_periodo(id: int, request: Request, if_match: str | None = Header(None), ctx: Contexto = Depends(contexto_area, scope="function")):
     p = bloquear(ctx, id, if_match)
     abierto(ctx, p)
-    if ctx.conn.execute("SELECT 1 FROM trabajo WHERE periodo_id = ? AND estado IN ('en_cola', 'corriendo')", (id,)).fetchone():
+    if ctx.conn.execute("SELECT 1 FROM trabajo WHERE periodo_id = ? AND area_id = ? AND estado IN ('en_cola', 'corriendo')", (id, ctx.area)).fetchone():
         raise HTTPException(409, "Hay un cuadro generándose para este periodo; espera o cancélalo.")
     ctx.conn.execute("DELETE FROM exporte WHERE periodo_id = ?", (id,))
-    ctx.conn.execute("DELETE FROM trabajo WHERE periodo_id = ?", (id,))  # terminados: la FK a periodo no deja borrar el periodo con ellos
+    ctx.conn.execute("DELETE FROM trabajo WHERE periodo_id = ? AND area_id = ?", (id, ctx.area))  # terminados: que no queden colgando de un periodo que ya no existe
     ctx.conn.execute("DELETE FROM periodo WHERE id = ?", (id,))
     ctx.bd.borrar_periodo(p.clave)  # al final: commit de la transacción completa
     request.state.evento = "periodo_eliminado"
@@ -226,7 +226,7 @@ def reasignar_puestos(id: int, request: Request, datos: Reasignar = Reasignar(),
     abierto(ctx, p)
     if datos.desde and not p.inicio <= datos.desde <= p.fin:
         raise HTTPException(422, "La fecha debe estar dentro del periodo")
-    if ctx.conn.execute("SELECT 1 FROM trabajo WHERE periodo_id = ? AND estado IN ('en_cola', 'corriendo')", (id,)).fetchone():
+    if ctx.conn.execute("SELECT 1 FROM trabajo WHERE periodo_id = ? AND area_id = ? AND estado IN ('en_cola', 'corriendo')", (id, ctx.area)).fetchone():
         raise HTTPException(409, "Hay un cuadro generándose para este periodo; espera o cancélalo.")
     flujo.recalcular(ctx.bd, p.inicio, p.fin, desde=datos.desde, semilla=int(time.time()) % 100_000 + 1)  # cada Reasignar explora otro reparto
     return {"revision": subir(ctx, id, request, "puestos_reasignados")}

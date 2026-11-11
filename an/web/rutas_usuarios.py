@@ -4,8 +4,8 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from . import admin, auth, conexion
-from .deps import usuario_actual
+from . import admin, auth
+from .deps import con_clinica as _con_clinica, usuario_actual
 
 router = APIRouter(prefix="/api/usuarios")
 
@@ -18,18 +18,6 @@ class NuevoUsuario(BaseModel):
 
 class Permiso(BaseModel):
     permiso: str | None = Field(None, pattern="^(ver|editar)$")
-
-
-def _con_clinica(request, u, hacer):
-    """Abre una transacción con el alcance de la clínica del administrador y llama `hacer(conn)`; ErrorAdmin → 409."""
-    if not u.es_admin:
-        raise HTTPException(403, "Solo el administrador de la clínica puede gestionar usuarios")
-    with request.app.state.pool.connection() as conn:
-        conexion.alcance(conn, u.clinica_id)
-        try:
-            return hacer(conn)
-        except admin.ErrorAdmin as x:
-            raise HTTPException(409, str(x))
 
 
 def _existe(conn, id_):
@@ -62,6 +50,8 @@ def permiso(id: int, area: int, datos: Permiso, request: Request, reemplazar: bo
         _existe(conn, id)
         if not conn.execute("SELECT 1 FROM area WHERE id = %s", (area,)).fetchone():
             raise HTTPException(404, "Área no encontrada")
+        if conn.execute("SELECT 1 FROM usuario WHERE id = %s AND es_admin", (id,)).fetchone():
+            raise HTTPException(409, "Administra la clínica: ya edita todas las áreas")
         if datos.permiso is None:
             admin.quitar_permiso(conn, id, area)
             return

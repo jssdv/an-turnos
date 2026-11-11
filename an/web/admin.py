@@ -1,15 +1,17 @@
 """Administración por línea de comandos: clínicas, áreas, usuarios y permisos. Uso: python -m an.web.admin <comando> …
+Cada área vive en area_<id>.db junto a la base (crear-area lo crea; borrar-area lo elimina).
 Se conecta a la base SQLite de AN_BASE."""
 import argparse
+import logging
 import os
 import secrets
 import sys
-
+from pathlib import Path
 
 from an.turnos.db import BD
 from an.turnos.puente import Conexion, UniqueViolation
 
-from . import auth, conexion, sqlite_pg
+from . import auth, conexion, esquema, sqlite_pg
 
 
 class ErrorAdmin(Exception):
@@ -21,17 +23,46 @@ def crear_clinica(conn, nombre):
 
 
 def crear_area(conn, clinica_id, nombre, tipo="turnos"):
-    """Crea el área; las de tipo `turnos` arrancan con los datos base del motor (turnos, puestos, tarifas, parámetros)."""
+    """Crea el área con su archivo area_<id>.db; las de tipo `turnos` arrancan con los datos base del motor (turnos, puestos, tarifas, parámetros)."""
     try:
         area = conn.execute("INSERT INTO area (nombre, tipo, clinica_id) VALUES (%s, %s, %s) RETURNING id", (nombre, tipo, clinica_id)).fetchone()[0]
     except UniqueViolation:
         conn.rollback()
         raise ErrorAdmin("esa clínica ya tiene un área con ese nombre")
-    if tipo == "turnos":
-        conexion.alcance(conn, clinica_id, area)
-        BD.web(Conexion(conn, confirmar=False)).sembrar()
-    conn.commit()
+    conn.commit()  # cambiar de archivo de área exige no estar en una transacción
+    archivo = conn.ruta_area(area)
+    try:
+        esquema.aplicar_area(archivo)
+        if tipo == "turnos":
+            conexion.alcance(conn, clinica_id, area)
+            BD.web(Conexion(conn, confirmar=False)).sembrar()
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        conn.execute("DELETE FROM area WHERE id = %s", (area,))
+        conn.commit()
+        archivo.unlink(missing_ok=True)
+        raise
     return area
+
+
+def borrar_area(conn, area_id, nombre):
+    """Borra el área (permisos y trabajos incluidos) y su archivo; `nombre` debe coincidir: es la confirmación."""
+    f = conn.execute("SELECT nombre FROM area WHERE id = %s", (area_id,)).fetchone()
+    if f is None:
+        raise ErrorAdmin("el área no existe")
+    if f[0] != nombre:
+        raise ErrorAdmin("el nombre no coincide con el del área")
+    if conn.execute("SELECT 1 FROM trabajo WHERE area_id = %s AND estado IN ('en_cola', 'corriendo')", (area_id,)).fetchone():
+        raise ErrorAdmin("el área tiene un cuadro generándose; espera a que termine")
+    conn.execute("DELETE FROM trabajo WHERE area_id = %s", (area_id,))
+    conn.execute("DELETE FROM area WHERE id = %s", (area_id,))
+    conn.commit()
+    for sufijo in ("", "-wal", "-shm"):
+        try:
+            Path(str(conn.ruta_area(area_id)) + sufijo).unlink(missing_ok=True)
+        except OSError as e:  # Windows con el archivo en uso: queda huérfano, inofensivo (los ids no se reutilizan)
+            logging.getLogger("an").warning("no se pudo borrar %s: %s", conn.ruta_area(area_id), e)
 
 
 def crear_usuario(conn, clinica_id, correo, nombre, es_admin=False):
@@ -109,6 +140,9 @@ def main(argv, conn=None):
     s = sub.add_parser("quitar-permiso")
     s.add_argument("--usuario", type=int, required=True)
     s.add_argument("--area", type=int, required=True)
+    s = sub.add_parser("borrar-area")
+    s.add_argument("--area", type=int, required=True)
+    s.add_argument("--nombre", required=True)
     sub.add_parser("desactivar-usuario").add_argument("usuario", type=int)
     sub.add_parser("restablecer-clave").add_argument("usuario", type=int)
     a = p.parse_args(argv)
@@ -125,6 +159,9 @@ def main(argv, conn=None):
             print(f"usuario: {uid}\nclave temporal: {clave}\n(se muestra una sola vez)")
         elif a.cmd == "quitar-permiso":
             quitar_permiso(conn, a.usuario, a.area)
+            print("listo")
+        elif a.cmd == "borrar-area":
+            borrar_area(conn, a.area, a.nombre)
             print("listo")
         elif a.cmd == "desactivar-usuario":
             desactivar_usuario(conn, a.usuario)

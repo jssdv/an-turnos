@@ -1,4 +1,5 @@
-"""Fixture compartida de las pruebas de la API: una base SQLite desechable (una clínica, un área «Turnos») con usuarios, un periodo con cuadro y la app lista."""
+"""Fixture compartida de las pruebas de la API: una carpeta SQLite desechable (an.db + area_<id>.db; una clínica, un área «Turnos») con usuarios,
+un periodo con cuadro y la app lista. `e.en_area(id)` adjunta otra área a `e.su`; `segunda_area(e, nombre)` crea una."""
 import contextlib
 import shutil
 import tempfile
@@ -88,6 +89,7 @@ def entorno(pool_max=10):
             su.execute("INSERT INTO usuario_area (usuario_id, area_id, permiso, clinica_id) VALUES (%s, %s, %s, %s)", (uid, e.ar["A"], perm, e.cl["A"]))
     su.commit()
     e.su = Directa(su)
+    e.en_area = lambda a: conexion.alcance(su, e.cl["A"], a)  # su confirma por sentencia: cambiar de archivo es legal
     pool = conexion.abrir_pool("sqlite:" + ruta)
     app = crear_app(pool)
 
@@ -108,3 +110,10 @@ def entorno(pool_max=10):
         pool.close()
         su.close()
         shutil.rmtree(carpeta, ignore_errors=True)
+
+
+def segunda_area(e, nombre, tipo="turnos"):
+    """Crea otra área en la clínica A (con su archivo) y deja `e.su` sobre el área A."""
+    id_ = admin.crear_area(e.su._con, e.cl["A"], nombre, tipo)
+    e.en_area(e.ar["A"])
+    return id_
