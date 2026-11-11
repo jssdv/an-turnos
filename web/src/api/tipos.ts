@@ -11,7 +11,7 @@ export interface Usuario {
 export interface Area {
   id: number;
   nombre: string;
-  tipo: string;
+  tipo: "turnos" | "radiologia";
   permiso: "ver" | "editar";
 }
 export interface Periodo {

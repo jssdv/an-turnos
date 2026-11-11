@@ -44,8 +44,8 @@ def generar(id: int, datos: Pedido = Pedido(), if_match: str | None = Header(Non
               "desde": datos.desde.isoformat() if datos.desde else None, "tiempo": datos.tiempo, "semilla": datos.semilla}
     try:
         return {"id": ctx.conn.execute(
-            "INSERT INTO trabajo (periodo_id, tipo, params, revision_base, creado_por) VALUES (?, 'generar', ?, ?, ?) RETURNING id",
-            (id, json.dumps(params), revision, ctx.usuario.id)).fetchone()[0]}
+            "INSERT INTO trabajo (periodo_id, tipo, params, revision_base, creado_por, clinica_id, area_id) VALUES (?, 'generar', ?, ?, ?, ?, ?) RETURNING id",
+            (id, json.dumps(params), revision, ctx.usuario.id, ctx.usuario.clinica_id, ctx.area)).fetchone()[0]}
     except UniqueViolation:  # otra petición de la clínica se coló entre la comprobación y el INSERT
         raise HTTPException(409, YA_HAY)
 
@@ -54,8 +54,8 @@ def generar(id: int, datos: Pedido = Pedido(), if_match: str | None = Header(Non
 def recientes(area: int, limite: int = 5, ctx: Contexto = Depends(contexto_area, scope="function")):
     """Últimos trabajos del área, el más nuevo primero (la campana muestra si la última generación terminó o falló)."""
     filas = ctx.conn.execute(
-        "SELECT t.id, t.periodo_id, t.tipo, t.estado, t.error, t.creado, t.terminado FROM trabajo t JOIN periodo p ON p.id = t.periodo_id "
-        "WHERE p.area_id = ? ORDER BY t.id DESC LIMIT ?", (area, max(1, min(limite, 20)))).fetchall()
+        "SELECT id, periodo_id, tipo, estado, error, creado, terminado FROM trabajo WHERE area_id = ? ORDER BY id DESC LIMIT ?",
+        (area, max(1, min(limite, 20)))).fetchall()
     return [dict(f) for f in filas]
 
 
@@ -66,7 +66,7 @@ def _con_trabajo(request, u, id, escribir, accion=None):
         conexion.alcance(conn, u.clinica_id)
         f = c.execute("SELECT * FROM trabajo WHERE id = ?", (id,)).fetchone()
         fila = f and c.execute("SELECT permiso FROM usuario_area WHERE usuario_id = ? AND area_id = ?", (u.id, f["area_id"])).fetchone()
-        permiso = (fila[0] if fila else "ver" if u.es_admin else None) if f else None
+        permiso = (fila[0] if fila else "editar" if u.es_admin else None) if f else None
         if permiso is None:
             raise HTTPException(404, "Trabajo no encontrado")
         if escribir and permiso != "editar":

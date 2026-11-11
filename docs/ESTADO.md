@@ -7,7 +7,8 @@ Foto a 04/11/2026 (`main` en `271170d`, PR 37). Para el detalle de cada pieza: [
 - **Un solo modo:** app portable. API FastAPI + trabajador del solver en un proceso (`an/web/entregable.py`), una base SQLite (`an.db`), front React servido desde `web/dist`.
   - Mac: `deploy/An-mac.command` (doble clic). Windows: exe de PyInstaller armado por `.github/workflows/entregable.yml` al empujar a `main`.
   - Datos en `~/Library/Application Support/AnTurnos/an.db` (Mac) o `%LOCALAPPDATA%/AnTurnos/an.db` (Windows); respaldos al abrir y cerrar.
-  - Una clínica y un área por base. Esquema versión 12; migraciones nuevas, numeradas desde 013, en `an/web/migraciones_sqlite/`.
+  - Una clínica por base (`an.db`: clínica, áreas, usuarios, permisos, sesiones, trabajos) y **un archivo por área** (`area_<id>.db`, junto a `an.db`, adjunto por petición como esquema `area`: el SQL del núcleo no filtra por área, el archivo aísla). Esquema de `an.db` versión 12 + migraciones desde 013 (la 014 separa las áreas; pre-paso en Python en `esquema.py`); esquema de área `esquema_area_sqlite.sql` versión 1 + `migraciones_area/` desde 002. Respaldos: una carpeta por fecha con todos los archivos.
+  - **Varias áreas por clínica (11/11):** el administrador edita todas las áreas sin fila de permiso; pantalla «Áreas» (crear turnos/radiología, renombrar, eliminar escribiendo el nombre; `POST/PUT/DELETE /api/areas`); el selector lista ambos tipos y recuerda la última; CLI `crear-area`/`borrar-area`.
 - **Retirado:** el modo servidor (Postgres, Docker, Caddy, RLS) está en la etiqueta `servidor-postgres-final`; la app Qt en `qt-final`.
 - **Áreas:** Radiología (cuadro mensual → libro semanal) y Turnos (cuadrícula con OR-Tools CP-SAT, puestos, horas y recargos).
 

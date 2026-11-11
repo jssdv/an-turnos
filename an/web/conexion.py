@@ -1,4 +1,4 @@
-"""Conexiones de la versión portable (una base SQLite, una clínica y un área) y el alcance por petición, que aquí no filtra nada."""
+"""Conexiones de la versión portable (`an.db` + un archivo por área) y el alcance por petición: adjuntar el archivo del área."""
 import contextlib
 import os
 
@@ -13,10 +13,9 @@ def abrir_pool(ruta=None):
 
 
 def alcance(conn, clinica_id, area_id=None):
-    """Fija la clínica (y el área) de la transacción; `sqlite_pg` lo ignora porque la base tiene una sola de cada una."""
-    conn.execute("SELECT set_config('app.clinica', %s, true)", (str(clinica_id),))
+    """Fija el área de la transacción adjuntando su archivo (una clínica por base: `clinica_id` no filtra nada)."""
     if area_id is not None:
-        conn.execute("SELECT set_config('app.area', %s, true)", (str(area_id),))
+        conn.adjuntar_area(area_id)
 
 
 @contextlib.contextmanager
