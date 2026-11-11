@@ -1,7 +1,9 @@
 """Entregable Windows: API + trabajador del solver + front sobre un archivo SQLite, con una ventana mínima (Abrir / Cerrar).
-Datos: %LOCALAPPDATA%\\AnTurnos\\an.db (o AN_DATOS). Respaldo al abrir (antes de tocar la base) y al cerrar: Documentos\\An-respaldos (los últimos 10). Arranque: python -m an.web.entregable"""
+Datos: %LOCALAPPDATA%\\AnTurnos\\an.db (o AN_DATOS) más un area_<id>.db por área. Respaldo al abrir (antes de tocar la base) y al cerrar:
+una carpeta por fecha en Documentos\\An-respaldos (las últimas 10). Arranque: python -m an.web.entregable"""
 import logging
 import os
+import shutil
 import socket
 import sqlite3
 import sys
@@ -38,8 +40,13 @@ def carpeta_front():
     return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2])) / ("web_dist" if frozen else "web/dist")
 
 
+def archivos_base(ruta):
+    """an.db y los archivos de área que lo acompañan."""
+    return [ruta, *sorted(ruta.parent.glob("area_*.db"))]
+
+
 def ultimo_respaldo(destino):
-    respaldos = sorted(destino.glob("an_*.db"))
+    respaldos = sorted(d for d in destino.glob("[0-9]*_*") if d.is_dir())
     return respaldos[-1] if respaldos else None
 
 
@@ -62,7 +69,7 @@ def _error_base(e, ruta, respaldos):
 def _mensaje_danada(ruta, respaldos):
     ultimo = ultimo_respaldo(respaldos)
     if ultimo:
-        recuperar = f"3. Copia el respaldo más reciente ({ultimo}) a {ruta.parent} con el nombre {ruta.name}.\n"
+        recuperar = f"3. Copia los archivos del respaldo más reciente ({ultimo}) a {ruta.parent}.\n"
     else:
         recuperar = f"3. Todavía no hay respaldos en {respaldos}. Envía el archivo dañado a soporte.\n"
     return ("La base de datos está dañada:\n"
@@ -79,18 +86,20 @@ def revisar_base(ruta, respaldos):
     Devuelve la versión, o None si la base no existe o está vacía."""
     if not ruta.exists() or ruta.stat().st_size == 0:
         return None
-    try:
-        con = sqlite3.connect(f"{ruta.resolve().as_uri()}?mode=ro", uri=True, timeout=5)
+    for archivo in archivos_base(ruta):
         try:
-            integridad = con.execute("PRAGMA quick_check").fetchall()
-            version = con.execute("PRAGMA user_version").fetchone()[0]
-            tablas = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        finally:
-            con.close()
-    except sqlite3.Error as e:
-        raise BaseNoUsable(_error_base(e, ruta, respaldos)) from e
-    if integridad != [("ok",)]:
-        raise BaseNoUsable(_mensaje_danada(ruta, respaldos))
+            con = sqlite3.connect(f"{archivo.resolve().as_uri()}?mode=ro", uri=True, timeout=5)
+            try:
+                integridad = con.execute("PRAGMA quick_check").fetchall()
+                if archivo == ruta:
+                    version = con.execute("PRAGMA user_version").fetchone()[0]
+                    tablas = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            finally:
+                con.close()
+        except sqlite3.Error as e:
+            raise BaseNoUsable(_error_base(e, archivo, respaldos)) from e
+        if integridad != [("ok",)]:
+            raise BaseNoUsable(_mensaje_danada(archivo, respaldos))
     esquema.comprobar_version_sqlite(version)
     if version == 0 and "clinica" in tablas:
         esquema.comprobar_base_sin_version(tablas)  # antes de abrirla para escribir (Con cambia el modo de journal)
@@ -119,9 +128,8 @@ def preparar_base(ruta, respaldos):
                 return None
             cl = admin.crear_clinica(con, CLINICA)
             con.commit()
-            area = admin.crear_area(con, cl, AREA)
-            uid, clave = admin.crear_usuario(con, cl, CORREO, "Administrador", es_admin=True)
-            admin.dar_permiso(con, uid, area, "editar")
+            admin.crear_area(con, cl, AREA)
+            uid, clave = admin.crear_usuario(con, cl, CORREO, "Administrador", es_admin=True)  # administra: edita todas las áreas
             con.commit()
             return f"Usuario: {CORREO}\nClave temporal: {clave}\n(el sistema pide cambiarla al entrar)\n"
         finally:
@@ -131,21 +139,25 @@ def preparar_base(ruta, respaldos):
 
 
 def respaldar(ruta, destino):
-    """Copia consistente de la base (API de respaldo de SQLite, válida con la base abierta) y poda a los últimos RESPALDOS_MAX."""
-    destino.mkdir(parents=True, exist_ok=True)
-    archivo = destino / f"an_{datetime.now():%Y%m%d_%H%M%S}.db"
-    origen, copia = sqlite3.connect(ruta), sqlite3.connect(archivo)
+    """Copia consistente de la base y sus áreas (API de respaldo de SQLite, válida con la base abierta) en una carpeta por fecha,
+    y poda a las últimas RESPALDOS_MAX carpetas."""
+    carpeta = destino / f"{datetime.now():%Y%m%d_%H%M%S}"
+    carpeta.mkdir(parents=True, exist_ok=True)
     ok = False
     try:
-        origen.backup(copia)
+        for archivo in archivos_base(ruta):
+            origen, copia = sqlite3.connect(archivo), sqlite3.connect(carpeta / archivo.name)
+            try:
+                origen.backup(copia)
+            finally:
+                copia.close()
+                origen.close()
         ok = True
     finally:
-        copia.close()
-        origen.close()
         if not ok:  # una copia a medias sería el «último respaldo» que se ofrece al recuperar
-            archivo.unlink(missing_ok=True)
-    for viejo in sorted(destino.glob("an_*.db"))[:-RESPALDOS_MAX]:
-        viejo.unlink(missing_ok=True)
+            shutil.rmtree(carpeta, ignore_errors=True)
+    for viejo in sorted(d for d in destino.glob("[0-9]*_*") if d.is_dir())[:-RESPALDOS_MAX]:
+        shutil.rmtree(viejo, ignore_errors=True)
 
 
 def servir_front(app, dist):

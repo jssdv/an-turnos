@@ -4,7 +4,7 @@ from fastapi import HTTPException, Request
 from an.turnos.db import BD
 from an.turnos.puente import Conexion
 
-from . import auth, conexion
+from . import admin, auth, conexion
 
 COOKIE = "an_sid"
 ESCRITURA = {"POST", "PUT", "PATCH", "DELETE"}
@@ -41,8 +41,8 @@ def leer_revision(if_match):
 
 
 class Contexto:
-    def __init__(self, bd, usuario, permiso, conn):
-        self.bd, self.usuario, self.permiso, self.conn = bd, usuario, permiso, conn
+    def __init__(self, bd, usuario, permiso, conn, area):
+        self.bd, self.usuario, self.permiso, self.conn, self.area = bd, usuario, permiso, conn, area
 
 
 def _contexto(area, request, exige_editar):
@@ -53,13 +53,13 @@ def _contexto(area, request, exige_editar):
         if not c.execute("SELECT 1 FROM area WHERE id = ?", (area,)).fetchone():
             raise HTTPException(404, "Área no encontrada")
         fila = c.execute("SELECT permiso FROM usuario_area WHERE usuario_id = ? AND area_id = ?", (u.id, area)).fetchone()
-        permiso = fila[0] if fila else ("ver" if u.es_admin else None)
+        permiso = fila[0] if fila else ("editar" if u.es_admin else None)  # quien administra la clínica edita todas sus áreas
         if permiso is None:
             raise HTTPException(404, "Área no encontrada")
         if exige_editar and request.method in ESCRITURA and permiso != "editar":
             raise HTTPException(403, "Solo lectura en esta área")
         conexion.alcance(conn, u.clinica_id, area)
-        yield Contexto(BD.web(c), u, permiso, c)
+        yield Contexto(BD.web(c), u, permiso, c, area)
 
 
 def contexto_area(area: int, request: Request):
@@ -70,3 +70,15 @@ def contexto_area(area: int, request: Request):
 def contexto_area_lectura(area: int, request: Request):
     """Como `contexto_area`, pero `ver` basta también en POST: para acciones que no cambian el cuadro (exportes)."""
     yield from _contexto(area, request, False)
+
+
+def con_clinica(request, u, hacer):
+    """Solo para quien administra la clínica: abre una transacción con su alcance y llama `hacer(conn)`; ErrorAdmin → 409."""
+    if not u.es_admin:
+        raise HTTPException(403, "Solo el administrador de la clínica puede hacer esto")
+    with request.app.state.pool.connection() as conn:
+        conexion.alcance(conn, u.clinica_id)
+        try:
+            return hacer(conn)
+        except admin.ErrorAdmin as x:
+            raise HTTPException(409, str(x))

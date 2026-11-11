@@ -3,12 +3,14 @@ from dataclasses import asdict, is_dataclass
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 
 from an.turnos import analitica, cambios, flujo, puestos, reglas
+from an.turnos.puente import UniqueViolation
 
-from . import deps
-from .deps import Contexto, contexto_area, usuario_actual
+from . import admin, deps
+from .deps import Contexto, con_clinica, contexto_area, usuario_actual
 
 router = APIRouter(prefix="/api")
 MAX_DIAS_ANALITICAS = 3660
@@ -22,9 +24,46 @@ def areas(request: Request, u=Depends(usuario_actual)):
         conexion.alcance(conn, u.clinica_id)
         c = Conexion(conn, confirmar=False)
         return [dict(id=f["id"], nombre=f["nombre"], tipo=f["tipo"], permiso=f["permiso"]) for f in c.execute(
-            "SELECT a.id, a.nombre, a.tipo, CASE WHEN ua.permiso IS NOT NULL THEN ua.permiso WHEN ? = 1 THEN 'ver' END AS permiso "
+            "SELECT a.id, a.nombre, a.tipo, CASE WHEN ua.permiso IS NOT NULL THEN ua.permiso WHEN ? = 1 THEN 'editar' END AS permiso "
             "FROM area a LEFT JOIN usuario_area ua ON ua.area_id = a.id AND ua.usuario_id = ? ORDER BY a.id", (int(u.es_admin), u.id))
             if f["permiso"]]
+
+
+class NuevaArea(BaseModel):
+    nombre: str = Field(min_length=1, max_length=120)
+    tipo: Literal["turnos", "radiologia"] = "turnos"
+
+
+class NombreArea(BaseModel):
+    nombre: str = Field(min_length=1, max_length=120)
+
+
+@router.post("/areas", status_code=201)
+def crear_area(datos: NuevaArea, request: Request, u=Depends(usuario_actual)):
+    id_ = con_clinica(request, u, lambda conn: admin.crear_area(conn, u.clinica_id, datos.nombre.strip(), datos.tipo))
+    request.state.evento = "area_creada"
+    return {"id": id_}
+
+
+@router.put("/areas/{id}")
+def renombrar_area(id: int, datos: NombreArea, request: Request, u=Depends(usuario_actual)):
+    def hacer(conn):
+        try:
+            if conn.execute("UPDATE area SET nombre = %s WHERE id = %s", (datos.nombre.strip(), id)).rowcount == 0:
+                raise HTTPException(404, "Área no encontrada")
+        except UniqueViolation:
+            raise HTTPException(409, "Ya hay un área con ese nombre")
+    con_clinica(request, u, hacer)
+    request.state.evento = "area_renombrada"
+    return {"ok": True}
+
+
+@router.delete("/areas/{id}", status_code=204)
+def borrar_area(id: int, datos: NombreArea, request: Request, u=Depends(usuario_actual)):
+    """Borra el área con todo lo suyo. El cuerpo trae el nombre escrito como confirmación."""
+    con_clinica(request, u, lambda conn: admin.borrar_area(conn, id, datos.nombre))
+    request.state.evento = "area_borrada"
+    return Response(status_code=204)
 
 
 def _plano(x):

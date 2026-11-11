@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes, useHref, useNavigate } from "react-rou
 import { useSesion } from "./Sesion";
 import { CambiarClave } from "./pantallas/CambiarClave";
 import { Analiticas } from "./pantallas/Analiticas";
+import { Areas } from "./pantallas/Areas";
 import { Cuadro } from "./pantallas/Cuadro";
 import { Disposicion } from "./pantallas/Disposicion";
 import { Inicio as InicioArea } from "./pantallas/Inicio";
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="parametros" element={<Parametros />} />
           <Route path="analiticas" element={<Analiticas />} />
           <Route path="usuarios" element={<Usuarios />} />
+          <Route path="areas" element={<Areas />} />
           <Route path="radiologia" element={<Navigate to="resumen" replace />} />
           <Route path="radiologia/:seccion" element={<Radiologia />} />
         </Route>

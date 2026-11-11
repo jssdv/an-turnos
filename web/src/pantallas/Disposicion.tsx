@@ -32,8 +32,16 @@ const recordar = (v?: boolean) => {
   } catch { /* almacenamiento bloqueado: el menú arranca abierto */ }
   return false;
 };
+/** Última área visitada, para volver a ella desde `/areas`. */
+const ultimaArea = (id?: number) => {
+  try {
+    if (id === undefined) return Number(localStorage.getItem("area"));
+    localStorage.setItem("area", String(id));
+  } catch { /* almacenamiento bloqueado: se abre la primera área */ }
+  return NaN;
+};
 
-/** Marco: barra lateral flotante (menú, tutorial, usuario), campana y ayuda flotante. `/areas` elige la primera área disponible. */
+/** Marco: barra lateral flotante (menú, tutorial, usuario), campana y ayuda flotante. `/areas` vuelve a la última área visitada o elige la primera. */
 export function Disposicion() {
   const { usuario, salir } = useSesion();
   const { area } = useParams();
@@ -47,22 +55,25 @@ export function Disposicion() {
   const avisos = useCargarAvisos(actual, pathname);
 
   useEffect(() => {
-    leer<Area[]>("/api/areas").then((x) => setAreas(x.filter((a) => a.tipo === "turnos"))).catch((x) => setError(x.message));
+    leer<Area[]>("/api/areas").then(setAreas).catch((x) => setError(x.message));
   }, []);
+  useEffect(() => { if (actual) ultimaArea(actual.id); }, [actual]);
 
   if (error) return <main className="p-6"><Alert color="error">{error}</Alert></main>;
   if (!areas) return <main className="p-6 text-tertiary" aria-busy="true">Cargando…</main>;
   const inicio = (a: Area) => `/areas/${a.id}/${a.tipo === "radiologia" ? "radiologia/resumen" : "inicio"}`;
   if (!area) {
-    const primera = areas.find((a) => a.tipo === "turnos") ?? areas[0];
+    const ultima = ultimaArea();
+    const primera = areas.find((a) => a.id === ultima) ?? areas.find((a) => a.tipo === "turnos") ?? areas[0];
     return primera ? <Navigate to={inicio(primera)} replace /> : <main className="p-6"><Alert>No tienes áreas asignadas. Pide acceso a quien administra tu clínica.</Alert></main>;
   }
   if (!actual) return <main className="p-6"><Alert color="error">No encontramos esa área, o aún no está disponible en la web.</Alert></main>;
 
   const base = `/areas/${actual.id}`;
+  const admin: [string, string, Icono][] = usuario?.es_admin ? [["Usuarios", "usuarios", UserCheck01], ["Áreas", "areas", Building02]] : [];
   const items = actual.tipo === "radiologia"
-    ? SECCIONES.map(([label, ruta]) => ({ label, href: `${base}/radiologia/${ruta}`, icon: RADIOLOGIA[ruta] }))
-    : [...TURNOS, ...(usuario?.es_admin ? [["Usuarios", "usuarios", UserCheck01] as const] : [])].map(([label, ruta, icon]) => ({
+    ? [...SECCIONES.map(([label, ruta]) => ({ label, href: `${base}/radiologia/${ruta}`, icon: RADIOLOGIA[ruta] })), ...admin.map(([label, ruta, icon]) => ({ label, href: `${base}/${ruta}`, icon }))]
+    : [...TURNOS, ...admin].map(([label, ruta, icon]) => ({
       label, href: `${base}/${ruta}`, icon, badge: ruta === "solicitudes" && avisos.noCumplidas ? <span data-texto className="ml-3 rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white" aria-label={`${avisos.noCumplidas} no cumplidas`}>{avisos.noCumplidas}</span> : undefined,
     }));
   const activo = items.find((x) => pathname.startsWith(x.href))?.href;

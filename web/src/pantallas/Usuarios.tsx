@@ -93,6 +93,7 @@ export function Usuarios() {
             <>{u.nombre}<br />{u.correo}{u.es_admin && " · administra"}</>,
             <Badge size="sm" color={!u.activo ? "gray" : u.debe_cambiar ? "warning" : "success"}>{!u.activo ? "Inactivo" : u.debe_cambiar ? "Debe cambiar la contraseña" : "Activo"}</Badge>,
             ...(areas.datos ?? []).map((a) => (
+              u.es_admin ? <span key={a.id} className="text-sm text-tertiary">Edita todo</span> :
               <NativeSelect size="sm" key={a.id} label={`Permiso de ${u.nombre} en ${a.nombre}`} value={permisoDe(u, a.id)} disabled={ocupado || !u.activo} onChange={(x) => fijar(u, a.id, x.target.value)}>
                 <option value="">Sin acceso</option><option value="ver">Ver</option><option value="editar">Editar</option>
               </NativeSelect>

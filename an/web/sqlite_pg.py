@@ -1,10 +1,12 @@
 """Adaptador de sqlite3 con la forma de psycopg 3 que usa la capa web (`cursor()`, `execute` con `%s`, filas por índice y nombre, pool).
-Es la versión portable (un solo archivo, sin servidor): una clínica y un área, ids 1; las funciones `app_*` de Postgres viven aquí en Python."""
+Es la versión portable (sin servidor): `an.db` guarda la clínica, usuarios y trabajos; cada área vive en `area_<id>.db` junto a él y se adjunta
+por petición como esquema `area` (`adjuntar_area`); las funciones `app_*` de Postgres viven aquí en Python."""
 import contextlib
 import json
 import re
 import sqlite3
 import threading
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 
@@ -156,10 +158,27 @@ class Con:
     closed = False
 
     def __init__(self, ruta):
+        self.ruta, self.area = str(ruta), None
         self._raw = sqlite3.connect(ruta, detect_types=sqlite3.PARSE_DECLTYPES, isolation_level=None, check_same_thread=False, timeout=60)
         self._raw.execute("PRAGMA journal_mode = WAL")
         self._raw.execute("PRAGMA foreign_keys = ON")
         self._cols = {}
+
+    def ruta_area(self, area_id):
+        return Path(self.ruta).with_name(f"area_{area_id}.db")
+
+    def adjuntar_area(self, area_id):
+        """Adjunta el archivo del área como esquema `area`: las tablas que no están en `main` (todo lo del área) resuelven ahí.
+        Cambiar de área exige no estar en una transacción (DETACH lo prohíbe)."""
+        if self.area == area_id:
+            return
+        ruta = self.ruta_area(area_id)
+        if not ruta.exists():  # ATTACH crearía un archivo vacío sin avisar
+            raise sqlite3.OperationalError(f"Falta el archivo del área {area_id}: {ruta}")
+        if self.area is not None:
+            self._raw.execute("DETACH DATABASE area")
+        self._raw.execute("ATTACH DATABASE ? AS area", (str(ruta),))
+        self.area = area_id
 
     def cursor(self):
         if not self._raw.in_transaction:  # una transacción por unidad de trabajo; escribir exige el candado desde el inicio (sin carreras de MAX+1)

@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import io
 import zipfile
 
-from fixtura_api import ORIGEN, entorno
+from fixtura_api import segunda_area, ORIGEN, entorno
 from fixtura_radiologia import MEDICO, cuadro_minimo
 
 from an.web.rutas_radiologia import MAX_ARCHIVO
@@ -16,7 +16,7 @@ def con_area_radiologia(e):
     """Un área `radiologia` por clínica; el editor/lector de A y el editor de B reciben permiso."""
     e.rad = {}
     for n in ("A",):
-        e.rad[n] = e.su.execute("INSERT INTO area (nombre, tipo, clinica_id) VALUES ('Radiología', 'radiologia', %s) RETURNING id", (e.cl[n],)).fetchone()[0]
+        e.rad[n] = segunda_area(e, "Radiología", "radiologia")
     for correo, n, perm in (("editor@a.co", "A", "editar"), ("lector@a.co", "A", "ver")):
         e.su.execute("INSERT INTO usuario_area (usuario_id, area_id, permiso, clinica_id) VALUES (%s, %s, %s, %s)", (e.us[correo], e.rad[n], perm, e.cl[n]))
     e.su.commit()
@@ -241,6 +241,7 @@ def test_exporte_numera_sin_sobrescribir_y_audita():
         assert r.status_code == 200 and openpyxl.load_workbook(io.BytesIO(r.content)).sheetnames == openpyxl.load_workbook(gs.PLANTILLA).sheetnames
         eventos = [(f["metodo"], f["codigo"]) for f in e.su.execute("SELECT metodo, codigo FROM auditoria WHERE evento = 'exportacion' ORDER BY id")]
         assert eventos == [("POST", 201)] * 3 + [("GET", 200)]
+        e.en_area(area)
         assert e.su.execute("SELECT count(*) FROM exporte WHERE tipo = 'semana'").fetchone()[0] == 2  # la descarga borra el archivo
 
 
@@ -352,6 +353,7 @@ def test_archivo_guardado_enorme_da_error_sin_memoria():
         con_area_radiologia(e)
         cli = e.cliente()
         e.entrar(cli, "editor@a.co")
+        e.en_area(e.rad["A"])
         id_ = e.su.execute("INSERT INTO archivo (clinica_id, area_id, nombre, contenido) VALUES (%s, %s, 'viejo.xlsx', %s) RETURNING id",
                            (e.cl["A"], e.rad["A"], cuadro_con_celda_lejana())).fetchone()[0]
         e.su.commit()
@@ -384,8 +386,9 @@ def test_ver_no_exporta_en_radiologia():
         cli, id_, area = con_cuadro(e)
         r = exportar(cli, area, id_, "2026-10-19")
         assert r.status_code == 403, r.text
+        e.en_area(area)
         assert e.su.execute("SELECT count(*) FROM exporte").fetchone()[0] == 0
-        assert e.su.execute("SELECT count(*) FROM periodo WHERE area_id = %s", (area,)).fetchone()[0] == 0
+        assert e.su.execute("SELECT count(*) FROM periodo").fetchone()[0] == 0
 
 
 def test_subida_y_borrado_dejan_evento():
