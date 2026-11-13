@@ -269,3 +269,25 @@ def exportar_horas(carpeta, mes_txt, ctx, tarifas, cuadro, fechas, ventana_sem):
     ruta = ruta_libre(carpeta, f"HORAS Y RECARGOS {mes_txt.upper()}")
     wb.save(ruta)
     return ruta
+
+
+def exportar_banco(carpeta, mes_txt, filas, movimientos, nombres):
+    """Banco de horas para RR. HH.: «Saldos» (de `flujo.estado_banco`) y «Movimientos» manuales (de `bd.movimientos()`)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Saldos"
+    _encabezado(ws, 1, ["Colaborador", "Anterior", "Periodo", "Total", "Estado"])
+    for r, f in enumerate(filas, 2):
+        for c, v in enumerate([f["nombre"], f["anterior"], f["periodo"], f["total"], "Cerrado" if f["cerrado"] else "Proyectado"], 1):
+            poner_texto(ws.cell(r, c), v)
+    _ancho(ws, 24, 12)
+    ws.freeze_panes = "B2"
+    mv = wb.create_sheet("Movimientos")
+    _encabezado(mv, 1, ["Fecha", "Colaborador", "Horas", "Concepto", "Nota"])
+    for r, (_, cid, fecha, horas, concepto, nota) in enumerate(movimientos, 2):
+        for c, v in enumerate([f"{fecha:%d/%m/%Y}", nombres.get(cid, ""), horas, concepto, nota], 1):
+            poner_texto(mv.cell(r, c), v)
+    _ancho(mv, 12, 24)
+    ruta = ruta_libre(carpeta, f"BANCO DE HORAS {mes_txt.upper()}")
+    wb.save(ruta)
+    return ruta

@@ -160,6 +160,17 @@ def test_identico_a_qt():
             assert web == celdas_qt, (tipo, len(web), len(celdas_qt), [(a, b) for a, b in zip(web, celdas_qt) if a != b][:3])
 
 
+def test_banco_lector_descarga():
+    from openpyxl import load_workbook
+    with entorno() as e:
+        if e is None:
+            return
+        r = sesion(e, "lector@a.co").get(ruta(e).replace("/exportes", "/banco.xlsx"))
+        assert r.status_code == 200 and r.headers["content-type"] == XLSX, r.text
+        assert load_workbook(BytesIO(r.content)).sheetnames == ["Saldos", "Movimientos"]
+        assert sesion(e, "lector@a.co").get(ruta(e, p=999999).replace("/exportes", "/banco.xlsx")).status_code == 404
+
+
 if __name__ == "__main__":
     import inspect
     for n, f in list(globals().items()):

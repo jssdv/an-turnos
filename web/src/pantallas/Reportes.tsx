@@ -1,6 +1,6 @@
 import { useState, type FC } from "react";
 import { useNavigate, useOutletContext } from "react-router";
-import { Building02, Calendar, Download01, FileDownload02, LineChartUp01, Printer } from "@untitledui/icons";
+import { Building02, Calendar, Clock, Download01, FileDownload02, LineChartUp01, Printer } from "@untitledui/icons";
 import { mensaje, usar } from "../api/catalogos";
 import { exportes } from "../api/exportes";
 import type { Area, Periodo, TipoExporte } from "../api/tipos";
@@ -30,8 +30,7 @@ export function Reportes() {
     avisar(null);
     try {
       const x = await exportes.crear(area.id, p.id, tipo);
-      const a = Object.assign(document.createElement("a"), { href: exportes.urlDescarga(area.id, p.id, x.id), download: x.nombre_archivo });
-      a.click();
+      bajar(exportes.urlDescarga(area.id, p.id, x.id));
       avisar({ nivel: "ok", texto: `Descargando ${x.nombre_archivo}.` });
     } catch (x) {
       avisar({ nivel: "error", texto: mensaje(x) });
@@ -39,6 +38,9 @@ export function Reportes() {
       setHaciendo(null);
     }
   };
+
+  // Enlace normal, no de React Aria: su RouterProvider llevaría /api/... por react-router.
+  const bajar = (href: string) => Object.assign(document.createElement("a"), { href, download: "" }).click();
 
   return (
     <Pagina titulo="Reportes" icono={FileDownload02} sub="Descargas en Excel del periodo" error={periodos.error} aviso={aviso}
@@ -59,6 +61,12 @@ export function Reportes() {
               <Button color="secondary" size="sm" iconLeading={Download01} isDisabled={haciendo !== null} onPress={() => descargar(tipo)}>{haciendo === tipo ? "Preparando…" : "Descargar Excel"}</Button>
             </section>
           ))}
+          <section className="tarjeta flex flex-col items-start gap-3 p-5">
+            <span className="grid size-12 place-items-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 ring-inset" aria-hidden="true"><Clock className="size-6" /></span>
+            <h2 className="text-lg font-semibold text-primary">Banco de horas</h2>
+            <p className="flex-1 text-sm text-tertiary">Saldo de horas por persona y movimientos manuales.</p>
+            <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlBanco(area.id, p.id))}>Descargar Excel</Button>
+          </section>
         </div>
       )}
     </Pagina>

@@ -71,6 +71,27 @@ def descargar(id: int, exporte: int, request: Request, ctx: Contexto = Depends(c
     request.state.evento = "exportacion"
     nombre = f["nombre_archivo"]
     ctx.conn.execute("DELETE FROM exporte WHERE id = ?", (exporte,))  # se entrega una vez y no queda guardado
-    return Response(bytes(f["contenido"]), media_type=XLSX,
-                    headers={"Content-Disposition": f"attachment; filename=\"{nombre}\"; filename*=UTF-8''{quote(nombre)}"})
+    return Response(bytes(f["contenido"]), media_type=XLSX, headers=_adjunto(nombre))
+
+
+def _adjunto(nombre):
+    return {"Content-Disposition": f"attachment; filename=\"{nombre}\"; filename*=UTF-8''{quote(nombre)}"}
+
+
+def _periodo(ctx, id):
+    f = ctx.conn.execute("SELECT clave FROM periodo WHERE id = ?", (id,)).fetchone()
+    if not f:
+        raise HTTPException(404, "Periodo no encontrado")
+    return flujo.desde_clave(f["clave"])
+
+
+@router.get("/areas/{area}/periodos/{id}/banco.xlsx")
+def banco_xlsx(id: int, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
+    inicio, fin = _periodo(ctx, id)
+    nombres = {p.id: p.nombre for p in ctx.bd.colaboradores(solo_activos=False)}
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = exportar.exportar_banco(tmp, flujo.etiqueta(inicio, fin), flujo.estado_banco(ctx.bd, inicio, fin), ctx.bd.movimientos(), nombres)
+        contenido = ruta.read_bytes()
+    request.state.evento = "exportacion"
+    return Response(contenido, media_type=XLSX, headers=_adjunto(ruta.name))
 
