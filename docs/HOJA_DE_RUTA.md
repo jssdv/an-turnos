@@ -17,20 +17,20 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 | Etapa | Idea | Notas |
 |---|---|---|
-| Excel del banco | Exportar saldos y movimientos para RR. HH. | Hoy se ve en pantalla |
-| Interfaz más ágil | Aviso anticipado de subcobertura, rehacer (Ctrl+Y), mover un turno a una celda libre sin intercambiar, vista por semana | Arrastrar, lote, deshacer y estudio ya están; ver [inspiración](ARQUITECTURA.md#interfaz-y-tecnología) |
-| Importar el Excel actual | Cargar personal y ciclos desde `TURNOS ESTERILIZACION*.xlsx` | Evita digitar a mano la primera vez |
+| Interfaz más ágil | Rehacer (Ctrl+Y), mover un turno a una celda libre sin intercambiar, vista por semana | Arrastrar, lote, deshacer y estudio ya están; ver [inspiración](ARQUITECTURA.md#interfaz-y-tecnología) |
+| Importar el Excel actual | Cargar personal y ciclos desde `TURNOS ESTERILIZACION*.xlsx` | Evita digitar a mano la primera vez. Falta un archivo de muestra (anonimizado) para fijar el formato |
 | Solicitudes | Que la coordinación registre «quiero este turno» y el solver lo tome como deseo | Los cambios y permutas ya se registran; falta esta pieza |
 | Pausas en cobertura | Que el solver reserve relevos de almuerzo por puesto | Hoy solo se asignan grupos de pausa |
 | Refuerzo y practicantes | Modelar su horario fijo y que cubran ropa | Hoy quedan fuera del solver |
 | Ventana entre periodos | Que la ventana del art. 165 continúe de un periodo al siguiente | Hoy se reinicia en cada periodo |
 | Día de inicio por servicio | Esquemas que arranquen en otro día distinto del lunes | Hoy: mes calendario o semanas desde un lunes |
 | Salario y costo | Ingresar salario para ver el costo de recargos en pesos | Opcional; el dato es sensible |
-| Agendas y PDF | Calendario `.ics` por persona y versión imprimible | Existen en la app de Radiología |
 | Otros servicios | Reutilizar el modelo para áreas con la misma estructura | Ya hay dos áreas (Radiología, Esterilización) sobre un núcleo común; falta que un área nueva sea configurable sin código |
 | Servidor y accesos | Cada colaborador consulta su horario | Implica base compartida y autenticación; fuera de alcance por ahora |
 
 ## Hecho recientemente
+
+Excel del banco de horas, agendas `.ics` e impresión por persona, y «¿Quién cubre?» para reemplazos (13/11/2026).
 
 Cambios de turno registrados: permutas con límite por persona y periodo, cambios por necesidad del servicio y ajustes, con auditoría y anulación (diseño: spec, plan: plan).
 
@@ -41,9 +41,8 @@ Puestos editables con demanda por tramos, cobertura derivada, reparto por tramo 
 1. **Probar la web en el navegador del PC de la clínica.**
 2. **Copia de seguridad y restauración** de `turnos.db`.
 3. **Registro de cambios** (quién, cuándo y por qué) en ediciones y cierres.
-4. **Excel del banco de horas** para RR. HH.
-5. **Sugerir turnos** para ventanas que ningún turno del catálogo cubre.
-6. Solicitudes y permutas con aprobación; importar el Excel actual.
+4. **Sugerir turnos** para ventanas que ningún turno del catálogo cubre.
+5. Solicitudes y permutas con aprobación; importar el Excel actual.
 
 ## Convenciones del proyecto
 
