@@ -1,6 +1,7 @@
 """Exportes en Excel de un periodo. Llaman a `exportar.*` del núcleo (los mismos argumentos que `Turnos.exportar` de Qt) en una carpeta
 temporal y guardan el libro en `exporte`. Un exporte nuevo borra el anterior del mismo tipo y cada descarga borra el archivo descargado: no queda basura guardada."""
 import tempfile
+import unicodedata
 import zipfile
 from io import BytesIO
 from typing import Literal
@@ -78,7 +79,9 @@ def descargar(id: int, exporte: int, request: Request, ctx: Contexto = Depends(c
 
 
 def _adjunto(nombre):
-    return {"Content-Disposition": f"attachment; filename=\"{nombre}\"; filename*=UTF-8''{quote(nombre)}"}
+    """`filename` en ASCII (las cabeceras van en Latin-1: «’» o «ễ» darían 500) y el nombre real en `filename*`."""
+    plano = unicodedata.normalize("NFKD", nombre).encode("ascii", "ignore").decode().replace('"', "")
+    return {"Content-Disposition": f"attachment; filename=\"{plano}\"; filename*=UTF-8''{quote(nombre)}"}
 
 
 def _periodo(ctx, id):

@@ -56,3 +56,8 @@ def test_turno_desconocido():
         assert "ZZ" in str(e)
     else:
         raise AssertionError("no lanzó ValueError")
+
+
+def test_turno_inactivo_no_cuenta_como_libre():
+    ctx, i = armar("Ana")
+    assert cubrir.candidatos(ctx, {(i["Ana"], D): "VIEJO"}, DIAS, D, "M") == []  # código fuera del catálogo activo

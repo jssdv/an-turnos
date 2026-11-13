@@ -187,6 +187,16 @@ def test_agendas_ics_y_zip():
         assert zipfile.ZipFile(BytesIO(z.content)).namelist() == ["P-A.ics"]
 
 
+def test_agenda_nombre_fuera_de_latin1():
+    with entorno() as e:
+        if e is None:
+            return
+        e.su.execute("UPDATE colaborador SET nombre = %s WHERE id = %s", ("José/O’Neil Nguyễn", e.colab["A"]))
+        r = sesion(e, "lector@a.co").get(ruta(e).replace("/exportes", f"/agendas/{e.colab['A']}.ics"))
+        assert r.status_code == 200, r.text
+        assert "filename*=UTF-8''Jos%C3%A9O%E2%80%99Neil%20Nguy%E1%BB%85n.ics" in r.headers["content-disposition"]
+
+
 if __name__ == "__main__":
     import inspect
     for n, f in list(globals().items()):

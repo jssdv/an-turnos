@@ -13,7 +13,7 @@ def candidatos(ctx, cuadro, fechas, fecha, codigo, fijos=(), previo=None, limite
         raise ValueError(f"«{codigo}» no es un turno")
     out = []
     for p in ctx.colabs:
-        if not p.en_solver or cuadro.get((p.id, fecha), "L") in ctx.turnos or ctx.bloqueo(p, turno, fecha):
+        if not p.en_solver or cuadro.get((p.id, fecha), "L") != "L" or ctx.bloqueo(p, turno, fecha):
             continue
         # ponytail: valida el periodo entero de cada candidato (O(personas × días)); con >60 personas, validar ±3 días.
         solo = copy.copy(ctx)
