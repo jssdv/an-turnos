@@ -1,9 +1,9 @@
 import { useState, type FC } from "react";
 import { useNavigate, useOutletContext } from "react-router";
-import { Building02, Calendar, Clock, Download01, FileDownload02, LineChartUp01, Printer } from "@untitledui/icons";
+import { Building02, Calendar, CalendarDate, Clock, Download01, FileDownload02, LineChartUp01, Printer } from "@untitledui/icons";
 import { mensaje, usar } from "../api/catalogos";
 import { exportes } from "../api/exportes";
-import type { Area, Periodo, TipoExporte } from "../api/tipos";
+import type { Area, Colaborador, Periodo, TipoExporte } from "../api/tipos";
 import { Filtro, Pagina, Pista, useAccion } from "./comun";
 import { nombrePeriodo, vigente } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
@@ -19,6 +19,8 @@ export function Reportes() {
   const area = useOutletContext<Area>();
   const ir = useNavigate();
   const periodos = usar<Periodo[]>(`/api/areas/${area.id}/periodos`);
+  const gente = usar<Colaborador[]>(`/api/areas/${area.id}/colaboradores`);
+  const [quien, setQuien] = useState("");
   const [elegido, setElegido] = useState<number | null>(null);
   const [haciendo, setHaciendo] = useState<TipoExporte | null>(null);
   const { aviso, avisar } = useAccion();
@@ -66,6 +68,20 @@ export function Reportes() {
             <h2 className="text-lg font-semibold text-primary">Banco de horas</h2>
             <p className="flex-1 text-sm text-tertiary">Saldo de horas por persona y movimientos manuales.</p>
             <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlBanco(area.id, p.id))}>Descargar Excel</Button>
+          </section>
+          <section className="tarjeta flex flex-col items-start gap-3 p-5">
+            <span className="grid size-12 place-items-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 ring-inset" aria-hidden="true"><CalendarDate className="size-6" /></span>
+            <h2 className="text-lg font-semibold text-primary">Agendas</h2>
+            <p className="flex-1 text-sm text-tertiary">El horario de cada persona para su calendario (.ics) o para imprimir.</p>
+            <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlAgendas(area.id, p.id))}>Todas (.zip)</Button>
+            <select aria-label="Persona" className="w-full rounded-lg border border-primary bg-primary px-3 py-2 text-sm text-primary" value={quien} onChange={(x) => setQuien(x.target.value)}>
+              <option value="">Elige una persona…</option>
+              {gente.datos?.filter((c) => c.activo).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+            <div className="flex flex-wrap gap-2">
+              <Button color="secondary" size="sm" iconLeading={Download01} isDisabled={!quien} onPress={() => bajar(exportes.urlAgenda(area.id, p.id, Number(quien)))}>Su calendario</Button>
+              <Button color="secondary" size="sm" iconLeading={Printer} isDisabled={!quien} onPress={() => ir(`/areas/${area.id}/cuadro/${p.id}?imprimir=1&persona=${quien}`)}>Imprimir su horario</Button>
+            </div>
           </section>
         </div>
       )}

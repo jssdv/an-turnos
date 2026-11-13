@@ -10,7 +10,7 @@ from an.nucleo.xlsx import poner_texto
 
 from . import recargos
 from . import reglas
-from .dominio import DIAS, Puesto
+from .dominio import DIAS, Puesto, intervalo
 from .puestos import alertas_reparto, etiqueta, leyenda, por_persona
 
 ABREV_NOVEDAD = {"Vacaciones": "VAC", "Incapacidad": "INC", "Licencia": "LIC", "Libre solicitado": "LIB"}
@@ -291,3 +291,8 @@ def exportar_banco(carpeta, mes_txt, filas, movimientos, nombres):
     ruta = ruta_libre(carpeta, f"BANCO DE HORAS {mes_txt.upper()}")
     wb.save(ruta)
     return ruta
+
+
+def eventos_persona(ctx, cuadro, colab_id, fechas):
+    """[(inicio, fin, descripción)] de los turnos de una persona, para `radiologia.analisis.ics`. L y códigos desconocidos no van."""
+    return [(*intervalo(t, f), f"{t.codigo} · {t.nombre}") for f in fechas if (t := ctx.turnos.get(cuadro.get((colab_id, f), "L")))]

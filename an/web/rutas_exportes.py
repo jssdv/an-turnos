@@ -1,12 +1,15 @@
 """Exportes en Excel de un periodo. Llaman a `exportar.*` del núcleo (los mismos argumentos que `Turnos.exportar` de Qt) en una carpeta
 temporal y guardan el libro en `exporte`. Un exporte nuevo borra el anterior del mismo tipo y cada descarga borra el archivo descargado: no queda basura guardada."""
 import tempfile
+import zipfile
+from io import BytesIO
 from typing import Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from an.radiologia import analisis
 from an.turnos import exportar, flujo
 
 from .deps import Contexto, contexto_area_lectura
@@ -95,3 +98,36 @@ def banco_xlsx(id: int, request: Request, ctx: Contexto = Depends(contexto_area_
     request.state.evento = "exportacion"
     return Response(contenido, media_type=XLSX, headers=_adjunto(ruta.name))
 
+
+
+def _agendas(ctx, id):
+    """(etiqueta del periodo, {colab_id: (nombre, texto .ics)}) del cuadro vigente (`cambios`)."""
+    inicio, fin = _periodo(ctx, id)
+    c, fechas = ctx.bd.contexto(inicio.year), flujo.fechas(inicio, fin)
+    cuadro = ctx.bd.asignaciones(flujo.clave(inicio, fin))
+    return flujo.etiqueta(inicio, fin), {p.id: (p.nombre, analisis.ics(p.nombre, exportar.eventos_persona(c, cuadro, p.id, fechas)))
+                                         for p in c.colabs if p.en_solver}
+
+
+@router.get("/areas/{area}/periodos/{id}/agendas/{colab}.ics")
+def agenda_ics(id: int, colab: int, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
+    nombre, texto = _agendas(ctx, id)[1].get(colab) or (None, None)
+    if nombre is None:
+        raise HTTPException(404, "Esa persona no está en el cuadro")
+    request.state.evento = "exportacion"
+    return Response(texto.encode("utf-8"), media_type="text/calendar; charset=utf-8", headers=_adjunto(analisis.nombre_archivo(nombre) + ".ics"))
+
+
+@router.get("/areas/{area}/periodos/{id}/agendas.zip")
+def agendas_zip(id: int, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
+    txt, agendas = _agendas(ctx, id)
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        vistos = set()
+        for cid, (nombre, texto) in agendas.items():
+            archivo = analisis.nombre_archivo(nombre) or str(cid)
+            archivo = f"{archivo} {cid}" if archivo in vistos else archivo  # dos personas con el mismo nombre
+            vistos.add(archivo)
+            z.writestr(archivo + ".ics", texto)
+    request.state.evento = "exportacion"
+    return Response(buf.getvalue(), media_type="application/zip", headers=_adjunto(f"AGENDAS {txt.upper()}.zip"))

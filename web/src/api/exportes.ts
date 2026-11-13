@@ -9,5 +9,7 @@ export const exportes = {
   listar: (area: number, periodo: number) => leer<Exporte[]>(base(area, periodo)),
   /** Descargas directas (se arman al pedirlas, no se guardan). */
   urlBanco: (area: number, periodo: number) => `/api/areas/${area}/periodos/${periodo}/banco.xlsx`,
+  urlAgenda: (area: number, periodo: number, colab: number) => `/api/areas/${area}/periodos/${periodo}/agendas/${colab}.ics`,
+  urlAgendas: (area: number, periodo: number) => `/api/areas/${area}/periodos/${periodo}/agendas.zip`,
   urlDescarga: (area: number, periodo: number, id: number) => `${base(area, periodo)}/${id}/descargar`,
 };

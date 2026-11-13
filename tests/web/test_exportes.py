@@ -171,6 +171,22 @@ def test_banco_lector_descarga():
         assert sesion(e, "lector@a.co").get(ruta(e, p=999999).replace("/exportes", "/banco.xlsx")).status_code == 404
 
 
+def test_agendas_ics_y_zip():
+    import zipfile
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "lector@a.co")
+        base = ruta(e).replace("/exportes", "/agendas")
+        r = cli.get(f"{base}/{e.colab['A']}.ics")
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/calendar"), r.text
+        assert r.text.count("BEGIN:VEVENT") == 2 and "P-A.ics" in r.headers["content-disposition"]
+        assert cli.get(f"{base}/999999.ics").status_code == 404
+        z = cli.get(f"{base}.zip")
+        assert z.status_code == 200
+        assert zipfile.ZipFile(BytesIO(z.content)).namelist() == ["P-A.ics"]
+
+
 if __name__ == "__main__":
     import inspect
     for n, f in list(globals().items()):

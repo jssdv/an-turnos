@@ -102,9 +102,12 @@ export function Cuadro() {
 
   // «Imprimir el cuadro» de Reportes llega con ?imprimir=1: se imprime una vez, ya con la grilla pintada.
   const [busqueda, setBusqueda] = useSearchParams();
+  const [solo, setSolo] = useState<string | null>(null);
   useEffect(() => {
     if (!datos || !busqueda.has("imprimir")) return;
+    setSolo(busqueda.get("persona")); // «Imprimir su horario» de Reportes: solo la fila de esa persona mientras se imprime
     setBusqueda({}, { replace: true });
+    window.addEventListener("afterprint", () => setSolo(null), { once: true });
     setTimeout(() => window.print(), 300);
   }, [datos]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -278,7 +281,7 @@ export function Cuadro() {
             <Planilla
               descripcion={`Cuadro de turnos de ${nombrePeriodo(actual.clave)}`}
               dias={dias}
-              filas={datos.colabs.filter((c) => c.activo).map((c) => {
+              filas={datos.colabs.filter((c) => c.activo && (!solo || String(c.id) === solo)).map((c) => {
                 const h = vista.horas.get(c.id);
                 return { id: c.id, nombre: c.nombre, extra: h ? h.trabajadas : "", extraAlto: !!h && h.trabajadas > h.contratadas };
               })}
@@ -311,7 +314,7 @@ export function Cuadro() {
               <span className="flex items-center gap-1.5"><Ficha codigo="M" cambiada />Editada a mano</span>
               <span className="flex items-center gap-1.5"><strong className="text-brand-secondary" aria-hidden="true">D</strong>Domingo o festivo (letra verde)</span>
             </div>
-            <HorasSemana horas={datos.horas} colabs={datos.colabs.filter((c) => c.activo)} />
+            <HorasSemana horas={datos.horas} colabs={datos.colabs.filter((c) => c.activo && (!solo || String(c.id) === solo))} />
           </>
         )}
       </Seccion>
