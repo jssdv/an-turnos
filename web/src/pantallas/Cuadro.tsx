@@ -13,6 +13,7 @@ import { dias as diasDe, fechaCorta, nombrePeriodo } from "./fechas";
 import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
 import { RegistrarCambio, esCorrido, sinCupo } from "./RegistrarCambio";
+import { QuienCubre, turnoParaAlerta } from "./QuienCubre";
 import { Button } from "@/components/base/buttons/button";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
@@ -103,6 +104,7 @@ export function Cuadro() {
   // «Imprimir el cuadro» de Reportes llega con ?imprimir=1: se imprime una vez, ya con la grilla pintada.
   const [busqueda, setBusqueda] = useSearchParams();
   const [solo, setSolo] = useState<string | null>(null);
+  const [cubrir, setCubrir] = useState<{ fecha: string; turno: string; ausente?: { id: number; nombre: string } } | null>(null);
   useEffect(() => {
     if (!datos || !busqueda.has("imprimir")) return;
     setSolo(busqueda.get("persona")); // «Imprimir su horario» de Reportes: solo la fila de esa persona mientras se imprime
@@ -319,12 +321,21 @@ export function Cuadro() {
         )}
       </Seccion>
 
+      {actual && datos && (
+        <QuienCubre area={area.id} periodo={actual.id} revision={actual.revision} fecha={cubrir?.fecha ?? null} turnoInicial={cubrir?.turno ?? ""} ausente={cubrir?.ausente}
+          turnos={datos.turnos} puedeAsignar={puedeEditar} alCerrar={() => setCubrir(null)}
+          alAsignar={(texto, a) => {
+            setCubrir(null);
+            setResultado({ nivel: a.length ? "aviso" : "ok", texto: texto + (a.length ? "\nNuevas alertas:\n• " + a.slice(0, 3).join("\n• ") : "") });
+            setRecarga((n) => n + 1);
+          }} />
+      )}
       <RegistrarCambio borrador={borrador} alCambiar={cerrarCambio} nombres={nombres} turnos={datos?.turnos ?? []} actual={codigoDe} puestos={usaPuestos ? datos!.puestos.filter((q) => q.activo) : null} puestoDe={puestoDe} puestosDe={puestosDe}
         cupos={cupos} error={errorCambio} enviando={enviando} alEnviar={enviar} />
 
       {datos && (() => {
-        const vista = persona ? datos.alertas.filter((a) => String(a.colab_id) === persona) : datos.alertas;
-        const reglas = vista.filter((a) => a.nivel !== "info").length;
+        const filtradas = persona ? datos.alertas.filter((a) => String(a.colab_id) === persona) : datos.alertas;
+        const reglas = filtradas.filter((a) => a.nivel !== "info").length;
         const niveles = [["error", "Por corregir", "error"], ["aviso", "Para revisar", "warning"], ["info", "Deseables sin cubrir", "gray"]] as const;
         return (
           <Seccion id="alertas" data-solo-pantalla titulo={<>Alertas {reglas > 0 && <Badge size="sm" color="warning">{reglas}</Badge>}</>}>
@@ -333,22 +344,33 @@ export function Cuadro() {
               {datos.colabs.filter((c) => c.activo).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </NativeSelect>
             {persona && <p className="mt-1 text-md text-tertiary">Solo alertas de esta persona; las de cobertura de un día no se muestran.</p>}
-            {vista.length === 0 ? (
+            {filtradas.length === 0 ? (
               <p className="p-6 text-center text-tertiary">{persona ? "Sin alertas para esta persona." : "Sin alertas: el cuadro cumple las reglas."}</p>
             ) : (
               <>
                 {reglas > 0 && <p className="mt-1 text-md text-tertiary">Corrige primero las rojas; las amarillas son recomendaciones.</p>}
                 {niveles.map(([nivel, titulo, color]) => {
-                  const grupo = agrupar(vista.filter((a) => a.nivel === nivel));
+                  const grupo = agrupar(filtradas.filter((a) => a.nivel === nivel));
                   if (!grupo.length) return null;
                   const info = nivel === "info";
                   return (
-                    <details key={nivel} className="[&+&]:mt-3 [&>summary]:cursor-pointer [&>summary]:py-2" open={nivel === "error" || (nivel === "aviso" && !vista.some((a) => a.nivel === "error"))}>
+                    <details key={nivel} className="[&+&]:mt-3 [&>summary]:cursor-pointer [&>summary]:py-2" open={nivel === "error" || (nivel === "aviso" && !filtradas.some((a) => a.nivel === "error"))}>
                       <summary><Badge size="sm" color={color}>{titulo} · {grupo.length}</Badge></summary>
                       <ul className="">
                         {grupo.map(({ alerta: a, veces }) => (
                           <li key={a.texto} className={`flex items-center gap-3 border-t border-secondary first:border-t-0 ${info ? "py-1 text-sm text-tertiary" : "py-2"}`}>
                             <span className="flex-1">{a.texto}{veces > 1 && <span className="text-tertiary"> (×{veces})</span>}</span>
+                            {(() => {
+                              // Faltante del día, o turno que quedó sobre una novedad (ausencia registrada después de generar)
+                              if (a.nivel !== "error" || !a.fecha || !actual || actual.cerrado_en || version !== "cambios" || !vista) return null;
+                              const llave = `${a.colab_id}|${a.fecha}`;
+                              const turnoAusente = a.colab_id ? vista.celdas.get(llave)?.turno : undefined;
+                              if (a.colab_id && !(turnoAusente && turnoAusente !== "L" && datos.novedades.some((n) => n.colab_id === a.colab_id && a.fecha! >= n.desde && a.fecha! <= n.hasta))) return null;
+                              const abrir = () => setCubrir(a.colab_id
+                                ? { fecha: a.fecha!, turno: turnoAusente!, ausente: { id: a.colab_id, nombre: nombres.get(a.colab_id) ?? "" } }
+                                : { fecha: a.fecha!, turno: turnoParaAlerta(a.texto, datos.turnos) });
+                              return <Button color="link-color" size="sm" onPress={abrir} aria-label={`¿Quién cubre? ${a.texto}`}>¿Quién cubre?</Button>;
+                            })()}
                             {a.fecha && (
                               <Button color="link-color" size="sm" onPress={() => irA(a)} aria-label={`${a.colab_id ? "Ir a la celda" : "Ir al día"}: ${a.texto}`}>
                                 {a.colab_id ? "Ir a la celda" : `Ir al ${fechaCorta(a.fecha)}`}
