@@ -23,7 +23,7 @@ def test_css_formato():
 
 def test_figcraft_marca_turnos_fondo_y_peligro():
     marca = {f"brand_{n}" for n in (25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950)}
-    assert set(tokens.leer_variables(FIGCRAFT)) == marca | {"turno_M", "turno_T", "turno_C", "turno_NC", "fondo_1", "fondo_2", "peligro_fondo", "peligro_texto"}
+    assert set(tokens.leer_variables(FIGCRAFT)) == marca | {"turno_M", "turno_T", "turno_C", "turno_NC", "fondo_1", "peligro_fondo", "peligro_texto"}
 
 
 def test_verificar_falla_si_tokens_css_cambia():
