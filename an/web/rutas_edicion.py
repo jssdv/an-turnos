@@ -8,10 +8,10 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from an.turnos import cambios, flujo, puestos, reglas
+from an.turnos import cambios, cubrir, flujo, puestos, reglas
 from an.turnos import demanda as dem
 
-from .deps import Contexto, contexto_area, leer_revision
+from .deps import Contexto, contexto_area, contexto_area_lectura, leer_revision
 
 router = APIRouter(prefix="/api")
 MAX_CELDAS = 400
@@ -158,6 +158,20 @@ def listar(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
 def cupos(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
     clave = _periodo_de(ctx, id)
     return _cupos(ctx.bd, clave, [c.id for c in ctx.bd.contexto(flujo.desde_clave(clave)[0].year).colabs if c.en_solver])
+
+
+@router.get("/areas/{area}/periodos/{id}/cubrir")
+def quien_cubre(id: int, fecha: date, turno: str, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
+    """Hasta 5 personas libres ese día que pueden hacer `turno` sin romper reglas (solo consulta; asignar es un cambio de servicio)."""
+    clave = _periodo_de(ctx, id)
+    inicio, fin = flujo.desde_clave(clave)
+    if not inicio <= fecha <= fin:
+        raise HTTPException(422, f"El {fecha:%d/%m} está fuera del periodo")
+    try:
+        return cubrir.candidatos(ctx.bd.contexto(inicio.year), ctx.bd.asignaciones(clave), flujo.fechas(inicio, fin), fecha, turno,
+                                 ctx.bd.fijos(clave), flujo.previo(ctx.bd, inicio))
+    except ValueError as x:
+        raise HTTPException(422, str(x))
 
 
 @router.post("/areas/{area}/periodos/{id}/cambios/{cambio}/anular")

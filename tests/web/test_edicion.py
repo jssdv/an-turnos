@@ -370,6 +370,21 @@ def test_reasignar_puestos_no_toca_los_turnos():
         assert turnos() == antes  # los puestos pueden cambiar; los turnos no
 
 
+def test_quien_cubre():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "lector@a.co")
+        url = f"/api/areas/{e.ar['A']}/periodos/{periodo(e)}/cubrir"
+        r = cli.get(url, params={"fecha": "2026-10-07", "turno": "M"})
+        assert r.status_code == 200, r.text
+        assert [c["colab_id"] for c in r.json()] == [e.colab["A"]]
+        assert cli.get(url, params={"fecha": "2026-10-05", "turno": "M"}).json() == []  # ese día ya trabaja
+        assert cli.get(url, params={"fecha": "2026-12-01", "turno": "M"}).status_code == 422
+        assert cli.get(url, params={"fecha": "2026-10-07", "turno": "ZZ"}).status_code == 422
+        assert cli.get(f"/api/areas/{e.ar['A']}/periodos/999999/cubrir", params={"fecha": "2026-10-07", "turno": "M"}).status_code == 404
+
+
 if __name__ == "__main__":
     import inspect
     for n, f in list(globals().items()):

@@ -33,6 +33,7 @@ Genera el cuadro mensual con un solver, reparte puestos, calcula horas y recargo
 
 **Edición**
 - Arrastrar, intercambiar y deshacer; cada cambio manual queda registrado como permuta, cambio de servicio o ajuste.
+- «¿Quién cubre?»: ante una ausencia o un faltante, propone hasta 5 personas libres que pueden tomar el turno sin romper reglas, de menos a más carga, y lo asigna con un clic.
 - Dos versiones por periodo: `original` (publicada) y `cambios` (copia de trabajo), con diferencias a la vista.
 - Solicitudes del personal (libre, quiero, evitar) tratadas como deseos: el solver las prioriza sin romper cobertura ni normativa.
 
@@ -42,7 +43,8 @@ Genera el cuadro mensual con un solver, reparte puestos, calcula horas y recargo
 
 **Informes**
 - Analíticas: ausentismo, cobertura, cambios, horas extra y equidad.
-- Exportes a Excel: cuadro, planilla de puestos y reporte de horas.
+- Exportes a Excel: cuadro, planilla de puestos, reporte de horas y banco de horas (saldos y movimientos).
+- Agendas: el horario de cada persona en `.ics` para su calendario (o todas en un `.zip`) e impresión del horario de una sola persona.
 
 **Operación**
 - Varias áreas por clínica, cada una con su propio archivo de datos; permisos de edición o consulta por usuario.
