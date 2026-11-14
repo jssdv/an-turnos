@@ -3,14 +3,13 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Plus, Trash01, Users01 } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Grupo, Ventana } from "./comun";
+import { Plus, Trash01 } from "@untitledui/icons";
+import { Estado, Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Grupo, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
-import { Badge } from "@/components/base/badges/badges";
 
 const TIPOS = ["regular", "restringido", "estudiante", "refuerzo"];
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -60,7 +59,7 @@ export function Personal() {
   }); }, "Si tiene cuadros o novedades en su historial, quedará inactiva en lugar de borrarse.");
 
   return (
-    <Pagina titulo="Personal" icono={Users01}
+    <Pagina titulo="Personal"
       acciones={editar && <Pista texto="Agrega a alguien al área: horas, turnos y puestos que puede cubrir."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { nuevo(); setVentana(true); }}>Agregar persona</Button></Pista>} sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
       <Seccion titulo="Colaboradores" acciones={<Checkbox label="Mostrar inactivos" isSelected={verInactivos} onChange={(x) => setVerInactivos(x)} />}>
         <Tabla
@@ -69,7 +68,7 @@ export function Personal() {
           vacio="Aún no hay personal. Agrega a la primera persona abajo."
           columnas={["Nombre", "Tipo", "Horas/sem", "Dedicación", "Estado", ""]}
           filas={(lista.datos ?? []).filter((p) => p.activo || verInactivos).map((p) => [
-            p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, <Badge size="sm" color={p.activo ? "success" : "gray"}>{p.activo ? "Activo" : "Inactivo"}</Badge>,
+            p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, <Estado tono={p.activo ? "ok" : "neutro"}>{p.activo ? "Activo" : "Inactivo"}</Estado>,
             editar ? <Button color="link-color" size="sm" onPress={() => { elegir(p); setVentana(true); }} >Editar</Button> : null,
           ])}
         />

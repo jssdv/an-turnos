@@ -5,13 +5,15 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
-MIN_PX = 11  # el mínimo que ya usa la app Qt (tema.py); la colección «Tipo» de FigCraft aún no existe
+MIN_PX = 12  # rediseño «libro»: nada por debajo de 12 px (caption / num)
 MIN_CONTRASTE = 4.5
 # Colores fijos de Untitled (styles/theme.css) que se cruzan con nuestros tokens; los nombres de tokens.css van sin `--`.
-FIJOS = {"white": "#FFFFFF", "neutral-900": "#171717"}  # neutral-900 de Tailwind = color-text-primary
+FIJOS = {"white": "#FFFFFF", "neutral-900": "#1B1A17", "neutral-50": "#FAF9F6", "neutral-100": "#F6F4EF"}  # grises cálidos de theme.css: texto, papel y banda
 # (texto, fondo) que el diseño usa de verdad. Los controles deshabilitados quedan fuera (WCAG 1.4.3 los exime).
-PARES = [("white", "an-brand-600"), ("white", "an-brand-700"), ("an-brand-700", "white"),
-         ("neutral-900", "turno-M"), ("neutral-900", "turno-T"), ("neutral-900", "turno-C"), ("neutral-900", "turno-NC"),
+PARES = [("white", "an-brand-600"), ("white", "an-brand-700"), ("an-brand-700", "white"), ("an-brand-600", "white"), ("an-brand-600", "fondo-1"),
+         ("turno-M", "white"), ("turno-T", "white"), ("turno-C", "white"), ("white", "turno-NC"),
+         ("turno-M", "neutral-100"), ("turno-T", "neutral-100"), ("turno-C", "neutral-100"),
+         ("neutral-900", "fondo-1"), ("neutral-900", "neutral-100"),
          ("peligro-texto", "peligro-fondo"), ("an-brand-700", "an-brand-50")]
 COLOR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(|:\s*(?:white|black)\b", re.I)
 IGNORAR = {"tokens.css", "theme.css", "esquema.d.ts"}  # theme.css: copiado de Untitled UI, define su paleta

@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, EstadoSolicitud, Periodo, Solicitud, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Inbox01, Plus, Users01 } from "@untitledui/icons";
+import { Plus, Users01 } from "@untitledui/icons";
 import { Fila, Filtro, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
@@ -43,7 +43,7 @@ export function Solicitudes() {
   });
 
   return (
-    <Pagina titulo="Solicitudes" icono={Inbox01} sub="Preferencias del personal para el próximo cuadro."
+    <Pagina titulo="Solicitudes" sub="Preferencias del personal para el próximo cuadro."
       filtros={<Filtro etiqueta="Persona" icono={Users01} value={persona} onChange={(x) => ver(x.target.value)}>
         <option value="">Todas las personas</option>
         {(personas.datos ?? []).filter((p) => p.activo).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}

@@ -17,7 +17,7 @@ export function Tabla({ columnas, filas, vacio, descripcion, cargando }: Props) 
   return (
     <div className="overflow-x-auto">
       <Table aria-label={descripcion} size="sm">
-        <Table.Header bordered={false} className="[&>tr>th:first-child]:rounded-l-xl [&>tr>th:last-child]:rounded-r-xl">
+        <Table.Header bordered={false}>
           {columnas.map((c, i) => <Table.Head key={i} id={`c${i}`} label={c} isRowHeader={i === 0} />)}
         </Table.Header>
         <Table.Body>

@@ -31,7 +31,7 @@ export function CampoFecha({ value, onChange, label, isRequired, className }: {
         <Label className="flex items-center gap-0.5 text-sm font-medium text-secondary">
           {label}{isRequired && <span aria-hidden="true" className="text-brand-tertiary">*</span>}
         </Label>
-        <Group className="flex items-center rounded-lg bg-primary shadow-xs ring-1 ring-primary transition ring-inset focus-within:ring-2 focus-within:ring-brand data-[invalid]:ring-error_subtle">
+        <Group className="flex items-center rounded-lg bg-primary ring-1 ring-primary transition ring-inset focus-within:ring-2 focus-within:ring-brand data-[invalid]:ring-error_subtle">
           <DateInput className="flex flex-1 items-center px-3 py-2 text-sm text-primary">
             {(s) => <DateSegment segment={s} className="rounded-xs px-0.5 tabular-nums outline-hidden data-[placeholder]:text-placeholder data-[type=literal]:px-0 focus:bg-brand-solid focus:text-white" />}
           </DateInput>
@@ -41,7 +41,7 @@ export function CampoFecha({ value, onChange, label, isRequired, className }: {
           </Button>
         </Group>
         <Popover placement="bottom start" offset={6}
-          className="w-[min(320px,calc(100vw-32px))] overscroll-contain rounded-2xl bg-primary p-3 shadow-xl ring-1 ring-secondary outline-hidden data-[entering]:animate-in data-[entering]:fade-in data-[entering]:zoom-in-95 data-[exiting]:animate-out data-[exiting]:fade-out">
+          className="w-[min(320px,calc(100vw-32px))] overscroll-contain rounded-xl bg-primary p-3 shadow-lg ring-1 ring-secondary outline-hidden data-[entering]:animate-in data-[entering]:fade-in data-[entering]:zoom-in-95 data-[exiting]:animate-out data-[exiting]:fade-out">
           <Dialog className="outline-hidden">
             <Calendar firstDayOfWeek="mon" className="flex flex-col gap-2">
               <header className="flex items-center justify-between">

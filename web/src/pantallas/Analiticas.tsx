@@ -3,8 +3,7 @@ import { useOutletContext } from "react-router";
 import { usar } from "../api/catalogos";
 import type { Area } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { AlertTriangle, CalendarMinus01, LineChartUp01, SwitchHorizontal01, Users01 } from "@untitledui/icons";
-import { Indicador, Pagina, Seccion } from "./comun";
+import { Indicador, Indicadores, Pagina, Seccion } from "./comun";
 import { fechaCorta, nombrePeriodo } from "./fechas";
 import { Input } from "@/components/base/input/input";
 
@@ -30,10 +29,10 @@ function Barras({ titulo, unidad, datos }: { titulo: string; unidad: string; dat
     <Seccion titulo={titulo}>
       {datos.length === 0 ? <p className="text-tertiary">Sin datos en el rango.</p> : (
         <ul className="flex flex-col gap-2.5" aria-label={titulo}>
-          {[...datos].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p, v], i) => (
+          {[...datos].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p, v]) => (
             <li key={p} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs">
               <span className="truncate font-medium text-secondary">{p}</span>
-              <span className="h-3.5 rounded-full bg-secondary"><span className={i % 2 ? "block h-full rounded-full bg-brand-400" : "block h-full rounded-full bg-brand-500"} style={{ width: `${(v / max) * 100}%` }} /></span>
+              <span className="h-2.5 rounded-xs bg-secondary"><span className="block h-full rounded-xs bg-brand-600" style={{ width: `${(v / max) * 100}%` }} /></span>
               <span className="text-tertiary tabular-nums">{v} {unidad}</span>
             </li>
           ))}
@@ -61,19 +60,19 @@ export function Analiticas() {
   }, [d]);
 
   return (
-    <Pagina titulo="Analíticas" icono={LineChartUp01}
+    <Pagina titulo="Analíticas"
       filtros={<div className="flex flex-wrap items-start gap-3">
         <Input className="w-48 [&_label]:sr-only" value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
         <Input className="w-48 [&_label]:sr-only" value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!ok} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
       </div>} sub="Cifras de lo ya registrado. Solo se consulta: aquí no se cambia nada." ayuda={<>Elige el rango de meses. Arriba ves el resumen: <strong>ausentismo</strong> (porcentaje de días perdidos por ausencias), cuántas personas faltaron <strong>a la vez</strong>, días con <strong>déficit</strong> (faltó gente en algún puesto) y cambios de turno. Las tablas de abajo muestran el detalle por persona y por periodo.</>} error={r.error}>
       {!d || !total ? <p aria-busy="true">Cargando…</p> : (
         <>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4" role="list" aria-label="Resumen">
-            <Indicador icono={CalendarMinus01} titulo="Ausentismo" valor={`${n(d.ausentismo.pct)} %`} nota={`${total.ausencias} días de ausencia`} />
-            <Indicador icono={Users01} titulo="Ausentes a la vez (máximo)" valor={String(d.simultaneos.maximo)} nota={d.simultaneos.fecha_maximo ? `El ${fechaCorta(d.simultaneos.fecha_maximo)}` : "Sin ausencias simultáneas"} />
-            <Indicador icono={AlertTriangle} titulo="Días con déficit" valor={String(total.deficit)} nota={`${d.simultaneos.dias_riesgo.length} con ausentes en riesgo`} />
-            <Indicador icono={SwitchHorizontal01} titulo="Cambios de turno" valor={String(total.cambios)} nota={`${total.excepciones} con excepción`} />
-          </div>
+          <Indicadores etiqueta="Resumen">
+            <Indicador titulo="Ausentismo" valor={`${n(d.ausentismo.pct)} %`} nota={`${total.ausencias} días de ausencia`} />
+            <Indicador titulo="Ausentes a la vez (máximo)" valor={String(d.simultaneos.maximo)} nota={d.simultaneos.fecha_maximo ? `El ${fechaCorta(d.simultaneos.fecha_maximo)}` : "Sin ausencias simultáneas"} />
+            <Indicador titulo="Días con déficit" valor={String(total.deficit)} nota={`${d.simultaneos.dias_riesgo.length} con ausentes en riesgo`} />
+            <Indicador titulo="Cambios de turno" valor={String(total.cambios)} nota={`${total.excepciones} con excepción`} />
+          </Indicadores>
           <div className="grid gap-4 lg:grid-cols-2">
             <Barras titulo="Equidad de domingos y festivos" unidad="días" datos={Object.entries(d.equidad.por_persona).map(([p, o]) => [p, o.domingos + o.festivos])} />
             <Barras titulo="Recargos por persona" unidad="h equivalentes" datos={Object.entries(d.recargos).map(([p, r2]) => [p, Math.round(r2.equivalentes * 10) / 10])} />

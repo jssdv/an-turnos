@@ -1,8 +1,8 @@
 :root {
-  --turno-M: #FFE9A8;
-  --turno-T: #CFE3FF;
-  --turno-C: #CDEFD8;
-  --turno-NC: #E0D6FA;
+  --turno-M: #8A5A00;
+  --turno-T: #1F55A0;
+  --turno-C: #196B3E;
+  --turno-NC: #2A2540;
   --an-brand-25: #F6FBFB;
   --an-brand-50: #EDF8F7;
   --an-brand-100: #DAF1F0;
@@ -15,8 +15,7 @@
   --an-brand-800: #074946;
   --an-brand-900: #053836;
   --an-brand-950: #032322;
-  --fondo-1: #EAF6F3;
-  --fondo-2: #EEF2FA;
+  --fondo-1: #FAF9F6;
   --peligro-fondo: #FDEDEE;
   --peligro-texto: #C0262D;
 }

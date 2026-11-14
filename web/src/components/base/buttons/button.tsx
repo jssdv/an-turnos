@@ -32,7 +32,7 @@ export const styles = sortCx({
         sm: {
             root: [
                 // An: 40 px de alto y radio 12 en todas las acciones (rediseño 2026-11).
-                "h-10 gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold before:rounded-[11px] data-icon-only:w-10 data-icon-only:p-2",
+                "h-9 gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:w-9 data-icon-only:p-2",
                 "in-data-input-wrapper:px-3.5 in-data-input-wrapper:py-2.5 in-data-input-wrapper:data-icon-only:p-2.5",
             ].join(" "),
             linkRoot: "gap-1 *:data-text:underline-offset-3",
@@ -57,9 +57,8 @@ export const styles = sortCx({
     colors: {
         primary: {
             root: [
-                "bg-linear-to-b from-brand-600 to-brand-700 text-white shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:from-brand-700 hover:to-brand-700 data-loading:bg-brand-solid_hover",
-                // Inner border gradient
-                "before:absolute before:inset-px before:border before:border-white/12 before:mask-b-from-0%",
+                // An (rediseño «libro»): tinta plana, sin degradado ni borde interior.
+                "bg-primary-solid text-white ring-1 ring-transparent ring-inset hover:bg-neutral-800 data-loading:bg-neutral-800",
                 // Icon styles
                 "*:data-icon:text-white/80 hover:*:data-icon:text-white",
             ].join(" "),
@@ -80,7 +79,7 @@ export const styles = sortCx({
         },
         "link-color": {
             root: [
-                "justify-normal rounded p-0! text-brand-secondary hover:text-brand-secondary_hover",
+                "h-auto! justify-normal rounded p-0! text-brand-secondary hover:text-brand-secondary_hover",
                 // Inner text underline
                 "*:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-fg-brand-secondary_alt",
                 // Icon styles
@@ -89,7 +88,7 @@ export const styles = sortCx({
         },
         "link-gray": {
             root: [
-                "justify-normal rounded p-0! text-tertiary hover:text-tertiary_hover",
+                "h-auto! justify-normal rounded p-0! text-tertiary hover:text-tertiary_hover",
                 // Inner text underline
                 "*:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-fg-quaternary",
                 // Icon styles
@@ -121,7 +120,7 @@ export const styles = sortCx({
         },
         "link-destructive": {
             root: [
-                "justify-normal rounded p-0! text-error-primary outline-error hover:text-error-primary_hover",
+                "h-auto! justify-normal rounded p-0! text-error-primary outline-error hover:text-error-primary_hover",
                 // Inner text underline
                 "*:data-text:underline *:data-text:decoration-transparent *:data-text:underline-offset-2 hover:*:data-text:decoration-current",
                 // Icon styles
