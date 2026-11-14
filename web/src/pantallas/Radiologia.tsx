@@ -7,7 +7,7 @@ import { Agendas, Alertas, Cambios, Equidad, Previa, Resumen } from "./Radiologi
 import { Button } from "@/components/base/buttons/button";
 import { Alert } from "@/components/application/alerts/alert";
 import { cx } from "@/utils/cx";
-import { ArrowLeft, ArrowRight, Calendar, Download01, Home02, Upload01 } from "@untitledui/icons";
+import { ArrowLeft, ArrowRight, Calendar, Download01, Upload01 } from "@untitledui/icons";
 import { Filtro, Pagina, Pista } from "./comun";
 
 export const SECCIONES: [string, string][] = [["Resumen", "resumen"], ["Vista previa", "previa"], ["Alertas", "alertas"], ["Equidad y horas", "equidad"], ["Agendas", "agendas"], ["Cambios", "cambios"]];
@@ -65,7 +65,7 @@ export function Radiologia() {
   const error = archivos.error ?? semanas.error ?? semana.error;
 
   return (
-    <Pagina titulo="Radiología" icono={Home02} sub="Planilla semanal a partir del cuadro mensual de turnos."
+    <Pagina titulo="Radiología" sub="Planilla semanal a partir del cuadro mensual de turnos."
       filtros={id && semanas.datos && <>
         {archivos.datos && archivos.datos.length > 1 && (
           <Filtro etiqueta="Cuadro mensual" value={id} onChange={(ev) => setElegido(Number(ev.target.value))}>

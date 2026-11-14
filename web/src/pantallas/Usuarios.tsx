@@ -5,7 +5,7 @@ import { ErrorApi } from "../api/cliente";
 import type { Area, UsuarioClinica } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
-import { Plus, UserCheck01 } from "@untitledui/icons";
+import { Plus } from "@untitledui/icons";
 import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -64,7 +64,7 @@ export function Usuarios() {
   const permisoDe = (u: UsuarioClinica, a: number) => u.permisos.find((p) => p.area_id === a)?.permiso ?? "";
 
   return (
-    <Pagina titulo="Usuarios" icono={UserCheck01}
+    <Pagina titulo="Usuarios"
       acciones={<Pista texto="Crea un acceso con contraseña temporal; la persona la cambia al entrar."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => setVentana(true)}>Nuevo usuario</Button></Pista>} sub="Quién ingresa a la clínica y qué puede hacer en cada área." ayuda={<>Cada persona puede tener, por área: <strong>Editar</strong> (genera y cambia el cuadro), <strong>Ver</strong> (solo consulta y exporta) o <strong>Sin acceso</strong>. Al crear un usuario se le asigna una contraseña temporal que deberá cambiar la primera vez que entre.</>} error={lista.error ?? areas.error} aviso={aviso}>
       {clave && (
         <Alert color="warning" action={<Button color="secondary" size="sm" onPress={() => setClave(null)}>Ya la copié</Button>}>

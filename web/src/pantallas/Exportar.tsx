@@ -15,11 +15,15 @@ interface Props {
   periodo: number;
   /** Sin cuadro no hay nada que exportar. */
   hayCuadro: boolean;
+  /** Controlado desde fuera (opción «Exportar» del menú ⋯): sin botón propio. */
+  abierto?: boolean;
+  alCambiar?: (abierto: boolean) => void;
 }
 
 /** Botón «Exportar»: genera el libro en el servidor, reemplaza el anterior del mismo tipo y lo borra al descargarlo. Basta con poder ver el área. */
-export function Exportar({ area, periodo, hayCuadro }: Props) {
-  const [abierto, setAbierto] = useState(false);
+export function Exportar({ area, periodo, hayCuadro, abierto: fuera, alCambiar }: Props) {
+  const [propio, setPropio] = useState(false);
+  const abierto = fuera ?? propio, setAbierto = alCambiar ?? setPropio;
   const [lista, setLista] = useState<Exporte[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [haciendo, setHaciendo] = useState<TipoExporte | null>(null);
@@ -47,7 +51,7 @@ export function Exportar({ area, periodo, hayCuadro }: Props) {
 
   return (
     <>
-      <Pista texto="Descarga el cuadro, los puestos o las horas en Excel."><Button color="secondary" size="sm" iconLeading={Download01} onPress={() => setAbierto(true)}>Exportar</Button></Pista>
+      {fuera === undefined && <Pista texto="Descarga el cuadro, los puestos o las horas en Excel."><Button color="secondary" size="sm" iconLeading={Download01} onPress={() => setAbierto(true)}>Exportar</Button></Pista>}
       <Ventana abierto={abierto} alCambiar={setAbierto} titulo="Exportar a Excel"
         descripcion="Cada exportación reemplaza la anterior del mismo tipo. El archivo se elimina del servidor al descargarlo.">
         {error && <Alert color="error">{error}</Alert>}

@@ -4,7 +4,7 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
-import { Building02, Plus } from "@untitledui/icons";
+import { Plus } from "@untitledui/icons";
 import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -42,7 +42,7 @@ export function Areas() {
   const error = aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>;
 
   return (
-    <Pagina titulo="Áreas" icono={Building02}
+    <Pagina titulo="Áreas"
       acciones={<Pista texto="Crea un servicio con su propio personal, turnos y cuadros."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => abrir({ modo: "nueva" })}>Nueva área</Button></Pista>}
       sub="Los servicios de la clínica; cada uno con su personal, turnos y cuadros, independientes entre sí."
       ayuda={<>Cada área es de tipo <strong>Turnos</strong> (cuadro con solver, puestos y horas) o <strong>Radiología</strong> (cuadro mensual en Excel y asignación semanal). Los permisos por área se dan en «Usuarios».</>}

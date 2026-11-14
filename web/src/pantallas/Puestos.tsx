@@ -5,13 +5,12 @@ import { SeccionTurnos } from "./SeccionTurnos";
 import { MatrizRequerimiento } from "./MatrizRequerimiento";
 import type { Area, Demanda, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Building02, Plus, Trash01 } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
+import { Plus, Trash01 } from "@untitledui/icons";
+import { Estado, Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
-import { Badge } from "@/components/base/badges/badges";
 
 /** Turnos, modo de trabajo (con o sin puestos) y necesidad por turno y día: del área o de cada puesto. */
 export function Puestos() {
@@ -52,16 +51,17 @@ export function Puestos() {
   }); }, "Si ya tiene historial, quedará inactivo en lugar de borrarse.");
 
   return (
-    <Pagina titulo="Requerimiento" icono={Building02}
+    <Pagina titulo="Requerimiento"
       acciones={editar && usaPuestos && <Pista texto="Crea un puesto y define cuántas personas necesita por turno y día."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { elegir(null); setVentana(true); }}>Agregar puesto</Button></Pista>} sub="Los turnos del área, si el servicio usa puestos y cuántas personas hacen falta." ayuda={<>Primero define los <strong>turnos</strong> (sus horarios son la base). Luego elige si trabajan por puestos. Con puestos, cada uno tiene su propia <strong>necesidad por turno y día</strong>; sin puestos, la necesidad es la del área. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error ?? parametros.error ?? turnos.error} aviso={aviso}>
+      {editar && <div className="tarjeta px-4 py-3"><Checkbox label="Este servicio trabaja por puestos" hint="Apagado: solo se pide un número de personas por jornada y día de la semana."
+        isSelected={usaPuestos} isDisabled={ocupado || !parametros.datos} onChange={cambiarModo} /></div>}
+      <div className={usaPuestos ? "grid items-start gap-4 xl:grid-cols-2" : "contents"}>
       <SeccionTurnos base={base} editar={editar} turnos={turnos} />
-      {editar && <Seccion titulo="Cómo se define la necesidad"><Checkbox label="Este servicio trabaja por puestos" hint="Apagado: solo se pide un número de personas por jornada y día de la semana."
-        isSelected={usaPuestos} isDisabled={ocupado || !parametros.datos} onChange={cambiarModo} /></Seccion>}
       {!usaPuestos && <MatrizRequerimiento ruta={`${base}/requerimiento`} titulo="Personas por turno" editar={editar} turnos={turnos.datos ?? []} />}
       {usaPuestos && <>
       <Seccion titulo="Puestos">
         <Tabla descripcion="Puestos del área" cargando={!puestos.datos && !puestos.error} vacio="Aún no hay puestos." columnas={["N.º", "Nombre", "Estado", "Reglas", ""]}
-          filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, <Badge size="sm" color={q.activo ? "success" : "gray"}>{q.activo ? "Activo" : "Inactivo"}</Badge>, (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
+          filas={(puestos.datos ?? []).map((q) => [q.numero, q.nombre, <Estado tono={q.activo ? "ok" : "neutro"}>{q.activo ? "Activo" : "Inactivo"}</Estado>, (demandas.datos ?? []).filter((d) => d.puesto_id === q.id).length,
             editar ? <Button color="link-color" size="sm" onPress={() => { elegir(q); setVentana(true); }}>Editar</Button> : null])} />
       </Seccion>
       {editar && (
@@ -82,6 +82,7 @@ export function Puestos() {
         </Ventana>
       )}
       </>}
+      </div>
       {confirmacion}
     </Pagina>
   );

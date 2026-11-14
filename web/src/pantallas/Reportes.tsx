@@ -1,6 +1,6 @@
 import { useState, type FC } from "react";
 import { useNavigate, useOutletContext } from "react-router";
-import { Building02, Calendar, CalendarDate, Clock, Download01, FileDownload02, LineChartUp01, Printer } from "@untitledui/icons";
+import { Building02, Calendar, CalendarDate, Clock, Download01, LineChartUp01, Printer } from "@untitledui/icons";
 import { mensaje, usar } from "../api/catalogos";
 import { exportes } from "../api/exportes";
 import type { Area, Colaborador, Periodo, TipoExporte } from "../api/tipos";
@@ -45,7 +45,7 @@ export function Reportes() {
   const bajar = (href: string) => Object.assign(document.createElement("a"), { href, download: "" }).click();
 
   return (
-    <Pagina titulo="Reportes" icono={FileDownload02} sub="Descargas en Excel del periodo" error={periodos.error} aviso={aviso}
+    <Pagina titulo="Reportes" sub="Descargas en Excel del periodo" error={periodos.error} aviso={aviso}
       filtros={periodos.datos && p && (
         <Filtro etiqueta="Periodo" icono={Calendar} value={p.id} onChange={(x) => setElegido(Number(x.target.value))}>
           {periodos.datos.map((q) => <option key={q.id} value={q.id}>{nombrePeriodo(q.clave)}</option>)}
@@ -57,20 +57,20 @@ export function Reportes() {
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
           {TIPOS.map(([tipo, titulo, texto, Icono]) => (
             <section key={tipo} className="tarjeta flex flex-col items-start gap-3 p-5">
-              <span className="grid size-12 place-items-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 ring-inset" aria-hidden="true"><Icono className="size-6" /></span>
+              <Icono aria-hidden="true" className="size-5 text-fg-quaternary" />
               <h2 className="text-lg font-semibold text-primary">{titulo}</h2>
               <p className="flex-1 text-sm text-tertiary">{texto}</p>
               <Button color="secondary" size="sm" iconLeading={Download01} isDisabled={haciendo !== null} onPress={() => descargar(tipo)}>{haciendo === tipo ? "Preparando…" : "Descargar Excel"}</Button>
             </section>
           ))}
           <section className="tarjeta flex flex-col items-start gap-3 p-5">
-            <span className="grid size-12 place-items-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 ring-inset" aria-hidden="true"><Clock className="size-6" /></span>
+            <Clock aria-hidden="true" className="size-5 text-fg-quaternary" />
             <h2 className="text-lg font-semibold text-primary">Banco de horas</h2>
             <p className="flex-1 text-sm text-tertiary">Saldo de horas por persona y movimientos manuales.</p>
             <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlBanco(area.id, p.id))}>Descargar Excel</Button>
           </section>
           <section className="tarjeta flex flex-col items-start gap-3 p-5">
-            <span className="grid size-12 place-items-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 ring-inset" aria-hidden="true"><CalendarDate className="size-6" /></span>
+            <CalendarDate aria-hidden="true" className="size-5 text-fg-quaternary" />
             <h2 className="text-lg font-semibold text-primary">Agendas</h2>
             <p className="flex-1 text-sm text-tertiary">El horario de cada persona para su calendario (.ics) o para imprimir.</p>
             <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlAgendas(area.id, p.id))}>Todas (.zip)</Button>

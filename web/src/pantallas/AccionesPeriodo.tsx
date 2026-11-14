@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState, type FC } from "react";
 import { useNavigate } from "react-router";
 import { cambios } from "../api/cambios";
 import { ErrorApi } from "../api/cliente";
 import type { Periodo } from "../api/tipos";
-import { CalendarPlus01, Lock01, LockUnlocked01, RefreshCcw01, Send01, SwitchHorizontal01, Trash01 } from "@untitledui/icons";
-import { Pista, Ventana } from "./comun";
+import { CalendarPlus01, DotsHorizontal, Lock01, LockUnlocked01, RefreshCcw01, Send01, SwitchHorizontal01, Trash01 } from "@untitledui/icons";
+import { Dropdown } from "@/components/base/dropdown/dropdown";
+import { Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { CampoFecha } from "../componentes/CampoFecha";
 import { Alert } from "@/components/application/alerts/alert";
@@ -19,14 +20,20 @@ const TEXTO: Record<Accion, [string, string]> = {
   eliminar: ["Eliminar periodo", "Se borran el cuadro, los puestos, los cambios y los exportes. No se puede deshacer."],
 };
 
+type Icono = FC<{ className?: string }>;
 interface Props {
   area: number;
   periodo: Periodo | null; // null: el área no tiene periodos, solo se ofrece «Nuevo periodo»
   alTerminar: () => void;
+  /** Opciones de la pantalla que van primero en el menú ⋯ (Exportar, Imprimir…). */
+  extra?: { id: string; label: string; icon: Icono; alElegir: () => void }[];
+  /** Cambia cuando la pantalla pide publicar (botón del paso 3): abre la confirmación. */
+  pedirPublicar?: number;
 }
 
-/** Publicar, Restaurar, Cerrar/Reabrir y Nuevo periodo, cada uno con su confirmación. Solo se muestra a quien edita. */
-export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
+/** Menú ⋯ del periodo: Publicar, Reasignar, Cerrar/Reabrir, Nuevo, Restaurar y Eliminar, cada uno con su confirmación (y antes, las opciones `extra`).
+ *  Sin periodo, solo el botón «Nuevo periodo». Solo se muestra a quien edita. */
+export function AccionesPeriodo({ area, periodo, alTerminar, extra = [], pedirPublicar }: Props) {
   const ir = useNavigate();
   const [accion, setAccion] = useState<Accion | "nuevo" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +42,7 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
   const [fin, setFin] = useState("");
   const [desde, setDesde] = useState("");
   const cerrado = !!periodo?.cerrado_en;
+  useEffect(() => { if (pedirPublicar) { setError(null); setAccion("publicar"); } }, [pedirPublicar]);
 
   const abrir = (a: Accion | "nuevo") => { setError(null); setAccion(a); };
   const confirmar = async () => {
@@ -69,21 +77,23 @@ export function AccionesPeriodo({ area, periodo, alTerminar }: Props) {
     }
   };
 
+  const menu: [Accion | "nuevo", Icono][] = cerrado
+    ? [["reabrir", LockUnlocked01], ["nuevo", CalendarPlus01]]
+    : [["publicar", Send01], ["reasignar", SwitchHorizontal01], ["cerrar", Lock01], ["nuevo", CalendarPlus01], ["restaurar", RefreshCcw01], ["eliminar", Trash01]];
+  const otros = new Map(extra.map((x) => [x.id, x]));
+
   return (
     <>
-      {!periodo ? null : cerrado ? <Pista texto={TEXTO.reabrir[1]}><Button color="secondary" size="sm" iconLeading={LockUnlocked01} onPress={() => abrir("reabrir")}>Reabrir</Button></Pista> : (
-        <>
-          <Pista texto={TEXTO.reasignar[1]}><Button color="secondary" size="sm" iconLeading={SwitchHorizontal01} onPress={() => abrir("reasignar")}>Reasignar puestos</Button></Pista>
-          <Pista texto={TEXTO.publicar[1]}><Button color="secondary" size="sm" iconLeading={Send01} onPress={() => abrir("publicar")} data-accion="publicar">Publicar</Button></Pista>
-          <Pista texto={TEXTO.cerrar[1]}><Button color="secondary" size="sm" iconLeading={Lock01} onPress={() => abrir("cerrar")}>Cerrar periodo</Button></Pista>
-        </>
-      )}
-      <Pista texto="Crea el siguiente periodo: elige desde y hasta."><Button color={periodo ? "secondary" : "primary"} size="sm" iconLeading={CalendarPlus01} onPress={() => abrir("nuevo")}>Nuevo periodo</Button></Pista>
-      {periodo && !cerrado && (
-        <>
-          <Pista texto={TEXTO.restaurar[1]}><Button color="secondary-destructive" size="sm" iconLeading={RefreshCcw01} onPress={() => abrir("restaurar")}>Restaurar</Button></Pista>
-          <Pista texto={TEXTO.eliminar[1]}><Button color="secondary-destructive" size="sm" iconLeading={Trash01} onPress={() => abrir("eliminar")}>Eliminar periodo</Button></Pista>
-        </>
+      {!periodo ? <Button color="primary" size="sm" iconLeading={CalendarPlus01} onPress={() => abrir("nuevo")}>Nuevo periodo</Button> : (
+        <Dropdown.Root>
+          <Button color="secondary" size="sm" iconLeading={DotsHorizontal} aria-label="Más acciones del periodo" />
+          <Dropdown.Popover placement="bottom end" className="w-64">
+            <Dropdown.Menu onAction={(k) => { const x = otros.get(String(k)); if (x) x.alElegir(); else abrir(k as Accion | "nuevo"); }}>
+              {extra.map((x) => <Dropdown.Item key={x.id} id={x.id} label={x.label} icon={x.icon} />)}
+              {menu.map(([a, icono]) => <Dropdown.Item key={a} id={a} icon={icono} label={a === "nuevo" ? "Nuevo periodo" : TEXTO[a][0]} />)}
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown.Root>
       )}
       <Ventana abierto={accion !== null} alCambiar={(a) => !a && setAccion(null)}
         titulo={accion === "nuevo" ? "Nuevo periodo" : accion ? TEXTO[accion][0] : ""}

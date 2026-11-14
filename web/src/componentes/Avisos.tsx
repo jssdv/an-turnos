@@ -59,11 +59,11 @@ export function Campana() {
   return (
     <DialogTrigger>
       <AriaButton aria-label={n ? `Avisos: ${n}` : "Avisos: ninguno"}
-        className="relative grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl bg-primary text-fg-quaternary shadow-xs ring-1 ring-secondary outline-focus-ring ring-inset hover:bg-primary_hover hover:text-fg-quaternary_hover focus-visible:outline-2 focus-visible:outline-offset-2">
+        className="relative grid size-8 shrink-0 cursor-pointer place-items-center rounded-md text-fg-quaternary outline-focus-ring hover:bg-primary_hover hover:text-fg-quaternary_hover focus-visible:outline-2 focus-visible:outline-offset-2">
         <Bell01 aria-hidden="true" className="size-5" />
-        {n > 0 && <span aria-hidden="true" className="absolute -top-1.5 -right-1.5 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-error-solid px-1 text-xs font-bold text-white">{n}</span>}
+        {n > 0 && <span aria-hidden="true" className="absolute -top-1 -right-1.5 font-mono text-xs font-semibold text-brand-secondary">{n}</span>}
       </AriaButton>
-      <Popover placement="bottom end" offset={8} className="w-[min(400px,calc(100vw-32px))] rounded-2xl bg-primary p-2 shadow-xl ring-1 ring-secondary outline-hidden">
+      <Popover placement="bottom end" offset={8} className="w-[min(400px,calc(100vw-32px))] rounded-xl bg-primary p-2 shadow-lg ring-1 ring-secondary outline-hidden">
         <Dialog aria-label="Avisos" className="outline-hidden">
           {({ close }) => (
             <>
@@ -75,8 +75,8 @@ export function Campana() {
                 <ul>
                   {e.avisos.map((a) => (
                     <li key={a.id}>
-                      <Link href={a.href} onPress={close} className="flex items-start gap-3 rounded-xl p-3 outline-focus-ring hover:bg-primary_hover focus-visible:outline-2">
-                        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary"><a.icono aria-hidden="true" className={cx("size-4.5", TONO[a.tono])} /></span>
+                      <Link href={a.href} onPress={close} className="flex items-start gap-3 rounded-md p-3 outline-focus-ring hover:bg-primary_hover focus-visible:outline-2">
+                        <a.icono aria-hidden="true" className={cx("mt-0.5 size-4.5 shrink-0", TONO[a.tono])} />
                         <span className="min-w-0"><span className="block text-sm font-semibold text-primary">{a.titulo}</span><span className="block text-xs text-tertiary">{a.sub}</span></span>
                       </Link>
                     </li>

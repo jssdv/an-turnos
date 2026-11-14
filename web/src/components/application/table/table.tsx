@@ -47,7 +47,9 @@ export const TableRowActionsDropdown = () => (
     </Dropdown.Root>
 );
 
-const TableContext = createContext<{ size: "sm" | "md" }>({ size: "md" });
+// An: valor por defecto propio, para distinguir «sin TableCard» y que `<Table size="sm">` tenga efecto (antes siempre quedaba en md).
+const SIN_TARJETA: { size: "sm" | "md" } = { size: "md" };
+const TableContext = createContext<{ size: "sm" | "md" }>(SIN_TARJETA);
 
 const TableCardRoot = ({
     children,
@@ -120,7 +122,7 @@ const TableRoot = ({ className, size = "md", ...props }: TableRootProps) => {
     const context = useContext(TableContext);
 
     return (
-        <TableContext.Provider value={{ size: context?.size ?? size }}>
+        <TableContext.Provider value={{ size: context !== SIN_TARJETA ? context.size : size }}>
             <div className="overflow-x-auto">
                 <AriaTable className={(state) => cx("w-full overflow-x-hidden", typeof className === "function" ? className(state) : className)} {...props} />
             </div>
@@ -190,7 +192,7 @@ const TableHead = ({ className, tooltip, label, children, ...props }: TableHeadP
             {...props}
             className={(state) =>
                 cx(
-                    "relative p-0 px-6 py-2 outline-hidden focus-visible:z-1 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-bg-primary focus-visible:ring-inset",
+                    "relative p-0 px-4 py-2 outline-hidden focus-visible:z-1 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-bg-primary focus-visible:ring-inset",
                     selectionBehavior === "toggle" && "nth-2:pl-3",
                     state.allowsSorting && "cursor-pointer",
                     typeof className === "function" ? className(state) : className,
@@ -245,7 +247,7 @@ const TableRow = <T extends object>({ columns, children, className, highlightSel
             className={(state) =>
                 cx(
                     "relative outline-focus-ring transition-colors after:pointer-events-none hover:bg-secondary focus-visible:outline-2 focus-visible:-outline-offset-2",
-                    size === "sm" ? "h-14" : "h-18",
+                    size === "sm" ? "h-10" : "h-18",
                     highlightSelectedRow && "selected:bg-secondary",
 
                     // Row border—using an "after" pseudo-element to avoid the border taking up space.
@@ -288,7 +290,7 @@ const TableCell = ({ className, children, size: sizeProp, ...props }: TableCellP
             className={(state) =>
                 cx(
                     "relative text-sm text-tertiary outline-focus-ring focus-visible:z-1 focus-visible:outline-2 focus-visible:-outline-offset-2",
-                    size === "sm" && "px-5 py-3",
+                    size === "sm" && "px-4 py-1.5",
                     size === "md" && "px-6 py-4",
 
                     selectionBehavior === "toggle" && "nth-2:pl-3",

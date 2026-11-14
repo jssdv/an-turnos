@@ -3,11 +3,10 @@ import { useState } from "react";
 import { aHHMM, aMinutos, enviar, type usar } from "../api/catalogos";
 import type { Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Fila, Formulario, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
+import { Estado, Fila, Formulario, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
-import { Badge } from "@/components/base/badges/badges";
 import { Alert } from "@/components/application/alerts/alert";
 
 const TURNO_NUEVO = { codigo: "", nombre: "", inicio: 360, fin: 720, color: "FFF2CC", pmin: 0, pini: 60, ppag: false, dom_fest: true, solver: true, activo: true };
@@ -39,10 +38,10 @@ export function SeccionTurnos({ base, editar, turnos }: { base: string; editar: 
 
   return (
     <>
-      {aviso && <Alert color={aviso.nivel === "ok" ? "success" : "error"}>{aviso.texto}</Alert>}
       <Seccion titulo="Turnos" acciones={editar && <Button color="secondary" size="sm" iconLeading={Plus} onPress={() => { elegirTurno(null); setVentana(true); }}>Nuevo turno</Button>}>
+        {aviso && <div className="mb-3"><Alert color={aviso.nivel === "ok" ? "success" : "error"}>{aviso.texto}</Alert></div>}
         <Tabla descripcion="Turnos del área" cargando={!turnos.datos && !turnos.error} vacio="Sin turnos." columnas={["Código", "Nombre", "Horario", "Estado", ""]}
-          filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, <Badge size="sm" color={x.activo ? "success" : "gray"}>{x.activo ? "Activo" : "Inactivo"}</Badge>,
+          filas={(turnos.datos ?? []).map((x) => [x.codigo, x.nombre, `${aHHMM(x.inicio)} – ${aHHMM(x.fin)}`, <Estado tono={x.activo ? "ok" : "neutro"}>{x.activo ? "Activo" : "Inactivo"}</Estado>,
             editar ? <Button color="link-color" size="sm" onPress={() => { elegirTurno(x); setVentana(true); }}>Editar</Button> : null])} />
         {editar && (
           <Ventana abierto={ventana} alCambiar={setVentana} titulo={nuevo ? "Nuevo turno" : `Turno ${t.codigo}`} ancha>

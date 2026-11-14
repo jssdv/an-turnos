@@ -1,9 +1,10 @@
-/* De untitleduico/react@1d410cb (MIT). Cambios: sin el bloque .dark-mode; la escala de marca viene de tokens.css (FigCraft). */
+/* De untitleduico/react@1d410cb (MIT). Cambios: sin el bloque .dark-mode; la escala de marca viene de tokens.css (FigCraft);
+   rediseño «libro»: grises cálidos, esquinas de 2–4 px y sin sombras salvo en capas flotantes (bloque An al final de @theme). */
 @theme {
     /* FONT FAMILY */
-    --font-body: var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    --font-display: var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    --font-mono: ui-monospace, "Roboto Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-body: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-display: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
     /* FONT SIZE */
     --text-xs: calc(var(--spacing) * 3);
@@ -52,15 +53,15 @@
     --breakpoint-xs: 600px;
 
     /* SHADOW */
-    --shadow-xs: 0px 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-sm: 0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px -1px rgba(0, 0, 0, 0.1);
+    --shadow-xs: 0 0 #0000;
+    --shadow-sm: 0 0 #0000;
     --shadow-md: 0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -2px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0px 12px 16px -4px rgba(0, 0, 0, 0.08), 0px 4px 6px -2px rgba(0, 0, 0, 0.03), 0px 2px 2px -1px rgba(0, 0, 0, 0.04);
     --shadow-xl: 0px 20px 24px -4px rgba(0, 0, 0, 0.08), 0px 8px 8px -4px rgba(0, 0, 0, 0.03), 0px 3px 3px -1.5px rgba(0, 0, 0, 0.04);
     --shadow-2xl: 0px 24px 48px -12px rgba(0, 0, 0, 0.18), 0px 4px 4px -2px rgba(0, 0, 0, 0.04);
     --shadow-3xl: 0px 32px 64px -12px rgba(0, 0, 0, 0.14), 0px 5px 5px -2.5px rgba(0, 0, 0, 0.04);
 
-    --shadow-skeuomorphic: 0px 0px 0px 1px rgba(0, 0, 0, 0.18) inset, 0px -2px 0px 0px rgba(0, 0, 0, 0.05) inset;
+    --shadow-skeuomorphic: 0 0 #0000;
     --shadow-xs-skeuomorphic: var(--shadow-skeuomorphic), var(--shadow-xs);
 
     --shadow-modern-mockup-inner-lg: 0px 0px 3.765px 1.255px rgba(10, 13, 18, 0.08) inset, 0px 0px 2.51px 1.255px rgba(10, 13, 18, 0.03) inset;
@@ -107,9 +108,34 @@
     --color-alpha-white: rgb(255 255 255);
     --color-alpha-black: rgb(0 0 0);
 
-    /* An: fondo del marco y acciones destructivas suaves (tokens.css, desde FigCraft). */
-    --color-fondo-1: var(--fondo-1);
-    --color-fondo-2: var(--fondo-2);
+    /* An: fondo de página, turnos y acciones destructivas suaves (tokens.css, desde FigCraft). */
+    --color-fondo: var(--fondo-1);
+    --color-turno-M: var(--turno-M);
+    --color-turno-T: var(--turno-T);
+    --color-turno-C: var(--turno-C);
+    --color-turno-NC: var(--turno-NC);
+
+    /* An: grises cálidos del rediseño «libro» (reemplazan los neutral de Tailwind). 50 = papel, 100 = banda, 200 = líneas, 400 = borde de control (≥3:1). */
+    --color-neutral-50: #FAF9F6;
+    --color-neutral-100: #F6F4EF;
+    --color-neutral-200: #E4E1D9;
+    --color-neutral-300: #BFBAB0;
+    --color-neutral-400: #8A867B;
+    --color-neutral-500: #6C695F;
+    --color-neutral-600: #5D5A52;
+    --color-neutral-700: #46443E;
+    --color-neutral-800: #2E2C28;
+    --color-neutral-900: #1B1A17;
+    --color-neutral-950: #11100E;
+
+    /* An: esquinas casi rectas; rounded-full queda para avatares e interruptores. */
+    --radius-xs: 2px;
+    --radius-sm: 2px;
+    --radius-md: 3px;
+    --radius-lg: 3px;
+    --radius-xl: 4px;
+    --radius-2xl: 4px;
+    --radius-3xl: 4px;
     --color-peligro-fondo: var(--peligro-fondo);
     --color-peligro-texto: var(--peligro-texto);
 
@@ -305,7 +331,7 @@
     --color-text-brand-secondary_hover: var(--color-brand-800);
 
     /* BORDER COLORS */
-    --color-border-primary: var(--color-neutral-300);
+    --color-border-primary: var(--color-neutral-400);
     --color-border-secondary: var(--color-neutral-200);
     --color-border-secondary_alt: rgb(0 0 0 / 0.1);
     --color-border-tertiary: var(--color-neutral-100);

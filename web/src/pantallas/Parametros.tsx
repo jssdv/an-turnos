@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Tarifa } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Check, RefreshCcw01, Settings01 } from "@untitledui/icons";
+import { Check, RefreshCcw01 } from "@untitledui/icons";
 import { Fila, Formulario, Pagina, Pista, useAccion, Seccion } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
@@ -69,7 +69,7 @@ export function Parametros() {
   });
 
   return (
-    <Pagina titulo="Parámetros" icono={Settings01}
+    <Pagina titulo="Parámetros"
       acciones={editar && params.datos && <>
         <Pista texto="Guarda las reglas. El cuadro ya armado no cambia: genera de nuevo para aplicarlas."><Button color="primary" size="sm" iconLeading={Check} type="submit" form="reglas" isDisabled={ocupado}>Guardar reglas</Button></Pista>
         <Pista texto="Descarta lo que cambiaste y vuelve a los valores guardados."><Button color="secondary" size="sm" iconLeading={RefreshCcw01} onPress={() => setV(params.datos!)}>Deshacer</Button></Pista>

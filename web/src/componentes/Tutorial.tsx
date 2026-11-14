@@ -20,8 +20,8 @@ export function Tutorial({ abierto, alCambiar }: { abierto: boolean; alCambiar: 
   const cambiar = (a: boolean) => { if (!a) setI(0); alCambiar(a); };
   return (
     <Ventana abierto={abierto} alCambiar={cambiar} titulo={`Paso ${i + 1} de ${PASOS.length} · ${p.titulo}`}>
-      <div className="grid h-44 place-items-center rounded-2xl bg-linear-to-br from-brand-50 to-fondo-2" aria-hidden="true">
-        <span className="flex items-center gap-2 rounded-xl bg-linear-to-b from-brand-600 to-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-md"><p.icono className="size-5" />{p.boton}</span>
+      <div className="grid h-44 place-items-center tarjeta bg-secondary" aria-hidden="true">
+        <span className="flex items-center gap-2 rounded-lg bg-primary-solid px-4 py-2.5 text-sm font-semibold text-white"><p.icono className="size-5" />{p.boton}</span>
       </div>
       <p className="text-md text-secondary" aria-live="polite">{p.texto}</p>
       <div className="flex flex-wrap items-center gap-2">

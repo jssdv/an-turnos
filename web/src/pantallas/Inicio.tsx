@@ -1,12 +1,12 @@
 import type { FC } from "react";
 import { useNavigate, useOutletContext } from "react-router";
-import { AlertTriangle, Calendar, CalendarMinus01, CheckCircle, ChevronRight, FileDownload02, Home02, Inbox01, LineChartUp01 } from "@untitledui/icons";
+import { Calendar, CalendarMinus01, ChevronRight, FileDownload02, Inbox01 } from "@untitledui/icons";
 import { Link } from "react-aria-components";
 import { usar } from "../api/catalogos";
 import type { Alerta, Area, Colaborador, Cuadro, EstadoSolicitud, Novedad, Periodo } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
-import { agrupar, Indicador, Pagina, Pasos, Seccion } from "./comun";
+import { agrupar, Indicador, Indicadores, Pagina, Pasos, Seccion } from "./comun";
 import { fechaCorta, isoHoy, nombrePeriodo, vigente } from "./fechas";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -43,20 +43,20 @@ export function Inicio() {
   const accesos: [string, string, FC<{ className?: string }>][] = [["Ver el cuadro", `cuadro${p ? `/${p.id}` : ""}`, Calendar], ["Registrar ausencia", "novedades", CalendarMinus01], ["Nueva solicitud", "solicitudes", Inbox01], ["Descargar reportes", "reportes", FileDownload02]];
 
   return (
-    <Pagina titulo="Inicio" icono={Home02} sub={`Hola, ${usuario?.nombre?.split(" ")[0] ?? ""}${p ? ` · periodo ${nombrePeriodo(p.clave)}` : ""}`}
+    <Pagina titulo="Inicio" sub={`Hola, ${usuario?.nombre?.split(" ")[0] ?? ""}${p ? ` · periodo ${nombrePeriodo(p.clave)}` : ""}`}
       filtros={<Button color="primary" size="sm" iconLeading={Calendar} onPress={alCuadro}>Ir al cuadro</Button>} error={periodos.error}>
       {periodos.datos && !p && <Seccion><p className="text-tertiary">Esta área aún no tiene periodos. Créalo desde «Cuadro de turnos» con «Nuevo periodo».</p></Seccion>}
       {p && cuadro.datos && alertas.datos && (
         <Pasos hay={cuadro.datos.celdas.length > 0} alertas={alertas.datos} publicado={!!p.publicado_en} alGenerar={alCuadro} alVerAlertas={alCuadro} alPublicar={alCuadro} />
       )}
       {p && (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4" role="list" aria-label="Indicadores del periodo">
-          <Indicador icono={AlertTriangle} titulo="Por corregir" valor={alertas.datos ? String(errores) : "…"} nota={errores ? "Alertas rojas en el cuadro" : "Sin errores en el cuadro"} />
-          <Indicador icono={Inbox01} titulo="Solicitudes no cumplidas" valor={solicitudes.datos ? String(noCumplidas) : "…"} nota={`De ${solicitudes.datos?.length ?? 0} evaluadas este periodo`} />
-          <Indicador icono={CheckCircle} titulo="Cobertura" valor={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `${cob.dias_deficit} días` : "100 %") : "…"}
+        <Indicadores etiqueta="Indicadores del periodo">
+          <Indicador titulo="Por corregir" tono={errores ? "error" : undefined} valor={alertas.datos ? String(errores) : "…"} nota={errores ? "Alertas rojas en el cuadro" : "Sin errores en el cuadro"} />
+          <Indicador titulo="Solicitudes" tono={noCumplidas ? "aviso" : undefined} valor={solicitudes.datos ? `${noCumplidas} / ${solicitudes.datos.length}` : "…"} nota="no cumplidas este periodo" />
+          <Indicador titulo="Cobertura" tono={cob && (cob.dias_deficit || cob.puestos_sin_cubrir) ? "aviso" : undefined} valor={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `${cob.dias_deficit} días` : "100 %") : "…"}
             nota={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `Con falta de personal · ${cob.puestos_sin_cubrir} puestos sin cubrir` : "Todos los puestos cubiertos") : "Calculando"} />
-          <Indicador icono={LineChartUp01} titulo="Horas extra" valor={horasExtra === null ? "…" : `${horasExtra} h`} nota={extra ? `Sobre el promedio de ${extra.ventana} semanas` : "Calculando"} />
-        </div>
+          <Indicador titulo="Horas extra" valor={horasExtra === null ? "…" : `${horasExtra} h`} nota={extra ? `Sobre el promedio de ${extra.ventana} semanas` : "Calculando"} />
+        </Indicadores>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
         <Seccion titulo="Ausentes hoy">
@@ -64,13 +64,15 @@ export function Inicio() {
             filas={ausentes.map((n) => [nombre.get(n.colab_id) ?? `#${n.colab_id}`, <Badge size="sm" color={COLOR_AUSENCIA[n.tipo] ?? "gray"}>{n.tipo}</Badge>, fechaCorta(n.hasta)])} />
         </Seccion>
         <Seccion titulo="Accesos rápidos">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <ul className="-my-2 divide-y divide-secondary">
             {accesos.map(([t, ruta, Icono]) => (
-              <Link key={t} href={`${r}/${ruta}`} className="flex h-16 items-center gap-3 rounded-2xl bg-brand-25 px-4 text-sm font-semibold text-secondary ring-1 ring-brand-100 outline-focus-ring ring-inset hover:bg-brand-50 focus-visible:outline-2">
-                <Icono aria-hidden="true" className="size-5 text-brand-600" />{t}<ChevronRight aria-hidden="true" className="ml-auto size-4.5 text-fg-quaternary" />
-              </Link>
+              <li key={t}>
+                <Link href={`${r}/${ruta}`} className="flex h-11 items-center gap-3 px-1 text-sm font-medium text-primary outline-focus-ring hover:text-brand-secondary focus-visible:outline-2">
+                  <Icono aria-hidden="true" className="size-4.5 text-fg-quaternary" />{t}<ChevronRight aria-hidden="true" className="ml-auto size-4 text-fg-quaternary" />
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </Seccion>
       </div>
     </Pagina>

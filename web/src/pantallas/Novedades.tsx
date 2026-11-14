@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Novedad } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { CalendarMinus01, Plus } from "@untitledui/icons";
+import { Plus } from "@untitledui/icons";
 import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
@@ -34,7 +34,7 @@ export function Novedades() {
   });
 
   return (
-    <Pagina titulo="Ausencias" icono={CalendarMinus01}
+    <Pagina titulo="Ausencias"
       acciones={editar && <Pista texto="Vacaciones, incapacidad, licencia o día libre concedido: esa persona no se programa esos días."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => setVentana(true)}>Registrar ausencia</Button></Pista>} sub="Vacaciones, incapacidades, licencias y días libres concedidos." ayuda={<>Registra aquí cuándo alguien <strong>no puede trabajar</strong>. Al generar el cuadro, el sistema no le asigna turnos esos días. Si el cuadro ya existe, las alertas te avisan de los turnos que chocan con una ausencia.</>} error={lista.error ?? personas.error} aviso={aviso}>
       {editar && (
         <Ventana abierto={ventana} alCambiar={setVentana} titulo="Nueva ausencia" ancha descripcion="Esa persona no se programa esos días.">
