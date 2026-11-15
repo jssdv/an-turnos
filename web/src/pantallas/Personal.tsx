@@ -3,7 +3,8 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Plus, SearchLg, Trash01 } from "@untitledui/icons";
+import { ClipboardPlus, Plus, SearchLg, Trash01 } from "@untitledui/icons";
+import { leerLista } from "./pegar";
 import { Estado, Fila, Formulario, Pagina, Pista, sinTildes, useAccion, useConfirmar, Seccion, Grupo, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
@@ -32,6 +33,8 @@ export function Personal() {
   const [b, setB] = useState<Borrador | null>(null);
   const [verInactivos, setVerInactivos] = useState(false);
   const [buscar, setBuscar] = useState("");
+  const [pegado, setPegado] = useState<string | null>(null);  // null = ventana «Pegar lista» cerrada
+  const lectura = pegado === null ? null : leerLista(pegado, (lista.datos ?? []).map((p) => p.nombre));
   const editar = area.permiso === "editar";
   const actual = b ?? vacio(turnos, puestos);
 
@@ -53,6 +56,17 @@ export function Personal() {
     lista.recargar();
     return `«${actual.nombre.trim()}» guardado. Regenera el cuadro para que lo tome en cuenta.`;
   });
+  const agregarLista = () => hacer(async () => {
+    if (!lectura) return;
+    let n = 0;
+    try {
+      for (const p of lectura.personas) { await enviar("POST", `${base}/colaboradores`, { ...p, tipo: "regular" }); n++; }
+    } finally {
+      lista.recargar();
+    }
+    setPegado(null);
+    return `${n} ${n === 1 ? "persona agregada" : "personas agregadas"}. Revisa sus turnos y puestos con «Editar» y regenera el cuadro.`;
+  });
   const borrar = () => pedir(`¿Eliminar a «${actual.nombre}»?`, "Eliminar persona", () => { setVentana(false); void hacer(async () => {
     const r = await enviar<{ resultado: string }>("DELETE", `${base}/colaboradores/${sel}`);
     nuevo(); lista.recargar();
@@ -61,7 +75,7 @@ export function Personal() {
 
   return (
     <Pagina titulo="Personal"
-      acciones={editar && <Pista texto="Agrega a alguien al área: horas, turnos y puestos que puede cubrir."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { nuevo(); setVentana(true); }}>Agregar persona</Button></Pista>} sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
+      acciones={editar && <><Pista texto="Pega filas copiadas de Excel: nombre, horas por semana y dedicación."><Button color="secondary" size="sm" iconLeading={ClipboardPlus} onPress={() => setPegado("")}>Pegar lista</Button></Pista><Pista texto="Agrega a alguien al área: horas, turnos y puestos que puede cubrir."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { nuevo(); setVentana(true); }}>Agregar persona</Button></Pista></>} sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
       <Seccion titulo="Colaboradores" acciones={<div className="flex items-center gap-4"><Input className="w-56" size="sm" type="search" icon={SearchLg} placeholder="Buscar persona" value={buscar} onChange={setBuscar} /><Checkbox label="Mostrar inactivos" isSelected={verInactivos} onChange={(x) => setVerInactivos(x)} /></div>}>
         <Tabla
           descripcion="Personal del área"
@@ -98,6 +112,33 @@ export function Personal() {
               {sel && <Button color="secondary-destructive" size="sm" className="mr-auto" iconLeading={Trash01} isDisabled={ocupado} onPress={borrar}>Eliminar</Button>}
               <Button color="secondary" size="sm" onPress={() => setVentana(false)}>Cancelar</Button>
               <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !actual.nombre.trim() || !actual.permitidos.length || !actual.puestos.length}>{ocupado ? "Guardando…" : "Guardar"}</Button>
+            </Fila>
+          </Formulario>
+        </Ventana>
+      )}
+      {editar && (
+        <Ventana abierto={pegado !== null} alCambiar={(v) => !v && setPegado(null)} titulo="Pegar lista de personal" ancha
+          descripcion="Copia en Excel las columnas Nombre, Horas por semana y Dedicación (las dos últimas son opcionales: 42 h y 100 %) y pégalas aquí.">
+          {aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>}
+          <Formulario onSubmit={(x) => { x.preventDefault(); void agregarLista(); }}>
+            <label className="col-span-full flex flex-col gap-1.5 text-sm font-medium text-secondary">
+              Filas copiadas
+              <textarea value={pegado ?? ""} onChange={(x) => setPegado(x.target.value)} rows={8} autoFocus spellCheck={false}
+                placeholder={"Ana Pérez\t42\t100\nLuis Gómez\t36\t50 %"}
+                className="rounded-lg bg-primary px-3 py-2 font-mono text-sm text-primary shadow-xs ring-1 ring-primary ring-inset outline-none placeholder:text-placeholder focus:ring-2 focus:ring-brand" />
+            </label>
+            {lectura && (lectura.personas.length > 0 || lectura.repetidas.length > 0 || lectura.errores.length > 0) && (
+              <div className="col-span-full flex flex-col gap-2 text-sm" role="status" aria-live="polite">
+                <p className="text-secondary">
+                  Se agregarán <strong>{lectura.personas.length}</strong> {lectura.personas.length === 1 ? "persona" : "personas"} como «regular», con todos los turnos y puestos.
+                  {lectura.repetidas.length > 0 && <> {lectura.repetidas.length === 1 ? "Se omite 1 que ya está" : `Se omiten ${lectura.repetidas.length} que ya están`}: {lectura.repetidas.slice(0, 5).join(", ")}{lectura.repetidas.length > 5 && "…"}.</>}
+                </p>
+                {lectura.errores.length > 0 && <Alert color="warning"><ul className="list-disc pl-5">{lectura.errores.slice(0, 5).map((e) => <li key={e}>{e}</li>)}</ul></Alert>}
+              </div>
+            )}
+            <Fila>
+              <Button color="secondary" size="sm" onPress={() => setPegado(null)}>Cancelar</Button>
+              <Button color="primary" size="sm" type="submit" isDisabled={ocupado || !lectura?.personas.length}>{ocupado ? "Agregando…" : `Agregar ${lectura?.personas.length || ""}`.trim()}</Button>
             </Fila>
           </Formulario>
         </Ventana>
