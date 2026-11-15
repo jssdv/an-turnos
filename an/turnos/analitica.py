@@ -1,10 +1,11 @@
 """Métricas del dashboard de Analíticas. Solo lectura: nada se escribe en la base. Sin Qt."""
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from math import ceil
 
 from . import demanda as dem
 from . import cambios, flujo, puestos, recargos, reglas
+from .dominio import intervalo
 
 
 def _ausencias(bd, ini, fin):
@@ -99,6 +100,34 @@ def cambios_resumen(bd, ini, fin):
             out[k] = {t: sum(r["tipo"] == t for r in filas) for t in ("permuta", "servicio", "ajuste")}
             out[k]["excepciones"] = sum(1 for r in filas if r["excepcion"])
     return out
+
+
+def estabilidad(bd, ini, fin, publicados):
+    """Qué tanto se movió el cuadro después de publicarlo. `publicados` = {clave: datetime de publicación}; los periodos
+    sin publicar no cuentan. Por periodo: celdas que difieren de lo publicado, celdas de cambios vigentes registrados con
+    menos de `aviso_corto_horas` antes del turno y días de anticipación de la publicación. `cubre_mas`: turnos que cada
+    persona tomó en un día libre por cambios de servicio."""
+    ctx = bd.contexto(ini.year)
+    gente = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
+    aviso = timedelta(hours=int(bd.param("aviso_corto_horas", 48)))
+    periodos, cubre = [], defaultdict(int)
+    for k in (k for k in bd.periodos() if _cruza(k, ini, fin) and k in publicados):
+        a, b = flujo.desde_clave(k)
+        total = len(gente) * ((b - a).days + 1)
+        cambiadas = sum(1 for cid, *_ in bd.diferencias(k) if cid in gente)
+        corto = 0
+        for r in (r for r in cambios.listar(bd, k) if not r["anulado_en"]):
+            hecho = datetime.fromisoformat(r["registrado_en"])
+            for cid, f, antes, despues, *_ in r["celdas"]:
+                cod = despues if despues in ctx.turnos else antes
+                inicio = intervalo(ctx.turnos[cod], f)[0] if cod in ctx.turnos else datetime.combine(f, datetime.min.time())
+                corto += inicio - hecho < aviso
+                if r["tipo"] == "servicio" and antes not in ctx.turnos and despues in ctx.turnos and cid in gente:
+                    cubre[gente[cid]] += 1
+        periodos.append({"periodo": k, "celdas_cambiadas": cambiadas, "celdas_total": total,
+                         "pct": cambiadas / total * 100 if total else 0, "aviso_corto": corto,
+                         "dias_anticipacion": (a - publicados[k].date()).days})
+    return {"periodos": periodos, "cubre_mas": dict(cubre)}
 
 
 # --- entrega 2: horas, recargos y equidad ---------------------------------------------------------

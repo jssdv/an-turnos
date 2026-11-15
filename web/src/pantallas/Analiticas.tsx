@@ -17,6 +17,7 @@ interface Datos {
   recargos: Record<string, { festivo: number; nocturna: number; equivalentes: number }>;
   equidad: { por_persona: Record<string, { noches: number; domingos: number; festivos: number }>; dispersion: { noches: number; domingos: number; festivos: number } };
   banco: { saldos: Record<string, number>; serie: [string, number, number][] };
+  estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
 const TIPOS = ["Vacaciones", "Incapacidad", "Licencia", "Libre solicitado"];
 const hoy = new Date();
@@ -43,6 +44,9 @@ export function Analiticas() {
     cambios: Object.values(d.cambios).reduce((s, c) => s + c.permuta + c.servicio + c.ajuste, 0),
     excepciones: Object.values(d.cambios).reduce((s, c) => s + c.excepciones, 0),
     ausencias: Object.values(d.ausentismo.por_tipo).reduce((s, x) => s + x, 0),
+    cambiadas: d.estabilidad.periodos.reduce((s, p) => s + p.celdas_cambiadas, 0),
+    celdas: d.estabilidad.periodos.reduce((s, p) => s + p.celdas_total, 0),
+    avisoCorto: d.estabilidad.periodos.reduce((s, p) => s + p.aviso_corto, 0),
   }, [d]);
 
   return (
@@ -58,6 +62,8 @@ export function Analiticas() {
             <Indicador titulo="Ausentes a la vez (máximo)" valor={String(d.simultaneos.maximo)} nota={d.simultaneos.fecha_maximo ? `El ${fechaCorta(d.simultaneos.fecha_maximo)}` : "Sin ausencias simultáneas"} />
             <Indicador titulo="Días con déficit" valor={String(total.deficit)} nota={`${d.simultaneos.dias_riesgo.length} con ausentes en riesgo`} />
             <Indicador titulo="Cambios de turno" valor={String(total.cambios)} nota={`${total.excepciones} con excepción`} />
+            <Indicador titulo="Cambios tras publicar" valor={total.celdas ? `${num(total.cambiadas / total.celdas * 100)} %` : "—"}
+              nota={total.celdas ? `${total.avisoCorto} con poco aviso` : "Sin periodos publicados"} />
           </Indicadores>
           <div className="grid gap-4 lg:grid-cols-2">
             <Barras titulo="Equidad de domingos y festivos" unidad="días" datos={Object.entries(d.equidad.por_persona).map(([p, o]) => [p, o.domingos + o.festivos])} />
@@ -83,6 +89,14 @@ export function Analiticas() {
             <Tabla descripcion="Cambios por periodo" vacio="Sin cambios registrados." columnas={["Periodo", "Permutas", "Servicio", "Ajustes", "Excepciones"]}
               filas={Object.entries(d.cambios).map(([k, c]) => [nombrePeriodo(k), c.permuta, c.servicio, c.ajuste, c.excepciones])} />
           </Seccion>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Seccion titulo="Estabilidad del cuadro">
+              <p className="mb-3 text-sm text-tertiary">Cuánto cambió cada periodo después de publicarlo. Publicar con 14 días o más y cambiar poco da horarios predecibles.</p>
+              <Tabla descripcion="Estabilidad por periodo" vacio="Sin periodos publicados en el rango." columnas={["Periodo", "% cambiado", "Celdas cambiadas", "Con poco aviso", "Publicado con (días)"]}
+                filas={d.estabilidad.periodos.map((p) => [nombrePeriodo(p.periodo), `${num(p.pct)} %`, p.celdas_cambiadas, p.aviso_corto, p.dias_anticipacion])} />
+            </Seccion>
+            <Barras titulo="Quién cubre más" unidad="turnos" datos={Object.entries(d.estabilidad.cubre_mas)} />
+          </div>
           <Seccion titulo="Horas extra por periodo">
             <Tabla descripcion="Horas extra" vacio="Sin periodos en el rango." columnas={["Periodo", "Ventana (sem.)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (ventana)", "Nocturnas (ventana)"]}
               filas={d.horas_extra.map((h) => [nombrePeriodo(h.periodo), h.ventana, num(h.mes.diurna), num(h.mes.nocturna), num(h.semanas.diurna), num(h.semanas.nocturna)])} />
