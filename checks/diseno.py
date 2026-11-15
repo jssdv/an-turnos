@@ -1,5 +1,5 @@
-"""Reglas de diseño del front (docs/PLAN_WEB.md §7): sin colores literales fuera de web/src/tokens.css y styles/theme.css, texto no menor al mínimo
-y pares de tokens con contraste WCAG ≥ 4,5:1. Uso: python checks/diseno.py [--raiz DIR]. Sale 1 si algo falla."""
+"""Reglas de diseño del front (docs/PLAN_WEB.md §7): sin colores literales fuera de web/src/tokens.css y styles/theme.css, texto no menor al mínimo,
+pares de tokens con contraste WCAG ≥ 4,5:1 y espacios de la escala de 4 px (nada de `p-[13px]`). Uso: python checks/diseno.py [--raiz DIR]. Sale 1 si algo falla."""
 import re
 import sys
 from pathlib import Path
@@ -21,6 +21,9 @@ IGNORAR = {"tokens.css", "theme.css", "esquema.d.ts"}  # theme.css: copiado de U
 TW_TAM = re.compile(r"(?<![\w:-])text-\[([\d.]+(?:px|rem|em))\]")
 TW_TEXTO = re.compile(r"(?<![\w:\[-])text-([a-z][\w-]*)")
 TW_FONDO = re.compile(r"(?<![\w:\[-])bg-([a-z][\w-]*)")
+# Relleno, margen y separación con valor arbitrario: se sale de la escala de 4 px. Solo la grilla del cuadro los necesita (celdas de 22 px).
+TW_ESPACIO = re.compile(r"(?<![\w-])-?(?:p[xytblrse]?|m[xytblrse]?|gap(?:-[xy])?|space-[xy])-\[[^\]]+\]")
+ESPACIO_LIBRE = {"Ficha.tsx", "Planilla.tsx"}
 CADENA = re.compile(r'"([^"\n]*)"|`([^`]*)`')
 
 
@@ -81,6 +84,9 @@ def revisar(raiz=RAIZ):
                 for m in TW_TAM.finditer(linea):
                     if _px(m.group(1)) < MIN_PX:
                         out.append(f"{rel}:{n}: clase {m.group(0)} (mínimo {MIN_PX}px)")
+                if p.name not in ESPACIO_LIBRE:
+                    for m in TW_ESPACIO.finditer(linea):
+                        out.append(f"{rel}:{n}: clase {m.group(0)} fuera de la escala de 4 px (usa p-1, p-2, gap-3…)")
                 for a, b in CADENA.findall(linea):
                     cad = a or b
                     col = [t for t in TW_TEXTO.findall(cad) if t in tokens]

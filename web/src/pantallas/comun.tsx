@@ -47,13 +47,17 @@ export const Estado = ({ tono = "ok", children }: { tono?: "ok" | "neutro"; chil
     tono === "ok" ? "text-success-primary before:bg-fg-success-secondary" : "text-tertiary before:bg-fg-quaternary")}>{children}</span>
 );
 
-/** Bloque de contenido: hoja blanca con línea fina; título de sección y acciones a la derecha. */
-export function Seccion({ titulo, acciones, children, className, ...r }: { titulo?: ReactNode; acciones?: ReactNode } & HTMLAttributes<HTMLElement>) {
+/** Bloque de contenido: hoja blanca con línea fina; título, una frase que lo explica y acciones a la derecha.
+ *  Es el único lugar que fija el relleno de las tarjetas y la distancia del título al contenido: no repetirlos a mano. */
+export function Seccion({ titulo, descripcion, acciones, children, className, ...r }: { titulo?: ReactNode; descripcion?: ReactNode; acciones?: ReactNode } & HTMLAttributes<HTMLElement>) {
   return (
     <section className={cx("tarjeta p-4 sm:p-5", className)} {...r}>
-      {(titulo || acciones) && (
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-md font-semibold text-primary">{titulo}</h2>
+      {(titulo || descripcion || acciones) && (
+        <header className={cx("mb-4 flex flex-wrap justify-between gap-3", descripcion ? "items-start" : "items-center")}>
+          <div className="min-w-0 flex-1 basis-64">
+            {titulo && <h2 className="flex items-center gap-2 text-md font-semibold text-primary">{titulo}</h2>}
+            {descripcion && <p className={cx("max-w-[80ch] text-sm text-tertiary", titulo && "mt-1")}>{descripcion}</p>}
+          </div>
           {acciones}
         </header>
       )}
@@ -61,6 +65,11 @@ export function Seccion({ titulo, acciones, children, className, ...r }: { titul
     </section>
   );
 }
+
+/** Lista o gráfico sin datos (o cargando): centrado y en gris, igual en toda la app. */
+export const Vacio = ({ children, className, ...r }: HTMLAttributes<HTMLParagraphElement>) => (
+  <p className={cx("py-6 text-center text-sm text-tertiary", className)} {...r}>{children}</p>
+);
 
 /** Texto informativo al pasar el mouse o al llegar con el teclado. El hijo debe ser un `Button` (de React Aria). */
 export const Pista = ({ texto, children }: { texto?: string; children: ReactElement }) =>

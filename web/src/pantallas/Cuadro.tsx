@@ -17,7 +17,7 @@ import { QuienCubre, turnoParaAlerta } from "./QuienCubre";
 import { Button } from "@/components/base/buttons/button";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
-import { Ayuda, agrupar, Estado, Filtro, Pagina, Pasos, Pista } from "./comun";
+import { Ayuda, agrupar, Estado, Filtro, Pagina, Pasos, Pista, Vacio } from "./comun";
 import { Calendar, ChevronLeft, ChevronRight, Download01, Printer } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
 
@@ -378,9 +378,9 @@ export function Cuadro() {
         <div className="flex min-w-0 flex-1 flex-col gap-3" aria-busy={!datos}>
         {sinPanel && reglas > 0 && <Button color="link-color" size="sm" className="self-end" onPress={() => setSinPanel(false)} data-no-imprimir>Mostrar alertas ({reglas})</Button>}
         {!datos || !vista ? (
-          <p className="tarjeta p-6 text-center text-tertiary">Cargando el cuadro…</p>
+          <Vacio className="tarjeta" aria-busy="true">Cargando el cuadro…</Vacio>
         ) : datos.cuadro.celdas.length === 0 ? (
-          <p className="tarjeta p-6 text-center text-tertiary">Este periodo no tiene cuadro todavía.</p>
+          <Vacio className="tarjeta">Este periodo no tiene cuadro todavía.</Vacio>
         ) : (
           <>
             <Planilla
@@ -434,7 +434,7 @@ export function Cuadro() {
       {datos && !sinPanel && (() => {
         const niveles = [["error", "Por corregir", "text-error-primary"], ["aviso", "Para revisar", "text-warning-primary"], ["info", "Deseables sin cubrir", "text-tertiary"]] as const;
         return (
-          <aside id="alertas" data-solo-pantalla aria-label="Alertas" className="tarjeta flex flex-col p-4 xl:sticky xl:top-0 xl:max-h-[calc(100dvh-7rem)] xl:w-80 xl:shrink-0 xl:overflow-y-auto">
+          <aside id="alertas" data-solo-pantalla aria-label="Alertas" className="tarjeta flex flex-col p-4 sm:p-5 xl:sticky xl:top-0 xl:max-h-[calc(100dvh-7rem)] xl:w-80 xl:shrink-0 xl:overflow-y-auto">
             <header className="mb-3 flex items-center justify-between border-b border-fg-primary pb-1.5">
               <h2 className="rotulo">Alertas {reglas > 0 && <span className="text-tertiary">· {reglas}</span>}</h2>
               <Button color="link-gray" size="sm" onPress={() => setSinPanel(true)}>Ocultar ›</Button>
@@ -536,7 +536,7 @@ function HorasSemana({ horas, colabs }: { horas: Horas[]; colabs: Colaborador[] 
   return (
     <details className="mt-4 [&>summary]:cursor-pointer [&>summary]:py-2" data-solo-pantalla>
       <summary>Horas por semana</summary>
-      <p className="mb-2 text-sm text-tertiary">Cada semana cuenta de lunes a domingo; en rojo, las que superan lo contratado por semana. La ley mira el promedio de varias semanas (De más / De menos).</p>
+      <p className="mb-3 text-sm text-tertiary">Cada semana cuenta de lunes a domingo; en rojo, las que superan lo contratado por semana. La ley mira el promedio de varias semanas (De más / De menos).</p>
       <Tabla descripcion="Horas trabajadas por semana" vacio="Sin horas todavía." filas={filas}
         columnas={["Colaborador", ...lunes.map((l) => fechaCorta(l)), "Total", "Contratadas", "De más", "De menos"]} />
     </details>
