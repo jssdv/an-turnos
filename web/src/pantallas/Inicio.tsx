@@ -40,7 +40,7 @@ export function Inicio() {
   const cob = resumen.datos?.cobertura[0], extra = resumen.datos?.horas_extra[0];
   const horasExtra = extra ? Math.round(extra.semanas.diurna + extra.semanas.nocturna) : null;
   const alCuadro = () => ir(`${r}/cuadro${p ? `/${p.id}` : ""}`);
-  const accesos: [string, string, FC<{ className?: string }>][] = [["Ver el cuadro", `cuadro${p ? `/${p.id}` : ""}`, Calendar], ["Registrar ausencia", "novedades", CalendarMinus01], ["Nueva solicitud", "solicitudes", Inbox01], ["Descargar reportes", "reportes", FileDownload02]];
+  const accesos: [string, string, FC<{ className?: string }>][] = [["Registrar ausencia", "novedades", CalendarMinus01], ["Nueva solicitud", "solicitudes", Inbox01], ["Descargar reportes", "reportes", FileDownload02]];
 
   return (
     <Pagina titulo="Inicio" sub={`Hola, ${usuario?.nombre?.split(" ")[0] ?? ""}${p ? ` · periodo ${nombrePeriodo(p.clave)}` : ""}`}
@@ -52,7 +52,7 @@ export function Inicio() {
       {p && (
         <Indicadores etiqueta="Indicadores del periodo">
           <Indicador titulo="Por corregir" tono={errores ? "error" : undefined} valor={alertas.datos ? String(errores) : "…"} nota={errores ? "Alertas rojas en el cuadro" : "Sin errores en el cuadro"} />
-          <Indicador titulo="Solicitudes" tono={noCumplidas ? "aviso" : undefined} valor={solicitudes.datos ? `${noCumplidas} / ${solicitudes.datos.length}` : "…"} nota="no cumplidas este periodo" />
+          <Indicador titulo="Solicitudes" tono={noCumplidas ? "aviso" : undefined} valor={solicitudes.datos ? (solicitudes.datos.length ? `${noCumplidas} / ${solicitudes.datos.length}` : "0") : "…"} nota={solicitudes.datos?.length === 0 ? "Sin solicitudes este periodo" : "no cumplidas este periodo"} />
           <Indicador titulo="Cobertura" tono={cob && (cob.dias_deficit || cob.puestos_sin_cubrir) ? "aviso" : undefined} valor={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `${cob.dias_deficit} días` : "100 %") : "…"}
             nota={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `Con falta de personal · ${cob.puestos_sin_cubrir} puestos sin cubrir` : "Todos los puestos cubiertos") : "Calculando"} />
           <Indicador titulo="Horas extra" valor={horasExtra === null ? "…" : `${horasExtra} h`} nota={extra ? `Sobre el promedio de ${extra.ventana} semanas` : "Calculando"} />

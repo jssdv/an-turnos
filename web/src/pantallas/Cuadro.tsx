@@ -287,7 +287,8 @@ export function Cuadro() {
 
       {(() => {
         const filtradas = datos ? (persona ? datos.alertas.filter((a) => String(a.colab_id) === persona) : datos.alertas) : [];
-        const reglas = filtradas.filter((a) => a.nivel !== "info").length;
+        // Agrupadas, como en Pasos y en las secciones del panel, para que los números coincidan.
+        const reglas = agrupar(filtradas.filter((a) => a.nivel !== "info")).length;
         return (
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-3" aria-busy={!datos}>

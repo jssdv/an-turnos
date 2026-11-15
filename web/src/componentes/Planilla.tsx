@@ -156,7 +156,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
                     aria-label={`${f.nombre}, ${d.nombre} ${d.n}: ${etiqueta}`}
                     aria-selected={ed ? elegida : undefined}
                     {...marcas(c)}
-                    className={cx("h-[30px] pointer-coarse:h-11 pointer-coarse:min-w-10 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dashed focus-visible:outline-fg-primary", ed && "cursor-pointer", elegida && "rounded-sm bg-brand-primary outline-2 -outline-offset-2 outline-brand")}
+                    className={cx("h-[30px] pointer-coarse:h-11 pointer-coarse:min-w-10 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dashed focus-visible:outline-fg-primary", d.gris && "bg-secondary", ed && "cursor-pointer", elegida && "rounded-sm bg-brand-primary outline-2 -outline-offset-2 outline-brand")}
                     onFocus={() => setActiva([r, c])}
                     onClick={(ev: MouseEvent) => { setActiva([r, c]); elegir(r, c, ev); }}
                     onDoubleClick={() => accionar(r, c)}
