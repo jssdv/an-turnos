@@ -24,6 +24,7 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 | Refuerzo y practicantes | Modelar su horario fijo y que cubran ropa | Hoy quedan fuera del solver |
 | Ventana entre periodos | Que la ventana del art. 165 continúe de un periodo al siguiente | Hoy se reinicia en cada periodo |
 | Día de inicio por servicio | Esquemas que arranquen en otro día distinto del lunes | Hoy: mes calendario o semanas desde un lunes |
+| Credenciales con vencimiento | Registrar licencias o cursos por persona con fecha de vencimiento y avisar antes de asignar | Pedido frecuente en reseñas de software de turnos en salud; requiere tabla nueva. Confirmar si aplica (p. ej. protección radiológica) |
 | Salario y costo | Ingresar salario para ver el costo de recargos en pesos | Opcional; el dato es sensible |
 | Otros servicios | Reutilizar el modelo para áreas con la misma estructura | Ya hay dos áreas (Radiología, Esterilización) sobre un núcleo común; falta que un área nueva sea configurable sin código |
 | Servidor y accesos | Cada colaborador consulta su horario | Implica base compartida y autenticación; fuera de alcance por ahora |
