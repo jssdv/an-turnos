@@ -76,11 +76,12 @@ export function Novedades() {
           descripcion="Ausencias del área"
           cargando={!lista.datos && !lista.error}
           vacio={lista.datos?.length ? "Ninguna ausencia vigente o próxima con este filtro." : "Aún no hay ausencias."}
-          columnas={["Persona", "Tipo", "Desde", "Hasta", "Días", "Nota", ""]}
+          columnas={["Persona", "Tipo", "Desde", "Hasta", "Días", "Registrada", "Nota", ""]}
           filas={visibles.map((n) => [
             nombre.get(n.colab_id) ?? `#${n.colab_id}`,
             n.desde <= hoy && hoy <= n.hasta ? <span className="flex items-center gap-2 whitespace-nowrap">{n.tipo}<Estado>En curso</Estado></span> : n.tipo,
-            fechaCorta(n.desde), fechaCorta(n.hasta), diasEntre(n.desde, n.hasta), n.nota,
+            fechaCorta(n.desde), fechaCorta(n.hasta), diasEntre(n.desde, n.hasta),
+            n.registrado_en ? `${fechaCorta(n.registrado_en.slice(0, 10))} ${n.registrado_en.slice(11, 16)}` : "—", n.nota,
             editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => pedir(`¿Borrar ${n.tipo.toLowerCase()} de ${nombre.get(n.colab_id) ?? `#${n.colab_id}`}?`, "Borrar", () => hacer(async () => { await enviar("DELETE", `${base}/novedades/${n.id}`); lista.recargar(); }), `${fechaCorta(n.desde)} – ${fechaCorta(n.hasta)}. El cuadro volverá a contar a esta persona como disponible esos días.`)}>Borrar</Button> : null,
           ])}
         />

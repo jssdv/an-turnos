@@ -83,6 +83,7 @@ def test_novedades():
         assert cli.post(base(e, "/novedades"), headers=H, json={**n, "tipo": "Fiesta"}).status_code == 422
         i = cli.post(base(e, "/novedades"), headers=H, json=n).json()["id"]
         assert [(x["tipo"], x["desde"], x["hasta"]) for x in cli.get(base(e, "/novedades")).json()] == [("Vacaciones", "2026-10-20", "2026-10-25")]
+        assert cli.get(base(e, "/novedades")).json()[0]["registrado_en"]  # cuándo se avisó: lo pone el servidor
         assert cli.delete(base(e, f"/novedades/{i}"), headers=H).status_code == 200 and cli.delete(base(e, f"/novedades/{i}"), headers=H).status_code == 404
 
 

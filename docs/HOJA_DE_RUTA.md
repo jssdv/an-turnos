@@ -31,7 +31,9 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 ## Hecho recientemente
 
-Analíticas v3: cobertura por tramo con mapa día × hora, equidad frente a la media, concentración de horas extra, solicitudes cumplidas, pronóstico de ausencias, generaciones del solver y próximo recargo dominical (15/11/2026). Pendiente con datos: registrar cuándo se crea cada ausencia (para medir avisos cortos y tiempo de reemplazo).
+Aviso de ausencias: cada ausencia guarda cuándo se registró; Analíticas mide avisos cortos y reemplazos (15/11/2026).
+
+Analíticas v3: cobertura por tramo con mapa día × hora, equidad frente a la media, concentración de horas extra, solicitudes cumplidas, pronóstico de ausencias, generaciones del solver y próximo recargo dominical (15/11/2026).
 
 Analíticas v2: tendencias, estabilidad del cuadro, señales de fatiga, patrones de ausencia con días de riesgo en Inicio, e impresión y Excel para gerencia (15/11/2026).
 

@@ -77,6 +77,7 @@ export interface Novedad {
   tipo: string;
   desde: string;
   hasta: string;
+  registrado_en?: string | null;  // cuándo se registró (hora local); null en las anteriores
 }
 export interface Alerta {
   nivel: "error" | "aviso" | "info";
