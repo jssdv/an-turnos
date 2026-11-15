@@ -126,7 +126,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
   };
 
   return (
-    <div className="tarjeta max-w-full overflow-x-auto">
+    <div className="tarjeta max-w-full overflow-x-auto" data-planilla>
       <table className="w-max min-w-full border-separate border-spacing-0 text-sm [&_td]:border-b [&_td]:border-secondary [&_td]:px-0.5 [&_td]:py-[2px] [&_td]:text-center [&_th]:border-b [&_th]:border-secondary [&_th]:px-0.5 [&_th]:py-[2px] [&_th]:text-center [&_thead_th]:border-b-primary [&_thead_th]:bg-primary [&_thead_th]:py-1.5 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-tertiary [&_tfoot_td]:bg-secondary [&_tfoot_td]:font-mono [&_tfoot_td]:text-xs [&_tfoot_td]:text-tertiary [&_tfoot_th]:bg-secondary [&_tfoot_th]:text-xs [&_tfoot_th]:font-normal [&_tfoot_th]:text-tertiary [&_[data-lunes]]:border-l [&_[data-lunes]]:border-l-primary [&_[data-hoy]]:bg-brand-primary" role="grid" aria-multiselectable="true" aria-label={descripcion} aria-rowcount={filas.length + 1} aria-colcount={dias.length + 2 + (semanal ? dias.filter((_, i) => cierraSemana(dias, i)).length : 0)}>
         <thead>
           <tr>

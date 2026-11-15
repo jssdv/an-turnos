@@ -31,6 +31,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 ## Hecho recientemente
 
+Exportes más prolijos: todos los Excel salen en A4 apaisado a una página de ancho, con filtros, fechas de verdad y porcentajes como %; hoja «Alertas» en el cuadro, seis hojas nuevas en Analíticas, «Todo el periodo (.zip)» en Reportes e impresión del cuadro con encabezado, leyenda y firma (15/11/2026).
+
 Espaciado parejo: las tarjetas, los textos de cada sección y los estados vacíos salen de `Seccion` y `Vacio`; `checks/diseno.py` rechaza espacios fuera de la escala de 4 px (15/11/2026).
 
 Aviso de ausencias: cada ausencia guarda cuándo se registró; Analíticas mide avisos cortos y reemplazos (15/11/2026).

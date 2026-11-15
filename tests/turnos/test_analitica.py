@@ -366,7 +366,8 @@ def test_cobertura_tramos_horas_y_porcentajes():
     assert abs(r["cobertura_pct"] - (1 - 60 / 72) * 100) < 1e-6 and abs(r["eficiencia_pct"] - (1 - 66 / 72) * 100) < 1e-6, r
     assert r["mapa"][0][12] == 0 and r["mapa"][1][12] == 2 and r["mapa"][0][24] is None, (r["mapa"][0][12], r["mapa"][1][12], r["mapa"][0][24])
     assert r["mapa"][6][12] is None  # domingo sin demanda ni gente
-    assert r["por_periodo"] == [{"periodo": K2, "horas_requeridas": 72, "horas_faltantes": 60, "horas_sobrantes": 6}], r["por_periodo"]
+    assert r["por_periodo"] == [{"periodo": K2, "horas_requeridas": 72, "horas_faltantes": 60, "horas_sobrantes": 6,
+                                 "cobertura_pct": (1 - 60 / 72) * 100, "eficiencia_pct": (1 - 66 / 72) * 100}], r["por_periodo"]
 
 
 def test_cobertura_tramos_eficiencia_no_baja_de_cero():

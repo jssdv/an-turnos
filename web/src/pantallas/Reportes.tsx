@@ -79,7 +79,10 @@ export function Reportes() {
           {periodos.datos.map((q) => <option key={q.id} value={q.id}>{nombrePeriodo(q.clave)}</option>)}
         </Filtro>
       )}
-      acciones={p && <Pista texto="Abre el cuadro de este periodo y la ventana de impresión."><Button color="secondary" size="sm" iconLeading={Printer} onPress={() => ir(`/areas/${area.id}/cuadro/${p.id}?imprimir=1`)}>Imprimir el cuadro</Button></Pista>}>
+      acciones={p && <>
+        <Pista texto="Abre el cuadro de este periodo y la ventana de impresión."><Button color="secondary" size="sm" iconLeading={Printer} onPress={() => ir(`/areas/${area.id}/cuadro/${p.id}?imprimir=1`)}>Imprimir el cuadro</Button></Pista>
+        <Pista texto="Los cinco Excel de este periodo (cuadro, puestos, horas, banco y analíticas) en un solo .zip, para archivar o mandar a RR. HH."><Button color="primary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlReportes(area.id, p.id))}>Todo el periodo (.zip)</Button></Pista>
+      </>}>
       {periodos.datos && !p && <Vacio className="tarjeta">Aún no hay periodos.</Vacio>}
       {p && (
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">

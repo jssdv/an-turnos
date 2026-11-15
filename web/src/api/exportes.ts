@@ -12,5 +12,7 @@ export const exportes = {
   urlBanco: (area: number, periodo: number) => `/api/areas/${area}/periodos/${periodo}/banco.xlsx`,
   urlAgenda: (area: number, periodo: number, colab: number) => `/api/areas/${area}/periodos/${periodo}/agendas/${colab}.ics`,
   urlAgendas: (area: number, periodo: number) => `/api/areas/${area}/periodos/${periodo}/agendas.zip`,
+  /** Cuadro, puestos, horas, banco y analíticas del periodo en un .zip. */
+  urlReportes: (area: number, periodo: number) => `/api/areas/${area}/periodos/${periodo}/reportes.zip`,
   urlDescarga: (area: number, periodo: number, id: number) => `${base(area, periodo)}/${id}/descargar`,
 };

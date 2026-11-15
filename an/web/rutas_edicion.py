@@ -64,11 +64,15 @@ def abierto(ctx, p):
         raise HTTPException(409, "El periodo está cerrado. Reábrelo para cambiarlo.")
 
 
-def textos_alertas(bd, clave, inicio, fin):
-    """Reglas y puestos que quedan sin cubrir en el reparto (lo mismo que el toast de Qt)."""
+def alertas(bd, clave, inicio, fin):
+    """Reglas y puestos que quedan sin cubrir en el reparto (lo mismo que el toast de Qt), como `reglas.Alerta`."""
     dias, c = flujo.fechas(inicio, fin), bd.contexto(inicio.year)
-    return ([a.texto for a in reglas.validar(c, bd.asignaciones(clave), dias, bd.fijos(clave), flujo.previo(bd, inicio))]
-            + [a.texto for a in puestos.alertas_reparto(c, bd.asignacion_puesto(clave), dias, bd.catalogo_puestos())])
+    return (reglas.validar(c, bd.asignaciones(clave), dias, bd.fijos(clave), flujo.previo(bd, inicio))
+            + puestos.alertas_reparto(c, bd.asignacion_puesto(clave), dias, bd.catalogo_puestos()))
+
+
+def textos_alertas(bd, clave, inicio, fin):
+    return [a.texto for a in alertas(bd, clave, inicio, fin)]
 
 
 def _nuevas(antes, despues):
