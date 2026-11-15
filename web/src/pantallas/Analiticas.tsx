@@ -21,9 +21,13 @@ interface Datos {
   equidad: { por_persona: Record<string, { noches: number; domingos: number; festivos: number }>; dispersion: { noches: number; domingos: number; festivos: number } };
   banco: { saldos: Record<string, number>; serie: [string, number, number][] };
   fatiga: Record<string, { max_dias_seguidos: number; rachas_largas: number; max_noches_seguidas: number; descansos_cortos: number; fines_trabajados: number; horas_4_sem_max: number; senales: number }>;
-  patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
+  patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { desde: string; equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
+const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones"> = {
+  estabilidad: { periodos: [], cubre_mas: {} }, fatiga: {},
+  patrones: { por_dia_semana: [0, 0, 0, 0, 0, 0, 0], tras_festivo: 0, bradford: { desde: "", equipo: {}, por_persona: {} } },
+};
 const SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const TIPOS = ["Vacaciones", "Incapacidad", "Licencia", "Libre solicitado"];
 const hoy = new Date();
@@ -46,7 +50,7 @@ export function Analiticas() {
   const [hasta, setHasta] = useState(mes(hoy));
   const ok = desde && hasta && desde <= hasta;
   const r = usar<Datos>(ok ? `/api/areas/${area.id}/analiticas?desde=${desde}-01&hasta=${ultimoDia(hasta)}` : null);
-  const d = r.datos;
+  const d = useMemo(() => r.datos && { ...VACIO, ...r.datos }, [r.datos]);  // un servidor sin actualizar no trae los bloques nuevos: vacíos, no pantalla en blanco
   const total = useMemo(() => d && {
     deficit: d.cobertura.reduce((s, c) => s + c.dias_deficit, 0),
     cambios: Object.values(d.cambios).reduce((s, c) => s + c.permuta + c.servicio + c.ajuste, 0),
@@ -105,10 +109,10 @@ export function Analiticas() {
                   </li>
                 ))}
               </ul>
-              <Tabla descripcion="Factor Bradford del equipo" vacio="Sin personal." columnas={["Factor Bradford", "Personas"]}
+              <Tabla descripcion="Factor Bradford del equipo (últimos 12 meses)" vacio="Sin personal." columnas={["Factor Bradford (12 meses)", "Personas"]}
                 filas={Object.entries(d.patrones.bradford.equipo).map(([k, n]) => [k, n])} />
             </div>
-            <h3 className="mt-6 mb-1 text-sm font-semibold text-primary">Factor Bradford por persona</h3>
+            <h3 className="mt-6 mb-1 text-sm font-semibold text-primary">Factor Bradford por persona{d.patrones.bradford.desde && ` · 12 meses desde el ${fechaCorta(d.patrones.bradford.desde)}`}</h3>
             <p className="mb-3 text-xs text-tertiary">Ausencias² × días: pesa más faltar seguido y por poco que una sola ausencia larga. Indicador de patrones; no usar para sanciones.</p>
             <Tabla descripcion="Factor Bradford por persona" vacio="Sin ausencias no planeadas en el rango." columnas={["Persona", "Ausencias", "Días", "Puntaje"]}
               filas={Object.entries(d.patrones.bradford.por_persona).sort(([a, x], [b, y]) => y.puntaje - x.puntaje || a.localeCompare(b)).map(([p, o]) => [p, o.rachas, o.dias, o.puntaje])} />

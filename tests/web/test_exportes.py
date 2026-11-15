@@ -182,6 +182,7 @@ def test_analiticas_xlsx():
         assert load_workbook(BytesIO(r.content)).sheetnames == ["Resumen", "Ausentismo", "Cobertura", "Cambios", "Estabilidad", "Horas extra",
                                                                 "Recargos", "Equidad", "Fatiga", "Patrones", "Banco"]
         assert "Analiticas_2026-10-01_2026-10-31.xlsx" in r.headers["content-disposition"]
+        assert "Rachas largas" in [c.value for c in load_workbook(BytesIO(r.content))["Fatiga"][1]]
         assert sesion(e, "lector@a.co").get(f"{base}?desde=2000-01-01&hasta=2026-10-31").status_code == 422
 
 

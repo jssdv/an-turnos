@@ -334,14 +334,14 @@ def exportar_analiticas(carpeta, base, d):
           [[p, r["festivo"], r["nocturna"], r["equivalentes"]] for p, r in sorted(d["recargos"].items())])
     _hoja(wb, "Equidad", ["Persona", "Noches", "Domingos", "Festivos"],
           [[p, o["noches"], o["domingos"], o["festivos"]] for p, o in sorted(d["equidad"]["por_persona"].items())])
-    _hoja(wb, "Fatiga", ["Persona", "Señales", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"],
-          [[p, f["senales"], f["max_dias_seguidos"], f["max_noches_seguidas"], f["descansos_cortos"], f["fines_trabajados"], f["horas_4_sem_max"]]
+    _hoja(wb, "Fatiga", ["Persona", "Señales", "Rachas largas", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"],
+          [[p, f["senales"], f["rachas_largas"], f["max_dias_seguidos"], f["max_noches_seguidas"], f["descansos_cortos"], f["fines_trabajados"], f["horas_4_sem_max"]]
            for p, f in sorted(d["fatiga"].items(), key=lambda x: (-x[1]["senales"], x[0]))])
     pa = d["patrones"]
     ws = _hoja(wb, "Patrones", ["Día", "% ausencias no planeadas"], [[DIAS[w], round(v, 2)] for w, v in enumerate(pa["por_dia_semana"])])
     fila = 11
     ws.cell(fila, 1, f"Ausencias que empezaron tras un festivo: {pa['tras_festivo']}")
-    ws.cell(fila + 1, 1, "Factor Bradford (ausencias² × días). Indicador de patrones; no usar para sanciones.")
+    ws.cell(fila + 1, 1, f"Factor Bradford (ausencias² × días) de los 12 meses desde el {pa['bradford']['desde']:%d/%m/%Y}. Indicador de patrones; no usar para sanciones.")
     _encabezado(ws, fila + 3, ["Persona", "Ausencias", "Días", "Puntaje"])
     for r, (p, o) in enumerate(sorted(pa["bradford"]["por_persona"].items(), key=lambda x: (-x[1]["puntaje"], x[0])), fila + 4):
         for c, v in enumerate([p, o["rachas"], o["dias"], o["puntaje"]], 1):
