@@ -4,10 +4,11 @@ import { aHHMM } from "../api/catalogos";
 import { tonoMapa, trazo } from "./trazo";
 
 /** Barras horizontales por persona (la más alta = 100 %), ordenadas de mayor a menor. */
-export function Barras({ titulo, unidad, datos }: { titulo: string; unidad: string; datos: [string, number][] }) {
+export function Barras({ titulo, unidad, datos, nota }: { titulo: string; unidad: string; datos: [string, number][]; nota?: string }) {
   const max = Math.max(1, ...datos.map(([, v]) => v));
   return (
     <Seccion titulo={titulo}>
+      {nota && <p className="mb-3 text-sm text-tertiary">{nota}</p>}
       {datos.length === 0 ? <p className="text-tertiary">Sin datos en el rango.</p> : (
         <ul className="flex flex-col gap-2.5" aria-label={titulo}>
           {[...datos].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p, v]) => (
@@ -103,6 +104,30 @@ export function Mapa({ titulo, mapa }: { titulo: string; mapa: (number | null)[]
           </ul>
         </>
       )}
+    </Seccion>
+  );
+}
+
+/** Barras que salen del centro: a la derecha más que la media del equipo, a la izquierda menos. Las 6 más arriba y las 6 más abajo. */
+export function Divergente({ titulo, unidad, datos }: { titulo: string; unidad: string; datos: [string, number][] }) {
+  const orden = [...datos].filter(([, v]) => Math.abs(v) >= 0.05).sort((a, b) => b[1] - a[1]);
+  const filas = [...orden.filter(([, v]) => v > 0).slice(0, 6), ...orden.filter(([, v]) => v < 0).slice(-6)];
+  const max = Math.max(0.0001, ...filas.map(([, v]) => Math.abs(v)));
+  return (
+    <Seccion titulo={titulo}>
+      {!filas.length ? <p className="text-tertiary">Sin datos en el rango.</p> : (
+        <ul className="flex flex-col gap-2" aria-label={titulo}>
+          {filas.map(([p, v]) => (
+            <li key={p} className="grid grid-cols-[minmax(0,8rem)_1fr_1fr_auto] items-center gap-x-1 text-xs">
+              <span className="truncate pr-2 font-medium text-secondary">{p}</span>
+              <span className="flex h-2.5 justify-end">{v < 0 && <span className="block h-full rounded-xs bg-utility-blue-500" style={{ width: `${(-v / max) * 100}%` }} />}</span>
+              <span className="flex h-2.5 border-l border-secondary">{v > 0 && <span className="block h-full rounded-xs bg-utility-orange-500" style={{ width: `${(v / max) * 100}%` }} />}</span>
+              <span className="pl-2 text-tertiary tabular-nums">{v > 0 ? "+" : ""}{num(v, 1)} {unidad}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-xs text-tertiary">Respecto de la media del equipo, a tiempo completo (dividido por la dedicación). Naranja: más de lo que le toca; azul: menos.</p>
     </Seccion>
   );
 }

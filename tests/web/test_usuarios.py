@@ -92,7 +92,7 @@ def test_analiticas_completas():
             return
         r = sesion(e, "lector@a.co").get(f"/api/areas/{e.ar['A']}/analiticas?desde=2026-10-01&hasta=2026-10-31")
         assert r.status_code == 200, r.text
-        assert set(r.json()) == {"ausentismo", "cobertura", "recargos", "simultaneos", "cambios", "horas_extra", "equidad", "banco", "estabilidad", "fatiga", "patrones", "riesgo", "cobertura_tramos"}
+        assert set(r.json()) == {"ausentismo", "cobertura", "recargos", "simultaneos", "cambios", "horas_extra", "equidad", "banco", "estabilidad", "fatiga", "patrones", "riesgo", "cobertura_tramos", "concentracion_extra", "solicitudes"}
         assert r.json()["equidad"]["dispersion"] == {"noches": 0, "domingos": 0, "festivos": 0}
 
 

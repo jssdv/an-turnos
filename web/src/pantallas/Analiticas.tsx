@@ -4,7 +4,7 @@ import { Download01, Printer } from "@untitledui/icons";
 import { usar } from "../api/catalogos";
 import { exportes } from "../api/exportes";
 import type { Area } from "../api/tipos";
-import { Barras, Linea, Mapa } from "../componentes/Graficos";
+import { Barras, Divergente, Linea, Mapa } from "../componentes/Graficos";
 import { Tabla } from "../componentes/Tabla";
 import { Indicador, Indicadores, Pagina, Seccion } from "./comun";
 import { fechaCorta, nombrePeriodo, num } from "./fechas";
@@ -20,13 +20,17 @@ interface Datos {
   cambios: Record<string, { permuta: number; servicio: number; ajuste: number; excepciones: number }>;
   horas_extra: { periodo: string; ventana: number; mes: { diurna: number; nocturna: number }; semanas: { diurna: number; nocturna: number } }[];
   recargos: Record<string, { festivo: number; nocturna: number; equivalentes: number }>;
-  equidad: { por_persona: Record<string, { noches: number; domingos: number; festivos: number }>; dispersion: { noches: number; domingos: number; festivos: number } };
+  equidad: { por_persona: Record<string, { noches: number; domingos: number; festivos: number }>; dispersion: { noches: number; domingos: number; festivos: number };
+    estadisticas: Record<"noches" | "domingos" | "festivos", { media: number; mad: number; cv: number }>; desviacion: Record<string, Record<"noches" | "domingos" | "festivos", number>> };
+  concentracion_extra: { por_persona: Record<string, number>; top_n: number; top_pct: number | null };
+  solicitudes: { por_persona: Record<string, { pedidas: number; cumplidas: number; parciales: number; no_cumplidas: number; tasa: number }>; por_tipo: Record<string, { pedidas: number; cumplidas: number }>; tasa: number | null };
   banco: { saldos: Record<string, number>; serie: [string, number, number][] };
   fatiga: Record<string, { max_dias_seguidos: number; rachas_largas: number; max_noches_seguidas: number; descansos_cortos: number; fines_trabajados: number; horas_4_sem_max: number; senales: number }>;
   patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { desde: string; equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
-const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos"> = {
+const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos" | "concentracion_extra" | "solicitudes"> = {
+  concentracion_extra: { por_persona: {}, top_n: 0, top_pct: null }, solicitudes: { por_persona: {}, por_tipo: {}, tasa: null },
   cobertura_tramos: { horas_requeridas: 0, horas_faltantes: 0, horas_sobrantes: 0, cobertura_pct: null, eficiencia_pct: null, mapa: Array.from({ length: 7 }, () => Array(48).fill(null)), por_periodo: [] },
   estabilidad: { periodos: [], cubre_mas: {} }, fatiga: {},
   patrones: { por_dia_semana: [0, 0, 0, 0, 0, 0, 0], tras_festivo: 0, bradford: { desde: "", equipo: {}, por_persona: {} } },
@@ -160,8 +164,25 @@ export function Analiticas() {
             <Tabla descripcion="Recargos por persona" vacio="Sin recargos en el rango." columnas={["Persona", "Dominical/festivo", "Nocturno", "Equivalentes"]}
               filas={Object.entries(d.recargos).sort().map(([p, r2]) => [p, num(r2.festivo), num(r2.nocturna), num(r2.equivalentes)])} />
           </Seccion>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+            <Divergente titulo="Noches frente a la media" unidad="noches" datos={Object.entries(d.equidad.desviacion ?? {}).map(([p, x]) => [p, x.noches])} />
+            <Divergente titulo="Domingos y festivos frente a la media" unidad="días" datos={Object.entries(d.equidad.desviacion ?? {}).map(([p, x]) => [p, x.domingos + x.festivos])} />
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+            <Seccion titulo="Solicitudes del personal">
+              <p className="mb-3 text-sm text-tertiary">{d.solicitudes.tasa === null ? "Sin solicitudes en el rango." : `Se cumplió el ${num(d.solicitudes.tasa)} % de las solicitudes del rango.`} Mira la tasa junto al número de solicitudes: con pocas, un solo «no» pesa mucho.</p>
+              <Tabla descripcion="Solicitudes por tipo" vacio="Sin solicitudes en el rango." columnas={["Tipo", "Pedidas", "Cumplidas"]}
+                filas={Object.entries(d.solicitudes.por_tipo).map(([t, o]) => [{ libre: "Libre", quiero: "Quiero turno", evitar: "Evitar turno" }[t] ?? t, o.pedidas, o.cumplidas])} />
+              <div className="mt-4">
+                <Tabla descripcion="Solicitudes por persona" vacio="Sin solicitudes en el rango." columnas={["Persona", "Pedidas", "Cumplidas", "Parciales", "No cumplidas", "% cumplidas"]}
+                  filas={Object.entries(d.solicitudes.por_persona).sort(([a, x], [b, y]) => x.tasa - y.tasa || a.localeCompare(b)).map(([p, o]) => [p, o.pedidas, o.cumplidas, o.parciales, o.no_cumplidas, `${num(o.tasa)} %`])} />
+              </div>
+            </Seccion>
+            <Barras titulo="Concentración de horas extra" unidad="h" datos={Object.entries(d.concentracion_extra.por_persona)}
+              nota={d.concentracion_extra.top_pct === null ? "Sin horas extra en el rango." : `${d.concentracion_extra.top_n === 1 ? "La persona" : `Las ${d.concentracion_extra.top_n} personas`} (20 % del equipo) con más horas extra ${d.concentracion_extra.top_n === 1 ? "hizo" : "hicieron"} el ${num(d.concentracion_extra.top_pct)} % del total. Repartirlas baja el riesgo de agotamiento.`} />
+          </div>
           <Seccion titulo="Equidad">
-            <p>Diferencia entre quien más y quien menos tiene: {d.equidad.dispersion.noches} noches, {d.equidad.dispersion.domingos} domingos, {d.equidad.dispersion.festivos} festivos.</p>
+            <p>Diferencia entre quien más y quien menos tiene: {d.equidad.dispersion.noches} noches, {d.equidad.dispersion.domingos} domingos, {d.equidad.dispersion.festivos} festivos.{d.equidad.estadisticas && ` En promedio cada persona se aleja ${num(d.equidad.estadisticas.noches.mad, 1)} noches de la media del equipo.`}</p>
             <Tabla descripcion="Equidad por persona" vacio="Sin personal." columnas={["Persona", "Noches", "Domingos", "Festivos"]}
               filas={Object.entries(d.equidad.por_persona).sort().map(([p, o]) => [p, o.noches, o.domingos, o.festivos])} />
           </Seccion>
