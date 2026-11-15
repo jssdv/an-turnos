@@ -1,7 +1,7 @@
 import { useEffect, useState, type FC } from "react";
 import { Button as AriaButton } from "react-aria-components";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router";
-import { BarChart03, Building02, Calendar, CalendarCheck01, CalendarMinus01, ChevronDown, FileDownload02, HelpCircle, Home02, Inbox01, LineChartUp01, LogOut01, SearchLg, Settings01, UserCheck01, Users01 } from "@untitledui/icons";
+import { BarChart03, Building02, Calendar, ClipboardCheck, CalendarCheck01, CalendarMinus01, ChevronDown, FileDownload02, HelpCircle, Home02, Inbox01, LineChartUp01, LogOut01, SearchLg, Settings01, UserCheck01, Users01 } from "@untitledui/icons";
 import { Alert } from "@/components/application/alerts/alert";
 import { MobileNavigationHeader } from "@/components/application/app-navigation/base-components/mobile-header";
 import { NavList } from "@/components/application/app-navigation/base-components/nav-list";
@@ -14,16 +14,24 @@ import type { Area } from "../api/tipos";
 import { Campana, ProveedorAvisos, useCargarAvisos } from "../componentes/Avisos";
 import { Tutorial } from "../componentes/Tutorial";
 import { useSesion } from "../Sesion";
-import { Ventana } from "./comun";
+import { sinTildes, Ventana } from "./comun";
 import { SECCIONES } from "./Radiologia";
 
 type Icono = FC<{ className?: string }>;
 /** Menú de Turnos, en el orden del rediseño (barra superior). Parámetros va en «Ajustes» junto a lo de administración. */
 export const TURNOS: [string, string, Icono][] = [
   ["Inicio", "inicio", Home02], ["Cuadro", "cuadro", Calendar], ["Solicitudes", "solicitudes", Inbox01], ["Personal", "personal", Users01],
-  ["Ausencias", "novedades", CalendarMinus01], ["Requerimiento", "puestos", Building02], ["Reportes", "reportes", FileDownload02],
+  ["Ausencias", "novedades", CalendarMinus01], ["Requerimiento", "puestos", ClipboardCheck], ["Reportes", "reportes", FileDownload02],
   ["Analíticas", "analiticas", LineChartUp01], ["Parámetros", "parametros", Settings01],
 ];
+/** Palabras con que la gente busca cada sección en «Ir a…» además de su nombre. */
+const PALABRAS: Record<string, string> = {
+  cuadro: "turnos horario generar publicar alertas quien cubre", solicitudes: "deseos pedidos libre evitar quiero",
+  personal: "colaboradores personas equipo", novedades: "vacaciones incapacidad licencia permiso ausentes",
+  puestos: "puestos demanda cobertura necesidad", reportes: "excel exportar descargar agendas calendario ics banco de horas imprimir",
+  analiticas: "equidad recargos horas extra ausentismo estadisticas", parametros: "reglas normativa ajustes descansos",
+  usuarios: "permisos claves accesos", areas: "clinicas servicios",
+};
 const RADIOLOGIA: Record<string, Icono> = { resumen: Home02, previa: CalendarCheck01, alertas: BarChart03, equidad: LineChartUp01, agendas: Calendar, cambios: Inbox01 };
 const AJUSTES = new Set(["parametros", "usuarios", "areas"]);
 const iniciales = (n = "") => n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
@@ -35,38 +43,42 @@ const ultimaArea = (id?: number) => {
   } catch { /* almacenamiento bloqueado: se abre la primera área */ }
   return NaN;
 };
-const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 interface Destino { label: string; href: string; ruta: string; icon: Icono; badge?: number }
 
-/** «Ir a…» con ⌘K / Ctrl+K: filtra secciones y áreas por nombre; Enter abre la primera coincidencia. */
-function Buscador({ destinos }: { destinos: { label: string; grupo: string; href: string }[] }) {
+/** «Ir a…» con ⌘K / Ctrl+K: filtra secciones y áreas por nombre; ↑/↓ eligen y Enter abre (de entrada, la primera coincidencia). */
+function Buscador({ destinos }: { destinos: { label: string; grupo: string; href: string; claves?: string }[] }) {
   const [abierto, setAbierto] = useState(false);
   const [q, setQ] = useState("");
+  const [sel, setSel] = useState(0);
   const ir = useNavigate();
   useEffect(() => {
-    const f = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setQ(""); setAbierto(true); } };
+    const f = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setQ(""); setSel(0); setAbierto(true); } };
     addEventListener("keydown", f);
     return () => removeEventListener("keydown", f);
   }, []);
-  const lista = destinos.filter((d) => sinTildes(`${d.label} ${d.grupo}`).includes(sinTildes(q.trim())));
+  const lista = destinos.filter((d) => sinTildes(`${d.label} ${d.grupo} ${d.claves ?? ""}`).includes(sinTildes(q.trim())));
   const abrir = (href: string) => { setAbierto(false); ir(href); };
   return (
     <>
-      <AriaButton onPress={() => { setQ(""); setAbierto(true); }} aria-keyshortcuts="Meta+K Control+K"
+      <AriaButton onPress={() => { setQ(""); setSel(0); setAbierto(true); }} aria-keyshortcuts="Meta+K Control+K"
         className="flex h-8 w-56 cursor-pointer items-center gap-2 rounded-xl bg-secondary px-2.5 text-sm text-placeholder ring-1 ring-secondary outline-focus-ring ring-inset hover:text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2">
         <SearchLg aria-hidden="true" className="size-4" />Ir a…<kbd className="ml-auto rounded-sm px-1 font-mono text-xs text-tertiary ring-1 ring-primary ring-inset">⌘K</kbd>
       </AriaButton>
       <Ventana abierto={abierto} alCambiar={setAbierto} titulo="Ir a">
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar sección o área" placeholder="Cuadro, Personal, Radiología…"
-          onKeyDown={(e) => { if (e.key === "Enter" && lista[0]) abrir(lista[0].href); }}
+        <input autoFocus value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} aria-label="Buscar sección o área" placeholder="Cuadro, Personal, Radiología…"
+          onKeyDown={(e) => {
+            const paso = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+            if (paso && lista.length) { e.preventDefault(); setSel((sel + paso + lista.length) % lista.length); }
+            if (e.key === "Enter" && lista[sel]) abrir(lista[sel].href);
+          }}
+          role="combobox" aria-expanded="true" aria-controls="ir-a-lista" aria-activedescendant={lista[sel] ? `ir-a-${sel}` : undefined}
           className="h-10 w-full rounded-lg bg-primary px-3 text-md text-primary ring-1 ring-primary outline-focus-ring ring-inset placeholder:text-placeholder focus-visible:outline-2" />
-        <ul className="-mx-2 max-h-80 overflow-y-auto">
+        <ul id="ir-a-lista" role="listbox" aria-label="Destinos" className="-mx-2 max-h-80 overflow-y-auto">
           {lista.map((d, i) => (
-            <li key={d.href}>
-              <button type="button" onClick={() => abrir(d.href)} className={cx("flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-2 text-left text-sm text-primary outline-focus-ring hover:bg-primary_hover focus-visible:outline-2", i === 0 && q && "bg-secondary")}>
-                {d.label}<span className="text-xs text-tertiary">{d.grupo}</span>
-              </button>
+            <li key={d.href} id={`ir-a-${i}`} role="option" aria-selected={i === sel} onClick={() => abrir(d.href)}
+              className={cx("flex cursor-pointer items-center justify-between rounded-md px-2 py-2 text-sm text-primary hover:bg-primary_hover", i === sel && (q || sel > 0) && "bg-secondary")}>
+              {d.label}<span className="text-xs text-tertiary">{d.grupo}</span>
             </li>
           ))}
           {!lista.length && <li className="px-2 py-2 text-sm text-tertiary">Nada con «{q}».</li>}
@@ -172,7 +184,7 @@ export function Disposicion() {
             )}
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <Buscador destinos={[...todos.map((d) => ({ label: d.label, grupo: actual.nombre, href: d.href })), ...areas.filter((a) => a.id !== actual.id).map((a) => ({ label: a.nombre, grupo: "Área", href: inicio(a) }))]} />
+            <Buscador destinos={[...todos.map((d) => ({ label: d.label, grupo: actual.nombre, href: d.href, claves: PALABRAS[d.ruta] })), ...areas.filter((a) => a.id !== actual.id).map((a) => ({ label: a.nombre, grupo: "Área", href: inicio(a) }))]} />
             <Campana />
             <Button color="tertiary" size="sm" iconLeading={HelpCircle} aria-label="Ayuda y tutorial" onPress={() => setTutorial(true)} />
             <Dropdown.Root>

@@ -1,5 +1,6 @@
-import { useState, type FC, type HTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useState, type FC, type HTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from "react";
 import { Check, ChevronDown, ChevronRight, HelpCircle } from "@untitledui/icons";
+import { useSearchParams } from "react-router";
 import { cx } from "@/utils/cx";
 import { mensaje } from "../api/catalogos";
 import type { Alerta } from "../api/tipos";
@@ -177,12 +178,31 @@ export function useConfirmar() {
   return [pedir, nodo] as const;
 }
 
-/** Junta alertas de texto idéntico (p. ej. el mismo turno prohibido en dos celdas) para no repetir la misma línea. */
+/** Estado de una ventana que llega abierta con `?nueva` (accesos de Inicio como «Nueva solicitud»); quita el parámetro para que recargar no la reabra. */
+export function useVentanaNueva(permitida: boolean) {
+  const [busqueda, setBusqueda] = useSearchParams();
+  const [abierta, setAbierta] = useState(() => permitida && busqueda.has("nueva"));
+  useEffect(() => {
+    if (!busqueda.has("nueva")) return;
+    const resto = new URLSearchParams(busqueda);
+    resto.delete("nueva");
+    setBusqueda(resto, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return [abierta, setAbierta] as const;
+}
+
+/** Para buscar sin importar tildes ni mayúsculas: «jose» encuentra a «José». */
+export const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+/** Junta alertas repetidas para no repetir la línea: texto idéntico (el mismo turno prohibido en dos celdas) o la misma regla
+ *  del periodo en varias personas («Nombre: sin fin de semana libre…» sin día), que queda una vez con `regla` y los nombres en `quienes`. */
 export function agrupar(alertas: Alerta[]) {
-  const g = new Map<string, { alerta: Alerta; veces: number }>();
+  const g = new Map<string, { alerta: Alerta; veces: number; regla?: string; quienes: string[] }>();
   for (const a of alertas) {
-    const x = g.get(a.texto);
-    if (x) x.veces++; else g.set(a.texto, { alerta: a, veces: 1 });
+    const i = a.texto.indexOf(": ");
+    const regla = a.colab_id && !a.fecha && i > 0 ? a.texto.slice(i + 2) : undefined;
+    const x = g.get(regla ?? a.texto), quien = regla ? [a.texto.slice(0, i)] : [];
+    if (x) { x.veces++; x.quienes.push(...quien); } else g.set(regla ?? a.texto, { alerta: a, veces: 1, regla, quienes: quien });
   }
   return [...g.values()];
 }

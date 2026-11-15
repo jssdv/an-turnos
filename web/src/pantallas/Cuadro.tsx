@@ -9,7 +9,7 @@ import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
 import { Tabla } from "../componentes/Tabla";
 import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
-import { dias as diasDe, fechaCorta, nombrePeriodo } from "./fechas";
+import { dias as diasDe, fechaCorta, nombrePeriodo, num } from "./fechas";
 import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
 import { RegistrarCambio, esCorrido, sinCupo } from "./RegistrarCambio";
@@ -116,7 +116,18 @@ export function Cuadro() {
     setTimeout(() => window.print(), 300);
   }, [datos]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dias = useMemo(() => (actual ? diasDe(actual.clave) : []), [actual]);
+  // «Ver alertas» (aquí o desde Inicio con ?alertas): reabre el panel si estaba oculto y baja hasta él ya pintado.
+  const [verAlertas, setVerAlertas] = useState(0);
+  const abrirAlertas = () => { setSinPanel(false); setVerAlertas(Date.now()); };
+  useEffect(() => { if (verAlertas) document.getElementById("alertas")?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [verAlertas]);
+  useEffect(() => {
+    if (!datos || !busqueda.has("alertas")) return;
+    setBusqueda({}, { replace: true });
+    abrirAlertas();
+  }, [datos]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const festivos = datos?.cuadro.festivos;
+  const dias = useMemo(() => (actual ? diasDe(actual.clave, festivos) : []), [actual, festivos]);
   const vista = useMemo(() => {
     if (!datos) return null;
     const celdas = new Map(datos.cuadro.celdas.map((c) => [`${c.colab_id}|${c.fecha}`, c]));
@@ -259,7 +270,7 @@ export function Cuadro() {
       </>}>
 
       {datos && area.permiso === "editar" && <Pasos hay={datos.cuadro.celdas.length > 0} alertas={datos.alertas} publicado={!!actual.publicado_en}
-        alGenerar={pulsar("generar")} alPublicar={() => setPublicar(Date.now())} alVerAlertas={() => document.getElementById("alertas")?.scrollIntoView({ behavior: "smooth", block: "start" })} />}
+        alGenerar={pulsar("generar")} alPublicar={() => setPublicar(Date.now())} alVerAlertas={abrirAlertas} />}
 
       <Ayuda titulo="¿Cómo se usa el cuadro?" clave="cuadro">
         <ul className="list-disc pl-5">
@@ -287,7 +298,8 @@ export function Cuadro() {
 
       {(() => {
         const filtradas = datos ? (persona ? datos.alertas.filter((a) => String(a.colab_id) === persona) : datos.alertas) : [];
-        const reglas = filtradas.filter((a) => a.nivel !== "info").length;
+        // Agrupadas, como en Pasos y en las secciones del panel, para que los números coincidan.
+        const reglas = agrupar(filtradas.filter((a) => a.nivel !== "info")).length;
         return (
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-3" aria-busy={!datos}>
@@ -305,7 +317,7 @@ export function Cuadro() {
                 const h = vista.horas.get(c.id);
                 return { id: c.id, nombre: c.nombre, extra: h ? h.trabajadas : "", extraAlto: !!h && h.trabajadas > h.contratadas };
               })}
-              semanal={(id, lunes) => { const v = vista.horas.get(id)?.semanas[lunes]; return v ? Math.round(v * 10) / 10 : ""; }}
+              semanal={(id, lunes) => { const v = vista.horas.get(id)?.semanas[lunes]; return v ? num(v, 1) : ""; }}
               foco={foco}
               editable={puedeEditar ? editable : undefined}
               alAccionar={accionar}
@@ -353,7 +365,9 @@ export function Cuadro() {
             </header>
             <NativeSelect size="sm" label="Persona" value={persona} onChange={(x) => setPersona(x.target.value)}>
               <option value="">Todas</option>
-              {datos.colabs.filter((c) => c.activo).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {datos.colabs.map((c) => [c, agrupar(datos.alertas.filter((a) => a.colab_id === c.id && a.nivel !== "info")).length] as const)
+                .filter(([c, n]) => n > 0 || String(c.id) === persona)  // solo quien tiene alertas, con cuántas; 40 nombres sin alertas estorban
+                .map(([c, n]) => <option key={c.id} value={c.id}>{c.nombre} ({n})</option>)}
             </NativeSelect>
             {persona && <p className="mt-1 text-sm text-tertiary">Solo alertas de esta persona; las de cobertura de un día no se muestran.</p>}
             {filtradas.length === 0 ? (
@@ -369,9 +383,14 @@ export function Cuadro() {
                     <details key={nivel} className="mt-3 [&>summary]:cursor-pointer [&>summary]:py-1.5" open={nivel === "error" || (nivel === "aviso" && !filtradas.some((a) => a.nivel === "error"))}>
                       <summary className={cx("font-mono text-xs font-semibold tracking-wide uppercase", color)}>{titulo} · {grupo.length}</summary>
                       <ul className="">
-                        {grupo.map(({ alerta: a, veces }) => (
+                        {grupo.map(({ alerta: a, veces, regla, quienes }) => (
                           <li key={a.texto} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-secondary text-sm ${info ? "py-1 text-tertiary" : "py-2 text-primary"}`}>
-                            <span className="w-full">{a.texto}{veces > 1 && <span className="text-tertiary"> (×{veces})</span>}</span>
+                            {regla && quienes.length > 1 ? (
+                              <details className="w-full">
+                                <summary className="cursor-pointer">{regla.charAt(0).toUpperCase() + regla.slice(1)} <span className="text-tertiary">({quienes.length} personas)</span></summary>
+                                <p className="mt-1 text-xs text-tertiary">{quienes.join(", ")}</p>
+                              </details>
+                            ) : <span className="w-full">{a.texto}{veces > 1 && <span className="text-tertiary"> (×{veces})</span>}</span>}
                             {(() => {
                               // Faltante del día, o turno que quedó sobre una novedad (ausencia registrada después de generar)
                               if (a.nivel !== "error" || !a.fecha || !actual || actual.cerrado_en || version !== "cambios" || !vista) return null;

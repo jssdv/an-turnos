@@ -22,7 +22,7 @@ export const MobileNavigationHeader = ({ children, extra }: PropsWithChildren<{ 
                 <span className="ml-auto mr-2">{extra}</span>
 
                 <AriaButton
-                    aria-label="Expand navigation menu"
+                    aria-label="Abrir menú"
                     className="group flex items-center justify-center rounded-lg bg-primary p-2 text-fg-secondary outline-focus-ring hover:bg-primary_hover hover:text-fg-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
                     <Menu02 className="size-6 transition duration-200 ease-in-out group-aria-expanded:opacity-0" />
@@ -43,7 +43,7 @@ export const MobileNavigationHeader = ({ children, extra }: PropsWithChildren<{ 
                 {({ state }) => (
                     <>
                         <AriaButton
-                            aria-label="Close navigation menu"
+                            aria-label="Cerrar menú"
                             onPress={() => state.close()}
                             className="fixed top-2.5 right-3 flex cursor-pointer items-center justify-center rounded-lg p-2 text-fg-white/70 outline-focus-ring hover:bg-white/10 hover:text-fg-white focus-visible:outline-2 focus-visible:outline-offset-2"
                         >

@@ -8,6 +8,10 @@ from .dominio import DESCANSO_MIN, intervalo
 Alerta = namedtuple("Alerta", "nivel fecha colab_id texto")
 
 
+# Texto de la alerta por motivo de `Contexto.bloqueo`; lo demás (novedad o estudio) sale como «M durante vacaciones».
+_POR_QUE = {"turno no permitido": "no está entre sus turnos", "turno no permitido en domingo/festivo": "no se hace en domingo ni festivo"}
+
+
 def validar_catalogo(turnos):
     return [Alerta("aviso", None, None, f"El turno {t.codigo} dura {t.duracion / 60:g} h y no tiene pausa de almuerzo.")
             for t in turnos.values() if t.duracion > 360 and not t.pausas]
@@ -88,7 +92,7 @@ def validar(ctx, cuadro, fechas, fijos=(), previo=None):
             if cod in ctx.turnos:
                 motivo = ctx.bloqueo(p, ctx.turnos[cod], f)
                 if motivo:
-                    out.append(Alerta("error", f, p.id, f"{nombres[p.id]}: {cod} no permitido ({motivo})"))
+                    out.append(Alerta("error", f, p.id, f"{nombres[p.id]}: {cod} {_POR_QUE.get(motivo, f'durante {motivo.lower()}')}"))  # novedad o estudio: «M durante vacaciones»
             elif cod != "L":
                 out.append(Alerta("error", f, p.id, f"{nombres[p.id]}: código desconocido {cod}"))
         ext = antes(1) + fechas

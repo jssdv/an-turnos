@@ -4,7 +4,7 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Novedad } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Plus } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, useVentanaNueva, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
@@ -21,10 +21,11 @@ export function Novedades() {
   const lista = usar<Novedad[]>(`${base}/novedades`);
   const personas = usar<Colaborador[]>(`${base}/colaboradores`);
   const { ocupado, aviso, hacer } = useAccion();
-  const [ventana, setVentana] = useState(false);
+  const [pedir, confirmacion] = useConfirmar();
   const [f, setF] = useState({ colab_id: "", tipo: TIPOS[0], desde: "", hasta: "", nota: "" });
   const nombre = useMemo(() => new Map((personas.datos ?? []).map((p) => [p.id, p.nombre])), [personas.datos]);
   const editar = area.permiso === "editar";
+  const [ventana, setVentana] = useVentanaNueva(editar);
 
   const guardar = () => hacer(async () => {
     await enviar("POST", `${base}/novedades`, { ...f, colab_id: Number(f.colab_id) });
@@ -62,10 +63,11 @@ export function Novedades() {
           columnas={["Persona", "Tipo", "Desde", "Hasta", "Nota", ""]}
           filas={(lista.datos ?? []).map((n) => [
             nombre.get(n.colab_id) ?? `#${n.colab_id}`, n.tipo, fechaCorta(n.desde), fechaCorta(n.hasta), n.nota,
-            editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => hacer(async () => { await enviar("DELETE", `${base}/novedades/${n.id}`); lista.recargar(); })}>Borrar</Button> : null,
+            editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => pedir(`¿Borrar ${n.tipo.toLowerCase()} de ${nombre.get(n.colab_id) ?? `#${n.colab_id}`}?`, "Borrar", () => hacer(async () => { await enviar("DELETE", `${base}/novedades/${n.id}`); lista.recargar(); }), `${fechaCorta(n.desde)} – ${fechaCorta(n.hasta)}. El cuadro volverá a contar a esta persona como disponible esos días.`)}>Borrar</Button> : null,
           ])}
         />
       </Seccion>
+      {confirmacion}
     </Pagina>
   );
 }

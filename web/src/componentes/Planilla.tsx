@@ -8,6 +8,7 @@ export interface Dia {
   letra: string;
   nombre: string;
   gris: boolean; // domingo o festivo
+  festivo?: string;
 }
 export interface Fila {
   id: number;
@@ -129,7 +130,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
             <th scope="col" className="sticky left-0 z-[1] min-w-28 sm:min-w-52 pr-4! pl-3! text-left! whitespace-nowrap">Persona</th>
             {dias.map((d, i) => (
               <Fragment key={d.fecha}>
-                <th scope="col" className={cx("min-w-8", d.gris && "text-brand-secondary!")} aria-label={`${d.nombre} ${d.n}${d.fecha === hoy ? ", hoy" : ""}`} {...marcas(i)}>
+                <th scope="col" className={cx("min-w-8", d.gris && "text-brand-secondary!")} aria-label={`${d.nombre} ${d.n}${d.festivo ? `, festivo: ${d.festivo}` : ""}${d.fecha === hoy ? ", hoy" : ""}`} title={d.festivo} {...marcas(i)}>
                   <span className="block">{d.letra}</span>
                   <span className="font-mono font-semibold text-primary in-data-hoy:text-brand-secondary">{d.n}</span>
                 </th>
@@ -156,7 +157,7 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
                     aria-label={`${f.nombre}, ${d.nombre} ${d.n}: ${etiqueta}`}
                     aria-selected={ed ? elegida : undefined}
                     {...marcas(c)}
-                    className={cx("h-[30px] pointer-coarse:h-11 pointer-coarse:min-w-10 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dashed focus-visible:outline-fg-primary", ed && "cursor-pointer", elegida && "rounded-sm bg-brand-primary outline-2 -outline-offset-2 outline-brand")}
+                    className={cx("h-[30px] pointer-coarse:h-11 pointer-coarse:min-w-10 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dashed focus-visible:outline-fg-primary", d.gris && "bg-secondary", ed && "cursor-pointer", elegida && "rounded-sm bg-brand-primary outline-2 -outline-offset-2 outline-brand")}
                     onFocus={() => setActiva([r, c])}
                     onClick={(ev: MouseEvent) => { setActiva([r, c]); elegir(r, c, ev); }}
                     onDoubleClick={() => accionar(r, c)}

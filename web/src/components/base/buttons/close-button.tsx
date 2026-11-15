@@ -21,7 +21,7 @@ interface CloseButtonProps extends AriaButtonProps {
     theme?: "light" | "dark";
     /** Controls the dimensions of the button and its icon. */
     size?: "xs" | "sm" | "md" | "lg";
-    /** The accessible name of the button, applied as `aria-label`. Defaults to "Close". */
+    /** The accessible name of the button, applied as `aria-label`. Por defecto «Cerrar». */
     label?: string;
     /**
      * The React Aria slot the button fills. Defaults to `"close"` so it
@@ -38,7 +38,7 @@ export const CloseButton = ({ label, className, size = "sm", theme = "light", sl
         <AriaButton
             {...otherProps}
             slot={slot}
-            aria-label={label || "Close"}
+            aria-label={label || "Cerrar"}
             className={(state) =>
                 cx(
                     "flex cursor-pointer items-center justify-center rounded-lg p-2 transition duration-100 ease-linear focus:outline-hidden",

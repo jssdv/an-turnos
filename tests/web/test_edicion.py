@@ -66,6 +66,7 @@ def test_cuadro_version_original():
         cli, pid = sesion(e, "lector@a.co"), periodo(e)
         r = cli.get(f"/api/areas/{e.ar['A']}/periodos/{pid}/cuadro?version=original").json()
         assert r["version"] == "original" and not r["usa_puestos"] and all("puesto" not in c and not c["fijo"] for c in r["celdas"])
+        assert r["festivos"] == {"2026-10-12": "Día de la Raza"}, r["clave"]  # solo los del periodo (octubre 2026)
         assert cli.get(f"/api/areas/{e.ar['A']}/periodos/{pid}/cuadro?version=otra").status_code == 422
 
 

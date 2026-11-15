@@ -40,19 +40,21 @@ export function Inicio() {
   const cob = resumen.datos?.cobertura[0], extra = resumen.datos?.horas_extra[0];
   const horasExtra = extra ? Math.round(extra.semanas.diurna + extra.semanas.nocturna) : null;
   const alCuadro = () => ir(`${r}/cuadro${p ? `/${p.id}` : ""}`);
-  const accesos: [string, string, FC<{ className?: string }>][] = [["Ver el cuadro", `cuadro${p ? `/${p.id}` : ""}`, Calendar], ["Registrar ausencia", "novedades", CalendarMinus01], ["Nueva solicitud", "solicitudes", Inbox01], ["Descargar reportes", "reportes", FileDownload02]];
+  const editar = area.permiso === "editar";  // quien solo consulta no registra ni genera: sin pasos ni accesos de edición, como en el cuadro
+  const accesos = ([["Registrar ausencia", "novedades?nueva", CalendarMinus01], ["Nueva solicitud", "solicitudes?nueva", Inbox01], ["Descargar reportes", "reportes", FileDownload02]] as [string, string, FC<{ className?: string }>][])
+    .filter(([, ruta]) => editar || !ruta.endsWith("?nueva"));
 
   return (
     <Pagina titulo="Inicio" sub={`Hola, ${usuario?.nombre?.split(" ")[0] ?? ""}${p ? ` · periodo ${nombrePeriodo(p.clave)}` : ""}`}
       filtros={<Button color="primary" size="sm" iconLeading={Calendar} onPress={alCuadro}>Ir al cuadro</Button>} error={periodos.error}>
       {periodos.datos && !p && <Seccion><p className="text-tertiary">Esta área aún no tiene periodos. Créalo desde «Cuadro de turnos» con «Nuevo periodo».</p></Seccion>}
-      {p && cuadro.datos && alertas.datos && (
-        <Pasos hay={cuadro.datos.celdas.length > 0} alertas={alertas.datos} publicado={!!p.publicado_en} alGenerar={alCuadro} alVerAlertas={alCuadro} alPublicar={alCuadro} />
+      {editar && p && cuadro.datos && alertas.datos && (
+        <Pasos hay={cuadro.datos.celdas.length > 0} alertas={alertas.datos} publicado={!!p.publicado_en} alGenerar={alCuadro} alVerAlertas={() => ir(`${r}/cuadro/${p.id}?alertas`)} alPublicar={alCuadro} />
       )}
       {p && (
         <Indicadores etiqueta="Indicadores del periodo">
           <Indicador titulo="Por corregir" tono={errores ? "error" : undefined} valor={alertas.datos ? String(errores) : "…"} nota={errores ? "Alertas rojas en el cuadro" : "Sin errores en el cuadro"} />
-          <Indicador titulo="Solicitudes" tono={noCumplidas ? "aviso" : undefined} valor={solicitudes.datos ? `${noCumplidas} / ${solicitudes.datos.length}` : "…"} nota="no cumplidas este periodo" />
+          <Indicador titulo="Solicitudes" tono={noCumplidas ? "aviso" : undefined} valor={solicitudes.datos ? (solicitudes.datos.length ? `${noCumplidas} / ${solicitudes.datos.length}` : "0") : "…"} nota={solicitudes.datos?.length === 0 ? "Sin solicitudes este periodo" : "no cumplidas este periodo"} />
           <Indicador titulo="Cobertura" tono={cob && (cob.dias_deficit || cob.puestos_sin_cubrir) ? "aviso" : undefined} valor={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `${cob.dias_deficit} días` : "100 %") : "…"}
             nota={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `Con falta de personal · ${cob.puestos_sin_cubrir} puestos sin cubrir` : "Todos los puestos cubiertos") : "Calculando"} />
           <Indicador titulo="Horas extra" valor={horasExtra === null ? "…" : `${horasExtra} h`} nota={extra ? `Sobre el promedio de ${extra.ventana} semanas` : "Calculando"} />
@@ -60,8 +62,10 @@ export function Inicio() {
       )}
       <div className="grid gap-4 lg:grid-cols-2">
         <Seccion titulo="Ausentes hoy">
+          {novedades.datos && !ausentes.length ? <p className="text-sm text-tertiary">Nadie está ausente hoy.</p> : (
           <Tabla descripcion="Personas ausentes hoy" cargando={!novedades.datos && !novedades.error} vacio="Nadie está ausente hoy." columnas={["Persona", "Ausencia", "Hasta"]}
             filas={ausentes.map((n) => [nombre.get(n.colab_id) ?? `#${n.colab_id}`, <Badge size="sm" color={COLOR_AUSENCIA[n.tipo] ?? "gray"}>{n.tipo}</Badge>, fechaCorta(n.hasta)])} />
+          )}
         </Seccion>
         <Seccion titulo="Accesos rápidos">
           <ul className="-my-2 divide-y divide-secondary">
