@@ -42,6 +42,18 @@ def test_ordena_por_menos_horas_y_trae_datos():
     assert (out[1]["minutos"], out[1]["turnos_iguales"]) == (1080, 1)
 
 
+def test_prefiere_quien_no_pasa_sus_horas_de_la_semana():
+    bd = db.BD()
+    gabi = bd.guardar_colaborador(Colaborador(0, "Gabi", horas_sem=10))  # media jornada corta: con la M pasa de 10 h esa semana
+    hugo = bd.guardar_colaborador(Colaborador(0, "Hugo"))
+    ctx = bd.contexto(2026)
+    cuadro = {(gabi, DIAS[0]): "M", (hugo, DIAS[0]): "M", (hugo, DIAS[1]): "M"}
+    out = cubrir.candidatos(ctx, cuadro, DIAS, D, "M")
+    assert nombres(out) == ["Hugo", "Gabi"], out  # Gabi lleva menos horas, pero quedaría con extra
+    assert (out[1]["semana_min"], out[1]["semana_tope"]) == (720, 600)
+    assert (out[0]["semana_min"], out[0]["semana_tope"]) == (1080, 2520)
+
+
 def test_limite():
     ctx, _ = armar(*[f"P{k}" for k in range(8)])
     assert len(cubrir.candidatos(ctx, {}, DIAS, D, "M")) == 5

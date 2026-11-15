@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { leer, pedir } from "../api/cliente";
-import { mensaje } from "../api/catalogos";
+import { aHHMM, mensaje } from "../api/catalogos";
 import type { RespuestaCambio, Turno } from "../api/tipos";
 import { fechaCorta } from "./fechas";
 import { Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { NativeSelect } from "@/components/base/select/select-native";
 
-interface Candidato { colab_id: number; nombre: string; avisos: string[]; turnos_iguales: number; minutos: number }
+interface Candidato { colab_id: number; nombre: string; avisos: string[]; turnos_iguales: number; minutos: number; semana_min: number; semana_tope: number }
 
 const FRANJAS: [string, string][] = [["mañana", "M"], ["tarde", "T"], ["noche", "N"]];
 
@@ -28,6 +28,8 @@ export function QuienCubre({ area, periodo, revision, fecha, turnoInicial, ausen
   const [lista, setLista] = useState<Candidato[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [copiado, setCopiado] = useState<string | null>(null);
+  useEffect(() => setCopiado(null), [fecha, turno]);
   useEffect(() => setTurno(turnoInicial), [turnoInicial, fecha]);
   useEffect(() => {
     if (!fecha || !turno) return;
@@ -59,7 +61,13 @@ export function QuienCubre({ area, periodo, revision, fecha, turnoInicial, ausen
     }
   };
 
-  const horas = (m: number) => `${Math.round((m / 60) * 10) / 10} h`;
+  const horas = (m: number) => `${Math.round((m / 60) * 10) / 10} h`.replace(".", ",");
+  const t = turnos.find((x) => x.codigo === turno);
+  // Aviso listo para el grupo de WhatsApp del servicio: lo que antes se escribía a mano en cada ausencia.
+  const aviso = fecha && t ? `Se necesita quien cubra el turno ${t.nombre} (${aHHMM(t.inicio)} a ${aHHMM(t.fin)}) el ${fechaCorta(fecha)}. ¿Quién puede? Responde a coordinación.` : "";
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(aviso); setCopiado("Aviso copiado: pégalo en el grupo."); } catch { setCopiado("No se pudo copiar; selecciona el texto del aviso y cópialo."); }
+  };
   return (
     <Ventana abierto={!!fecha} alCambiar={(a) => !a && alCerrar()} titulo="¿Quién cubre?" bloqueado={enviando}
       descripcion={fecha ? `${ausente ? `Reemplazo de ${ausente.nombre}. ` : ""}Personas libres el ${fechaCorta(fecha)} que pueden hacer el turno sin romper reglas, de menos a más carga.` : undefined}>
@@ -76,12 +84,26 @@ export function QuienCubre({ area, periodo, revision, fecha, turnoInicial, ausen
               <div className="flex-1">
                 <p className="font-medium text-primary">{c.nombre}</p>
                 <p className="text-sm text-tertiary">{horas(c.minutos)} en el periodo · {c.turnos_iguales} {turno} ya asignados</p>
+                <p className={c.semana_min > c.semana_tope ? "text-sm text-warning-primary" : "text-sm text-tertiary"}>
+                  Esa semana: {horas(c.semana_min)} de {horas(c.semana_tope)}{c.semana_min > c.semana_tope && ` · ${horas(c.semana_min - c.semana_tope)} extra`}
+                </p>
                 {c.avisos.map((a) => <p key={a} className="text-sm text-warning-primary">{a}</p>)}
               </div>
               {puedeAsignar && <Button color="secondary" size="sm" isDisabled={enviando} onPress={() => asignar(c)}>Asignar</Button>}
             </li>
           ))}
         </ul>
+      )}
+      {aviso && (
+        <details className="border-t border-secondary pt-3 text-sm">
+          <summary className="cursor-pointer font-medium text-secondary">Pedir voluntarios por WhatsApp</summary>
+          <p className="mt-2 rounded-lg bg-secondary p-3 text-secondary select-all">{aviso}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <Button color="secondary" size="sm" onPress={copiar}>Copiar aviso</Button>
+            <a className="font-medium text-brand-secondary underline" href={`https://wa.me/?text=${encodeURIComponent(aviso)}`} target="_blank" rel="noreferrer">Abrir en WhatsApp</a>
+            {copiado && <span role="status" className="text-tertiary">{copiado}</span>}
+          </div>
+        </details>
       )}
     </Ventana>
   );
