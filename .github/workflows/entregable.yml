@@ -18,6 +18,8 @@ jobs:
       - run: cd web; npm ci; npm run build
       - run: pip install -r requirements.txt -r requirements-web.txt pyinstaller
       - name: Empaquetar
+        env:
+          PYTHONPATH: ${{ github.workspace }}  # sin esto --collect-data no ve el paquete «an» y omite sus .sql (el .exe no arranca)
         run: >-
           pyinstaller deploy/lanzar.py --paths . --noconfirm --name An --onedir --windowed
           --add-data "web/dist;web_dist"
