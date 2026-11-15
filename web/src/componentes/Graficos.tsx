@@ -66,31 +66,35 @@ export function Linea({ titulo, unidad, etiquetas, series }: { titulo: string; u
 }
 
 const DIAS_MAPA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const COLOR_MAPA = { falta: "var(--color-utility-red-500)", cubierto: "var(--color-utility-neutral-300)", vacio: "transparent" };
-const fondo = (v: number | null, max: number) => {
-  const { tono, alfa } = tonoMapa(v, max);
-  return tono === "vacio" ? "transparent" : `color-mix(in srgb, ${COLOR_MAPA[tono]} ${Math.round(25 + 75 * alfa)}%, transparent)`;
-};
+const COLOR_MAPA = { falta: "var(--color-utility-red-500)", sobra: "var(--color-utility-blue-500)", cubierto: "var(--color-utility-neutral-300)", vacio: "transparent" };
 const tramo = (t: number) => `${aHHMM(t * 30)}–${aHHMM(t * 30 + 30)}`;
-const decir = (v: number) => (tonoMapa(v, 1).tono === "falta" ? `faltan ${num(v, 1)} en promedio` : "cubierto");
 
-/** Mapa día de la semana × tramo de 30 min: personas que faltan en promedio frente a lo obligatorio (sin festivos). Rojo = falta. */
-export function Mapa({ titulo, mapa }: { titulo: string; mapa: (number | null)[][] }) {
+/** Mapa día de la semana × tramo de 30 min (sin festivos): personas que faltan en promedio frente a lo obligatorio (rojo) y las que
+ *  sobran por encima de obligatoria + deseable (azul). Cada tramo dice su cifra al pasar el mouse; el resumen nombra los peores. */
+export function Mapa({ titulo, mapa, sobra }: { titulo: string; mapa: (number | null)[][]; sobra?: (number | null)[][] }) {
   const id = useId();
+  const s = (w: number, t: number) => sobra?.[w]?.[t] ?? 0;
   const max = Math.max(0, ...mapa.flat().map((v) => v ?? 0));
-  const peores = mapa.flatMap((fila, w) => fila.map((v, t) => ({ v, w, t }))).filter((c): c is { v: number; w: number; t: number } => c.v !== null && tonoMapa(c.v, max).tono === "falta")
-    .sort((a, b) => b.v - a.v).slice(0, 3);
-  const resumen = peores.length ? `Donde más falta: ${peores.map((c) => `${DIAS_MAPA[c.w]} ${tramo(c.t)} (${decir(c.v)})`).join("; ")}.` : "En promedio no falta gente en ningún tramo.";
+  const maxS = Math.max(0, ...(sobra ?? []).flat().map((v) => v ?? 0));
+  const celdas = mapa.flatMap((fila, w) => fila.map((v, t) => ({ v, w, t, ...tonoMapa(v, max, s(w, t), maxS) })));
+  const decir = (c: { v: number | null; w: number; t: number; tono: string }) =>
+    c.tono === "falta" ? `faltan ${num(c.v ?? 0, 1)} en promedio` : c.tono === "sobra" ? `sobran ${num(s(c.w, c.t), 1)} en promedio` : "cubierto";
+  const peores = (tono: "falta" | "sobra", val: (c: (typeof celdas)[number]) => number) =>
+    celdas.filter((c) => c.tono === tono).sort((a, b) => val(b) - val(a)).slice(0, 3).map((c) => `${DIAS_MAPA[c.w]} ${tramo(c.t)} (${decir(c)})`);
+  const falta = peores("falta", (c) => c.v ?? 0), sobran = peores("sobra", (c) => s(c.w, c.t));
+  const resumen = [falta.length ? `Donde más falta: ${falta.join("; ")}.` : "En promedio no falta gente en ningún tramo.", sobran.length && `Donde más sobra: ${sobran.join("; ")}.`].filter(Boolean).join(" ");
+  const fondo = (c: (typeof celdas)[number]) => c.tono === "vacio" ? "transparent" : `color-mix(in srgb, ${COLOR_MAPA[c.tono]} ${Math.round(25 + 75 * c.alfa)}%, transparent)`;
+  const vacio = mapa.flat().every((v) => v === null);
   return (
-    <Seccion titulo={titulo} descripcion={mapa.flat().every((v) => v === null) ? undefined : <span id={id}>{resumen}</span>}>
-      {mapa.flat().every((v) => v === null) ? <Vacio>Sin datos en el rango.</Vacio> : (
+    <Seccion titulo={titulo} descripcion={vacio ? undefined : <span id={id}>{resumen}</span>}>
+      {vacio ? <Vacio>Sin datos en el rango.</Vacio> : (
         <>
           <div role="img" aria-label={titulo} aria-describedby={id} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-xs text-tertiary">
             {mapa.map((fila, w) => (
               <div key={w} className="contents">
                 <span className="self-center">{DIAS_MAPA[w]}</span>
                 <div className="grid h-4 grid-cols-[repeat(48,minmax(0,1fr))]">
-                  {fila.map((v, t) => <span key={t} title={v === null ? undefined : `${DIAS_MAPA[w]} ${tramo(t)}: ${decir(v)}`} style={{ background: fondo(v, max) }} />)}
+                  {fila.map((v, t) => { const c = celdas[w * fila.length + t]; return <span key={t} title={v === null ? undefined : `${DIAS_MAPA[w]} ${tramo(t)}: ${decir(c)}`} style={{ background: fondo(c) }} />; })}
                 </div>
               </div>
             ))}
@@ -99,6 +103,7 @@ export function Mapa({ titulo, mapa }: { titulo: string; mapa: (number | null)[]
           </div>
           <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-secondary" aria-hidden="true">
             <li className="flex items-center gap-1.5"><span className="size-2.5 rounded-xs" style={{ background: COLOR_MAPA.falta }} />Falta gente (más intenso, más falta)</li>
+            {sobra && <li className="flex items-center gap-1.5"><span className="size-2.5 rounded-xs" style={{ background: COLOR_MAPA.sobra }} />Sobra sobre obligatoria + deseable</li>}
             <li className="flex items-center gap-1.5"><span className="size-2.5 rounded-xs" style={{ background: COLOR_MAPA.cubierto }} />Cubierto</li>
             <li>Sin color: sin demanda. Los festivos no entran.</li>
           </ul>

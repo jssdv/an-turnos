@@ -496,6 +496,18 @@ def test_equidad_descuenta_dias_ausente():
     assert abs(d["A"]["noches"] - d["C"]["noches"]) < 1e-6, d  # 2 noches en 30 días = 1 en 15 disponibles
 
 
+def test_mapa_sobra_cuenta_lo_que_pasa_de_obligatoria_mas_deseable():
+    bd, i = nuevo()
+    bd.c.execute("DELETE FROM demanda")
+    bd.c.execute("INSERT INTO demanda (puesto_id, tipo_dia, inicio, fin, personas, obligatorio) VALUES (1, 'LS', 360, 720, 2, 1)")
+    bd.c.commit()
+    lunes = date(2026, 10, 5)
+    bd.guardar_cuadro(K2, {(i["A"], lunes): "M", (i["B"], lunes): "M", (i["C"], lunes): "M"})  # 3 donde piden 2
+    r = analitica.cobertura_tramos(bd, I, F)
+    assert r["mapa_sobra"][0][12] == 1 and r["mapa"][0][12] == 0, (r["mapa_sobra"][0][12], r["mapa"][0][12])
+    assert r["mapa_sobra"][1][12] == 0 and r["mapa_sobra"][0][24] is None  # martes sin gente: falta, no sobra; sin demanda: nada
+
+
 def test_mapa_promedia_faltantes_sin_festivos():
     bd, i = nuevo()
     _una_demanda(bd)

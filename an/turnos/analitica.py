@@ -110,11 +110,12 @@ def cobertura_tramos(bd, ini, fin):
     tramo antes de sumar (un tramo sobrado no tapa otro corto). Horas = personas-tramo / 2. Cobertura = 1 − faltantes /
     requeridas; eficiencia = 1 − (faltantes + sobrantes) / requeridas (sobra = por encima de obligatoria + deseable).
     `mapa`: 7 × 48 con el faltante promedio (personas bajo lo obligatorio) por día de la semana y tramo, solo en tramos
-    con demanda y sin festivos (otro tipo de día); None donde nunca hubo demanda. Promediar faltantes, no presentes −
+    con demanda y sin festivos (otro tipo de día); None donde nunca hubo demanda. `mapa_sobra`: igual, con lo que sobra
+    en promedio por encima de obligatoria + deseable (gente que podría estar donde falta). Promediar faltantes, no presentes −
     obligatorias, evita que una semana sobrada tape otra corta. Como en `faltantes_dia`, suma todos los puestos; el
     reparto por puesto se ve en «puestos sin cubrir»."""
     ctx = _ctx(bd, ini, fin)
-    suma, n = [[0] * dem.TRAMOS_DIA for _ in range(7)], [[0] * dem.TRAMOS_DIA for _ in range(7)]
+    suma, sobra_m, n = ([[0] * dem.TRAMOS_DIA for _ in range(7)] for _ in range(3))
     por_periodo = []
     for k in (k for k in bd.periodos() if _cruza(k, ini, fin)):
         a, b = flujo.desde_clave(k)
@@ -129,11 +130,13 @@ def cobertura_tramos(bd, ini, fin):
                 sobra += max(0, hay[t] - obl[t] - des[t])
                 if obl[t] and f not in ctx.fest:
                     suma[f.weekday()][t] += max(0, obl[t] - hay[t])
+                    sobra_m[f.weekday()][t] += max(0, hay[t] - obl[t] - des[t])
                     n[f.weekday()][t] += 1
         por_periodo.append({"periodo": k, "horas_requeridas": req / 2, "horas_faltantes": falta / 2, "horas_sobrantes": sobra / 2, **_pcts(req, falta, sobra)})
     req, falta, sobra = (sum(p[c] for p in por_periodo) for c in ("horas_requeridas", "horas_faltantes", "horas_sobrantes"))
     return {"horas_requeridas": req, "horas_faltantes": falta, "horas_sobrantes": sobra, **_pcts(req, falta, sobra),
             "mapa": [[round(suma[w][t] / n[w][t], 2) if n[w][t] else None for t in range(dem.TRAMOS_DIA)] for w in range(7)],
+            "mapa_sobra": [[round(sobra_m[w][t] / n[w][t], 2) if n[w][t] else None for t in range(dem.TRAMOS_DIA)] for w in range(7)],
             "por_periodo": por_periodo}
 
 
