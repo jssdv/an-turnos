@@ -40,13 +40,15 @@ export function Inicio() {
   const cob = resumen.datos?.cobertura[0], extra = resumen.datos?.horas_extra[0];
   const horasExtra = extra ? Math.round(extra.semanas.diurna + extra.semanas.nocturna) : null;
   const alCuadro = () => ir(`${r}/cuadro${p ? `/${p.id}` : ""}`);
-  const accesos: [string, string, FC<{ className?: string }>][] = [["Registrar ausencia", "novedades?nueva", CalendarMinus01], ["Nueva solicitud", "solicitudes?nueva", Inbox01], ["Descargar reportes", "reportes", FileDownload02]];
+  const editar = area.permiso === "editar";  // quien solo consulta no registra ni genera: sin pasos ni accesos de edición, como en el cuadro
+  const accesos = ([["Registrar ausencia", "novedades?nueva", CalendarMinus01], ["Nueva solicitud", "solicitudes?nueva", Inbox01], ["Descargar reportes", "reportes", FileDownload02]] as [string, string, FC<{ className?: string }>][])
+    .filter(([, ruta]) => editar || !ruta.endsWith("?nueva"));
 
   return (
     <Pagina titulo="Inicio" sub={`Hola, ${usuario?.nombre?.split(" ")[0] ?? ""}${p ? ` · periodo ${nombrePeriodo(p.clave)}` : ""}`}
       filtros={<Button color="primary" size="sm" iconLeading={Calendar} onPress={alCuadro}>Ir al cuadro</Button>} error={periodos.error}>
       {periodos.datos && !p && <Seccion><p className="text-tertiary">Esta área aún no tiene periodos. Créalo desde «Cuadro de turnos» con «Nuevo periodo».</p></Seccion>}
-      {p && cuadro.datos && alertas.datos && (
+      {editar && p && cuadro.datos && alertas.datos && (
         <Pasos hay={cuadro.datos.celdas.length > 0} alertas={alertas.datos} publicado={!!p.publicado_en} alGenerar={alCuadro} alVerAlertas={() => ir(`${r}/cuadro/${p.id}?alertas`)} alPublicar={alCuadro} />
       )}
       {p && (
