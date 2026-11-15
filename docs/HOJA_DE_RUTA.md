@@ -17,8 +17,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 | Etapa | Idea | Notas |
 |---|---|---|
-| Interfaz más ágil | Rehacer (Ctrl+Y), mover un turno a una celda libre sin intercambiar, vista por semana | Arrastrar, lote, deshacer y estudio ya están; ver [inspiración](ARQUITECTURA.md#interfaz-y-tecnología) |
-| Importar el Excel actual | Cargar personal y ciclos desde `TURNOS ESTERILIZACION*.xlsx` | Evita digitar a mano la primera vez. Falta un archivo de muestra (anonimizado) para fijar el formato |
+| Interfaz más ágil | Mover un turno a una celda libre sin intercambiar | Arrastrar, lote, Ctrl+Z/Ctrl+Y, vista por semana y estudio ya están; ver [inspiración](ARQUITECTURA.md#interfaz-y-tecnología) |
+| Importar el Excel actual | Cargar los ciclos desde `TURNOS ESTERILIZACION*.xlsx` | El personal ya se pega desde Excel («Pegar lista» en Personal). Para los ciclos falta un archivo de muestra (anonimizado) |
 | Solicitudes | Que la coordinación registre «quiero este turno» y el solver lo tome como deseo | Los cambios y permutas ya se registran; falta esta pieza |
 | Pausas en cobertura | Que el solver reserve relevos de almuerzo por puesto | Hoy solo se asignan grupos de pausa |
 | Refuerzo y practicantes | Modelar su horario fijo y que cubran ropa | Hoy quedan fuera del solver |
@@ -30,6 +30,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 ## Hecho recientemente
 
+Ctrl+Z/Ctrl+Y y vista por semana en el cuadro, «Respaldar ahora» en Áreas, «Pegar lista» de personal desde Excel, filtros en Ausencias y el .exe de Windows arrancando de nuevo (15/11/2026).
+
 Excel del banco de horas, agendas `.ics` e impresión por persona, y «¿Quién cubre?» para reemplazos (13/11/2026).
 
 Cambios de turno registrados: permutas con límite por persona y periodo, cambios por necesidad del servicio y ajustes, con auditoría y anulación (diseño: spec, plan: plan).
@@ -39,7 +41,7 @@ Puestos editables con demanda por tramos, cobertura derivada, reparto por tramo 
 ## Siguientes (en orden de valor)
 
 1. **Probar la web en el navegador del PC de la clínica.**
-2. **Copia de seguridad y restauración** de `turnos.db`.
+2. **Restaurar** un respaldo desde la app (hoy: copiar a mano la carpeta; respaldar ya se hace desde Áreas).
 3. **Registro de cambios** (quién, cuándo y por qué) en ediciones y cierres.
 4. **Sugerir turnos** para ventanas que ningún turno del catálogo cubre.
 5. Solicitudes y permutas con aprobación; importar el Excel actual.
