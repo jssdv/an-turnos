@@ -109,6 +109,8 @@ def test_reglas():
     assert ctx.bloqueo(r, ctx.turnos["M"], lunes) == "estudio"
     assert ctx.bloqueo(r, ctx.turnos["T"], lunes) is None
     assert ctx.bloqueo(a, ctx.turnos["C"], date(2026, 10, 18)) == "turno no permitido en domingo/festivo"
+    textos = lambda cod: [x.texto for x in reglas.validar(ctx, {(r.id, lunes): cod}, [lunes]) if x.colab_id == r.id]
+    assert "R: NC no está entre sus turnos" in textos("NC") and "R: M durante estudio" in textos("M")
     assert reglas.validar_catalogo(ctx.turnos)  # C y NC sin pausa → aviso
 
 
