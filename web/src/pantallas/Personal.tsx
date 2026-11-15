@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router";
 import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
-import { Plus, Trash01 } from "@untitledui/icons";
+import { Plus, SearchLg, Trash01 } from "@untitledui/icons";
 import { Estado, Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Grupo, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
@@ -31,6 +31,8 @@ export function Personal() {
   const [sel, setSel] = useState<number | null>(null);
   const [b, setB] = useState<Borrador | null>(null);
   const [verInactivos, setVerInactivos] = useState(false);
+  const [buscar, setBuscar] = useState("");
+  const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase(); // «jose» encuentra a «José»
   const editar = area.permiso === "editar";
   const actual = b ?? vacio(turnos, puestos);
 
@@ -61,13 +63,13 @@ export function Personal() {
   return (
     <Pagina titulo="Personal"
       acciones={editar && <Pista texto="Agrega a alguien al área: horas, turnos y puestos que puede cubrir."><Button color="primary" size="sm" iconLeading={Plus} onPress={() => { nuevo(); setVentana(true); }}>Agregar persona</Button></Pista>} sub="Las personas que entran al cuadro y qué turnos y puestos pueden cubrir." ayuda={<><strong>Horas por semana</strong> es lo contratado (42 h por defecto). <strong>Dedicación</strong> es el porcentaje de jornada: 100 % es tiempo completo, 50 % media jornada. Marca solo los turnos y puestos que la persona sabe hacer; el sistema no le asignará otros. Quien deja el área se marca como inactiva en lugar de borrarse, para conservar su historial.</>} error={lista.error ?? turnosL.error ?? puestosL.error} aviso={aviso}>
-      <Seccion titulo="Colaboradores" acciones={<Checkbox label="Mostrar inactivos" isSelected={verInactivos} onChange={(x) => setVerInactivos(x)} />}>
+      <Seccion titulo="Colaboradores" acciones={<div className="flex items-center gap-4"><Input className="w-56" size="sm" type="search" icon={SearchLg} placeholder="Buscar persona" value={buscar} onChange={setBuscar} /><Checkbox label="Mostrar inactivos" isSelected={verInactivos} onChange={(x) => setVerInactivos(x)} /></div>}>
         <Tabla
           descripcion="Personal del área"
           cargando={!lista.datos && !lista.error}
-          vacio="Aún no hay personal. Agrega a la primera persona abajo."
+          vacio={buscar ? `Nadie coincide con «${buscar}».` : "Aún no hay personal. Agrega a la primera persona con «Agregar persona»."}
           columnas={["Nombre", "Tipo", "Horas/sem", "Dedicación", "Estado", ""]}
-          filas={(lista.datos ?? []).filter((p) => p.activo || verInactivos).map((p) => [
+          filas={(lista.datos ?? []).filter((p) => (p.activo || verInactivos) && sinTildes(p.nombre).includes(sinTildes(buscar.trim()))).map((p) => [
             p.nombre, p.tipo, p.horas_sem, `${Math.round(p.pct * 100)} %`, <Estado tono={p.activo ? "ok" : "neutro"}>{p.activo ? "Activo" : "Inactivo"}</Estado>,
             editar ? <Button color="link-color" size="sm" onPress={() => { elegir(p); setVentana(true); }} >Editar</Button> : null,
           ])}

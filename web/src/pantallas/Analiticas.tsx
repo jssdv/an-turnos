@@ -4,7 +4,7 @@ import { usar } from "../api/catalogos";
 import type { Area } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Indicador, Indicadores, Pagina, Seccion } from "./comun";
-import { fechaCorta, nombrePeriodo } from "./fechas";
+import { fechaCorta, nombrePeriodo, num } from "./fechas";
 import { Input } from "@/components/base/input/input";
 
 interface Datos {
@@ -33,7 +33,7 @@ function Barras({ titulo, unidad, datos }: { titulo: string; unidad: string; dat
             <li key={p} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs">
               <span className="truncate font-medium text-secondary">{p}</span>
               <span className="h-2.5 rounded-xs bg-secondary"><span className="block h-full rounded-xs bg-brand-600" style={{ width: `${(v / max) * 100}%` }} /></span>
-              <span className="text-tertiary tabular-nums">{v} {unidad}</span>
+              <span className="text-tertiary tabular-nums">{num(v, 1)} {unidad}</span>
             </li>
           ))}
         </ul>
@@ -51,7 +51,6 @@ export function Analiticas() {
   const ok = desde && hasta && desde <= hasta;
   const r = usar<Datos>(ok ? `/api/areas/${area.id}/analiticas?desde=${desde}-01&hasta=${ultimoDia(hasta)}` : null);
   const d = r.datos;
-  const n = (x: number) => (Math.round(x * 100) / 100).toString();
   const total = useMemo(() => d && {
     deficit: d.cobertura.reduce((s, c) => s + c.dias_deficit, 0),
     cambios: Object.values(d.cambios).reduce((s, c) => s + c.permuta + c.servicio + c.ajuste, 0),
@@ -68,14 +67,14 @@ export function Analiticas() {
       {!d || !total ? <p aria-busy="true">Cargando…</p> : (
         <>
           <Indicadores etiqueta="Resumen">
-            <Indicador titulo="Ausentismo" valor={`${n(d.ausentismo.pct)} %`} nota={`${total.ausencias} días de ausencia`} />
+            <Indicador titulo="Ausentismo" valor={`${num(d.ausentismo.pct)} %`} nota={`${total.ausencias} días de ausencia`} />
             <Indicador titulo="Ausentes a la vez (máximo)" valor={String(d.simultaneos.maximo)} nota={d.simultaneos.fecha_maximo ? `El ${fechaCorta(d.simultaneos.fecha_maximo)}` : "Sin ausencias simultáneas"} />
             <Indicador titulo="Días con déficit" valor={String(total.deficit)} nota={`${d.simultaneos.dias_riesgo.length} con ausentes en riesgo`} />
             <Indicador titulo="Cambios de turno" valor={String(total.cambios)} nota={`${total.excepciones} con excepción`} />
           </Indicadores>
           <div className="grid gap-4 lg:grid-cols-2">
             <Barras titulo="Equidad de domingos y festivos" unidad="días" datos={Object.entries(d.equidad.por_persona).map(([p, o]) => [p, o.domingos + o.festivos])} />
-            <Barras titulo="Recargos por persona" unidad="h equivalentes" datos={Object.entries(d.recargos).map(([p, r2]) => [p, Math.round(r2.equivalentes * 10) / 10])} />
+            <Barras titulo="Recargos por persona" unidad="h equivalentes" datos={Object.entries(d.recargos).map(([p, r2]) => [p, r2.equivalentes])} />
           </div>
           <Seccion titulo="Ausentismo por persona (días)">
             <Tabla descripcion="Ausencias por persona" vacio="Sin ausencias en el rango." columnas={["Persona", "Total", ...TIPOS]}
@@ -91,11 +90,11 @@ export function Analiticas() {
           </Seccion>
           <Seccion titulo="Horas extra por periodo">
             <Tabla descripcion="Horas extra" vacio="Sin periodos en el rango." columnas={["Periodo", "Ventana (sem.)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (ventana)", "Nocturnas (ventana)"]}
-              filas={d.horas_extra.map((h) => [nombrePeriodo(h.periodo), h.ventana, n(h.mes.diurna), n(h.mes.nocturna), n(h.semanas.diurna), n(h.semanas.nocturna)])} />
+              filas={d.horas_extra.map((h) => [nombrePeriodo(h.periodo), h.ventana, num(h.mes.diurna), num(h.mes.nocturna), num(h.semanas.diurna), num(h.semanas.nocturna)])} />
           </Seccion>
           <Seccion titulo="Recargos (horas)">
             <Tabla descripcion="Recargos por persona" vacio="Sin recargos en el rango." columnas={["Persona", "Dominical/festivo", "Nocturno", "Equivalentes"]}
-              filas={Object.entries(d.recargos).sort().map(([p, r2]) => [p, n(r2.festivo), n(r2.nocturna), n(r2.equivalentes)])} />
+              filas={Object.entries(d.recargos).sort().map(([p, r2]) => [p, num(r2.festivo), num(r2.nocturna), num(r2.equivalentes)])} />
           </Seccion>
           <Seccion titulo="Equidad">
             <p>Diferencia entre quien más y quien menos tiene: {d.equidad.dispersion.noches} noches, {d.equidad.dispersion.domingos} domingos, {d.equidad.dispersion.festivos} festivos.</p>
@@ -104,7 +103,7 @@ export function Analiticas() {
           </Seccion>
           <Seccion titulo="Banco de horas (saldo al final del rango)">
             <Tabla descripcion="Saldos del banco" vacio="Sin saldos." columnas={["Persona", "Saldo (h)"]}
-              filas={Object.entries(d.banco.saldos).sort().map(([p, s]) => [p, n(s)])} />
+              filas={Object.entries(d.banco.saldos).sort().map(([p, s]) => [p, num(s)])} />
           </Seccion>
         </>
       )}

@@ -9,7 +9,7 @@ import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
 import { Tabla } from "../componentes/Tabla";
 import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
-import { dias as diasDe, fechaCorta, nombrePeriodo } from "./fechas";
+import { dias as diasDe, fechaCorta, nombrePeriodo, num } from "./fechas";
 import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
 import { RegistrarCambio, esCorrido, sinCupo } from "./RegistrarCambio";
@@ -317,7 +317,7 @@ export function Cuadro() {
                 const h = vista.horas.get(c.id);
                 return { id: c.id, nombre: c.nombre, extra: h ? h.trabajadas : "", extraAlto: !!h && h.trabajadas > h.contratadas };
               })}
-              semanal={(id, lunes) => { const v = vista.horas.get(id)?.semanas[lunes]; return v ? Math.round(v * 10) / 10 : ""; }}
+              semanal={(id, lunes) => { const v = vista.horas.get(id)?.semanas[lunes]; return v ? num(v, 1) : ""; }}
               foco={foco}
               editable={puedeEditar ? editable : undefined}
               alAccionar={accionar}

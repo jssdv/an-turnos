@@ -26,6 +26,8 @@ export function dias(clave: string, festivos: Record<string, string> = {}): DiaC
 }
 
 const fmt = (iso: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("es-CO", { timeZone: "UTC", ...o }).format(aUTC(iso));
+/** Número con coma decimal (es-CO) y a lo sumo `dec` decimales: 35,5 · 0,07. */
+export const num = (x: number, dec = 2) => x.toLocaleString("es-CO", { maximumFractionDigits: dec });
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** «Octubre 2026» si el periodo es un mes calendario; si no, «5 oct – 4 nov 2026». */
