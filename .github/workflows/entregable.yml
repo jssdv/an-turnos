@@ -18,11 +18,12 @@ jobs:
       - run: cd web; npm ci; npm run build
       - run: pip install -r requirements.txt -r requirements-web.txt pyinstaller
       - name: Empaquetar
+        env:
+          PYTHONPATH: ${{ github.workspace }}  # sin esto --collect-data no ve el paquete «an» y omite sus .sql (el .exe no arranca)
         run: >-
           pyinstaller deploy/lanzar.py --paths . --noconfirm --name An --onedir --windowed
           --add-data "web/dist;web_dist"
-          --add-data "an/web/esquema_sqlite.sql;an/web"
-          --add-data "an/web/migraciones_sqlite;an/web/migraciones_sqlite"
+          --collect-data an
           --collect-all ortools
           --collect-submodules uvicorn --collect-submodules an
       - name: Prueba de humo (arranca, sirve el front y la API, y la base queda en disco)
@@ -36,6 +37,7 @@ jobs:
             try { Invoke-WebRequest http://localhost:8765/api/areas -UseBasicParsing | Out-Null } catch { if ($_.Exception.Response.StatusCode -eq 401) { $ok = $true; break } }
           }
           Stop-Process $p -Force
+          Get-ChildItem $env:AN_DATOS -ErrorAction SilentlyContinue
           Get-Content "$env:AN_DATOS\an.log" -ErrorAction SilentlyContinue | Select-Object -First 60
           if (-not $ok) { throw "El ejecutable no respondió" }
           if (-not (Test-Path "$env:AN_DATOS\an.db")) { throw "No se creó la base" }
