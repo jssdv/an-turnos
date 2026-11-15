@@ -364,7 +364,7 @@ def test_cobertura_tramos_horas_y_porcentajes():
     r = analitica.cobertura_tramos(bd, I, F)
     assert (r["horas_requeridas"], r["horas_faltantes"], r["horas_sobrantes"]) == (72, 60, 6), r
     assert abs(r["cobertura_pct"] - (1 - 60 / 72) * 100) < 1e-6 and abs(r["eficiencia_pct"] - (1 - 66 / 72) * 100) < 1e-6, r
-    assert r["mapa"][0][12] == 0 and r["mapa"][1][12] == -2 and r["mapa"][0][24] == 1, (r["mapa"][0][12], r["mapa"][1][12], r["mapa"][0][24])
+    assert r["mapa"][0][12] == 0 and r["mapa"][1][12] == 2 and r["mapa"][0][24] is None, (r["mapa"][0][12], r["mapa"][1][12], r["mapa"][0][24])
     assert r["mapa"][6][12] is None  # domingo sin demanda ni gente
     assert r["por_periodo"] == [{"periodo": K2, "horas_requeridas": 72, "horas_faltantes": 60, "horas_sobrantes": 6}], r["por_periodo"]
 
@@ -426,7 +426,105 @@ def test_solicitudes_resumen():
     assert r["por_persona"]["A"] == {"pedidas": 2, "cumplidas": 0, "parciales": 0, "no_cumplidas": 2, "tasa": 0}, r
     assert r["por_persona"]["B"]["tasa"] == 100 and r["tasa"] == 50, r
     assert r["por_tipo"] == {"libre": {"pedidas": 2, "cumplidas": 1}, "evitar": {"pedidas": 1, "cumplidas": 0}, "quiero": {"pedidas": 1, "cumplidas": 1}}, r
-    assert analitica.solicitudes_resumen(db.BD(), I, F) == {"por_persona": {}, "por_tipo": {}, "tasa": None}
+    assert analitica.solicitudes_resumen(db.BD(), I, F) == {"por_persona": {}, "por_tipo": {}, "rango_tasa": None, "tasa": None}
+
+
+# --- v3: planificación ----------------------------------------------------------------------------
+def test_pronostico_ausencias():
+    bd, i = nuevo()
+    bd.guardar_novedad(Novedad(i["A"], "Vacaciones", date(2025, 11, 1), date(2025, 11, 10)))  # mismo mes del año pasado: 10
+    for mes, n in ((8, 3), (9, 6), (10, 9)):                                                   # últimos 3 meses: media 6
+        bd.guardar_novedad(Novedad(i["B"], "Incapacidad", date(2026, mes, 1), date(2026, mes, n)))
+    r = analitica.pronostico_ausencias(bd, F)
+    assert len(r["serie"]) == 12 and r["serie"][-1] == ("2026-10", 9) and r["serie"][0] == ("2025-11", 10), r["serie"]
+    assert (r["siguiente"], r["mismo_mes_anterior"], r["media_3"], r["estimado"]) == ("2026-11", 10, 6, 8), r
+
+
+def test_corridas():
+    def f(h):
+        return datetime(2026, 10, 1, 8, 0) + timedelta(seconds=h)
+    filas = [{"periodo": K2, "estado": "fallido", "creado": f(0), "terminado": f(5), "resultado": None},
+             {"periodo": K2, "estado": "listo", "creado": f(10), "terminado": f(40), "resultado": {"faltan": [["2026-10-05", "06:00", 1]], "solicitudes": [{"id": 1}]}},
+             {"periodo": K2, "estado": "listo", "creado": f(50), "terminado": f(60), "resultado": {"faltan": [], "solicitudes": [{"id": 1}, {"id": 2}]}},
+             {"periodo": K2, "estado": "corriendo", "creado": f(70), "terminado": None, "resultado": None},
+             {"periodo": K2, "estado": "cancelado", "creado": f(75), "terminado": f(900), "resultado": None}]  # ni en la mediana ni en el %
+    assert analitica.corridas(filas) == [{"periodo": K2, "corridas": 5, "terminadas_bien": 2, "pct_bien": 66.7, "mediana_seg": 10.0,
+                                          "faltan_ultima": 0, "solicitudes_ultima": 2}]
+    assert analitica.corridas([]) == []
+
+
+def test_proximo_recargo():
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)
+    fest = sum(r["festivo"] for r in analitica.recargos_resumen(bd, I, F).values())
+    r = analitica.proximo_recargo(bd, date(2026, 11, 15), I, F)
+    assert (r["desde"], r["actual"], r["nuevo"]) == (date(2027, 7, 1), 90, 100), r
+    assert abs(r["horas_mes"] - round(fest / (31 / 30.44) * 0.10, 2)) < 1e-6 and fest > 0, (r, fest)  # octubre: 31 días
+    assert analitica.proximo_recargo(bd, date(2028, 1, 1), I, F) is None  # sin cambios por delante
+
+
+# --- revisión de v3 --------------------------------------------------------------------------------
+def test_proximo_recargo_promedia_sobre_los_dias_con_cuadro():
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)
+    todo = (date(2026, 1, 1), date(2026, 12, 31))  # solo octubre tiene cuadro: no dividir por 12
+    fest = sum(r["festivo"] for r in analitica.recargos_resumen(bd, *todo).values())
+    r = analitica.proximo_recargo(bd, date(2026, 11, 15), *todo)
+    assert abs(r["horas_mes"] - round(fest / (31 / 30.44) * 0.10, 2)) < 1e-6, (r, fest)
+
+
+def test_pronostico_sin_historial_usa_media_3():
+    bd, i = nuevo()
+    for mes in (8, 9, 10):
+        bd.guardar_novedad(Novedad(i["B"], "Incapacidad", date(2026, mes, 1), date(2026, mes, 6)))
+    r = analitica.pronostico_ausencias(bd, F)
+    assert r["estimado"] == 6 and r["base"] == "media_3", r
+
+
+def test_pronostico_no_usa_el_mes_en_curso():
+    bd, _ = nuevo()
+    r = analitica.pronostico_ausencias(bd, F, hoy=date(2026, 10, 15))
+    assert r["serie"][-1][0] == "2026-09" and r["siguiente"] == "2026-10", r
+
+
+def test_equidad_descuenta_dias_ausente():
+    bd, i = nuevo()
+    bd.guardar_novedad(Novedad(i["C"], "Incapacidad", date(2026, 10, 16), date(2026, 10, 30)))  # la mitad de 30 días
+    bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, 5)): "NC", (i["A"], date(2026, 10, 20)): "NC", (i["C"], date(2026, 10, 5)): "NC"})
+    d = analitica.equidad(bd, I, date(2026, 10, 30))["desviacion"]
+    assert abs(d["A"]["noches"] - d["C"]["noches"]) < 1e-6, d  # 2 noches en 30 días = 1 en 15 disponibles
+
+
+def test_mapa_promedia_faltantes_sin_festivos():
+    bd, i = nuevo()
+    _una_demanda(bd)
+    c = {(i["A"], date(2026, 10, 5)): "M"}                                          # lunes 5: falta 1
+    c.update({(i[n], date(2026, 10, 12)): "M" for n in "ABC"})                      # lunes 12 festivo: no entra
+    c.update({(i[n], date(2026, 10, d)): "M" for n in "AC" for d in (19, 26)})       # lunes 19 y 26: justo
+    bd.guardar_cuadro(KO, c)
+    assert analitica.cobertura_tramos(bd, I, F)["mapa"][0][12] == round(1 / 3, 2)
+
+
+def test_cobertura_recorta_al_rango():
+    bd, i = nuevo()
+    _una_demanda(bd)
+    bd.guardar_cuadro(K2, {(i["A"], date(2026, 10, 7)): "M"})  # lunes a sábado con déficit
+    assert analitica.cobertura(bd, date(2026, 10, 5), date(2026, 10, 6))[0]["dias_deficit"] == 2
+
+
+def test_solicitudes_rango_de_tasas():
+    from an.turnos.dominio import Solicitud
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)
+    bd.guardar_solicitud(Solicitud(i["A"], "libre", date(2026, 10, 5), date(2026, 10, 5)))
+    bd.guardar_solicitud(Solicitud(i["B"], "libre", date(2026, 10, 7), date(2026, 10, 7)))
+    assert analitica.solicitudes_resumen(bd, I, F)["rango_tasa"] == 100
+
+
+def test_equidad_festivos_en_rango_largo():
+    bd, i = nuevo()
+    bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, 12)): "M"})  # festivo de 2026 con un rango que empieza en 2022
+    assert analitica.equidad(bd, date(2022, 1, 1), F)["por_persona"]["A"]["festivos"] == 1
 
 
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:

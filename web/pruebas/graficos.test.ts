@@ -11,10 +11,11 @@ test("un punto con máximo 0 no da NaN", () => {
   assert.equal(trazo([3], 100, 50, 0), "M0,50");
 });
 
-test("tonoMapa: rojo si falta, azul si sobra, gris justo, nada sin dato", () => {
-  assert.deepEqual(tonoMapa(-2, 2), { tono: "falta", alfa: 1 });
-  assert.deepEqual(tonoMapa(1, 2), { tono: "sobra", alfa: 0.5 });
-  assert.deepEqual(tonoMapa(0, 2), { tono: "justo", alfa: 1 });
+test("tonoMapa: rojo según el faltante, gris si está cubierto, nada sin demanda", () => {
+  assert.deepEqual(tonoMapa(2, 2), { tono: "falta", alfa: 1 });
+  assert.deepEqual(tonoMapa(1, 2), { tono: "falta", alfa: 0.5 });
+  assert.deepEqual(tonoMapa(0, 2), { tono: "cubierto", alfa: 1 });
+  assert.deepEqual(tonoMapa(0.01, 2), { tono: "cubierto", alfa: 1 });  // menos de 0,05 personas: cubierto, no «faltan 0»
   assert.deepEqual(tonoMapa(null, 2), { tono: "vacio", alfa: 0 });
-  assert.deepEqual(tonoMapa(-0.1, 0), { tono: "falta", alfa: 1 });  // sin máximo no divide por cero
+  assert.deepEqual(tonoMapa(0.5, 0), { tono: "falta", alfa: 1 });  // sin máximo no divide por cero
 });

@@ -5,9 +5,9 @@ export function trazo(valores: number[], ancho: number, alto: number, max: numbe
   return valores.map((v, i) => `${i ? "L" : "M"}${+(i * paso).toFixed(1)},${+y(v).toFixed(1)}`).join(" ");
 }
 
-/** Color de una celda del mapa de cobertura: `v` = presentes − obligatorias (promedio); intensidad relativa a `max` (el |v| más alto). */
-export function tonoMapa(v: number | null, max: number): { tono: "falta" | "sobra" | "justo" | "vacio"; alfa: number } {
+/** Color de una celda del mapa de cobertura: `v` = personas que faltan en promedio (≥ 0); intensidad relativa a `max` (el más alto). Menos de 0,05 cuenta como cubierto. */
+export function tonoMapa(v: number | null, max: number): { tono: "falta" | "cubierto" | "vacio"; alfa: number } {
   if (v === null) return { tono: "vacio", alfa: 0 };
-  if (v === 0) return { tono: "justo", alfa: 1 };
-  return { tono: v < 0 ? "falta" : "sobra", alfa: max > 0 ? Math.min(1, Math.abs(v) / max) : 1 };
+  if (v < 0.05) return { tono: "cubierto", alfa: 1 };
+  return { tono: "falta", alfa: max > 0 ? Math.min(1, v / max) : 1 };
 }

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Seccion } from "../pantallas/comun";
 import { num } from "../pantallas/fechas";
 import { aHHMM } from "../api/catalogos";
@@ -66,26 +67,27 @@ export function Linea({ titulo, unidad, etiquetas, series }: { titulo: string; u
 }
 
 const DIAS_MAPA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const COLOR_MAPA = { falta: "var(--color-utility-red-500)", sobra: "var(--color-utility-blue-500)", justo: "var(--color-utility-neutral-300)", vacio: "transparent" };
+const COLOR_MAPA = { falta: "var(--color-utility-red-500)", cubierto: "var(--color-utility-neutral-300)", vacio: "transparent" };
 const fondo = (v: number | null, max: number) => {
   const { tono, alfa } = tonoMapa(v, max);
   return tono === "vacio" ? "transparent" : `color-mix(in srgb, ${COLOR_MAPA[tono]} ${Math.round(25 + 75 * alfa)}%, transparent)`;
 };
 const tramo = (t: number) => `${aHHMM(t * 30)}–${aHHMM(t * 30 + 30)}`;
-const decir = (v: number) => (v < 0 ? `faltan ${num(-v, 1)}` : v > 0 ? `sobran ${num(v, 1)}` : "justo");
+const decir = (v: number) => (tonoMapa(v, 1).tono === "falta" ? `faltan ${num(v, 1)} en promedio` : "cubierto");
 
-/** Mapa día de la semana × tramo de 30 min: promedio de presentes − obligatorias. Rojo falta, azul sobra, gris justo. */
+/** Mapa día de la semana × tramo de 30 min: personas que faltan en promedio frente a lo obligatorio (sin festivos). Rojo = falta. */
 export function Mapa({ titulo, mapa }: { titulo: string; mapa: (number | null)[][] }) {
-  const max = Math.max(0, ...mapa.flat().map((v) => Math.abs(v ?? 0)));
-  const peores = mapa.flatMap((fila, w) => fila.map((v, t) => ({ v, w, t }))).filter((c): c is { v: number; w: number; t: number } => c.v !== null && c.v < 0)
-    .sort((a, b) => a.v - b.v).slice(0, 3);
-  const resumen = peores.length ? `Tramos más cortos: ${peores.map((c) => `${DIAS_MAPA[c.w]} ${tramo(c.t)} (${decir(c.v)})`).join("; ")}.` : "Ningún tramo queda corto en promedio.";
+  const id = useId();
+  const max = Math.max(0, ...mapa.flat().map((v) => v ?? 0));
+  const peores = mapa.flatMap((fila, w) => fila.map((v, t) => ({ v, w, t }))).filter((c): c is { v: number; w: number; t: number } => c.v !== null && tonoMapa(c.v, max).tono === "falta")
+    .sort((a, b) => b.v - a.v).slice(0, 3);
+  const resumen = peores.length ? `Donde más falta: ${peores.map((c) => `${DIAS_MAPA[c.w]} ${tramo(c.t)} (${decir(c.v)})`).join("; ")}.` : "En promedio no falta gente en ningún tramo.";
   return (
     <Seccion titulo={titulo}>
       {mapa.flat().every((v) => v === null) ? <p className="text-tertiary">Sin datos en el rango.</p> : (
         <>
-          <p className="mb-3 text-sm text-tertiary">{resumen}</p>
-          <div role="img" aria-label={`${titulo}. ${resumen}`} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-xs text-tertiary">
+          <p id={id} className="mb-3 text-sm text-tertiary">{resumen}</p>
+          <div role="img" aria-label={titulo} aria-describedby={id} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-xs text-tertiary">
             {mapa.map((fila, w) => (
               <div key={w} className="contents">
                 <span className="self-center">{DIAS_MAPA[w]}</span>
@@ -98,9 +100,9 @@ export function Mapa({ titulo, mapa }: { titulo: string; mapa: (number | null)[]
             <div className="flex justify-between" aria-hidden="true">{["00:00", "06:00", "12:00", "18:00", "24:00"].map((h) => <span key={h}>{h}</span>)}</div>
           </div>
           <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-secondary" aria-hidden="true">
-            {(["falta", "justo", "sobra"] as const).map((t) => (
-              <li key={t} className="flex items-center gap-1.5"><span className="size-2.5 rounded-xs" style={{ background: COLOR_MAPA[t] }} />{{ falta: "Falta gente", justo: "Justo", sobra: "Sobra gente" }[t]}</li>
-            ))}
+            <li className="flex items-center gap-1.5"><span className="size-2.5 rounded-xs" style={{ background: COLOR_MAPA.falta }} />Falta gente (más intenso, más falta)</li>
+            <li className="flex items-center gap-1.5"><span className="size-2.5 rounded-xs" style={{ background: COLOR_MAPA.cubierto }} />Cubierto</li>
+            <li>Sin color: sin demanda. Los festivos no entran.</li>
           </ul>
         </>
       )}
@@ -115,7 +117,7 @@ export function Divergente({ titulo, unidad, datos }: { titulo: string; unidad: 
   const max = Math.max(0.0001, ...filas.map(([, v]) => Math.abs(v)));
   return (
     <Seccion titulo={titulo}>
-      {!filas.length ? <p className="text-tertiary">Sin datos en el rango.</p> : (
+      {!filas.length ? <p className="text-tertiary">{datos.length ? "Todos están en la media del equipo." : "Sin datos en el rango."}</p> : (
         <ul className="flex flex-col gap-2" aria-label={titulo}>
           {filas.map(([p, v]) => (
             <li key={p} className="grid grid-cols-[minmax(0,8rem)_1fr_1fr_auto] items-center gap-x-1 text-xs">
