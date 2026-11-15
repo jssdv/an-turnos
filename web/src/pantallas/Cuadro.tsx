@@ -383,9 +383,14 @@ export function Cuadro() {
                     <details key={nivel} className="mt-3 [&>summary]:cursor-pointer [&>summary]:py-1.5" open={nivel === "error" || (nivel === "aviso" && !filtradas.some((a) => a.nivel === "error"))}>
                       <summary className={cx("font-mono text-xs font-semibold tracking-wide uppercase", color)}>{titulo} · {grupo.length}</summary>
                       <ul className="">
-                        {grupo.map(({ alerta: a, veces }) => (
+                        {grupo.map(({ alerta: a, veces, regla, quienes }) => (
                           <li key={a.texto} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-secondary text-sm ${info ? "py-1 text-tertiary" : "py-2 text-primary"}`}>
-                            <span className="w-full">{a.texto}{veces > 1 && <span className="text-tertiary"> (×{veces})</span>}</span>
+                            {regla && quienes.length > 1 ? (
+                              <details className="w-full">
+                                <summary className="cursor-pointer">{regla.charAt(0).toUpperCase() + regla.slice(1)} <span className="text-tertiary">({quienes.length} personas)</span></summary>
+                                <p className="mt-1 text-xs text-tertiary">{quienes.join(", ")}</p>
+                              </details>
+                            ) : <span className="w-full">{a.texto}{veces > 1 && <span className="text-tertiary"> (×{veces})</span>}</span>}
                             {(() => {
                               // Faltante del día, o turno que quedó sobre una novedad (ausencia registrada después de generar)
                               if (a.nivel !== "error" || !a.fecha || !actual || actual.cerrado_en || version !== "cambios" || !vista) return null;

@@ -194,12 +194,15 @@ export function useVentanaNueva(permitida: boolean) {
 /** Para buscar sin importar tildes ni mayúsculas: «jose» encuentra a «José». */
 export const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
-/** Junta alertas de texto idéntico (p. ej. el mismo turno prohibido en dos celdas) para no repetir la misma línea. */
+/** Junta alertas repetidas para no repetir la línea: texto idéntico (el mismo turno prohibido en dos celdas) o la misma regla
+ *  del periodo en varias personas («Nombre: sin fin de semana libre…» sin día), que queda una vez con `regla` y los nombres en `quienes`. */
 export function agrupar(alertas: Alerta[]) {
-  const g = new Map<string, { alerta: Alerta; veces: number }>();
+  const g = new Map<string, { alerta: Alerta; veces: number; regla?: string; quienes: string[] }>();
   for (const a of alertas) {
-    const x = g.get(a.texto);
-    if (x) x.veces++; else g.set(a.texto, { alerta: a, veces: 1 });
+    const i = a.texto.indexOf(": ");
+    const regla = a.colab_id && !a.fecha && i > 0 ? a.texto.slice(i + 2) : undefined;
+    const x = g.get(regla ?? a.texto), quien = regla ? [a.texto.slice(0, i)] : [];
+    if (x) { x.veces++; x.quienes.push(...quien); } else g.set(regla ?? a.texto, { alerta: a, veces: 1, regla, quienes: quien });
   }
   return [...g.values()];
 }
