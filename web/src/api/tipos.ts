@@ -41,6 +41,7 @@ export interface Cuadro {
   clave: string;
   version: string;
   revision?: number;
+  festivos?: Record<string, string>; // fecha ISO → nombre, solo los del periodo
   celdas: Celda[];
 }
 export interface Colaborador {

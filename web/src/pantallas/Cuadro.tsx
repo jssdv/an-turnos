@@ -126,7 +126,8 @@ export function Cuadro() {
     abrirAlertas();
   }, [datos]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dias = useMemo(() => (actual ? diasDe(actual.clave) : []), [actual]);
+  const festivos = datos?.cuadro.festivos;
+  const dias = useMemo(() => (actual ? diasDe(actual.clave, festivos) : []), [actual, festivos]);
   const vista = useMemo(() => {
     if (!datos) return null;
     const celdas = new Map(datos.cuadro.celdas.map((c) => [`${c.colab_id}|${c.fecha}`, c]));
