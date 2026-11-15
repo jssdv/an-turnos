@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from math import ceil
 
 from . import demanda as dem
-from . import cambios, flujo, puestos, recargos, reglas
+from . import cambios, flujo, puestos, recargos, reglas, solicitudes
 from .dominio import DESCANSO_MIN, festivos, intervalo
 
 
@@ -353,9 +353,63 @@ def equidad(bd, ini, fin):
                 o["domingos"] += 1
             elif f in ctx.fest:
                 o["festivos"] += 1
-    disp = {c: (max(o[c] for o in por.values()) - min(o[c] for o in por.values())) if por else 0
-            for c in ("noches", "domingos", "festivos")}
-    return {"por_persona": por, "dispersion": disp}
+    cats = ("noches", "domingos", "festivos")
+    disp = {c: (max(o[c] for o in por.values()) - min(o[c] for o in por.values())) if por else 0 for c in cats}
+    # Desviación de cada persona respecto de la media del equipo, con los conteos llevados a tiempo completo (÷ dedicación):
+    # minimizar la desviación media fue lo más justo en los estudios de turnos de enfermería (Martin et al., MinDev).
+    ded = {p.nombre: p.pct or 1 for p in ctx.colabs if p.en_solver}
+    ajust = {n: {c: o[c] / ded[n] for c in cats} for n, o in por.items()}
+    est, desv = {}, {n: {} for n in por}
+    for c in cats:
+        vals = [a[c] for a in ajust.values()]
+        media = sum(vals) / len(vals) if vals else 0
+        for n, a in ajust.items():
+            desv[n][c] = round(a[c] - media, 6)
+        mad = sum(abs(v - media) for v in vals) / len(vals) if vals else 0
+        sd = (sum((v - media) ** 2 for v in vals) / len(vals)) ** 0.5 if vals else 0
+        est[c] = {"media": round(media, 6), "mad": round(mad, 6), "cv": round(sd / media, 6) if media else 0}
+    return {"por_persona": por, "dispersion": disp, "estadisticas": est, "desviacion": desv}
+
+
+def concentracion_extra(bd, ini, fin):
+    """Horas extra por persona (ventana configurada) y qué % del total hizo el 20 % del equipo con más horas extra."""
+    por = defaultdict(float)
+    for _, filas in _reportes(bd, ini, fin):
+        for p, r in filas:
+            por[p.nombre] += sum(h for (tipo, _, _), h in r["cat"].items() if tipo == "extra")
+    gente = [p for p in bd.contexto(ini.year).colabs if p.en_solver]
+    top_n = ceil(len(gente) * 0.2)
+    total = sum(por.values())
+    arriba = sum(sorted(por.values(), reverse=True)[:top_n])
+    return {"por_persona": {n: round(h, 2) for n, h in por.items() if h}, "top_n": top_n,
+            "top_pct": round(arriba / total * 100, 2) if total else None}
+
+
+def solicitudes_resumen(bd, ini, fin):
+    """Solicitudes con días dentro del rango (y con cuadro), evaluadas sobre el cuadro vigente: por persona pedidas,
+    cumplidas, parciales y no cumplidas y su tasa; por tipo; y la tasa del equipo. Una solicitud que cruza dos periodos
+    se evalúa una sola vez."""
+    ctx = bd.contexto(ini.year)
+    nombre = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
+    periodos = [k for k in bd.periodos() if _cruza(k, ini, fin)]
+    fechas = sorted({f for k in periodos for f in flujo.fechas(*flujo.desde_clave(k)) if ini <= f <= fin})
+    cuadro = bd.asignaciones_rango(ini, fin)
+    fijos = {c for k in periodos for c in bd.fijos(k)}
+    por, tipos = {}, {}
+    for r in solicitudes.evaluar(ctx, cuadro, fechas, fijos):
+        if r.estado == "fuera" or r.solicitud.colab_id not in nombre:
+            continue
+        o = por.setdefault(nombre[r.solicitud.colab_id], {"pedidas": 0, "cumplidas": 0, "parciales": 0, "no_cumplidas": 0})
+        o["pedidas"] += 1
+        o[{"cumplida": "cumplidas", "parcial": "parciales", "no cumplida": "no_cumplidas"}[r.estado]] += 1
+        t = tipos.setdefault(r.solicitud.tipo, {"pedidas": 0, "cumplidas": 0})
+        t["pedidas"] += 1
+        t["cumplidas"] += r.estado == "cumplida"
+    for o in por.values():
+        o["tasa"] = round(o["cumplidas"] / o["pedidas"] * 100, 2)
+    pedidas = sum(o["pedidas"] for o in por.values())
+    return {"por_persona": por, "por_tipo": tipos,
+            "tasa": round(sum(o["cumplidas"] for o in por.values()) / pedidas * 100, 2) if pedidas else None}
 
 
 # --- entrega 3: banco de horas --------------------------------------------------------------------

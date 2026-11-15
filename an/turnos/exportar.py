@@ -322,6 +322,8 @@ def exportar_analiticas(carpeta, base, d):
         ["Cambios tras publicar (%)", round(sum(p["celdas_cambiadas"] for p in est) / celdas * 100, 2) if celdas else "—"],
         ["Cambios con poco aviso", sum(p["aviso_corto"] for p in est)],
         ["Personas con señales de fatiga", sum(f["senales"] > 0 for f in d["fatiga"].values())],
+        ["Solicitudes cumplidas (%)", d["solicitudes"]["tasa"] if d["solicitudes"]["tasa"] is not None else "—"],
+        ["Horas extra del 20 % con más (%)", d["concentracion_extra"]["top_pct"] if d["concentracion_extra"]["top_pct"] is not None else "—"],
     ], primera=32)
     _hoja(wb, "Ausentismo", ["Persona", "Total", *tipos],
           [[p, sum(t.values()), *(t.get(x, 0) for x in tipos)] for p, t in sorted(d["ausentismo"]["por_persona"].items())])
@@ -335,8 +337,10 @@ def exportar_analiticas(carpeta, base, d):
           [[h["periodo"], h["ventana"], h["mes"]["diurna"], h["mes"]["nocturna"], h["semanas"]["diurna"], h["semanas"]["nocturna"]] for h in d["horas_extra"]])
     _hoja(wb, "Recargos", ["Persona", "Dominical/festivo (h)", "Nocturno (h)", "Equivalentes (h)"],
           [[p, r["festivo"], r["nocturna"], r["equivalentes"]] for p, r in sorted(d["recargos"].items())])
-    _hoja(wb, "Equidad", ["Persona", "Noches", "Domingos", "Festivos"],
-          [[p, o["noches"], o["domingos"], o["festivos"]] for p, o in sorted(d["equidad"]["por_persona"].items())])
+    dv = d["equidad"]["desviacion"]
+    _hoja(wb, "Equidad", ["Persona", "Noches", "Domingos", "Festivos", "Noches vs media", "Dom. y festivos vs media"],
+          [[p, o["noches"], o["domingos"], o["festivos"], round(dv[p]["noches"], 2), round(dv[p]["domingos"] + dv[p]["festivos"], 2)]
+           for p, o in sorted(d["equidad"]["por_persona"].items())])
     _hoja(wb, "Fatiga", ["Persona", "Señales", "Rachas largas", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"],
           [[p, f["senales"], f["rachas_largas"], f["max_dias_seguidos"], f["max_noches_seguidas"], f["descansos_cortos"], f["fines_trabajados"], f["horas_4_sem_max"]]
            for p, f in sorted(d["fatiga"].items(), key=lambda x: (-x[1]["senales"], x[0]))])

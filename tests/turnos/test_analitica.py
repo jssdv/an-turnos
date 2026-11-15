@@ -384,6 +384,51 @@ def test_cobertura_tramos_vacio():
     assert all(v is None for fila in r["mapa"] for v in fila)
 
 
+# --- v3: equidad, concentración de horas extra y solicitudes ---------------------------------------
+def test_equidad_desviacion_y_mad():
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)  # noches: A 0, B 4, C 0
+    r = analitica.equidad(bd, I, F)
+    e = r["estadisticas"]["noches"]
+    assert abs(e["media"] - 4 / 3) < 1e-6 and abs(e["mad"] - 16 / 9) < 1e-6, e
+    assert abs(r["desviacion"]["B"]["noches"] - 8 / 3) < 1e-6 and abs(r["desviacion"]["A"]["noches"] + 4 / 3) < 1e-6, r["desviacion"]
+
+
+def test_equidad_ajusta_por_dedicacion():
+    bd, i = nuevo()
+    c = next(p for p in bd.colaboradores() if p.nombre == "C")
+    c.pct = 0.5
+    bd.guardar_colaborador(c)
+    bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, 5)): "NC", (i["A"], date(2026, 10, 7)): "NC", (i["C"], date(2026, 10, 5)): "NC"})
+    d = analitica.equidad(bd, I, F)["desviacion"]
+    assert abs(d["A"]["noches"] - d["C"]["noches"]) < 1e-6, d  # 2 noches a tiempo completo = 1 a medio tiempo
+
+
+def test_concentracion_extra():
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)
+    r = analitica.concentracion_extra(bd, I, F)
+    assert r["top_n"] == 1 and r["por_persona"]["A"] == 42 and r["top_pct"] == 100, r
+    assert analitica.concentracion_extra(db.BD(), I, F) == {"por_persona": {}, "top_n": 0, "top_pct": None}
+
+
+def test_solicitudes_resumen():
+    from an.turnos.dominio import Solicitud
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)  # A trabaja C del 1 al 14
+    for s in (Solicitud(i["A"], "libre", date(2026, 10, 5), date(2026, 10, 5)),
+              Solicitud(i["A"], "evitar", date(2026, 10, 1), date(2026, 10, 2), "C"),
+              Solicitud(i["B"], "libre", date(2026, 10, 7), date(2026, 10, 7)),
+              Solicitud(i["C"], "quiero", date(2026, 10, 20), date(2026, 10, 20), "M"),
+              Solicitud(i["C"], "libre", date(2026, 12, 1), date(2026, 12, 1))):  # fuera del rango
+        bd.guardar_solicitud(s)
+    r = analitica.solicitudes_resumen(bd, I, F)
+    assert r["por_persona"]["A"] == {"pedidas": 2, "cumplidas": 0, "parciales": 0, "no_cumplidas": 2, "tasa": 0}, r
+    assert r["por_persona"]["B"]["tasa"] == 100 and r["tasa"] == 50, r
+    assert r["por_tipo"] == {"libre": {"pedidas": 2, "cumplidas": 1}, "evitar": {"pedidas": 1, "cumplidas": 0}, "quiero": {"pedidas": 1, "cumplidas": 1}}, r
+    assert analitica.solicitudes_resumen(db.BD(), I, F) == {"por_persona": {}, "por_tipo": {}, "tasa": None}
+
+
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
     t()
 print("OK")
