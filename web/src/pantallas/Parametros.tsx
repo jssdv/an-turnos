@@ -85,9 +85,10 @@ export function Parametros() {
                     <option value="mes">Mes calendario</option><option value="semanas">Semanas desde un lunes</option>
                   </NativeSelect>
                 )}
-                {NUM.filter(([k]) => claves.includes(k)).map(([k, etiqueta, lo, hi, ayuda]) => (
-                  <Input value={String(v[k] ?? "")} key={k} label={etiqueta} ayuda={ayuda} hint={`Entre ${lo} y ${hi}.`} type="number" isDisabled={!editar} onChange={(x) => setV({ ...v, [k]: x })} />
-                ))}
+                {NUM.filter(([k]) => claves.includes(k)).map(([k, etiqueta, lo, hi, ayuda]) => {
+                  const cero = String(v[k]) === "0" ? ayuda.match(/0 = [^.]+\./)?.[0] : undefined;  // «0 = sin tope.» a la vista, no solo en la ayuda
+                  return <Input value={String(v[k] ?? "")} key={k} label={etiqueta} ayuda={ayuda} hint={cero ? `Entre ${lo} y ${hi}. ${cero}` : `Entre ${lo} y ${hi}.`} type="number" isDisabled={!editar} onChange={(x) => setV({ ...v, [k]: x })} />
+                })}
               </fieldset>
             </Seccion>
           ))}
