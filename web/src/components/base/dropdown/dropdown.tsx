@@ -167,7 +167,7 @@ const DropdownDotsButton = (props: AriaButtonProps & RefAttributes<HTMLButtonEle
     return (
         <AriaButton
             {...props}
-            aria-label="Open menu"
+            aria-label="Abrir menú"
             className={(state) =>
                 cx(
                     "cursor-pointer rounded-md text-fg-quaternary outline-focus-ring transition duration-100 ease-linear",

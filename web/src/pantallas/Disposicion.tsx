@@ -1,7 +1,7 @@
 import { useEffect, useState, type FC } from "react";
 import { Button as AriaButton } from "react-aria-components";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router";
-import { BarChart03, Building02, Calendar, CalendarCheck01, CalendarMinus01, ChevronDown, FileDownload02, HelpCircle, Home02, Inbox01, LineChartUp01, LogOut01, SearchLg, Settings01, UserCheck01, Users01 } from "@untitledui/icons";
+import { BarChart03, Building02, Calendar, ClipboardCheck, CalendarCheck01, CalendarMinus01, ChevronDown, FileDownload02, HelpCircle, Home02, Inbox01, LineChartUp01, LogOut01, SearchLg, Settings01, UserCheck01, Users01 } from "@untitledui/icons";
 import { Alert } from "@/components/application/alerts/alert";
 import { MobileNavigationHeader } from "@/components/application/app-navigation/base-components/mobile-header";
 import { NavList } from "@/components/application/app-navigation/base-components/nav-list";
@@ -21,7 +21,7 @@ type Icono = FC<{ className?: string }>;
 /** Menú de Turnos, en el orden del rediseño (barra superior). Parámetros va en «Ajustes» junto a lo de administración. */
 export const TURNOS: [string, string, Icono][] = [
   ["Inicio", "inicio", Home02], ["Cuadro", "cuadro", Calendar], ["Solicitudes", "solicitudes", Inbox01], ["Personal", "personal", Users01],
-  ["Ausencias", "novedades", CalendarMinus01], ["Requerimiento", "puestos", Building02], ["Reportes", "reportes", FileDownload02],
+  ["Ausencias", "novedades", CalendarMinus01], ["Requerimiento", "puestos", ClipboardCheck], ["Reportes", "reportes", FileDownload02],
   ["Analíticas", "analiticas", LineChartUp01], ["Parámetros", "parametros", Settings01],
 ];
 /** Palabras con que la gente busca cada sección en «Ir a…» además de su nombre. */
