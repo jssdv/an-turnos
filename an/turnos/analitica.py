@@ -103,10 +103,11 @@ def cambios_resumen(bd, ini, fin):
 
 
 def estabilidad(bd, ini, fin, publicados):
-    """Qué tanto se movió el cuadro después de publicarlo. `publicados` = {clave: datetime de publicación}; los periodos
-    sin publicar no cuentan. Por periodo: celdas que difieren de lo publicado, celdas de cambios vigentes registrados con
-    menos de `aviso_corto_horas` antes del turno y días de anticipación de la publicación. `cubre_mas`: turnos que cada
-    persona tomó en un día libre por cambios de servicio."""
+    """Qué tanto se movió el cuadro después de publicarlo. `publicados` = {clave: datetime local de la primera
+    publicación}; los periodos sin publicar no cuentan. Por periodo, mirando los cambios vigentes registrados desde esa
+    publicación (publicar otra vez no borra la cuenta): celdas distintas que tocaron, cuántas se registraron con menos
+    de `aviso_corto_horas` antes del turno (las correcciones de un turno ya empezado no son aviso) y días de
+    anticipación de la publicación. `cubre_mas`: turnos que cada persona tomó en un día libre por cambios de servicio."""
     ctx = bd.contexto(ini.year)
     gente = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
     aviso = timedelta(hours=int(bd.param("aviso_corto_horas", 48)))
@@ -114,18 +115,20 @@ def estabilidad(bd, ini, fin, publicados):
     for k in (k for k in bd.periodos() if _cruza(k, ini, fin) and k in publicados):
         a, b = flujo.desde_clave(k)
         total = len(gente) * ((b - a).days + 1)
-        cambiadas = sum(1 for cid, *_ in bd.diferencias(k) if cid in gente)
-        corto = 0
+        tocadas, corto = set(), 0
         for r in (r for r in cambios.listar(bd, k) if not r["anulado_en"]):
             hecho = datetime.fromisoformat(r["registrado_en"])
             for cid, f, antes, despues, *_ in r["celdas"]:
-                cod = despues if despues in ctx.turnos else antes
-                inicio = intervalo(ctx.turnos[cod], f)[0] if cod in ctx.turnos else datetime.combine(f, datetime.min.time())
-                corto += inicio - hecho < aviso
                 if r["tipo"] == "servicio" and antes not in ctx.turnos and despues in ctx.turnos and cid in gente:
                     cubre[gente[cid]] += 1
-        periodos.append({"periodo": k, "celdas_cambiadas": cambiadas, "celdas_total": total,
-                         "pct": cambiadas / total * 100 if total else 0, "aviso_corto": corto,
+                if hecho < publicados[k] or cid not in gente:
+                    continue
+                tocadas.add((cid, f))
+                cod = despues if despues in ctx.turnos else antes
+                inicio = intervalo(ctx.turnos[cod], f)[0] if cod in ctx.turnos else datetime.combine(f, datetime.min.time())
+                corto += timedelta(0) <= inicio - hecho < aviso
+        periodos.append({"periodo": k, "celdas_cambiadas": len(tocadas), "celdas_total": total,
+                         "pct": len(tocadas) / total * 100 if total else 0, "aviso_corto": corto,
                          "dias_anticipacion": (a - publicados[k].date()).days})
     return {"periodos": periodos, "cubre_mas": dict(cubre)}
 
@@ -157,7 +160,7 @@ def fatiga(bd, ini, fin):
             if d < ini:
                 continue
             r["max_dias_seguidos"] = max(r["max_dias_seguidos"], racha)
-            r["rachas_largas"] += racha == tope + 1
+            r["rachas_largas"] += racha == tope + 1 or (d == ini and racha > tope)  # la racha pudo empezar antes del rango
             ayer = d - timedelta(days=1)
             if t(d) and t(ayer) and intervalo(t(d), d)[0] - intervalo(t(ayer), ayer)[1] < corto:
                 r["descansos_cortos"] += 1
@@ -174,7 +177,7 @@ def fatiga(bd, ini, fin):
         out[p.nombre] = r
     media = sum(r["fines_trabajados"] for r in out.values()) / len(out)
     for r in out.values():
-        r["senales"] = ((r["rachas_largas"] > 0) + (r["max_noches_seguidas"] > max_n) + (r["descansos_cortos"] > 0)
+        r["senales"] = ((r["rachas_largas"] > 0) + (bool(max_n) and r["max_noches_seguidas"] > max_n)  # 0 = sin límite + (r["descansos_cortos"] > 0)
                         + (r["fines_trabajados"] > media + 1))
     return out
 

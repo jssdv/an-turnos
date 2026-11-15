@@ -259,7 +259,7 @@ def _accion(nombre, hacer, evento, cerrado_ok=False):
 
 def _publicar(ctx, id, p):
     ctx.bd.publicar(p.clave)
-    ctx.conn.execute("UPDATE periodo SET publicado_en = now() WHERE id = ?", (id,))
+    ctx.conn.execute("UPDATE periodo SET publicado_en = COALESCE(publicado_en, now()) WHERE id = ?", (id,))  # la primera publicación: mide la anticipación
 
 
 def _restaurar(ctx, id, p):

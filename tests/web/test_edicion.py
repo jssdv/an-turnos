@@ -289,6 +289,12 @@ def test_publicar_alimenta_estabilidad():
         cambio(cli, e, "ajuste", [(c, "2026-10-07", "T")], rev=2)
         [p] = cli.get(base).json()["estabilidad"]["periodos"]
         assert p["celdas_cambiadas"] == 1 and isinstance(p["dias_anticipacion"], int), p
+        e.su.execute("UPDATE periodo SET publicado_en = '2026-09-20 10:00:00' WHERE area_id = %s", (e.ar["A"],))
+        e.su.commit()
+        primera = e.su.execute("SELECT publicado_en FROM periodo WHERE area_id = %s", (e.ar["A"],)).fetchone()[0]
+        accion(cli, e, "publicar", 3)  # publicar otra vez no mueve la fecha de la primera publicación
+        assert e.su.execute("SELECT publicado_en FROM periodo WHERE area_id = %s", (e.ar["A"],)).fetchone()[0] == primera
+        assert cli.get(base).json()["estabilidad"]["periodos"][0]["celdas_cambiadas"] == 1
 
 
 def test_cerrar_sin_cuadro_da_409():

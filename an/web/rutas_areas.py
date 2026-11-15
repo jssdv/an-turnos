@@ -1,6 +1,6 @@
 """Rutas de lectura de un área. Cada una llama una función del núcleo; la API no reimplementa reglas."""
 from dataclasses import asdict, is_dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -191,6 +191,10 @@ def datos_analiticas(ctx, desde, hasta):
 
 
 def _publicados(ctx):
-    """{clave: datetime} de los periodos publicados (la tabla `periodo` es de la web; el núcleo no la ve)."""
-    return {f["clave"]: datetime.fromisoformat(str(f["publicado_en"])) for f in
+    """{clave: datetime local sin zona} de la primera publicación (la tabla `periodo` es de la web; el núcleo no la ve).
+    La base guarda UTC (CURRENT_TIMESTAMP); los cambios se registran en hora local, así que se pasa a local."""
+    def local(v):
+        d = v if isinstance(v, datetime) else datetime.fromisoformat(str(v))
+        return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone().replace(tzinfo=None)
+    return {f["clave"]: local(f["publicado_en"]) for f in
             ctx.conn.execute("SELECT clave, publicado_en FROM periodo WHERE publicado_en IS NOT NULL")}
