@@ -409,7 +409,9 @@ export function Cuadro() {
               pie={(["M", "T", "N"] as const).map((f) => ({
                 titulo: { M: "Presentes mañana", T: "Presentes tarde", N: "Presentes noche" }[f],
                 valor: (fecha) => vista.presentes(fecha, f),
-                alerta: (fecha) => vista.diaMalo.has(fecha),
+                alerta: (fecha) => { const m = datos.cuadro.margen?.[fecha]?.[f]; return m == null ? vista.diaMalo.has(fecha) : m < 0; },
+                justo: (fecha) => datos.cuadro.margen?.[fecha]?.[f] === 0,
+                nota: (fecha) => { const m = datos.cuadro.margen?.[fecha]?.[f]; return m == null ? undefined : m < 0 ? `Faltan ${-m} en el tramo más justo` : m === 0 ? "Justo: si alguien falta, queda corto" : `Margen: ${m} sobre lo pedido`; },
               }))}
             />
             <details className="text-sm text-tertiary [&>summary]:w-max [&>summary]:cursor-pointer" data-solo-pantalla>
@@ -421,6 +423,7 @@ export function Cuadro() {
               <span className="flex items-center gap-1.5"><Ficha codigo="M" cambiada />Editada a mano</span>
               <span className="flex items-center gap-1.5"><strong className="text-brand-secondary" aria-hidden="true">D</strong>Domingo o festivo (letra verde)</span>
               <span className="flex items-center gap-1.5"><span className="font-semibold text-warning-primary" aria-hidden="true">▲</span>Más horas de las contratadas</span>
+              <span className="flex items-center gap-1.5"><span className="rounded bg-utility-yellow-50 px-1 font-semibold text-utility-yellow-700 tabular-nums" aria-hidden="true">3</span>Presentes justos: si alguien falta, queda corto</span>
             </div>
             </details>
             <HorasSemana horas={datos.horas} colabs={datos.colabs.filter((c) => c.activo && (!solo || String(c.id) === solo))} />

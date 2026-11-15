@@ -405,6 +405,16 @@ def test_faltantes_dia_y_validar():
     assert sin_ayer["M"] == (2, [(16, 24, 2)])
 
 
+def test_margen_dia_n_mas_1():
+    bd = _bd_demanda([("LS", 480, 720, 2)], n=3)  # se piden 2 de 08:00 a 12:00
+    ctx = bd.contexto(2026)
+    a, b, c = (p.id for p in ctx.colabs)
+    lunes = date(2026, 10, 5)
+    assert reglas.margen_dia(ctx, {}, lunes) == {"M": -2, "T": None, "N": None}  # sin pedido en tarde ni noche: sin margen que medir
+    assert reglas.margen_dia(ctx, {(a, lunes): "M", (b, lunes): "M"}, lunes)["M"] == 0  # justo: una ausencia y falta gente
+    assert reglas.margen_dia(ctx, {(a, lunes): "M", (b, lunes): "M", (c, lunes): "M"}, lunes)["M"] == 1
+
+
 def test_faltantes_cruzan_medianoche_y_excel():
     bd = _bd_demanda([("LS", 1080, 360, 1)], n=2, activos={"NC"})
     ctx = bd.contexto(2026)
