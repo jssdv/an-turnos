@@ -49,7 +49,9 @@ def test_base_nueva_queda_en_la_ultima_version():
     ruta = str(_carpeta() / "an.db")
     entregable.preparar_base(ruta, _carpeta())
     assert _version(ruta) == esquema.ultima_sqlite() == 14
-    assert _version(str(Path(ruta).with_name("area_1.db"))) == esquema.ultima_area() == 1
+    assert _version(str(Path(ruta).with_name("area_1.db"))) == esquema.ultima_area() == 2
+    with sqlite3.connect(str(Path(ruta).with_name("area_1.db"))) as a:  # 002: cuándo se registró cada ausencia
+        assert "registrado_en" in [r[1] for r in a.execute("PRAGMA table_info(novedad)")]
 
 
 def test_migracion_de_prueba_sube_desde_14():

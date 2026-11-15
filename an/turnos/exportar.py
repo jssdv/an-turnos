@@ -324,6 +324,8 @@ def exportar_analiticas(carpeta, base, d):
         ["Personas con señales de fatiga", sum(f["senales"] > 0 for f in d["fatiga"].values())],
         ["Solicitudes cumplidas (%)", d["solicitudes"]["tasa"] if d["solicitudes"]["tasa"] is not None else "—"],
         ["Ausencias estimadas el mes siguiente (días)", d["pronostico"]["estimado"]],
+        ["Ausencias no planeadas avisadas con menos de 24 h", d["avisos_ausencia"]["avisos"]["tarde"] + d["avisos_ausencia"]["avisos"]["menos_24h"]],
+        ["Días de ausencia con turno que se reemplazaron (%)", d["avisos_ausencia"]["pct_cubiertos"] if d["avisos_ausencia"]["pct_cubiertos"] is not None else "—"],
         *([[f"Próximo recargo dominical: {d['proximo_recargo']['actual']:g} % → {d['proximo_recargo']['nuevo']:g} % desde el {d['proximo_recargo']['desde']:%d/%m/%Y} (h equivalentes más al mes)",
             d["proximo_recargo"]["horas_mes"]]] if d["proximo_recargo"] else []),
         ["Horas extra del 20 % con más (%)", d["concentracion_extra"]["top_pct"] if d["concentracion_extra"]["top_pct"] is not None else "—"],

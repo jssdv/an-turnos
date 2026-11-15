@@ -186,7 +186,7 @@ def datos_analiticas(ctx, desde, hasta, riesgo=True):
             "cobertura_tramos": analitica.cobertura_tramos(ctx.bd, desde, hasta),
             "concentracion_extra": analitica.concentracion_extra(ctx.bd, desde, hasta), "solicitudes": analitica.solicitudes_resumen(ctx.bd, desde, hasta),
             "pronostico": analitica.pronostico_ausencias(ctx.bd, hasta), "corridas": analitica.corridas(_corridas(ctx, desde, hasta)),
-            "proximo_recargo": analitica.proximo_recargo(ctx.bd, date.today(), desde, hasta),
+            "proximo_recargo": analitica.proximo_recargo(ctx.bd, date.today(), desde, hasta), "avisos_ausencia": analitica.avisos_ausencia(ctx.bd, desde, hasta),
             "recargos": analitica.recargos_resumen(ctx.bd, desde, hasta), "simultaneos": analitica.simultaneos(ctx.bd, desde, hasta),
             "cambios": analitica.cambios_resumen(ctx.bd, desde, hasta), "horas_extra": analitica.horas_extra(ctx.bd, desde, hasta),
             "equidad": analitica.equidad(ctx.bd, desde, hasta), "banco": analitica.banco(ctx.bd, desde, hasta),

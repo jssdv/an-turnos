@@ -150,6 +150,7 @@ class Novedad:
     hasta: date
     nota: str = ""
     id: int = None
+    registrado_en: datetime = None  # cuándo se registró (hora local); None en las anteriores a la versión 10
 
 
 @dataclass

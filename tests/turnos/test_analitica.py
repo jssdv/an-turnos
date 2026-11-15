@@ -527,6 +527,41 @@ def test_equidad_festivos_en_rango_largo():
     assert analitica.equidad(bd, date(2022, 1, 1), F)["por_persona"]["A"]["festivos"] == 1
 
 
+# --- aviso de ausencias y reemplazos ---------------------------------------------------------------
+def test_novedad_guarda_cuando_se_registra():
+    bd, i = nuevo()
+    n = Novedad(i["A"], "Incapacidad", date(2026, 10, 6), date(2026, 10, 6))
+    bd.guardar_novedad(n)
+    [x] = bd.novedades()
+    assert abs((x.registrado_en - datetime.now()).total_seconds()) < 60, x
+    primera = x.registrado_en
+    x.nota = "editada"
+    bd.guardar_novedad(x)
+    assert bd.novedades()[0].registrado_en == primera  # editar no cambia cuándo se avisó
+
+
+def test_avisos_ausencia_y_reemplazos():
+    bd, i = nuevo()
+    d6, d7, d9 = date(2026, 10, 6), date(2026, 10, 7), date(2026, 10, 9)
+    bd.guardar_cuadro(K2, {(i["A"], d6): "M", (i["B"], d7): "M"})
+    casos = [(i["A"], "Incapacidad", d6, "2026-10-06T07:00:00"),   # ya había empezado el turno de las 06:00: tarde
+             (i["B"], "Incapacidad", d7, "2026-10-06T20:00:00"),   # 10 h antes del turno
+             (i["C"], "Licencia", d9, "2026-10-07T08:00:00"),      # sin turno ese día: 40 h antes de las 00:00
+             (i["A"], "Vacaciones", d9, "2026-09-01T08:00:00"),    # planeada: no cuenta
+             (i["A"], "Incapacidad", date(2026, 10, 20), None)]    # registrada antes de existir el dato
+    for cid, tipo, d, reg in casos:
+        n = Novedad(cid, tipo, d, d)
+        bd.guardar_novedad(n)
+        bd.c.execute("UPDATE novedad SET registrado_en=? WHERE id=?", (reg, n.id))
+    for cid in cambios.servicio(bd, K2, [(i["A"], d6, "L"), (i["C"], d6, "M")], "A enferma", "u"):  # una fila por persona
+        bd.c.execute("UPDATE cambio_turno SET registrado_en='2026-10-06T08:00:00' WHERE id=?", (cid,))
+    r = analitica.avisos_ausencia(bd, I, F)
+    assert r["avisos"] == {"tarde": 1, "menos_24h": 1, "24_72h": 1, "mas_72h": 0} and r["sin_dato"] == 1, r
+    assert (r["dias_con_turno"], r["cubiertos"], r["pct_cubiertos"], r["mediana_horas"]) == (2, 1, 50.0, 1.0), r
+    vacio = analitica.avisos_ausencia(db.BD(), I, F)
+    assert vacio["sin_dato"] == 0 and vacio["pct_cubiertos"] is None and vacio["mediana_horas"] is None, vacio
+
+
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
     t()
 print("OK")

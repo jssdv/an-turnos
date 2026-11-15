@@ -116,7 +116,7 @@ def test_migracion_014_separa_las_areas():
     assert "REFERENCES periodo" not in raw.execute("SELECT sql FROM sqlite_master WHERE name = 'trabajo'").fetchone()[0]
     raw.close()
     a = sqlite3.connect(d / "area_1.db")
-    assert a.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert a.execute("PRAGMA user_version").fetchone()[0] == 2
     assert a.execute("SELECT id, clave FROM periodo").fetchall() == [(7, "2026-10-01/2026-10-31")]
     assert a.execute("SELECT valor FROM parametro WHERE clave = 'limite_permutas'").fetchone() == ("5",)
     assert a.execute("SELECT count(*) FROM asignacion").fetchone()[0] == 1 and a.execute("SELECT nombre FROM colaborador").fetchone() == ("P",)

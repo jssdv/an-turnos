@@ -24,6 +24,7 @@ interface Datos {
     estadisticas: Record<"noches" | "domingos" | "festivos", { media: number; mad: number; cv: number }>; desviacion: Record<string, Record<"noches" | "domingos" | "festivos", number>> };
   pronostico: { serie: [string, number][]; siguiente: string; mismo_mes_anterior: number | null; media_3: number; base: "estacional" | "media_3"; estimado: number };
   corridas: { periodo: string; corridas: number; terminadas_bien: number; pct_bien: number | null; mediana_seg: number | null; faltan_ultima: number | null; solicitudes_ultima: number | null }[];
+  avisos_ausencia: { avisos: Record<"tarde" | "menos_24h" | "24_72h" | "mas_72h", number>; sin_dato: number; dias_con_turno: number; cubiertos: number; pct_cubiertos: number | null; mediana_horas: number | null };
   proximo_recargo: { desde: string; actual: number; nuevo: number; horas_mes: number } | null;
   concentracion_extra: { por_persona: Record<string, number>; top_n: number; top_pct: number | null };
   solicitudes: { por_persona: Record<string, { pedidas: number; cumplidas: number; parciales: number; no_cumplidas: number; tasa: number }>; por_tipo: Record<string, { pedidas: number; cumplidas: number }>; tasa: number | null; rango_tasa?: number | null };
@@ -32,7 +33,8 @@ interface Datos {
   patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { desde: string; equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
-const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos" | "concentracion_extra" | "solicitudes" | "pronostico" | "corridas" | "proximo_recargo"> = {
+const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos" | "concentracion_extra" | "solicitudes" | "pronostico" | "corridas" | "proximo_recargo" | "avisos_ausencia"> = {
+  avisos_ausencia: { avisos: { tarde: 0, menos_24h: 0, "24_72h": 0, mas_72h: 0 }, sin_dato: 0, dias_con_turno: 0, cubiertos: 0, pct_cubiertos: null, mediana_horas: null },
   pronostico: { serie: [], siguiente: "", mismo_mes_anterior: null, media_3: 0, base: "media_3", estimado: 0 }, corridas: [], proximo_recargo: null,
   concentracion_extra: { por_persona: {}, top_n: 0, top_pct: null }, solicitudes: { por_persona: {}, por_tipo: {}, tasa: null },
   cobertura_tramos: { horas_requeridas: 0, horas_faltantes: 0, horas_sobrantes: 0, cobertura_pct: null, eficiencia_pct: null, mapa: Array.from({ length: 7 }, () => Array(48).fill(null)), por_periodo: [] },
@@ -173,6 +175,17 @@ export function Analiticas() {
                 <p className="font-mono text-xl font-medium text-primary">{num(d.pronostico.estimado, 1)} días</p>
                 <p className="mt-1 text-sm text-tertiary">Para {mesCorto(d.pronostico.siguiente)}: {d.pronostico.base === "estacional" ? <>promedio de lo que hubo el mismo mes del año pasado ({d.pronostico.mismo_mes_anterior}) y la media de los últimos 3 meses completos ({num(d.pronostico.media_3, 1)})</> : <>media de los últimos 3 meses completos; aún no hay un año de registros para comparar con el mismo mes</>}. Es una referencia para planear vacaciones y reemplazos, no una predicción exacta.</p>
               </> : <p className="text-tertiary">Sin datos.</p>}
+            </Seccion>
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+            <Barras titulo="Con cuánto aviso llegan las ausencias" unidad="ausencias"
+              datos={([["Ya empezado el turno", "tarde"], ["Menos de 24 h", "menos_24h"], ["De 24 a 72 h", "24_72h"], ["Más de 72 h", "mas_72h"]] as const).map(([t, k]) => [t, d.avisos_ausencia.avisos[k]])}
+              nota={`Incapacidades y licencias que empiezan en el rango, frente al inicio de su turno publicado.${d.avisos_ausencia.sin_dato ? ` ${d.avisos_ausencia.sin_dato} sin dato (registradas antes de que An guardara la hora).` : ""}`} />
+            <Seccion titulo="Reemplazos">
+              {d.avisos_ausencia.pct_cubiertos === null ? <p className="text-tertiary">Sin días de ausencia con turno publicado en el rango.</p> : <>
+                <p className="font-mono text-xl font-medium text-primary">{num(d.avisos_ausencia.pct_cubiertos)} %</p>
+                <p className="mt-1 text-sm text-tertiary">de los {d.avisos_ausencia.dias_con_turno} días de ausencia con turno publicado se reemplazaron con un cambio de servicio (por ejemplo desde «¿Quién cubre?»){d.avisos_ausencia.mediana_horas !== null && `; la mitad se cubrió en ${num(d.avisos_ausencia.mediana_horas, 1)} h o menos desde el aviso`}.</p>
+              </>}
             </Seccion>
           </div>
           <Seccion titulo="Generaciones del cuadro">

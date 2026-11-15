@@ -111,8 +111,9 @@ def _separar_areas(raw, ruta):
         raw.execute("ATTACH DATABASE ? AS nueva", (str(archivo),))
         try:
             raw.execute("BEGIN IMMEDIATE")
-            for t in TABLAS_AREA:
-                raw.execute(f"INSERT INTO nueva.{t} SELECT * FROM main.{t} WHERE area_id = ?", (a,))  # sql-ok: nombre de tabla del esquema
+            for t in TABLAS_AREA:  # columnas con nombre: el archivo de área ya puede tener columnas de migraciones posteriores
+                cols = ", ".join(r[1] for r in raw.execute(f"PRAGMA main.table_info({t})"))  # sql-ok: nombre de tabla del esquema
+                raw.execute(f"INSERT INTO nueva.{t} ({cols}) SELECT {cols} FROM main.{t} WHERE area_id = ?", (a,))  # sql-ok: columnas del esquema
             raw.execute("COMMIT")
         except BaseException:
             raw.execute("ROLLBACK")

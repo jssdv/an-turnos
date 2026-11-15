@@ -34,7 +34,7 @@ CREATE TABLE turno (codigo TEXT PRIMARY KEY, nombre TEXT, inicio INT, fin INT, c
 CREATE TABLE cobertura (tipo_dia TEXT, franja TEXT, cantidad INT, PRIMARY KEY (tipo_dia, franja));
 CREATE TABLE colaborador (id INTEGER PRIMARY KEY, nombre TEXT, tipo TEXT, horas_sem REAL, pct REAL,
                           permitidos TEXT, puesto_fijo INT, estudio TEXT, activo INT);
-CREATE TABLE novedad (id INTEGER PRIMARY KEY, colab_id INT, tipo TEXT, desde TEXT, hasta TEXT, nota TEXT);
+CREATE TABLE novedad (id INTEGER PRIMARY KEY, colab_id INT, tipo TEXT, desde TEXT, hasta TEXT, nota TEXT, registrado_en TEXT);
 CREATE TABLE asignacion (mes TEXT, version TEXT, colab_id INT, fecha TEXT, turno TEXT, origen TEXT, fijo INT,
                          PRIMARY KEY (mes, version, colab_id, fecha));
 CREATE TABLE puesto_dia (mes TEXT, fecha TEXT, franja TEXT, puesto INT, colab_id INT, pausa INT);
@@ -80,7 +80,7 @@ class BD:
         if self.c.execute("PRAGMA user_version").fetchone()[0] == 0:
             self.c.executescript(ESQUEMA)
             self.sembrar()
-            self.c.execute("PRAGMA user_version = 9")
+            self.c.execute("PRAGMA user_version = 10")
             self.c.commit()
         else:
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 1:
@@ -99,6 +99,8 @@ class BD:
                 self._migrar_a_8()
             if self.c.execute("PRAGMA user_version").fetchone()[0] == 8:
                 self._migrar_a_9()
+            if self.c.execute("PRAGMA user_version").fetchone()[0] == 9:
+                self._migrar_a_10()
 
     # --- SQL común a SQLite y PostgreSQL ---------------------------------------------------------
     CLAVES = {"turno": "codigo", "parametro": "clave", "periodo_estado": "clave", "asignacion": "mes, version, colab_id, fecha"}
@@ -143,6 +145,13 @@ class BD:
     def cerrar(self):
         if self.dialecto == "sqlite":
             self.c.close()
+
+    def _migrar_a_10(self):
+        """v10 guarda cuándo se registró cada ausencia (las anteriores quedan sin dato)."""
+        if "registrado_en" not in [r[1] for r in self.c.execute("PRAGMA table_info(novedad)")]:  # bases armadas con el esquema actual ya la traen
+            self.c.execute("ALTER TABLE novedad ADD COLUMN registrado_en TEXT")
+        self.c.execute("PRAGMA user_version = 10")
+        self.c.commit()
 
     def _migrar_a_9(self):
         """v9 agrega el puesto fijado por mitad (mañana / tarde) en una C partida."""
@@ -431,7 +440,9 @@ class BD:
         if n.id:
             self.c.execute("UPDATE novedad SET colab_id=?,tipo=?,desde=?,hasta=?,nota=? WHERE id=?", vals + (n.id,))
         else:
-            n.id = self._insertar("INSERT INTO novedad (colab_id,tipo,desde,hasta,nota) VALUES (?,?,?,?,?)", vals)
+            n.registrado_en = datetime.now().replace(microsecond=0)  # editar no lo cambia: es cuándo se avisó
+            n.id = self._insertar("INSERT INTO novedad (colab_id,tipo,desde,hasta,nota,registrado_en) VALUES (?,?,?,?,?,?)",
+                                  vals + (n.registrado_en.isoformat(),))
         self.c.commit()
 
     def borrar_novedad(self, id_):
@@ -439,7 +450,8 @@ class BD:
         self.c.commit()
 
     def novedades(self):
-        return [Novedad(r["colab_id"], r["tipo"], _dt(r["desde"]), _dt(r["hasta"]), r["nota"], r["id"])
+        return [Novedad(r["colab_id"], r["tipo"], _dt(r["desde"]), _dt(r["hasta"]), r["nota"], r["id"],
+                        datetime.fromisoformat(r["registrado_en"]) if r["registrado_en"] else None)
                 for r in self.c.execute("SELECT * FROM novedad ORDER BY desde")]
 
     def guardar_solicitud(self, s, usuario=""):

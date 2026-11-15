@@ -517,3 +517,38 @@ def proximo_recargo(bd, hoy, ini, fin):
     fest = sum(r["festivo"] for r in recargos_resumen(bd, ini, fin).values())
     mes = fest / (dias / 30.44) if dias else 0
     return {"desde": nuevo[0], "actual": actual, "nuevo": nuevo[1], "horas_mes": round(mes * (nuevo[1] - actual) / 100, 2)}
+
+
+def avisos_ausencia(bd, ini, fin):
+    """Ausencias no planeadas que empiezan en el rango: con cuánta anticipación se registraron frente al inicio del
+    turno publicado ese día (o las 00:00 si no tenía turno) y, por cada día de ausencia con turno publicado, si un
+    cambio de servicio registrado después le dio ese turno a otra persona (reemplazo) y cuántas horas tardó. Las
+    ausencias anteriores al registro de la hora cuentan como «sin dato»."""
+    ctx = _ctx(bd, ini, fin)
+    gente = {p.id for p in ctx.colabs if p.en_solver}
+    periodos = [k for k in bd.periodos() if _cruza(k, ini, fin)]
+    publicado = {c: t for k in periodos for c, t in bd.asignaciones(k, "original").items()}
+    servicios = [(datetime.fromisoformat(r["registrado_en"]), r["celdas"]) for k in periodos for r in cambios.listar(bd, k)
+                 if r["tipo"] == "servicio" and not r["anulado_en"]]
+    avisos, sin_dato, con_turno, horas = {"tarde": 0, "menos_24h": 0, "24_72h": 0, "mas_72h": 0}, 0, 0, []
+    for n in bd.novedades():
+        if n.tipo not in NO_PLANEADAS or n.colab_id not in gente or not ini <= n.desde <= fin:
+            continue
+        if n.registrado_en is None:
+            sin_dato += 1
+            continue
+        t = ctx.turnos.get(publicado.get((n.colab_id, n.desde)))
+        h = ((intervalo(t, n.desde)[0] if t else datetime.combine(n.desde, datetime.min.time())) - n.registrado_en).total_seconds() / 3600
+        avisos["tarde" if h <= 0 else "menos_24h" if h < 24 else "24_72h" if h < 72 else "mas_72h"] += 1
+        for f in flujo.fechas(n.desde, min(n.hasta, fin)):
+            cod = publicado.get((n.colab_id, f))
+            if cod not in ctx.turnos:
+                continue
+            con_turno += 1
+            cuando = min((hecho for hecho, celdas in servicios if hecho >= n.registrado_en and any(
+                c != n.colab_id and d == f and a not in ctx.turnos and b in ctx.turnos for c, d, a, b, *_ in celdas)), default=None)
+            if cuando:
+                horas.append((cuando - n.registrado_en).total_seconds() / 3600)
+    return {"avisos": avisos, "sin_dato": sin_dato, "dias_con_turno": con_turno, "cubiertos": len(horas),
+            "pct_cubiertos": round(len(horas) / con_turno * 100, 1) if con_turno else None,
+            "mediana_horas": round(median(horas), 1) if horas else None}
