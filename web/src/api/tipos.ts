@@ -42,6 +42,8 @@ export interface Cuadro {
   version: string;
   revision?: number;
   festivos?: Record<string, string>; // fecha ISO → nombre, solo los del periodo
+  /** N+1: por fecha y franja, personas sobre lo obligatorio en el tramo más justo (0 = justo, negativo = falta; null = no se pide). */
+  margen?: Record<string, Partial<Record<"M" | "T" | "N", number | null>>>;
   celdas: Celda[];
 }
 export interface Colaborador {

@@ -20,6 +20,9 @@ export interface Pie {
   titulo: string;
   valor: (fecha: string) => ReactNode;
   alerta?: (fecha: string) => boolean;
+  /** Sin margen: se ve en ámbar (una ausencia y falta gente). */
+  justo?: (fecha: string) => boolean;
+  nota?: (fecha: string) => string | undefined;
 }
 export interface Foco {
   fila: number | null; // null = primera fila
@@ -188,7 +191,8 @@ export function Planilla({ descripcion, dias, filas, celda, columnaExtra, semana
                 <th scope="row" className="sticky left-0 z-[1] min-w-28 sm:min-w-52 pr-4! pl-3! text-left! whitespace-nowrap">{p.titulo}</th>
                 {dias.map((d, i) => (
                   <Fragment key={d.fecha}>
-                    <td className={cx("tabular-nums", p.alerta?.(d.fecha) && "bg-utility-red-50! font-bold text-utility-red-700")} {...marcas(i)}>{p.valor(d.fecha)}</td>
+                    <td className={cx("tabular-nums", p.alerta?.(d.fecha) ? "bg-utility-red-50! font-bold text-utility-red-700" : p.justo?.(d.fecha) && "bg-utility-yellow-50! font-semibold text-utility-yellow-700")}
+                      title={p.nota?.(d.fecha)} {...marcas(i)}>{p.valor(d.fecha)}</td>
                     {semanal && cierraSemana(dias, i) && <td />}
                   </Fragment>
                 ))}

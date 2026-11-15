@@ -27,6 +27,7 @@ def test_cuadro_trae_revision_y_fijo():
         r = cli.get(f"/api/areas/{e.ar['A']}/periodos/{periodo(e)}/cuadro").json()
         assert r["revision"] == 0
         assert [(c["fecha"], c["fijo"]) for c in r["celdas"]] == [("2026-10-05", False), ("2026-10-06", True), ("2026-10-07", False)]
+        assert len(r["margen"]) == 31 and set(r["margen"]["2026-10-05"]) == {"M", "T", "N"}  # margen N+1 de cada día
 
 
 def test_puesto_fijado_en_la_celda():
@@ -66,6 +67,7 @@ def test_cuadro_version_original():
         cli, pid = sesion(e, "lector@a.co"), periodo(e)
         r = cli.get(f"/api/areas/{e.ar['A']}/periodos/{pid}/cuadro?version=original").json()
         assert r["version"] == "original" and not r["usa_puestos"] and all("puesto" not in c and not c["fijo"] for c in r["celdas"])
+        assert r["margen"] == {}  # solo para la planilla vigente
         assert r["festivos"] == {"2026-10-12": "Día de la Raza"}, r["clave"]  # solo los del periodo (octubre 2026)
         assert cli.get(f"/api/areas/{e.ar['A']}/periodos/{pid}/cuadro?version=otra").status_code == 422
 

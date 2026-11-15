@@ -132,10 +132,15 @@ def cuadro(id: int, version: Literal["original", "cambios"] = "cambios", ctx: Co
         if a.puesto_id and (not seq or seq[-1] != a.puesto_id):
             seq.append(a.puesto_id)
     fest = {f.isoformat(): n for a in {inicio.year, fin.year} for f, n in festivos(a).items() if inicio <= f <= fin}
-    return {"clave": clave, "version": version, "revision": revision, "usa_puestos": usa, "festivos": fest,
+    asig = ctx.bd.asignaciones(clave, version)
+    margen = {}  # N+1: por día y franja, cuántas personas sobran sobre lo obligatorio en el tramo más justo (0 = justo)
+    if vigente and asig:
+        c, dias = ctx.bd.contexto(inicio.year), flujo.fechas(inicio, fin)
+        margen = {f.isoformat(): reglas.margen_dia(c, asig, f, con_ayer=f != dias[0]) for f in dias}
+    return {"clave": clave, "version": version, "revision": revision, "usa_puestos": usa, "festivos": fest, "margen": margen,
             "celdas": [dict(colab_id=c, fecha=f, turno=t, fijo=(c, f) in fijos, **({"puesto": cambios.puesto_de(ctx.bd, clave, c, f),
                                                                                    "puesto_fijo": (c, f) in fijos_q or (c, f) in fijos_m, "puestos": [] if (c, f) in fijos_q else orden.get((c, f), [])} if usa else {}))
-                       for (c, f), t in sorted(ctx.bd.asignaciones(clave, version).items())]}
+                       for (c, f), t in sorted(asig.items())]}
 
 
 def _reparto(ctx, clave, c, dias):

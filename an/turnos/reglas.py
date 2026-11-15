@@ -26,11 +26,8 @@ def texto_tramos(ini, fin):
     return f"{hm(ini)}–{hm(fin)}"
 
 
-def faltantes_dia(ctx, cuadro, fecha, con_ayer=True, deseable=False):
-    """{franja: (faltante_máximo, [(tramo_ini, tramo_fin, falta), ...])} del día `fecha` frente a la demanda obligatoria
-    de los puestos. Cuenta a quienes empiezan hoy y, si `con_ayer`, la madrugada de las noches de ayer.
-    Con `deseable`, solo lo que falta de la demanda deseable (lo obligatorio ya se reporta aparte)."""
-    obl, des = dem.demanda_fecha(ctx, fecha, con_ayer)
+def _presentes(ctx, cuadro, fecha, con_ayer=True):
+    """Personas en cada uno de los 48 tramos de `fecha`: quienes empiezan hoy y, si `con_ayer`, la madrugada de las noches de ayer."""
     hay = [0] * dem.TRAMOS_DIA
     activos = {p.id for p in ctx.colabs if p.en_solver}
     ayer = fecha - timedelta(days=1)
@@ -39,6 +36,23 @@ def faltantes_dia(ctx, cuadro, fecha, con_ayer=True, deseable=False):
             for off, t in dem.turno_tramos(ctx.turnos[cod]):
                 if off == (0 if f == fecha else 1):
                     hay[t] += 1
+    return hay
+
+
+def margen_dia(ctx, cuadro, fecha, con_ayer=True):
+    """{franja: presentes − pedidos obligatorios en el tramo más justo, o None si la franja no pide a nadie}.
+    0 = justo (una ausencia y falta gente), negativo = ya falta."""
+    obl, _ = dem.demanda_fecha(ctx, fecha, con_ayer)
+    hay = _presentes(ctx, cuadro, fecha, con_ayer)
+    return {fr: min((hay[t] - obl[t] for t in tramos if obl[t]), default=None) for fr, tramos in dem.FRANJAS.items()}
+
+
+def faltantes_dia(ctx, cuadro, fecha, con_ayer=True, deseable=False):
+    """{franja: (faltante_máximo, [(tramo_ini, tramo_fin, falta), ...])} del día `fecha` frente a la demanda obligatoria
+    de los puestos. Cuenta a quienes empiezan hoy y, si `con_ayer`, la madrugada de las noches de ayer.
+    Con `deseable`, solo lo que falta de la demanda deseable (lo obligatorio ya se reporta aparte)."""
+    obl, des = dem.demanda_fecha(ctx, fecha, con_ayer)
+    hay = _presentes(ctx, cuadro, fecha, con_ayer)
     out = {}
     for fr, tramos in dem.FRANJAS.items():
         tramos = list(tramos)
