@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
+import { Download01, Printer } from "@untitledui/icons";
 import { usar } from "../api/catalogos";
+import { exportes } from "../api/exportes";
 import type { Area } from "../api/tipos";
 import { Barras, Linea } from "../componentes/Graficos";
 import { Tabla } from "../componentes/Tabla";
 import { Indicador, Indicadores, Pagina, Seccion } from "./comun";
 import { fechaCorta, nombrePeriodo, num } from "./fechas";
+import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 
 interface Datos {
@@ -31,6 +34,8 @@ const meses = (a: string, b: string) => {
   for (let [y, n] = a.split("-").map(Number); `${y}-${String(n).padStart(2, "0")}` <= b; n === 12 ? (y++, n = 1) : n++) out.push(`${y}-${String(n).padStart(2, "0")}`);
   return out;
 };
+// Enlace normal, no de React Aria: su RouterProvider llevaría /api/... por react-router (igual que en Reportes).
+const bajar = (href: string) => Object.assign(document.createElement("a"), { href, download: "" }).click();
 const mesCorto = (m: string) => `${m.slice(5)}/${m.slice(2, 4)}`;
 const ultimoDia = (m: string) => { const [y, n] = m.split("-").map(Number); return `${m}-${String(new Date(y, n, 0).getDate()).padStart(2, "0")}`; };
 
@@ -53,13 +58,17 @@ export function Analiticas() {
   }, [d]);
 
   return (
-    <Pagina titulo="Analíticas"
+    <Pagina titulo={<>Analíticas<span className="hidden print:inline"> · {mesCorto(desde)} a {mesCorto(hasta)}</span></>}
+      acciones={ok && d && <>
+        <Button color="secondary" size="sm" iconLeading={Printer} onPress={() => window.print()}>Imprimir</Button>
+        <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlAnaliticas(area.id, `${desde}-01`, ultimoDia(hasta)))}>Descargar Excel</Button>
+      </>}
       filtros={<div className="flex flex-wrap items-start gap-3">
         <Input className="w-48 [&_label]:sr-only" value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
         <Input className="w-48 [&_label]:sr-only" value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!ok} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
       </div>} sub="Cifras de lo ya registrado. Solo se consulta: aquí no se cambia nada." ayuda={<>Elige el rango de meses. Arriba ves el resumen: <strong>ausentismo</strong> (porcentaje de días perdidos por ausencias), cuántas personas faltaron <strong>a la vez</strong>, días con <strong>déficit</strong> (faltó gente en algún puesto) y cambios de turno. Las tablas de abajo muestran el detalle por persona y por periodo.</>} error={r.error}>
       {!d || !total ? <p aria-busy="true">Cargando…</p> : (
-        <>
+        <div className="flex flex-col gap-4 print:[&_section]:break-inside-avoid">
           <Indicadores etiqueta="Resumen">
             <Indicador titulo="Ausentismo" valor={`${num(d.ausentismo.pct)} %`} nota={`${total.ausencias} días de ausencia`} />
             <Indicador titulo="Ausentes a la vez (máximo)" valor={String(d.simultaneos.maximo)} nota={d.simultaneos.fecha_maximo ? `El ${fechaCorta(d.simultaneos.fecha_maximo)}` : "Sin ausencias simultáneas"} />
@@ -146,7 +155,7 @@ export function Analiticas() {
             <Tabla descripcion="Saldos del banco" vacio="Sin saldos." columnas={["Persona", "Saldo (h)"]}
               filas={Object.entries(d.banco.saldos).sort().map(([p, s]) => [p, num(s)])} />
           </Seccion>
-        </>
+        </div>
       )}
     </Pagina>
   );

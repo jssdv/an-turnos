@@ -3,6 +3,7 @@ temporal y guardan el libro en `exporte`. Un exporte nuevo borra el anterior del
 import tempfile
 import unicodedata
 import zipfile
+from datetime import date
 from io import BytesIO
 from typing import Literal
 from urllib.parse import quote
@@ -14,6 +15,7 @@ from an.radiologia import analisis
 from an.turnos import exportar, flujo
 
 from .deps import Contexto, contexto_area_lectura
+from .rutas_areas import datos_analiticas
 
 router = APIRouter(prefix="/api")
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -101,6 +103,16 @@ def banco_xlsx(id: int, request: Request, ctx: Contexto = Depends(contexto_area_
     request.state.evento = "exportacion"
     return Response(contenido, media_type=XLSX, headers=_adjunto(ruta.name))
 
+
+
+@router.get("/areas/{area}/analiticas.xlsx")
+def analiticas_xlsx(desde: date, hasta: date, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
+    datos = datos_analiticas(ctx, desde, hasta)
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = exportar.exportar_analiticas(tmp, f"Analiticas_{desde}_{hasta}", datos)
+        contenido = ruta.read_bytes()
+    request.state.evento = "exportacion"
+    return Response(contenido, media_type=XLSX, headers=_adjunto(ruta.name))
 
 
 def _agendas(ctx, id):

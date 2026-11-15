@@ -8,6 +8,7 @@ export const exportes = {
   crear: (area: number, periodo: number, tipo: TipoExporte) => pedir<Exporte>("POST", base(area, periodo), { cuerpo: { tipo } }),
   listar: (area: number, periodo: number) => leer<Exporte[]>(base(area, periodo)),
   /** Descargas directas (se arman al pedirlas, no se guardan). */
+  urlAnaliticas: (area: number, desde: string, hasta: string) => `/api/areas/${area}/analiticas.xlsx?desde=${desde}&hasta=${hasta}`,
   urlBanco: (area: number, periodo: number) => `/api/areas/${area}/periodos/${periodo}/banco.xlsx`,
   urlAgenda: (area: number, periodo: number, colab: number) => `/api/areas/${area}/periodos/${periodo}/agendas/${colab}.ics`,
   urlAgendas: (area: number, periodo: number) => `/api/areas/${area}/periodos/${periodo}/agendas.zip`,

@@ -175,6 +175,11 @@ def horas(id: int, ctx: Contexto = Depends(contexto_area, scope="function")):
 
 @router.get("/areas/{area}/analiticas")
 def analiticas(desde: date, hasta: date, ctx: Contexto = Depends(contexto_area, scope="function")):
+    return datos_analiticas(ctx, desde, hasta)
+
+
+def datos_analiticas(ctx, desde, hasta):
+    """Todas las métricas del rango; las usan la pantalla y el Excel de Analíticas."""
     if hasta < desde or (hasta - desde).days > MAX_DIAS_ANALITICAS:
         raise HTTPException(422, f"El rango debe ir de «desde» a «hasta» y no pasar de {MAX_DIAS_ANALITICAS} días")
     return {"ausentismo": analitica.ausentismo(ctx.bd, desde, hasta), "cobertura": analitica.cobertura(ctx.bd, desde, hasta),

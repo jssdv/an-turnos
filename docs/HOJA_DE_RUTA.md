@@ -31,6 +31,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 ## Hecho recientemente
 
+Analíticas v2: tendencias, estabilidad del cuadro, señales de fatiga, patrones de ausencia con días de riesgo en Inicio, e impresión y Excel para gerencia (15/11/2026).
+
 Ctrl+Z/Ctrl+Y y vista por semana en el cuadro, «Respaldar ahora» en Áreas, «Pegar lista» de personal desde Excel, filtros en Ausencias y el .exe de Windows arrancando de nuevo (15/11/2026).
 
 Excel del banco de horas, agendas `.ics` e impresión por persona, y «¿Quién cubre?» para reemplazos (13/11/2026).

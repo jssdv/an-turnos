@@ -89,6 +89,12 @@ export function Reportes() {
             <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlBanco(area.id, p.id))}>Descargar Excel</Button>
           </section>
           <section className="tarjeta flex flex-col items-start gap-3 p-5">
+            <LineChartUp01 aria-hidden="true" className="size-5 text-fg-quaternary" />
+            <h2 className="text-lg font-semibold text-primary">Analíticas</h2>
+            <p className="flex-1 text-sm text-tertiary">Resumen para gerencia o RR. HH. de este periodo: ausentismo, cobertura, estabilidad, fatiga y patrones. Para otro rango, descárgalo desde Analíticas.</p>
+            <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlAnaliticas(area.id, ...(p.clave.split("/") as [string, string])))}>Descargar Excel</Button>
+          </section>
+          <section className="tarjeta flex flex-col items-start gap-3 p-5">
             <CalendarDate aria-hidden="true" className="size-5 text-fg-quaternary" />
             <h2 className="text-lg font-semibold text-primary">Agendas</h2>
             <p className="flex-1 text-sm text-tertiary">El horario de cada persona para su calendario (.ics), para imprimir o en texto para su chat.</p>
