@@ -1,5 +1,4 @@
 """Rutas de lectura de un área. Cada una llama una función del núcleo; la API no reimplementa reglas."""
-import json
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime, timezone
 from typing import Literal
@@ -199,10 +198,9 @@ def _corridas(ctx, desde, hasta):
     """Generaciones del solver de los periodos que tocan el rango (la tabla `trabajo` es de la web; el núcleo no la ve)."""
     claves = {f["id"]: f["clave"] for f in ctx.conn.execute("SELECT id, clave FROM periodo")
               if flujo.desde_clave(f["clave"])[0] <= hasta and flujo.desde_clave(f["clave"])[1] >= desde}
-    leer = lambda v: v if v is None or isinstance(v, datetime) else datetime.fromisoformat(str(v))
-    json_ = lambda v: v if v is None or isinstance(v, dict) else json.loads(v)
-    return [{"periodo": claves[f["periodo_id"]], "estado": f["estado"], "creado": leer(f["creado"]), "terminado": leer(f["terminado"]),
-             "resultado": json_(f["resultado"])}
+    # La conexión ya entrega `timestamptz` como datetime con zona y `jsonb` como dict (PARSE_DECLTYPES).
+    return [{"periodo": claves[f["periodo_id"]], "estado": f["estado"], "creado": f["creado"], "terminado": f["terminado"],
+             "resultado": f["resultado"]}
             for f in ctx.conn.execute("SELECT periodo_id, estado, creado, terminado, resultado FROM trabajo WHERE tipo = 'generar' AND area_id = ?", (ctx.area,))
             if f["periodo_id"] in claves]
 

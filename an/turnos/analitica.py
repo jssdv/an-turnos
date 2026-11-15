@@ -9,6 +9,14 @@ from . import cambios, flujo, puestos, recargos, reglas, solicitudes
 from .dominio import DESCANSO_MIN, festivos, intervalo
 
 
+def _ctx(bd, ini, fin):
+    """`bd.contexto` con los festivos de todos los años del rango (contexto solo trae el año de `ini` ± 1)."""
+    ctx = bd.contexto(ini.year)
+    for y in range(ini.year + 2, fin.year + 2):
+        ctx.fest.update(festivos(y))
+    return ctx
+
+
 def _ausencias(bd, ini, fin):
     """({(colab_id, fecha): tipo}, [Colaborador]) del rango; la primera novedad gana si se solapan."""
     gente = [p for p in bd.colaboradores() if p.en_solver]
@@ -50,7 +58,7 @@ def simultaneos(bd, ini, fin):
     dias = sorted({f for _, f in cuadro})
     riesgo = []
     if dias:
-        falt = reglas.faltantes_periodo(bd.contexto(ini.year), cuadro, dias)
+        falt = reglas.faltantes_periodo(_ctx(bd, ini, fin), cuadro, dias)
         riesgo = [f for f in dias if cuenta[f] and any(v[0] for v in falt[f].values())]
     return {"serie": serie, "maximo": maximo, "fecha_maximo": fecha_max, "dias_riesgo": riesgo}
 
@@ -74,13 +82,13 @@ def _cruza(k, ini, fin):
 
 
 def cobertura(bd, ini, fin):
-    """Por periodo con cuadro que toca el rango: días con déficit, días con exceso y puestos obligatorios sin cubrir."""
-    ctx, out = bd.contexto(ini.year), []
+    """Por periodo con cuadro que toca el rango: días del rango con déficit y con exceso, y puestos obligatorios sin cubrir."""
+    ctx, out = _ctx(bd, ini, fin), []
     for k in (k for k in bd.periodos() if _cruza(k, ini, fin)):
         a, b = flujo.desde_clave(k)
         dias, cuadro = flujo.fechas(a, b), bd.asignaciones(k)
         deficit = exceso = 0
-        for f in dias:
+        for f in (f for f in dias if ini <= f <= fin):  # igual que cobertura_tramos: solo los días del rango
             con_ayer = f != a
             if any(v[0] for v in reglas.faltantes_dia(ctx, cuadro, f, con_ayer).values()):
                 deficit += 1
@@ -96,9 +104,11 @@ def cobertura_tramos(bd, ini, fin):
     """Personas frente a demanda por tramo de 30 min en los periodos con cuadro del rango. El hueco se mide en cada
     tramo antes de sumar (un tramo sobrado no tapa otro corto). Horas = personas-tramo / 2. Cobertura = 1 − faltantes /
     requeridas; eficiencia = 1 − (faltantes + sobrantes) / requeridas (sobra = por encima de obligatoria + deseable).
-    `mapa`: 7 × 48 con el promedio de presentes − obligatorias por día de la semana y tramo (None si nunca hubo demanda
-    ni gente)."""
-    ctx = bd.contexto(ini.year)
+    `mapa`: 7 × 48 con el faltante promedio (personas bajo lo obligatorio) por día de la semana y tramo, solo en tramos
+    con demanda y sin festivos (otro tipo de día); None donde nunca hubo demanda. Promediar faltantes, no presentes −
+    obligatorias, evita que una semana sobrada tape otra corta. Como en `faltantes_dia`, suma todos los puestos; el
+    reparto por puesto se ve en «puestos sin cubrir»."""
+    ctx = _ctx(bd, ini, fin)
     suma, n = [[0] * dem.TRAMOS_DIA for _ in range(7)], [[0] * dem.TRAMOS_DIA for _ in range(7)]
     por_periodo = []
     for k in (k for k in bd.periodos() if _cruza(k, ini, fin)):
@@ -112,8 +122,8 @@ def cobertura_tramos(bd, ini, fin):
                 req += obl[t]
                 falta += max(0, obl[t] - hay[t])
                 sobra += max(0, hay[t] - obl[t] - des[t])
-                if obl[t] or hay[t]:
-                    suma[f.weekday()][t] += hay[t] - obl[t]
+                if obl[t] and f not in ctx.fest:
+                    suma[f.weekday()][t] += max(0, obl[t] - hay[t])
                     n[f.weekday()][t] += 1
         por_periodo.append({"periodo": k, "horas_requeridas": req / 2, "horas_faltantes": falta / 2, "horas_sobrantes": sobra / 2})
     req, falta, sobra = (sum(p[c] for p in por_periodo) for c in ("horas_requeridas", "horas_faltantes", "horas_sobrantes"))
@@ -141,7 +151,7 @@ def estabilidad(bd, ini, fin, publicados):
     publicación (publicar otra vez no borra la cuenta): celdas distintas que tocaron, cuántas se registraron con menos
     de `aviso_corto_horas` antes del turno (las correcciones de un turno ya empezado no son aviso) y días de
     anticipación de la publicación. `cubre_mas`: turnos que cada persona tomó en un día libre por cambios de servicio."""
-    ctx = bd.contexto(ini.year)
+    ctx = _ctx(bd, ini, fin)
     gente = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
     aviso = timedelta(hours=int(bd.param("aviso_corto_horas", 48)))
     periodos, cubre = [], defaultdict(int)
@@ -172,7 +182,7 @@ def fatiga(bd, ini, fin):
     `senales` cuenta: racha de días más larga que `max_dias_seguidos`, más noches seguidas que `max_noches_seguidas`
     (noche-libre-noche, como en `validar`), algún descanso menor a `descanso_corto_horas`, y fines de semana trabajados
     por encima de la media del equipo + 1."""
-    ctx = bd.contexto(ini.year)
+    ctx = _ctx(bd, ini, fin)
     gente = [p for p in ctx.colabs if p.en_solver]
     if not gente:
         return {}
@@ -237,7 +247,7 @@ def patrones_ausencia(bd, ini, fin):
     """Ausencias no planeadas: % de días-persona por día de la semana (lunes primero) en el rango, rachas que empiezan
     el día después de un festivo y factor Bradford (rachas² × días). Bradford mira siempre los 12 meses que terminan en
     `fin` (sus tramos 0-49…500+ suponen un año); sirve para ver patrones, no para sancionar."""
-    ctx = bd.contexto(ini.year)
+    ctx = _ctx(bd, ini, fin)
     gente = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
     dias = flujo.fechas(ini, fin)
     ausentes = [0] * 7
@@ -298,7 +308,7 @@ def riesgo_proximo(bd, hoy, dias=14):
 def _reportes(bd, ini, fin, ventana=None):
     """[(periodo, [(Colaborador, reporte)])] de los periodos con cuadro que tocan el rango. `ventana` en semanas
     (por defecto la configurada); `"periodo"` = una sola ventana que abarca todo el periodo."""
-    ctx, tar = bd.contexto(ini.year), bd.tarifas()
+    ctx, tar = _ctx(bd, ini, fin), bd.tarifas()
     conf = int(bd.param("ventana_semanas", 3))
     gente = [p for p in ctx.colabs if p.en_solver]
     out = []
@@ -339,8 +349,9 @@ def recargos_resumen(bd, ini, fin):
 
 
 def equidad(bd, ini, fin):
-    """Noches, domingos y festivos trabajados por persona (turnos contados por su fecha de inicio)."""
-    ctx = bd.contexto(ini.year)
+    """Noches, domingos y festivos trabajados por persona (turnos contados por su fecha de inicio), su diferencia máx−mín y
+    la desviación de cada persona frente a la media del equipo (ver abajo)."""
+    ctx = _ctx(bd, ini, fin)
     gente = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
     por = {n: {"noches": 0, "domingos": 0, "festivos": 0} for n in gente.values()}
     for k in (k for k in bd.periodos() if _cruza(k, ini, fin)):
@@ -356,11 +367,15 @@ def equidad(bd, ini, fin):
                 o["festivos"] += 1
     cats = ("noches", "domingos", "festivos")
     disp = {c: (max(o[c] for o in por.values()) - min(o[c] for o in por.values())) if por else 0 for c in cats}
-    # Desviación de cada persona respecto de la media del equipo, con los conteos llevados a tiempo completo (÷ dedicación):
-    # minimizar la desviación media fue lo más justo en los estudios de turnos de enfermería (Martin et al., MinDev).
+    # Desviación de cada persona respecto de la media del equipo, con los conteos llevados a tiempo completo (÷ dedicación)
+    # y a todos los días del rango con cuadro (÷ la parte en que no estuvo ausente): minimizar la desviación media fue lo
+    # más justo en los estudios de turnos de enfermería (Martin et al., MinDev). Quien no estuvo ningún día no entra.
+    dias = {f for k in bd.periodos() if _cruza(k, ini, fin) for f in flujo.fechas(*flujo.desde_clave(k)) if ini <= f <= fin}
+    aus, _ = _ausencias(bd, ini, fin)
+    disp_dias = {gente[cid]: sum((cid, f) not in aus for f in dias) for cid in gente}
     ded = {p.nombre: p.pct or 1 for p in ctx.colabs if p.en_solver}
-    ajust = {n: {c: o[c] / ded[n] for c in cats} for n, o in por.items()}
-    est, desv = {}, {n: {} for n in por}
+    ajust = {n: {c: o[c] / ded[n] * len(dias) / disp_dias[n] for c in cats} for n, o in por.items() if disp_dias[n]}
+    est, desv = {}, {n: {} for n in ajust}
     for c in cats:
         vals = [a[c] for a in ajust.values()]
         media = sum(vals) / len(vals) if vals else 0
@@ -378,7 +393,7 @@ def concentracion_extra(bd, ini, fin):
     for _, filas in _reportes(bd, ini, fin):
         for p, r in filas:
             por[p.nombre] += sum(h for (tipo, _, _), h in r["cat"].items() if tipo == "extra")
-    gente = [p for p in bd.contexto(ini.year).colabs if p.en_solver]
+    gente = [p for p in _ctx(bd, ini, fin).colabs if p.en_solver]
     top_n = ceil(len(gente) * 0.2)
     total = sum(por.values())
     arriba = sum(sorted(por.values(), reverse=True)[:top_n])
@@ -390,7 +405,7 @@ def solicitudes_resumen(bd, ini, fin):
     """Solicitudes con días dentro del rango (y con cuadro), evaluadas sobre el cuadro vigente: por persona pedidas,
     cumplidas, parciales y no cumplidas y su tasa; por tipo; y la tasa del equipo. Una solicitud que cruza dos periodos
     se evalúa una sola vez."""
-    ctx = bd.contexto(ini.year)
+    ctx = _ctx(bd, ini, fin)
     nombre = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
     periodos = [k for k in bd.periodos() if _cruza(k, ini, fin)]
     fechas = sorted({f for k in periodos for f in flujo.fechas(*flujo.desde_clave(k)) if ini <= f <= fin})
@@ -409,7 +424,8 @@ def solicitudes_resumen(bd, ini, fin):
     for o in por.values():
         o["tasa"] = round(o["cumplidas"] / o["pedidas"] * 100, 2)
     pedidas = sum(o["pedidas"] for o in por.values())
-    return {"por_persona": por, "por_tipo": tipos,
+    tasas = [o["tasa"] for o in por.values()]
+    return {"por_persona": por, "por_tipo": tipos, "rango_tasa": max(tasas) - min(tasas) if tasas else None,
             "tasa": round(sum(o["cumplidas"] for o in por.values()) / pedidas * 100, 2) if pedidas else None}
 
 
@@ -438,10 +454,13 @@ def banco(bd, ini, fin):
 
 
 # --- v3: planificación ------------------------------------------------------------------------------
-def pronostico_ausencias(bd, hasta):
+def pronostico_ausencias(bd, hasta, hoy=None):
     """Días de ausencia (todos los tipos) por mes en los 12 meses que terminan con el de `hasta`, y un estimado del mes
     siguiente: promedio de «mismo mes del año pasado» y «media de los últimos 3 meses» (base ingenua estacional, la que
-    los modelos más finos tienen que superar; para un equipo chico basta)."""
+    los modelos más finos tienen que superar; para un equipo chico basta). Con `hoy`, el mes en curso no entra (está a
+    medias). Si no hay registros de hace un año, el «mismo mes» sería un cero falso: se usa solo la media de 3 meses."""
+    if hoy and hasta >= hoy.replace(day=1):
+        hasta = hoy.replace(day=1) - timedelta(days=1)
     meses = []
     y, m = hasta.year, hasta.month
     for _ in range(12):
@@ -456,8 +475,11 @@ def pronostico_ausencias(bd, hasta):
     y, m = meses[-1]
     siguiente = f"{y + (m == 12)}-{m % 12 + 1:02d}"
     anterior, media_3 = serie[0][1], sum(n for _, n in serie[-3:]) / 3
-    return {"serie": serie, "siguiente": siguiente, "mismo_mes_anterior": anterior, "media_3": round(media_3, 2),
-            "estimado": round((anterior + media_3) / 2, 1)}
+    primera = min((n.desde for n in bd.novedades()), default=None)
+    hay_historial = primera is not None and primera <= flujo.periodo_mes(*meses[0])[1]
+    return {"serie": serie, "siguiente": siguiente, "mismo_mes_anterior": anterior if hay_historial else None,
+            "media_3": round(media_3, 2), "base": "estacional" if hay_historial else "media_3",
+            "estimado": round((anterior + media_3) / 2 if hay_historial else media_3, 1)}
 
 
 def corridas(filas):
@@ -470,9 +492,10 @@ def corridas(filas):
     out = []
     for k, rs in por.items():
         bien = [r for r in rs if r["estado"] == "listo"]
-        dur = [(r["terminado"] - r["creado"]).total_seconds() for r in rs if r["terminado"]]
+        resueltas = [r for r in rs if r["estado"] in ("listo", "fallido", "conflicto")]  # sin las canceladas ni las que siguen
+        dur = [(r["terminado"] - r["creado"]).total_seconds() for r in resueltas if r["terminado"]]
         ultima = (bien[-1]["resultado"] or {}) if bien else {}
-        out.append({"periodo": k, "corridas": len(rs), "terminadas_bien": len(bien), "pct_bien": round(len(bien) / len(rs) * 100, 1),
+        out.append({"periodo": k, "corridas": len(rs), "terminadas_bien": len(bien), "pct_bien": round(len(bien) / len(resueltas) * 100, 1) if resueltas else None,
                     "mediana_seg": round(median(dur), 1) if dur else None,
                     "faltan_ultima": sum(n for *_, n in ultima.get("faltan", [])) if bien else None,
                     "solicitudes_ultima": len(ultima.get("solicitudes", [])) if bien else None})
@@ -488,6 +511,9 @@ def proximo_recargo(bd, hoy, ini, fin):
     nuevo = next(((d, v) for d, v in dom if d > hoy), None)
     if actual is None or nuevo is None:
         return None
-    meses = (fin.year - ini.year) * 12 + fin.month - ini.month + 1
+    # Las horas salen de periodos enteros (los que tocan el rango): se promedian sobre esos mismos días, no sobre los
+    # meses del rango, para que periodos de 4 semanas o rangos sin cuadro no inflen ni diluyan el mes.
+    dias = sum((b - a).days + 1 for a, b in (flujo.desde_clave(k) for k in bd.periodos() if _cruza(k, ini, fin)))
     fest = sum(r["festivo"] for r in recargos_resumen(bd, ini, fin).values())
-    return {"desde": nuevo[0], "actual": actual, "nuevo": nuevo[1], "horas_mes": round(fest / meses * (nuevo[1] - actual) / 100, 2)}
+    mes = fest / (dias / 30.44) if dias else 0
+    return {"desde": nuevo[0], "actual": actual, "nuevo": nuevo[1], "horas_mes": round(mes * (nuevo[1] - actual) / 100, 2)}
