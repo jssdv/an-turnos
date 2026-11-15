@@ -22,6 +22,9 @@ interface Datos {
   recargos: Record<string, { festivo: number; nocturna: number; equivalentes: number }>;
   equidad: { por_persona: Record<string, { noches: number; domingos: number; festivos: number }>; dispersion: { noches: number; domingos: number; festivos: number };
     estadisticas: Record<"noches" | "domingos" | "festivos", { media: number; mad: number; cv: number }>; desviacion: Record<string, Record<"noches" | "domingos" | "festivos", number>> };
+  pronostico: { serie: [string, number][]; siguiente: string; mismo_mes_anterior: number; media_3: number; estimado: number };
+  corridas: { periodo: string; corridas: number; terminadas_bien: number; pct_bien: number; mediana_seg: number | null; faltan_ultima: number | null; solicitudes_ultima: number | null }[];
+  proximo_recargo: { desde: string; actual: number; nuevo: number; horas_mes: number } | null;
   concentracion_extra: { por_persona: Record<string, number>; top_n: number; top_pct: number | null };
   solicitudes: { por_persona: Record<string, { pedidas: number; cumplidas: number; parciales: number; no_cumplidas: number; tasa: number }>; por_tipo: Record<string, { pedidas: number; cumplidas: number }>; tasa: number | null };
   banco: { saldos: Record<string, number>; serie: [string, number, number][] };
@@ -29,7 +32,8 @@ interface Datos {
   patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { desde: string; equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
-const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos" | "concentracion_extra" | "solicitudes"> = {
+const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos" | "concentracion_extra" | "solicitudes" | "pronostico" | "corridas" | "proximo_recargo"> = {
+  pronostico: { serie: [], siguiente: "", mismo_mes_anterior: 0, media_3: 0, estimado: 0 }, corridas: [], proximo_recargo: null,
   concentracion_extra: { por_persona: {}, top_n: 0, top_pct: null }, solicitudes: { por_persona: {}, por_tipo: {}, tasa: null },
   cobertura_tramos: { horas_requeridas: 0, horas_faltantes: 0, horas_sobrantes: 0, cobertura_pct: null, eficiencia_pct: null, mapa: Array.from({ length: 7 }, () => Array(48).fill(null)), por_periodo: [] },
   estabilidad: { periodos: [], cubre_mas: {} }, fatiga: {},
@@ -156,6 +160,25 @@ export function Analiticas() {
             </Seccion>
             <Barras titulo="Fines de semana trabajados" unidad="fines" datos={Object.entries(d.fatiga).map(([p, f]) => [p, f.fines_trabajados])} />
           </div>
+          {d.proximo_recargo && (
+            <Seccion titulo="Lo que viene: recargo dominical">
+              <p className="text-sm">Desde el <strong>{d.proximo_recargo.desde.split("-").reverse().join("/")}</strong> el recargo dominical y festivo pasa de {d.proximo_recargo.actual} % a {d.proximo_recargo.nuevo} % (Ley 2466 de 2025). Con las horas de domingo y festivo de este rango son unas <strong>{num(d.proximo_recargo.horas_mes, 1)} h equivalentes más al mes</strong>.</p>
+            </Seccion>
+          )}
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+            <Linea titulo="Ausencias: últimos 12 meses" unidad="días" etiquetas={d.pronostico.serie.map(([m]) => mesCorto(m))}
+              series={[{ nombre: "Días de ausencia", valores: d.pronostico.serie.map(([, n]) => n) }]} />
+            <Seccion titulo="Estimado del mes siguiente">
+              {d.pronostico.siguiente ? <>
+                <p className="font-mono text-xl font-medium text-primary">{num(d.pronostico.estimado, 1)} días</p>
+                <p className="mt-1 text-sm text-tertiary">Para {mesCorto(d.pronostico.siguiente)}: promedio de lo que hubo el mismo mes del año pasado ({d.pronostico.mismo_mes_anterior}) y la media de los últimos 3 meses ({num(d.pronostico.media_3, 1)}). Es una base sencilla para planear vacaciones y reemplazos; no es una predicción exacta.</p>
+              </> : <p className="text-tertiary">Sin datos.</p>}
+            </Seccion>
+          </div>
+          <Seccion titulo="Generaciones del cuadro">
+            <Tabla descripcion="Corridas del solver por periodo" vacio="Sin generaciones en el rango." columnas={["Periodo", "Corridas", "% terminadas bien", "Duración típica", "Tramos faltantes (última)", "Solicitudes sin cumplir (última)"]}
+              filas={d.corridas.map((c) => [nombrePeriodo(c.periodo), c.corridas, `${num(c.pct_bien)} %`, c.mediana_seg === null ? "—" : `${num(c.mediana_seg, 0)} s`, c.faltan_ultima ?? "—", c.solicitudes_ultima ?? "—"])} />
+          </Seccion>
           <Seccion titulo="Horas extra por periodo">
             <Tabla descripcion="Horas extra" vacio="Sin periodos en el rango." columnas={["Periodo", "Ventana (sem.)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (ventana)", "Nocturnas (ventana)"]}
               filas={d.horas_extra.map((h) => [nombrePeriodo(h.periodo), h.ventana, num(h.mes.diurna), num(h.mes.nocturna), num(h.semanas.diurna), num(h.semanas.nocturna)])} />

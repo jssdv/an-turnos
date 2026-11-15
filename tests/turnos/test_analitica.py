@@ -429,6 +429,39 @@ def test_solicitudes_resumen():
     assert analitica.solicitudes_resumen(db.BD(), I, F) == {"por_persona": {}, "por_tipo": {}, "tasa": None}
 
 
+# --- v3: planificación ----------------------------------------------------------------------------
+def test_pronostico_ausencias():
+    bd, i = nuevo()
+    bd.guardar_novedad(Novedad(i["A"], "Vacaciones", date(2025, 11, 1), date(2025, 11, 10)))  # mismo mes del año pasado: 10
+    for mes, n in ((8, 3), (9, 6), (10, 9)):                                                   # últimos 3 meses: media 6
+        bd.guardar_novedad(Novedad(i["B"], "Incapacidad", date(2026, mes, 1), date(2026, mes, n)))
+    r = analitica.pronostico_ausencias(bd, F)
+    assert len(r["serie"]) == 12 and r["serie"][-1] == ("2026-10", 9) and r["serie"][0] == ("2025-11", 10), r["serie"]
+    assert (r["siguiente"], r["mismo_mes_anterior"], r["media_3"], r["estimado"]) == ("2026-11", 10, 6, 8), r
+
+
+def test_corridas():
+    def f(h):
+        return datetime(2026, 10, 1, 8, 0) + timedelta(seconds=h)
+    filas = [{"periodo": K2, "estado": "fallido", "creado": f(0), "terminado": f(5), "resultado": None},
+             {"periodo": K2, "estado": "listo", "creado": f(10), "terminado": f(40), "resultado": {"faltan": [["2026-10-05", "06:00", 1]], "solicitudes": [{"id": 1}]}},
+             {"periodo": K2, "estado": "listo", "creado": f(50), "terminado": f(60), "resultado": {"faltan": [], "solicitudes": [{"id": 1}, {"id": 2}]}},
+             {"periodo": K2, "estado": "corriendo", "creado": f(70), "terminado": None, "resultado": None}]
+    assert analitica.corridas(filas) == [{"periodo": K2, "corridas": 4, "terminadas_bien": 2, "pct_bien": 50.0, "mediana_seg": 10.0,
+                                          "faltan_ultima": 0, "solicitudes_ultima": 2}]
+    assert analitica.corridas([]) == []
+
+
+def test_proximo_recargo():
+    bd, i = nuevo()
+    _cuadro_octubre(bd, i)
+    fest = sum(r["festivo"] for r in analitica.recargos_resumen(bd, I, F).values())
+    r = analitica.proximo_recargo(bd, date(2026, 11, 15), I, F)
+    assert (r["desde"], r["actual"], r["nuevo"]) == (date(2027, 7, 1), 90, 100), r
+    assert abs(r["horas_mes"] - fest * 0.10) < 1e-6 and fest > 0, (r, fest)
+    assert analitica.proximo_recargo(bd, date(2028, 1, 1), I, F) is None  # sin cambios por delante
+
+
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
     t()
 print("OK")

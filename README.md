@@ -42,7 +42,7 @@ Genera el cuadro mensual con un solver, reparte puestos, calcula horas y recargo
 - Cifras legales editables como datos, no como código.
 
 **Informes**
-- Analíticas: ausentismo, cobertura, cambios, horas extra y equidad, con tendencias; estabilidad del cuadro tras publicar, señales de fatiga y patrones de ausencia. Se imprime o baja a Excel para gerencia.
+- Analíticas: ausentismo, cobertura por tramo de 30 min (con mapa día × hora), cambios, horas extra y su concentración, equidad frente a la media del equipo, solicitudes cumplidas, estabilidad del cuadro tras publicar, señales de fatiga, patrones y pronóstico de ausencias, y el costo del próximo recargo dominical. Se imprime o baja a Excel para gerencia.
 - Exportes a Excel: cuadro, planilla de puestos, reporte de horas y banco de horas (saldos y movimientos).
 - Agendas: el horario de cada persona en `.ics` para su calendario (o todas en un `.zip`) e impresión del horario de una sola persona.
 

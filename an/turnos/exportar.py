@@ -323,6 +323,9 @@ def exportar_analiticas(carpeta, base, d):
         ["Cambios con poco aviso", sum(p["aviso_corto"] for p in est)],
         ["Personas con señales de fatiga", sum(f["senales"] > 0 for f in d["fatiga"].values())],
         ["Solicitudes cumplidas (%)", d["solicitudes"]["tasa"] if d["solicitudes"]["tasa"] is not None else "—"],
+        ["Ausencias estimadas el mes siguiente (días)", d["pronostico"]["estimado"]],
+        *([[f"Próximo recargo dominical: {d['proximo_recargo']['actual']} % → {d['proximo_recargo']['nuevo']} % desde el {d['proximo_recargo']['desde']:%d/%m/%Y} (h equivalentes más al mes)",
+            d["proximo_recargo"]["horas_mes"]]] if d["proximo_recargo"] else []),
         ["Horas extra del 20 % con más (%)", d["concentracion_extra"]["top_pct"] if d["concentracion_extra"]["top_pct"] is not None else "—"],
     ], primera=32)
     _hoja(wb, "Ausentismo", ["Persona", "Total", *tipos],

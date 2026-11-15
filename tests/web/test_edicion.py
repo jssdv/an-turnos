@@ -297,6 +297,21 @@ def test_publicar_alimenta_estabilidad():
         assert cli.get(base).json()["estabilidad"]["periodos"][0]["celdas_cambiadas"] == 1
 
 
+def test_analiticas_corridas_del_solver():
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "editor@a.co")
+        pid = e.su.execute("SELECT id FROM periodo WHERE area_id = %s", (e.ar["A"],)).fetchone()[0]
+        cambio(cli, e, "ajuste", [(e.colab["A"], "2026-10-07", "M")])  # que el periodo tenga cuadro
+        e.su.execute("INSERT INTO trabajo (periodo_id, tipo, revision_base, estado, clinica_id, area_id, creado, terminado, resultado) "
+                     "VALUES (%s, 'generar', 0, 'listo', %s, %s, '2026-10-01 08:00:00', '2026-10-01 08:00:30', %s)",
+                     (pid, e.cl["A"], e.ar["A"], '{"faltan": [["2026-10-05", "06:00", 2]], "solicitudes": []}'))
+        e.su.commit()
+        [c] = cli.get(f"/api/areas/{e.ar['A']}/analiticas?desde=2026-10-01&hasta=2026-10-31").json()["corridas"]
+        assert c["corridas"] == 1 and c["mediana_seg"] == 30 and c["faltan_ultima"] == 2, c
+
+
 def test_cerrar_sin_cuadro_da_409():
     with entorno() as e:
         if e is None:

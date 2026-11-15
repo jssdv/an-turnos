@@ -1,4 +1,5 @@
 """Rutas de lectura de un área. Cada una llama una función del núcleo; la API no reimplementa reglas."""
+import json
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime, timezone
 from typing import Literal
@@ -185,11 +186,25 @@ def datos_analiticas(ctx, desde, hasta, riesgo=True):
     return {"ausentismo": analitica.ausentismo(ctx.bd, desde, hasta), "cobertura": analitica.cobertura(ctx.bd, desde, hasta),
             "cobertura_tramos": analitica.cobertura_tramos(ctx.bd, desde, hasta),
             "concentracion_extra": analitica.concentracion_extra(ctx.bd, desde, hasta), "solicitudes": analitica.solicitudes_resumen(ctx.bd, desde, hasta),
+            "pronostico": analitica.pronostico_ausencias(ctx.bd, hasta), "corridas": analitica.corridas(_corridas(ctx, desde, hasta)),
+            "proximo_recargo": analitica.proximo_recargo(ctx.bd, date.today(), desde, hasta),
             "recargos": analitica.recargos_resumen(ctx.bd, desde, hasta), "simultaneos": analitica.simultaneos(ctx.bd, desde, hasta),
             "cambios": analitica.cambios_resumen(ctx.bd, desde, hasta), "horas_extra": analitica.horas_extra(ctx.bd, desde, hasta),
             "equidad": analitica.equidad(ctx.bd, desde, hasta), "banco": analitica.banco(ctx.bd, desde, hasta),
             "estabilidad": analitica.estabilidad(ctx.bd, desde, hasta, _publicados(ctx)), "fatiga": analitica.fatiga(ctx.bd, desde, hasta),
             "patrones": analitica.patrones_ausencia(ctx.bd, desde, hasta), "riesgo": analitica.riesgo_proximo(ctx.bd, date.today()) if riesgo else []}
+
+
+def _corridas(ctx, desde, hasta):
+    """Generaciones del solver de los periodos que tocan el rango (la tabla `trabajo` es de la web; el núcleo no la ve)."""
+    claves = {f["id"]: f["clave"] for f in ctx.conn.execute("SELECT id, clave FROM periodo")
+              if flujo.desde_clave(f["clave"])[0] <= hasta and flujo.desde_clave(f["clave"])[1] >= desde}
+    leer = lambda v: v if v is None or isinstance(v, datetime) else datetime.fromisoformat(str(v))
+    json_ = lambda v: v if v is None or isinstance(v, dict) else json.loads(v)
+    return [{"periodo": claves[f["periodo_id"]], "estado": f["estado"], "creado": leer(f["creado"]), "terminado": leer(f["terminado"]),
+             "resultado": json_(f["resultado"])}
+            for f in ctx.conn.execute("SELECT periodo_id, estado, creado, terminado, resultado FROM trabajo WHERE tipo = 'generar' AND area_id = ?", (ctx.area,))
+            if f["periodo_id"] in claves]
 
 
 def _publicados(ctx):

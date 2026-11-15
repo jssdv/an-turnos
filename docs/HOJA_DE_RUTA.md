@@ -31,6 +31,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 ## Hecho recientemente
 
+Analíticas v3: cobertura por tramo con mapa día × hora, equidad frente a la media, concentración de horas extra, solicitudes cumplidas, pronóstico de ausencias, generaciones del solver y próximo recargo dominical (15/11/2026). Pendiente con datos: registrar cuándo se crea cada ausencia (para medir avisos cortos y tiempo de reemplazo).
+
 Analíticas v2: tendencias, estabilidad del cuadro, señales de fatiga, patrones de ausencia con días de riesgo en Inicio, e impresión y Excel para gerencia (15/11/2026).
 
 Ctrl+Z/Ctrl+Y y vista por semana en el cuadro, «Respaldar ahora» en Áreas, «Pegar lista» de personal desde Excel, filtros en Ausencias y el .exe de Windows arrancando de nuevo (15/11/2026).

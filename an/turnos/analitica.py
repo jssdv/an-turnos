@@ -1,6 +1,7 @@
 """Métricas del dashboard de Analíticas. Solo lectura: nada se escribe en la base. Sin Qt."""
 from collections import defaultdict
 from datetime import datetime, timedelta
+from statistics import median
 from math import ceil
 
 from . import demanda as dem
@@ -434,3 +435,59 @@ def banco(bd, ini, fin):
                       round(-sum(v for v in s.values() if v < 0), 2)))
         m += 1
     return {"saldos": {gente[c]: round(v, 2) for c, v in saldos(fin).items()}, "serie": serie}
+
+
+# --- v3: planificación ------------------------------------------------------------------------------
+def pronostico_ausencias(bd, hasta):
+    """Días de ausencia (todos los tipos) por mes en los 12 meses que terminan con el de `hasta`, y un estimado del mes
+    siguiente: promedio de «mismo mes del año pasado» y «media de los últimos 3 meses» (base ingenua estacional, la que
+    los modelos más finos tienen que superar; para un equipo chico basta)."""
+    meses = []
+    y, m = hasta.year, hasta.month
+    for _ in range(12):
+        meses.insert(0, (y, m))
+        y, m = (y, m - 1) if m > 1 else (y - 1, 12)
+    ini = flujo.periodo_mes(*meses[0])[0]
+    aus, _ = _ausencias(bd, ini, flujo.periodo_mes(*meses[-1])[1])
+    cuenta = defaultdict(int)
+    for _, f in aus:
+        cuenta[f"{f:%Y-%m}"] += 1
+    serie = [(f"{y}-{m:02d}", cuenta[f"{y}-{m:02d}"]) for y, m in meses]
+    y, m = meses[-1]
+    siguiente = f"{y + (m == 12)}-{m % 12 + 1:02d}"
+    anterior, media_3 = serie[0][1], sum(n for _, n in serie[-3:]) / 3
+    return {"serie": serie, "siguiente": siguiente, "mismo_mes_anterior": anterior, "media_3": round(media_3, 2),
+            "estimado": round((anterior + media_3) / 2, 1)}
+
+
+def corridas(filas):
+    """Corridas del solver por periodo: cuántas, cuántas terminaron bien («listo»), mediana de duración (las terminadas)
+    y lo que dejó la última buena: personas-tramo faltantes y solicitudes sin cumplir. `filas`: dicts con periodo,
+    estado, creado, terminado y resultado (los lee la ruta de la tabla `trabajo`, que el núcleo no ve)."""
+    por = {}
+    for r in sorted(filas, key=lambda r: r["creado"]):
+        por.setdefault(r["periodo"], []).append(r)
+    out = []
+    for k, rs in por.items():
+        bien = [r for r in rs if r["estado"] == "listo"]
+        dur = [(r["terminado"] - r["creado"]).total_seconds() for r in rs if r["terminado"]]
+        ultima = (bien[-1]["resultado"] or {}) if bien else {}
+        out.append({"periodo": k, "corridas": len(rs), "terminadas_bien": len(bien), "pct_bien": round(len(bien) / len(rs) * 100, 1),
+                    "mediana_seg": round(median(dur), 1) if dur else None,
+                    "faltan_ultima": sum(n for *_, n in ultima.get("faltan", [])) if bien else None,
+                    "solicitudes_ultima": len(ultima.get("solicitudes", [])) if bien else None})
+    return out
+
+
+def proximo_recargo(bd, hoy, ini, fin):
+    """El siguiente cambio de la tarifa dominical/festiva después de `hoy` (p. ej. 90 % → 100 % el 1/7/2027) y cuántas
+    horas equivalentes más costaría al mes con el volumen promedio de horas dominicales y festivas del rango. None si no
+    hay cambios por delante."""
+    dom = sorted((d, v) for c, v, d in bd.tarifas() if c == "dominical")
+    actual = next((v for d, v in reversed(dom) if d <= hoy), None)
+    nuevo = next(((d, v) for d, v in dom if d > hoy), None)
+    if actual is None or nuevo is None:
+        return None
+    meses = (fin.year - ini.year) * 12 + fin.month - ini.month + 1
+    fest = sum(r["festivo"] for r in recargos_resumen(bd, ini, fin).values())
+    return {"desde": nuevo[0], "actual": actual, "nuevo": nuevo[1], "horas_mes": round(fest / meses * (nuevo[1] - actual) / 100, 2)}
