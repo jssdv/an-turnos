@@ -4,15 +4,18 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Novedad } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Plus } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, useVentanaNueva, Seccion, Ventana } from "./comun";
+import { Estado, Filtro, Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, useVentanaNueva, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
-import { fechaCorta } from "./fechas";
+import { fechaCorta, isoHoy } from "./fechas";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { Button } from "@/components/base/buttons/button";
 import { CampoFecha } from "../componentes/CampoFecha";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 
 const TIPOS = ["Vacaciones", "Incapacidad", "Licencia", "Libre solicitado"];
+/** Días calendario de desde a hasta, ambos incluidos. */
+const diasEntre = (desde: string, hasta: string) => Math.round((Date.parse(hasta) - Date.parse(desde)) / 86_400_000) + 1;
 
 /** Vacaciones, incapacidades y licencias: la persona no se programa esos días. */
 export function Novedades() {
@@ -26,6 +29,13 @@ export function Novedades() {
   const nombre = useMemo(() => new Map((personas.datos ?? []).map((p) => [p.id, p.nombre])), [personas.datos]);
   const editar = area.permiso === "editar";
   const [ventana, setVentana] = useVentanaNueva(editar);
+  const [quien, setQuien] = useState("");  // "" = todas las personas
+  const [verTerminadas, setVerTerminadas] = useState(false);
+  const hoy = isoHoy();
+  const terminadas = (lista.datos ?? []).filter((n) => n.hasta < hoy).length;
+  const visibles = (lista.datos ?? [])
+    .filter((n) => (verTerminadas || n.hasta >= hoy) && (!quien || String(n.colab_id) === quien))
+    .sort((a, b) => a.desde.localeCompare(b.desde) || a.colab_id - b.colab_id);
 
   const guardar = () => hacer(async () => {
     await enviar("POST", `${base}/novedades`, { ...f, colab_id: Number(f.colab_id) });
@@ -55,14 +65,22 @@ export function Novedades() {
           </Formulario>
         </Ventana>
       )}
-      <Seccion titulo="Ausencias registradas">
+      <Seccion titulo="Ausencias registradas" acciones={<div className="flex flex-wrap items-center gap-4">
+        <Filtro etiqueta="Persona" value={quien} onChange={(x) => setQuien(x.target.value)}>
+          <option value="">Todas las personas</option>
+          {(personas.datos ?? []).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+        </Filtro>
+        <Checkbox label={`Mostrar las terminadas (${terminadas})`} isSelected={verTerminadas} onChange={setVerTerminadas} />
+      </div>}>
         <Tabla
           descripcion="Ausencias del área"
           cargando={!lista.datos && !lista.error}
-          vacio="Aún no hay novedades."
-          columnas={["Persona", "Tipo", "Desde", "Hasta", "Nota", ""]}
-          filas={(lista.datos ?? []).map((n) => [
-            nombre.get(n.colab_id) ?? `#${n.colab_id}`, n.tipo, fechaCorta(n.desde), fechaCorta(n.hasta), n.nota,
+          vacio={lista.datos?.length ? "Ninguna ausencia vigente o próxima con este filtro." : "Aún no hay ausencias."}
+          columnas={["Persona", "Tipo", "Desde", "Hasta", "Días", "Nota", ""]}
+          filas={visibles.map((n) => [
+            nombre.get(n.colab_id) ?? `#${n.colab_id}`,
+            n.desde <= hoy && hoy <= n.hasta ? <span className="flex items-center gap-2 whitespace-nowrap">{n.tipo}<Estado>En curso</Estado></span> : n.tipo,
+            fechaCorta(n.desde), fechaCorta(n.hasta), diasEntre(n.desde, n.hasta), n.nota,
             editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => pedir(`¿Borrar ${n.tipo.toLowerCase()} de ${nombre.get(n.colab_id) ?? `#${n.colab_id}`}?`, "Borrar", () => hacer(async () => { await enviar("DELETE", `${base}/novedades/${n.id}`); lista.recargar(); }), `${fechaCorta(n.desde)} – ${fechaCorta(n.hasta)}. El cuadro volverá a contar a esta persona como disponible esos días.`)}>Borrar</Button> : null,
           ])}
         />
