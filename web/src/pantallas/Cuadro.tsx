@@ -365,7 +365,9 @@ export function Cuadro() {
             </header>
             <NativeSelect size="sm" label="Persona" value={persona} onChange={(x) => setPersona(x.target.value)}>
               <option value="">Todas</option>
-              {datos.colabs.filter((c) => c.activo).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {datos.colabs.map((c) => [c, agrupar(datos.alertas.filter((a) => a.colab_id === c.id && a.nivel !== "info")).length] as const)
+                .filter(([c, n]) => n > 0 || String(c.id) === persona)  // solo quien tiene alertas, con cuántas; 40 nombres sin alertas estorban
+                .map(([c, n]) => <option key={c.id} value={c.id}>{c.nombre} ({n})</option>)}
             </NativeSelect>
             {persona && <p className="mt-1 text-sm text-tertiary">Solo alertas de esta persona; las de cobertura de un día no se muestran.</p>}
             {filtradas.length === 0 ? (

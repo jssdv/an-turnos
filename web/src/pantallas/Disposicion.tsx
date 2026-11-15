@@ -46,13 +46,14 @@ const ultimaArea = (id?: number) => {
 
 interface Destino { label: string; href: string; ruta: string; icon: Icono; badge?: number }
 
-/** «Ir a…» con ⌘K / Ctrl+K: filtra secciones y áreas por nombre; Enter abre la primera coincidencia. */
+/** «Ir a…» con ⌘K / Ctrl+K: filtra secciones y áreas por nombre; ↑/↓ eligen y Enter abre (de entrada, la primera coincidencia). */
 function Buscador({ destinos }: { destinos: { label: string; grupo: string; href: string; claves?: string }[] }) {
   const [abierto, setAbierto] = useState(false);
   const [q, setQ] = useState("");
+  const [sel, setSel] = useState(0);
   const ir = useNavigate();
   useEffect(() => {
-    const f = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setQ(""); setAbierto(true); } };
+    const f = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setQ(""); setSel(0); setAbierto(true); } };
     addEventListener("keydown", f);
     return () => removeEventListener("keydown", f);
   }, []);
@@ -60,20 +61,24 @@ function Buscador({ destinos }: { destinos: { label: string; grupo: string; href
   const abrir = (href: string) => { setAbierto(false); ir(href); };
   return (
     <>
-      <AriaButton onPress={() => { setQ(""); setAbierto(true); }} aria-keyshortcuts="Meta+K Control+K"
+      <AriaButton onPress={() => { setQ(""); setSel(0); setAbierto(true); }} aria-keyshortcuts="Meta+K Control+K"
         className="flex h-8 w-56 cursor-pointer items-center gap-2 rounded-xl bg-secondary px-2.5 text-sm text-placeholder ring-1 ring-secondary outline-focus-ring ring-inset hover:text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2">
         <SearchLg aria-hidden="true" className="size-4" />Ir a…<kbd className="ml-auto rounded-sm px-1 font-mono text-xs text-tertiary ring-1 ring-primary ring-inset">⌘K</kbd>
       </AriaButton>
       <Ventana abierto={abierto} alCambiar={setAbierto} titulo="Ir a">
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar sección o área" placeholder="Cuadro, Personal, Radiología…"
-          onKeyDown={(e) => { if (e.key === "Enter" && lista[0]) abrir(lista[0].href); }}
+        <input autoFocus value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} aria-label="Buscar sección o área" placeholder="Cuadro, Personal, Radiología…"
+          onKeyDown={(e) => {
+            const paso = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+            if (paso && lista.length) { e.preventDefault(); setSel((sel + paso + lista.length) % lista.length); }
+            if (e.key === "Enter" && lista[sel]) abrir(lista[sel].href);
+          }}
+          role="combobox" aria-expanded="true" aria-controls="ir-a-lista" aria-activedescendant={lista[sel] ? `ir-a-${sel}` : undefined}
           className="h-10 w-full rounded-lg bg-primary px-3 text-md text-primary ring-1 ring-primary outline-focus-ring ring-inset placeholder:text-placeholder focus-visible:outline-2" />
-        <ul className="-mx-2 max-h-80 overflow-y-auto">
+        <ul id="ir-a-lista" role="listbox" aria-label="Destinos" className="-mx-2 max-h-80 overflow-y-auto">
           {lista.map((d, i) => (
-            <li key={d.href}>
-              <button type="button" onClick={() => abrir(d.href)} className={cx("flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-2 text-left text-sm text-primary outline-focus-ring hover:bg-primary_hover focus-visible:outline-2", i === 0 && q && "bg-secondary")}>
-                {d.label}<span className="text-xs text-tertiary">{d.grupo}</span>
-              </button>
+            <li key={d.href} id={`ir-a-${i}`} role="option" aria-selected={i === sel} onClick={() => abrir(d.href)}
+              className={cx("flex cursor-pointer items-center justify-between rounded-md px-2 py-2 text-sm text-primary hover:bg-primary_hover", i === sel && (q || sel > 0) && "bg-secondary")}>
+              {d.label}<span className="text-xs text-tertiary">{d.grupo}</span>
             </li>
           ))}
           {!lista.length && <li className="px-2 py-2 text-sm text-tertiary">Nada con «{q}».</li>}
