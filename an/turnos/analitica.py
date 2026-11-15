@@ -91,6 +91,38 @@ def cobertura(bd, ini, fin):
     return out
 
 
+def cobertura_tramos(bd, ini, fin):
+    """Personas frente a demanda por tramo de 30 min en los periodos con cuadro del rango. El hueco se mide en cada
+    tramo antes de sumar (un tramo sobrado no tapa otro corto). Horas = personas-tramo / 2. Cobertura = 1 − faltantes /
+    requeridas; eficiencia = 1 − (faltantes + sobrantes) / requeridas (sobra = por encima de obligatoria + deseable).
+    `mapa`: 7 × 48 con el promedio de presentes − obligatorias por día de la semana y tramo (None si nunca hubo demanda
+    ni gente)."""
+    ctx = bd.contexto(ini.year)
+    suma, n = [[0] * dem.TRAMOS_DIA for _ in range(7)], [[0] * dem.TRAMOS_DIA for _ in range(7)]
+    por_periodo = []
+    for k in (k for k in bd.periodos() if _cruza(k, ini, fin)):
+        a, b = flujo.desde_clave(k)
+        cuadro, req, falta, sobra = bd.asignaciones(k), 0, 0, 0
+        for f in (f for f in flujo.fechas(a, b) if ini <= f <= fin):
+            con_ayer = f != a
+            obl, des = dem.demanda_fecha(ctx, f, con_ayer)
+            hay = _presentes(ctx, cuadro, f, con_ayer)
+            for t in range(dem.TRAMOS_DIA):
+                req += obl[t]
+                falta += max(0, obl[t] - hay[t])
+                sobra += max(0, hay[t] - obl[t] - des[t])
+                if obl[t] or hay[t]:
+                    suma[f.weekday()][t] += hay[t] - obl[t]
+                    n[f.weekday()][t] += 1
+        por_periodo.append({"periodo": k, "horas_requeridas": req / 2, "horas_faltantes": falta / 2, "horas_sobrantes": sobra / 2})
+    req, falta, sobra = (sum(p[c] for p in por_periodo) for c in ("horas_requeridas", "horas_faltantes", "horas_sobrantes"))
+    return {"horas_requeridas": req, "horas_faltantes": falta, "horas_sobrantes": sobra,
+            "cobertura_pct": (1 - falta / req) * 100 if req else None,
+            "eficiencia_pct": max(0.0, (1 - (falta + sobra) / req) * 100) if req else None,  # con más sobra que demanda, 0 (no negativa)
+            "mapa": [[round(suma[w][t] / n[w][t], 2) if n[w][t] else None for t in range(dem.TRAMOS_DIA)] for w in range(7)],
+            "por_periodo": por_periodo}
+
+
 def cambios_resumen(bd, ini, fin):
     """{periodo: {permuta, servicio, ajuste, excepciones}} de los cambios vigentes (sin anulados)."""
     out = {}

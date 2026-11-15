@@ -4,7 +4,7 @@ import { Download01, Printer } from "@untitledui/icons";
 import { usar } from "../api/catalogos";
 import { exportes } from "../api/exportes";
 import type { Area } from "../api/tipos";
-import { Barras, Linea } from "../componentes/Graficos";
+import { Barras, Linea, Mapa } from "../componentes/Graficos";
 import { Tabla } from "../componentes/Tabla";
 import { Indicador, Indicadores, Pagina, Seccion } from "./comun";
 import { fechaCorta, nombrePeriodo, num } from "./fechas";
@@ -13,6 +13,8 @@ import { Input } from "@/components/base/input/input";
 
 interface Datos {
   ausentismo: { pct: number; por_tipo: Record<string, number>; por_persona: Record<string, Record<string, number>>; por_mes: Record<string, Record<string, number>> };
+  cobertura_tramos: { horas_requeridas: number; horas_faltantes: number; horas_sobrantes: number; cobertura_pct: number | null; eficiencia_pct: number | null; mapa: (number | null)[][];
+    por_periodo: { periodo: string; horas_requeridas: number; horas_faltantes: number; horas_sobrantes: number }[] };
   cobertura: { periodo: string; dias_deficit: number; dias_exceso: number; puestos_sin_cubrir: number }[];
   simultaneos: { serie: [string, number][]; maximo: number; fecha_maximo: string | null; dias_riesgo: string[] };
   cambios: Record<string, { permuta: number; servicio: number; ajuste: number; excepciones: number }>;
@@ -24,7 +26,8 @@ interface Datos {
   patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { desde: string; equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
-const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones"> = {
+const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos"> = {
+  cobertura_tramos: { horas_requeridas: 0, horas_faltantes: 0, horas_sobrantes: 0, cobertura_pct: null, eficiencia_pct: null, mapa: Array.from({ length: 7 }, () => Array(48).fill(null)), por_periodo: [] },
   estabilidad: { periodos: [], cubre_mas: {} }, fatiga: {},
   patrones: { por_dia_semana: [0, 0, 0, 0, 0, 0, 0], tras_festivo: 0, bradford: { desde: "", equipo: {}, por_persona: {} } },
 };
@@ -117,9 +120,16 @@ export function Analiticas() {
             <Tabla descripcion="Factor Bradford por persona" vacio="Sin ausencias no planeadas en el rango." columnas={["Persona", "Ausencias", "Días", "Puntaje"]}
               filas={Object.entries(d.patrones.bradford.por_persona).sort(([a, x], [b, y]) => y.puntaje - x.puntaje || a.localeCompare(b)).map(([p, o]) => [p, o.rachas, o.dias, o.puntaje])} />
           </Seccion>
+          <Indicadores etiqueta="Cobertura por tramo de 30 minutos">
+            <Indicador titulo="Cobertura" valor={d.cobertura_tramos.cobertura_pct === null ? "—" : `${num(d.cobertura_tramos.cobertura_pct)} %`} nota="de las horas obligatorias, tramo a tramo" />
+            <Indicador titulo="Horas faltantes" tono={d.cobertura_tramos.horas_faltantes ? "aviso" : undefined} valor={`${num(d.cobertura_tramos.horas_faltantes, 1)} h`} nota="personas × horas por debajo de lo obligatorio" />
+            <Indicador titulo="Horas sobrantes" valor={`${num(d.cobertura_tramos.horas_sobrantes, 1)} h`} nota="por encima de obligatorio + deseable" />
+            <Indicador titulo="Eficiencia" valor={d.cobertura_tramos.eficiencia_pct === null ? "—" : `${num(d.cobertura_tramos.eficiencia_pct)} %`} nota="descuenta lo que falta y lo que sobra" />
+          </Indicadores>
+          <Mapa titulo="Cobertura por día y hora (promedio)" mapa={d.cobertura_tramos.mapa} />
           <Seccion titulo="Cobertura por periodo">
-            <Tabla descripcion="Cobertura por periodo" vacio="Sin periodos en el rango." columnas={["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir"]}
-              filas={d.cobertura.map((c) => [nombrePeriodo(c.periodo), c.dias_deficit, c.dias_exceso, c.puestos_sin_cubrir])} />
+            <Tabla descripcion="Cobertura por periodo" vacio="Sin periodos en el rango." columnas={["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir", "Horas faltantes", "Horas sobrantes"]}
+              filas={d.cobertura.map((c) => { const t = d.cobertura_tramos.por_periodo.find((x) => x.periodo === c.periodo); return [nombrePeriodo(c.periodo), c.dias_deficit, c.dias_exceso, c.puestos_sin_cubrir, t ? num(t.horas_faltantes, 1) : "—", t ? num(t.horas_sobrantes, 1) : "—"]; })} />
           </Seccion>
           <Seccion titulo="Cambios de turno por periodo">
             <Tabla descripcion="Cambios por periodo" vacio="Sin cambios registrados." columnas={["Periodo", "Permutas", "Servicio", "Ajustes", "Excepciones"]}

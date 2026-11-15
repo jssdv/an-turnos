@@ -1,6 +1,6 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 """Pruebas de las métricas del dashboard de analíticas (solo lectura). Imprime OK."""
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from an.turnos import analitica, cambios, db
 from an.turnos.dominio import Colaborador, Novedad
@@ -345,6 +345,43 @@ def test_riesgo_pide_historial_minimo():
     bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2026, 10, 26), date(2026, 10, 26)))  # un solo lunes
     bd.guardar_cuadro("2026-11-02/2026-11-08", {(i["A"], date(2026, 11, 4)): "M"})
     assert analitica.riesgo_proximo(bd, date(2026, 11, 2)) == []
+
+
+# --- v3: cobertura por tramo -------------------------------------------------------------------------
+def _una_demanda(bd):
+    """Lunes a sábado de 06:00 a 12:00: 2 obligatorias y 1 deseable; domingo nada."""
+    bd.c.execute("DELETE FROM demanda")
+    bd.c.execute("INSERT INTO demanda (puesto_id, tipo_dia, inicio, fin, personas, obligatorio) VALUES (1, 'LS', 360, 720, 2, 1)")
+    bd.c.execute("INSERT INTO demanda (puesto_id, tipo_dia, inicio, fin, personas, obligatorio) VALUES (1, 'LS', 360, 720, 1, 0)")
+    bd.c.commit()
+
+
+def test_cobertura_tramos_horas_y_porcentajes():
+    bd, i = nuevo()
+    _una_demanda(bd)
+    lunes = date(2026, 10, 5)
+    bd.guardar_cuadro(K2, {(i["A"], lunes): "M", (i["C"], lunes): "M", (i["B"], lunes): "T"})  # lunes justo; B sobra en la tarde
+    r = analitica.cobertura_tramos(bd, I, F)
+    assert (r["horas_requeridas"], r["horas_faltantes"], r["horas_sobrantes"]) == (72, 60, 6), r
+    assert abs(r["cobertura_pct"] - (1 - 60 / 72) * 100) < 1e-6 and abs(r["eficiencia_pct"] - (1 - 66 / 72) * 100) < 1e-6, r
+    assert r["mapa"][0][12] == 0 and r["mapa"][1][12] == -2 and r["mapa"][0][24] == 1, (r["mapa"][0][12], r["mapa"][1][12], r["mapa"][0][24])
+    assert r["mapa"][6][12] is None  # domingo sin demanda ni gente
+    assert r["por_periodo"] == [{"periodo": K2, "horas_requeridas": 72, "horas_faltantes": 60, "horas_sobrantes": 6}], r["por_periodo"]
+
+
+def test_cobertura_tramos_eficiencia_no_baja_de_cero():
+    bd, i = nuevo()
+    _una_demanda(bd)
+    lunes = date(2026, 10, 5)
+    bd.guardar_cuadro(K2, {(i[n], lunes + timedelta(days=d)): "C" for n in "ABC" for d in range(6)})  # 3 personas 12 h para 6 h de 2
+    r = analitica.cobertura_tramos(bd, I, F)
+    assert r["horas_sobrantes"] > r["horas_requeridas"] and r["eficiencia_pct"] == 0, r
+
+
+def test_cobertura_tramos_vacio():
+    r = analitica.cobertura_tramos(db.BD(), I, F)
+    assert r["horas_requeridas"] == 0 and r["cobertura_pct"] is None and r["por_periodo"] == [], r
+    assert all(v is None for fila in r["mapa"] for v in fila)
 
 
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
