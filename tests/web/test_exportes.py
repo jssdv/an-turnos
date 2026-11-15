@@ -171,6 +171,20 @@ def test_banco_lector_descarga():
         assert sesion(e, "lector@a.co").get(ruta(e, p=999999).replace("/exportes", "/banco.xlsx")).status_code == 404
 
 
+def test_analiticas_xlsx():
+    from openpyxl import load_workbook
+    with entorno() as e:
+        if e is None:
+            return
+        base = f"/api/areas/{e.ar['A']}/analiticas.xlsx"
+        r = sesion(e, "lector@a.co").get(f"{base}?desde=2026-10-01&hasta=2026-10-31")
+        assert r.status_code == 200 and r.headers["content-type"] == XLSX, r.text
+        assert load_workbook(BytesIO(r.content)).sheetnames == ["Resumen", "Ausentismo", "Cobertura", "Cambios", "Estabilidad", "Horas extra",
+                                                                "Recargos", "Equidad", "Fatiga", "Patrones", "Banco"]
+        assert "Analiticas_2026-10-01_2026-10-31.xlsx" in r.headers["content-disposition"]
+        assert sesion(e, "lector@a.co").get(f"{base}?desde=2000-01-01&hasta=2026-10-31").status_code == 422
+
+
 def test_agendas_ics_y_zip():
     import zipfile
     with entorno() as e:

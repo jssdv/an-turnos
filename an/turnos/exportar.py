@@ -293,6 +293,65 @@ def exportar_banco(carpeta, mes_txt, filas, movimientos, nombres):
     return ruta
 
 
+def _hoja(wb, titulo, columnas, filas, primera=24):
+    ws = wb.create_sheet(titulo)
+    _encabezado(ws, 1, columnas)
+    for r, fila in enumerate(filas, 2):
+        for c, v in enumerate(fila, 1):
+            poner_texto(ws.cell(r, c), v)
+    _ancho(ws, primera, 14)
+    ws.freeze_panes = "B2"
+    return ws
+
+
+def exportar_analiticas(carpeta, base, d):
+    """Analíticas de un rango para gerencia o RR. HH.: una hoja por bloque, con los datos de `datos_analiticas`."""
+    tipos = list(ABREV_NOVEDAD)
+    est = d["estabilidad"]["periodos"]
+    celdas = sum(p["celdas_total"] for p in est)
+    wb = Workbook()
+    wb.remove(wb.active)
+    _hoja(wb, "Resumen", ["Indicador", "Valor"], [
+        ["Ausentismo (%)", round(d["ausentismo"]["pct"], 2)],
+        ["Ausentes a la vez (máximo)", d["simultaneos"]["maximo"]],
+        ["Días con déficit", sum(c["dias_deficit"] for c in d["cobertura"])],
+        ["Cambios de turno", sum(c["permuta"] + c["servicio"] + c["ajuste"] for c in d["cambios"].values())],
+        ["Cambios tras publicar (%)", round(sum(p["celdas_cambiadas"] for p in est) / celdas * 100, 2) if celdas else "—"],
+        ["Cambios con poco aviso", sum(p["aviso_corto"] for p in est)],
+        ["Personas con señales de fatiga", sum(f["senales"] > 0 for f in d["fatiga"].values())],
+    ], primera=32)
+    _hoja(wb, "Ausentismo", ["Persona", "Total", *tipos],
+          [[p, sum(t.values()), *(t.get(x, 0) for x in tipos)] for p, t in sorted(d["ausentismo"]["por_persona"].items())])
+    _hoja(wb, "Cobertura", ["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir"],
+          [[c["periodo"], c["dias_deficit"], c["dias_exceso"], c["puestos_sin_cubrir"]] for c in d["cobertura"]])
+    _hoja(wb, "Cambios", ["Periodo", "Permutas", "Servicio", "Ajustes", "Excepciones"],
+          [[k, c["permuta"], c["servicio"], c["ajuste"], c["excepciones"]] for k, c in d["cambios"].items()])
+    _hoja(wb, "Estabilidad", ["Periodo", "% cambiado", "Celdas cambiadas", "Con poco aviso", "Publicado con (días)"],
+          [[p["periodo"], round(p["pct"], 2), p["celdas_cambiadas"], p["aviso_corto"], p["dias_anticipacion"]] for p in est])
+    _hoja(wb, "Horas extra", ["Periodo", "Ventana (sem.)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (ventana)", "Nocturnas (ventana)"],
+          [[h["periodo"], h["ventana"], h["mes"]["diurna"], h["mes"]["nocturna"], h["semanas"]["diurna"], h["semanas"]["nocturna"]] for h in d["horas_extra"]])
+    _hoja(wb, "Recargos", ["Persona", "Dominical/festivo (h)", "Nocturno (h)", "Equivalentes (h)"],
+          [[p, r["festivo"], r["nocturna"], r["equivalentes"]] for p, r in sorted(d["recargos"].items())])
+    _hoja(wb, "Equidad", ["Persona", "Noches", "Domingos", "Festivos"],
+          [[p, o["noches"], o["domingos"], o["festivos"]] for p, o in sorted(d["equidad"]["por_persona"].items())])
+    _hoja(wb, "Fatiga", ["Persona", "Señales", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"],
+          [[p, f["senales"], f["max_dias_seguidos"], f["max_noches_seguidas"], f["descansos_cortos"], f["fines_trabajados"], f["horas_4_sem_max"]]
+           for p, f in sorted(d["fatiga"].items(), key=lambda x: (-x[1]["senales"], x[0]))])
+    pa = d["patrones"]
+    ws = _hoja(wb, "Patrones", ["Día", "% ausencias no planeadas"], [[DIAS[w], round(v, 2)] for w, v in enumerate(pa["por_dia_semana"])])
+    fila = 11
+    ws.cell(fila, 1, f"Ausencias que empezaron tras un festivo: {pa['tras_festivo']}")
+    ws.cell(fila + 1, 1, "Factor Bradford (ausencias² × días). Indicador de patrones; no usar para sanciones.")
+    _encabezado(ws, fila + 3, ["Persona", "Ausencias", "Días", "Puntaje"])
+    for r, (p, o) in enumerate(sorted(pa["bradford"]["por_persona"].items(), key=lambda x: (-x[1]["puntaje"], x[0])), fila + 4):
+        for c, v in enumerate([p, o["rachas"], o["dias"], o["puntaje"]], 1):
+            poner_texto(ws.cell(r, c), v)
+    _hoja(wb, "Banco", ["Persona", "Saldo (h)"], sorted(d["banco"]["saldos"].items()))
+    ruta = ruta_libre(carpeta, base)
+    wb.save(ruta)
+    return ruta
+
+
 def eventos_persona(ctx, cuadro, colab_id, fechas):
     """[(inicio, fin, descripción)] de los turnos de una persona, para `radiologia.analisis.ics`. L y códigos desconocidos no van."""
     return [(*intervalo(t, f), f"{t.codigo} · {t.nombre}") for f in fechas if (t := ctx.turnos.get(cuadro.get((colab_id, f), "L")))]

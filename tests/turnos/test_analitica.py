@@ -156,8 +156,7 @@ def _semana_completa(bd, i):
 def test_estabilidad_pct_y_sin_publicar():
     bd, i = nuevo()
     _semana_completa(bd, i)
-    bd.set_celda(K2, i["A"], date(2026, 10, 5), "T")
-    bd.set_celda(K2, i["B"], date(2026, 10, 6), "L")
+    cambios.ajuste(bd, K2, [(i["A"], date(2026, 10, 5), "T"), (i["B"], date(2026, 10, 6), "L")], "x", "u")
     [p] = analitica.estabilidad(bd, I, F, {K2: datetime(2026, 9, 25, 9, 0)})["periodos"]
     assert p["celdas_total"] == 21 and p["celdas_cambiadas"] == 2, p
     assert abs(p["pct"] - 2 / 21 * 100) < 1e-6, p
@@ -286,6 +285,37 @@ def test_patrones_vacio():
     r = analitica.patrones_ausencia(db.BD(), I, F)
     assert r["por_dia_semana"] == [0] * 7 and r["bradford"]["por_persona"] == {} and r["tras_festivo"] == 0, r
     assert analitica.riesgo_proximo(db.BD(), I) == []
+
+
+# --- hallazgos de la revisión ----------------------------------------------------------------------
+def test_fatiga_racha_que_viene_de_antes_del_rango():
+    bd, i = nuevo()
+    bd.guardar_cuadro("2026-09-01/2026-09-30", {(i["A"], date(2026, 9, d)): "M" for d in range(20, 31)})
+    bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, d)): "M" for d in range(1, 6)})  # 16 días seguidos
+    a = analitica.fatiga(bd, I, F)["A"]
+    assert a["max_dias_seguidos"] == 16 and a["rachas_largas"] == 1 and a["senales"] >= 1, a
+
+
+def test_fatiga_sin_tope_de_noches():
+    bd, i = nuevo()
+    bd.set_param("max_noches_seguidas", 0)  # 0 = sin límite, como en validar
+    bd.guardar_cuadro(KO, {(i["B"], date(2026, 10, 5)): "NC"})
+    assert analitica.fatiga(bd, I, F)["B"]["senales"] == 0
+
+
+def test_estabilidad_no_se_borra_al_republicar():
+    bd, i = nuevo()
+    _semana_completa(bd, i)
+    pub = {K2: datetime(2026, 9, 25)}
+    [antes] = cambios.ajuste(bd, K2, [(i["C"], date(2026, 10, 9), "T")], "borrador", "u")
+    bd.c.execute("UPDATE cambio_turno SET registrado_en='2026-09-20T10:00:00' WHERE id=?", (antes,))  # antes de publicar: no cuenta
+    [a] = cambios.ajuste(bd, K2, [(i["A"], date(2026, 10, 5), "T")], "x", "u")
+    [b] = cambios.ajuste(bd, K2, [(i["B"], date(2026, 10, 6), "L")], "y", "u")
+    bd.c.execute("UPDATE cambio_turno SET registrado_en='2026-10-01T10:00:00' WHERE id=?", (a,))
+    bd.c.execute("UPDATE cambio_turno SET registrado_en='2026-10-07T10:00:00' WHERE id=?", (b,))  # después del turno: corrección, no aviso
+    bd.publicar(K2)  # publicar otra vez copia `cambios` en `original`
+    [p] = analitica.estabilidad(bd, I, F, pub)["periodos"]
+    assert p["celdas_cambiadas"] == 2 and p["aviso_corto"] == 0, p
 
 
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
