@@ -4,7 +4,7 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, EstadoSolicitud, Periodo, Solicitud, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Plus, Users01 } from "@untitledui/icons";
-import { Fila, Filtro, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
+import { Fila, Filtro, Formulario, Pagina, Pista, useAccion, useConfirmar, useVentanaNueva, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
@@ -27,11 +27,11 @@ export function Solicitudes() {
   const estados = usar<EstadoSolicitud[]>(ultimo ? `${base}/periodos/${ultimo.id}/solicitudes` : null);
   const { ocupado, aviso, hacer } = useAccion();
   const [pedir, confirmacion] = useConfirmar();
-  const [ventana, setVentana] = useState(false);
   const [f, setF] = useState({ colab_id: "", tipo: "libre", desde: "", hasta: "", turno: "", prioridad: "normal", nota: "" });
   const nombre = useMemo(() => new Map((personas.datos ?? []).map((p) => [p.id, p.nombre])), [personas.datos]);
   const estado = useMemo(() => new Map((estados.datos ?? []).map((s) => [s.id, s])), [estados.datos]);
   const editar = area.permiso === "editar";
+  const [ventana, setVentana] = useVentanaNueva(editar);
   const [persona, ver] = useState("");  // filtro de la tabla: "" = todas
   const visibles = (lista.datos ?? []).filter((x) => !persona || String(x.colab_id) === persona);
   const cumplidas = visibles.filter((x) => estado.get(x.id)?.estado === "cumplida").length;

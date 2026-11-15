@@ -1,5 +1,6 @@
-import { useState, type FC, type HTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useState, type FC, type HTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from "react";
 import { Check, ChevronDown, ChevronRight, HelpCircle } from "@untitledui/icons";
+import { useSearchParams } from "react-router";
 import { cx } from "@/utils/cx";
 import { mensaje } from "../api/catalogos";
 import type { Alerta } from "../api/tipos";
@@ -176,6 +177,22 @@ export function useConfirmar() {
   );
   return [pedir, nodo] as const;
 }
+
+/** Estado de una ventana que llega abierta con `?nueva` (accesos de Inicio como «Nueva solicitud»); quita el parámetro para que recargar no la reabra. */
+export function useVentanaNueva(permitida: boolean) {
+  const [busqueda, setBusqueda] = useSearchParams();
+  const [abierta, setAbierta] = useState(() => permitida && busqueda.has("nueva"));
+  useEffect(() => {
+    if (!busqueda.has("nueva")) return;
+    const resto = new URLSearchParams(busqueda);
+    resto.delete("nueva");
+    setBusqueda(resto, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return [abierta, setAbierta] as const;
+}
+
+/** Para buscar sin importar tildes ni mayúsculas: «jose» encuentra a «José». */
+export const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 /** Junta alertas de texto idéntico (p. ej. el mismo turno prohibido en dos celdas) para no repetir la misma línea. */
 export function agrupar(alertas: Alerta[]) {

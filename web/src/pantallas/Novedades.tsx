@@ -4,7 +4,7 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Novedad } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Plus } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, useVentanaNueva, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
@@ -22,10 +22,10 @@ export function Novedades() {
   const personas = usar<Colaborador[]>(`${base}/colaboradores`);
   const { ocupado, aviso, hacer } = useAccion();
   const [pedir, confirmacion] = useConfirmar();
-  const [ventana, setVentana] = useState(false);
   const [f, setF] = useState({ colab_id: "", tipo: TIPOS[0], desde: "", hasta: "", nota: "" });
   const nombre = useMemo(() => new Map((personas.datos ?? []).map((p) => [p.id, p.nombre])), [personas.datos]);
   const editar = area.permiso === "editar";
+  const [ventana, setVentana] = useVentanaNueva(editar);
 
   const guardar = () => hacer(async () => {
     await enviar("POST", `${base}/novedades`, { ...f, colab_id: Number(f.colab_id) });

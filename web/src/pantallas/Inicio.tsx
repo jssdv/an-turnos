@@ -40,7 +40,7 @@ export function Inicio() {
   const cob = resumen.datos?.cobertura[0], extra = resumen.datos?.horas_extra[0];
   const horasExtra = extra ? Math.round(extra.semanas.diurna + extra.semanas.nocturna) : null;
   const alCuadro = () => ir(`${r}/cuadro${p ? `/${p.id}` : ""}`);
-  const accesos: [string, string, FC<{ className?: string }>][] = [["Registrar ausencia", "novedades", CalendarMinus01], ["Nueva solicitud", "solicitudes", Inbox01], ["Descargar reportes", "reportes", FileDownload02]];
+  const accesos: [string, string, FC<{ className?: string }>][] = [["Registrar ausencia", "novedades?nueva", CalendarMinus01], ["Nueva solicitud", "solicitudes?nueva", Inbox01], ["Descargar reportes", "reportes", FileDownload02]];
 
   return (
     <Pagina titulo="Inicio" sub={`Hola, ${usuario?.nombre?.split(" ")[0] ?? ""}${p ? ` · periodo ${nombrePeriodo(p.clave)}` : ""}`}

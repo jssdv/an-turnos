@@ -14,7 +14,7 @@ import type { Area } from "../api/tipos";
 import { Campana, ProveedorAvisos, useCargarAvisos } from "../componentes/Avisos";
 import { Tutorial } from "../componentes/Tutorial";
 import { useSesion } from "../Sesion";
-import { Ventana } from "./comun";
+import { sinTildes, Ventana } from "./comun";
 import { SECCIONES } from "./Radiologia";
 
 type Icono = FC<{ className?: string }>;
@@ -24,6 +24,14 @@ export const TURNOS: [string, string, Icono][] = [
   ["Ausencias", "novedades", CalendarMinus01], ["Requerimiento", "puestos", Building02], ["Reportes", "reportes", FileDownload02],
   ["Analíticas", "analiticas", LineChartUp01], ["Parámetros", "parametros", Settings01],
 ];
+/** Palabras con que la gente busca cada sección en «Ir a…» además de su nombre. */
+const PALABRAS: Record<string, string> = {
+  cuadro: "turnos horario generar publicar alertas quien cubre", solicitudes: "deseos pedidos libre evitar quiero",
+  personal: "colaboradores personas equipo", novedades: "vacaciones incapacidad licencia permiso ausentes",
+  puestos: "puestos demanda cobertura necesidad", reportes: "excel exportar descargar agendas calendario ics banco de horas imprimir",
+  analiticas: "equidad recargos horas extra ausentismo estadisticas", parametros: "reglas normativa ajustes descansos",
+  usuarios: "permisos claves accesos", areas: "clinicas servicios",
+};
 const RADIOLOGIA: Record<string, Icono> = { resumen: Home02, previa: CalendarCheck01, alertas: BarChart03, equidad: LineChartUp01, agendas: Calendar, cambios: Inbox01 };
 const AJUSTES = new Set(["parametros", "usuarios", "areas"]);
 const iniciales = (n = "") => n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
@@ -35,12 +43,11 @@ const ultimaArea = (id?: number) => {
   } catch { /* almacenamiento bloqueado: se abre la primera área */ }
   return NaN;
 };
-const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 interface Destino { label: string; href: string; ruta: string; icon: Icono; badge?: number }
 
 /** «Ir a…» con ⌘K / Ctrl+K: filtra secciones y áreas por nombre; Enter abre la primera coincidencia. */
-function Buscador({ destinos }: { destinos: { label: string; grupo: string; href: string }[] }) {
+function Buscador({ destinos }: { destinos: { label: string; grupo: string; href: string; claves?: string }[] }) {
   const [abierto, setAbierto] = useState(false);
   const [q, setQ] = useState("");
   const ir = useNavigate();
@@ -49,7 +56,7 @@ function Buscador({ destinos }: { destinos: { label: string; grupo: string; href
     addEventListener("keydown", f);
     return () => removeEventListener("keydown", f);
   }, []);
-  const lista = destinos.filter((d) => sinTildes(`${d.label} ${d.grupo}`).includes(sinTildes(q.trim())));
+  const lista = destinos.filter((d) => sinTildes(`${d.label} ${d.grupo} ${d.claves ?? ""}`).includes(sinTildes(q.trim())));
   const abrir = (href: string) => { setAbierto(false); ir(href); };
   return (
     <>
@@ -172,7 +179,7 @@ export function Disposicion() {
             )}
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <Buscador destinos={[...todos.map((d) => ({ label: d.label, grupo: actual.nombre, href: d.href })), ...areas.filter((a) => a.id !== actual.id).map((a) => ({ label: a.nombre, grupo: "Área", href: inicio(a) }))]} />
+            <Buscador destinos={[...todos.map((d) => ({ label: d.label, grupo: actual.nombre, href: d.href, claves: PALABRAS[d.ruta] })), ...areas.filter((a) => a.id !== actual.id).map((a) => ({ label: a.nombre, grupo: "Área", href: inicio(a) }))]} />
             <Campana />
             <Button color="tertiary" size="sm" iconLeading={HelpCircle} aria-label="Ayuda y tutorial" onPress={() => setTutorial(true)} />
             <Dropdown.Root>

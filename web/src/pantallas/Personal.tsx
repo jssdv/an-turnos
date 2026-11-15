@@ -4,7 +4,7 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, Puesto, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Plus, SearchLg, Trash01 } from "@untitledui/icons";
-import { Estado, Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Grupo, Ventana } from "./comun";
+import { Estado, Fila, Formulario, Pagina, Pista, sinTildes, useAccion, useConfirmar, Seccion, Grupo, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -32,7 +32,6 @@ export function Personal() {
   const [b, setB] = useState<Borrador | null>(null);
   const [verInactivos, setVerInactivos] = useState(false);
   const [buscar, setBuscar] = useState("");
-  const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase(); // «jose» encuentra a «José»
   const editar = area.permiso === "editar";
   const actual = b ?? vacio(turnos, puestos);
 
