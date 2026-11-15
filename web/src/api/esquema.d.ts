@@ -82,8 +82,30 @@ export interface paths {
         /** Areas */
         get: operations["areas_api_areas_get"];
         put?: never;
-        post?: never;
+        /** Crear Area */
+        post: operations["crear_area_api_areas_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Renombrar Area */
+        put: operations["renombrar_area_api_areas__id__put"];
+        post?: never;
+        /**
+         * Borrar Area
+         * @description Borra el área con todo lo suyo. El cuerpo trae el nombre escrito como confirmación.
+         */
+        delete: operations["borrar_area_api_areas__id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -517,6 +539,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/areas/{area}/periodos/{id}/cubrir": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quien Cubre
+         * @description Hasta 5 personas libres ese día que pueden hacer `turno` sin romper reglas (solo consulta; asignar es un cambio de servicio).
+         */
+        get: operations["quien_cubre_api_areas__area__periodos__id__cubrir_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/areas/{area}/periodos/{id}/cambios/{cambio}/anular": {
         parameters: {
             query?: never;
@@ -836,6 +878,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/areas/{area}/periodos/{id}/banco.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Banco Xlsx */
+        get: operations["banco_xlsx_api_areas__area__periodos__id__banco_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/periodos/{id}/agendas/{colab}.ics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agenda Ics */
+        get: operations["agenda_ics_api_areas__area__periodos__id__agendas__colab__ics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/periodos/{id}/agendas.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agendas Zip */
+        get: operations["agendas_zip_api_areas__area__periodos__id__agendas_zip_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/areas/{area}/periodos/{id}/generar": {
         parameters: {
             query?: never;
@@ -976,6 +1069,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/respaldos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar */
+        get: operations["listar_api_respaldos_get"];
+        put?: never;
+        /** Respaldar */
+        post: operations["respaldar_api_respaldos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1076,6 +1187,11 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** NombreArea */
+        NombreArea: {
+            /** Nombre */
+            nombre: string;
+        };
         /** NovedadIn */
         NovedadIn: {
             /** Colab Id */
@@ -1100,6 +1216,17 @@ export interface components {
              * @default
              */
             nota: string;
+        };
+        /** NuevaArea */
+        NuevaArea: {
+            /** Nombre */
+            nombre: string;
+            /**
+             * Tipo
+             * @default turnos
+             * @enum {string}
+             */
+            tipo: "turnos" | "radiologia";
         };
         /** NuevoExporte */
         NuevoExporte: {
@@ -1442,6 +1569,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    crear_area_api_areas_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NuevaArea"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    renombrar_area_api_areas__id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NombreArea"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_area_api_areas__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NombreArea"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2707,6 +2935,41 @@ export interface operations {
             };
         };
     };
+    quien_cubre_api_areas__area__periodos__id__cubrir_get: {
+        parameters: {
+            query: {
+                fecha: string;
+                turno: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     anular_api_areas__area__periodos__id__cambios__cambio__anular_post: {
         parameters: {
             query?: never;
@@ -3405,6 +3668,103 @@ export interface operations {
             };
         };
     };
+    banco_xlsx_api_areas__area__periodos__id__banco_xlsx_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agenda_ics_api_areas__area__periodos__id__agendas__colab__ics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                colab: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agendas_zip_api_areas__area__periodos__id__agendas_zip_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     generar_api_areas__area__periodos__id__generar_post: {
         parameters: {
             query?: never;
@@ -3687,6 +4047,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_api_respaldos_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    respaldar_api_respaldos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

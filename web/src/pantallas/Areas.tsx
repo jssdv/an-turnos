@@ -12,6 +12,10 @@ import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert } from "@/components/application/alerts/alert";
 import { Badge } from "@/components/base/badges/badges";
 
+interface Respaldos { carpeta: string | null; respaldos: { nombre: string; fecha: string; archivos: number; bytes: number }[] }
+const tamano = (b: number) => (b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1048576).toFixed(1).replace(".", ",")} MB`);
+const cuando = (iso: string) => new Date(iso).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+
 const TIPO: Record<Area["tipo"], string> = { turnos: "Turnos", radiologia: "Radiología" };
 
 /** Áreas (servicios) de la clínica, solo para el administrador: crear, renombrar y eliminar.
@@ -20,6 +24,7 @@ export function Areas() {
   const { usuario } = useSesion();
   const area = useOutletContext<Area>();
   const lista = usar<Area[]>(usuario?.es_admin ? "/api/areas" : null);
+  const respaldos = usar<Respaldos>(usuario?.es_admin ? "/api/respaldos" : null);
   const { ocupado, aviso, hacer } = useAccion();
   const [ventana, setVentana] = useState<null | { modo: "nueva" } | { modo: "nombre" | "eliminar"; area: Area }>(null);
   const [nombre, setNombre] = useState("");
@@ -38,6 +43,11 @@ export function Areas() {
   const eliminar = (a: Area) => hacer(async () => {
     await enviar("DELETE", `/api/areas/${a.id}`, { nombre });
     location.assign("/areas");
+  });
+  const respaldar = () => hacer(async () => {
+    const r = await enviar<{ nombre: string }>("POST", "/api/respaldos");
+    respaldos.recargar();
+    return `Copia guardada en la carpeta ${r.nombre}.`;
   });
   const error = aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>;
 
@@ -92,6 +102,22 @@ export function Areas() {
           ])}
         />
       </Seccion>
+      {respaldos.datos?.carpeta && (
+        <Seccion titulo="Copias de respaldo" className="flex flex-col gap-3"
+          acciones={<Button color="secondary" size="sm" isDisabled={ocupado} onPress={() => void respaldar()}>Respaldar ahora</Button>}>
+          <p className="text-sm text-tertiary">
+            La app guarda una copia al abrir y al cerrar (las últimas 10) en <span className="font-medium text-secondary break-all">{respaldos.datos.carpeta}</span>.
+            Para volver a una copia: cierra An, copia los archivos de esa carpeta sobre los de tus datos y ábrela de nuevo.
+          </p>
+          {aviso && !ventana && <Alert color={aviso.nivel === "error" ? "error" : "success"}>{aviso.texto}</Alert>}
+          <Tabla
+            descripcion="Copias de respaldo"
+            vacio="Aún no hay copias."
+            columnas={["Fecha", "Carpeta", "Tamaño"]}
+            filas={respaldos.datos.respaldos.map((r) => [cuando(r.fecha), r.nombre, `${tamano(r.bytes)} · ${r.archivos} archivos`])}
+          />
+        </Seccion>
+      )}
     </Pagina>
   );
 }
