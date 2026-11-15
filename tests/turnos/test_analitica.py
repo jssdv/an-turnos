@@ -241,6 +241,53 @@ def test_fatiga_vacio():
     assert analitica.fatiga(db.BD(), I, F) == {}
 
 
+# --- patrones de ausencia y riesgo ----------------------------------------------------------------
+def test_bradford():
+    bd, i = nuevo()
+    for d in (6, 13, 20):
+        bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2026, 10, d), date(2026, 10, d)))
+    bd.guardar_novedad(Novedad(i["B"], "Incapacidad", date(2026, 10, 6), date(2026, 10, 8)))
+    bd.guardar_novedad(Novedad(i["C"], "Vacaciones", date(2026, 10, 6), date(2026, 10, 20)))
+    b = analitica.patrones_ausencia(bd, I, F)["bradford"]
+    assert b["por_persona"] == {"A": {"rachas": 3, "dias": 3, "puntaje": 27}, "B": {"rachas": 1, "dias": 3, "puntaje": 3}}, b
+    assert b["equipo"] == {"0-49": 3, "50-199": 0, "200-499": 0, "500+": 0}, b
+
+
+def test_rachas_recorta_borde():
+    bd, i = nuevo()
+    bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2026, 9, 28), date(2026, 10, 3)))
+    assert analitica._rachas_ausencia(bd, I, F) == [(i["A"], "Incapacidad", I, date(2026, 10, 3))]
+
+
+def test_por_dia_semana_y_tras_festivo():
+    bd, i = nuevo()
+    for d in (5, 12, 19):  # lunes
+        bd.guardar_novedad(Novedad(i["A"], "Licencia", date(2026, 10, d), date(2026, 10, d)))
+    r = analitica.patrones_ausencia(bd, I, F)
+    assert r["por_dia_semana"][0] == max(r["por_dia_semana"]) > 0 and r["por_dia_semana"][1] == 0, r
+    assert abs(r["por_dia_semana"][0] - 3 / (4 * 3) * 100) < 1e-6, r  # 4 lunes en octubre, 3 personas
+    assert r["tras_festivo"] == 0
+    bd.guardar_novedad(Novedad(i["B"], "Incapacidad", date(2026, 10, 13), date(2026, 10, 14)))  # el 12/10 es festivo
+    assert analitica.patrones_ausencia(bd, I, F)["tras_festivo"] == 1
+
+
+def test_riesgo_proximo():
+    bd, i = nuevo()
+    for d in (5, 12, 19, 26):  # lunes con incapacidad: el lunes es el día flojo
+        bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2026, 10, d), date(2026, 10, d)))
+    bd.guardar_cuadro("2026-11-02/2026-11-08", {(i["A"], date(2026, 11, 4)): "M"})  # casi nadie: margen negativo todos los días
+    r = analitica.riesgo_proximo(bd, date(2026, 11, 2))
+    assert [x["fecha"] for x in r] == [date(2026, 11, 2)], r
+    assert r[0]["franjas"] and r[0]["tasa"] > r[0]["media"], r
+    assert analitica.riesgo_proximo(bd, date(2026, 11, 10)) == []  # sin cuadro en los próximos 14 días
+
+
+def test_patrones_vacio():
+    r = analitica.patrones_ausencia(db.BD(), I, F)
+    assert r["por_dia_semana"] == [0] * 7 and r["bradford"]["por_persona"] == {} and r["tras_festivo"] == 0, r
+    assert analitica.riesgo_proximo(db.BD(), I) == []
+
+
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
     t()
 print("OK")
