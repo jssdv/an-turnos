@@ -47,7 +47,7 @@ export function Inicio() {
       filtros={<Button color="primary" size="sm" iconLeading={Calendar} onPress={alCuadro}>Ir al cuadro</Button>} error={periodos.error}>
       {periodos.datos && !p && <Seccion><p className="text-tertiary">Esta área aún no tiene periodos. Créalo desde «Cuadro de turnos» con «Nuevo periodo».</p></Seccion>}
       {p && cuadro.datos && alertas.datos && (
-        <Pasos hay={cuadro.datos.celdas.length > 0} alertas={alertas.datos} publicado={!!p.publicado_en} alGenerar={alCuadro} alVerAlertas={alCuadro} alPublicar={alCuadro} />
+        <Pasos hay={cuadro.datos.celdas.length > 0} alertas={alertas.datos} publicado={!!p.publicado_en} alGenerar={alCuadro} alVerAlertas={() => ir(`${r}/cuadro/${p.id}?alertas`)} alPublicar={alCuadro} />
       )}
       {p && (
         <Indicadores etiqueta="Indicadores del periodo">

@@ -116,6 +116,16 @@ export function Cuadro() {
     setTimeout(() => window.print(), 300);
   }, [datos]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // «Ver alertas» (aquí o desde Inicio con ?alertas): reabre el panel si estaba oculto y baja hasta él ya pintado.
+  const [verAlertas, setVerAlertas] = useState(0);
+  const abrirAlertas = () => { setSinPanel(false); setVerAlertas(Date.now()); };
+  useEffect(() => { if (verAlertas) document.getElementById("alertas")?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [verAlertas]);
+  useEffect(() => {
+    if (!datos || !busqueda.has("alertas")) return;
+    setBusqueda({}, { replace: true });
+    abrirAlertas();
+  }, [datos]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const dias = useMemo(() => (actual ? diasDe(actual.clave) : []), [actual]);
   const vista = useMemo(() => {
     if (!datos) return null;
@@ -259,7 +269,7 @@ export function Cuadro() {
       </>}>
 
       {datos && area.permiso === "editar" && <Pasos hay={datos.cuadro.celdas.length > 0} alertas={datos.alertas} publicado={!!actual.publicado_en}
-        alGenerar={pulsar("generar")} alPublicar={() => setPublicar(Date.now())} alVerAlertas={() => document.getElementById("alertas")?.scrollIntoView({ behavior: "smooth", block: "start" })} />}
+        alGenerar={pulsar("generar")} alPublicar={() => setPublicar(Date.now())} alVerAlertas={abrirAlertas} />}
 
       <Ayuda titulo="¿Cómo se usa el cuadro?" clave="cuadro">
         <ul className="list-disc pl-5">
