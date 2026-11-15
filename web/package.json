@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "test": "node --test pruebas/*.test.ts",
     "tipos": "${PYTHON:-python3} ../checks/openapi.py > src/api/openapi.json && openapi-typescript src/api/openapi.json -o src/api/esquema.d.ts",
     "tsc": "tsc --noEmit"
   },
