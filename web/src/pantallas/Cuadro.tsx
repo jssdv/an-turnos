@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useParams, useSearchParams } from "react-router";
 import { borrador as guardado, cambios, type Borrador } from "../api/cambios";
 import { ErrorApi, leer } from "../api/cliente";
@@ -48,7 +48,8 @@ export function Cuadro() {
   const [verPuestos, setVerPuestos] = useState(false);
   const [foco, setFoco] = useState<Foco | null>(null);
   const [persona, setPersona] = useState("");  // filtro de la lista de alertas: "" = todas
-  const uid = useSesion().usuario?.id ?? 0;
+  const yo = useSesion().usuario;
+  const uid = yo?.id ?? 0;
   const [borrador, setBorrador] = useState<Borrador | null>(null);
   const [cupos, setCupos] = useState<Cupo[] | null>(null);
   const [errorCambio, setErrorCambio] = useState<string | null>(null);
@@ -200,6 +201,7 @@ export function Cuadro() {
     try {
       const r = await cambios.registrar(area.id, actual.id, actual.revision, { tipo, celdas, motivo, excepcion: tipo === "permuta" && sinCupo(b, cupos).length > 0 });
       guardado.borrar();
+      rehacer.current = [];
       setBorrador(null);
       setPendiente(null);
       setResultado({ nivel: r.alertas_nuevas.length ? "aviso" : "ok", texto: "Cambio registrado." + (r.alertas_nuevas.length ? "\nNuevas alertas:\n• " + r.alertas_nuevas.slice(0, 3).join("\n• ") + (r.alertas_nuevas.length > 3 ? `\n… y ${r.alertas_nuevas.length - 3} más` : "") : "") });
@@ -220,6 +222,62 @@ export function Cuadro() {
       setEnviando(false);
     }
   };
+  // Ctrl/Cmd+Z anula tu último cambio vigente; Ctrl+Y o Ctrl/Cmd+Mayús+Z lo vuelve a registrar. Solo los tuyos: en un área compartida
+  // deshacer el de otra persona sorprendería. La pila de rehacer vive en la pantalla y se vacía con cualquier cambio nuevo.
+  const rehacer = useRef<number[]>([]);
+  const atajo = useRef(false);
+  const ultima = useRef({ periodo: 0, revision: 0 });  // la revisión que devolvió el último atajo: dos atajos seguidos no esperan a recargar
+  const deshacerRehacer = async (atras: boolean) => {
+    if (!actual || atajo.current) return;
+    atajo.current = true;
+    setResultado(null);
+    try {
+      const lista = await cambios.listar(area.id, actual.id);
+      const rev = Math.max(actual.revision, ultima.current.periodo === actual.id ? ultima.current.revision : 0);
+      if (atras) {
+        const c = lista.find((x) => !x.anulado_en && x.usuario === yo?.nombre);
+        if (!c) return setResultado({ nivel: "aviso", texto: "No tienes cambios vigentes para deshacer en este periodo." });
+        const r = await cambios.anular(area.id, actual.id, rev, c.id);
+        ultima.current = { periodo: actual.id, revision: r.revision };
+        rehacer.current.push(c.id);
+        setResultado({ nivel: r.alertas_nuevas.length ? "aviso" : "ok", texto: "Cambio deshecho (Ctrl+Y lo rehace)." + (r.alertas_nuevas.length ? "\nNuevas alertas:\n• " + r.alertas_nuevas.slice(0, 3).join("\n• ") : "") });
+      } else {
+        const c = lista.find((x) => x.id === rehacer.current.at(-1) && x.anulado_en);
+        if (!c) { rehacer.current = []; return setResultado({ nivel: "aviso", texto: "No hay nada que rehacer." }); }
+        const celdas = c.celdas.map((x) => {
+          const igual = JSON.stringify(x.puesto_antes ?? 0) === JSON.stringify(x.puesto_despues ?? 0);
+          const q = x.puesto_despues ?? 0;
+          return { colab_id: x.colab_id, fecha: x.fecha, turno: x.despues, ...(igual ? {} : Array.isArray(q) ? { puesto: q[0], puesto_tarde: q[1] } : { puesto: q }) };
+        });
+        const r = await cambios.registrar(area.id, actual.id, rev, { tipo: c.tipo, celdas, motivo: c.motivo, excepcion: c.excepcion });
+        ultima.current = { periodo: actual.id, revision: r.revision };
+        rehacer.current.pop();
+        setResultado({ nivel: r.alertas_nuevas.length ? "aviso" : "ok", texto: "Cambio rehecho." + (r.alertas_nuevas.length ? "\nNuevas alertas:\n• " + r.alertas_nuevas.slice(0, 3).join("\n• ") : "") });
+      }
+      setRecarga((n) => n + 1);
+    } catch (x) {
+      setResultado({ nivel: "aviso", texto: x instanceof ErrorApi ? x.message : atras ? "No se pudo deshacer" : "No se pudo rehacer" });
+      if (x instanceof ErrorApi && x.estado === 409) setRecarga((n) => n + 1);
+    } finally {
+      atajo.current = false;
+    }
+  };
+  useEffect(() => {
+    if (!puedeEditar) return;
+    const alTeclear = (ev: KeyboardEvent) => {
+      if (!(ev.ctrlKey || ev.metaKey) || ev.altKey) return;
+      const k = ev.key.toLowerCase();
+      const atras = k === "z" && !ev.shiftKey;
+      if (!atras && !(k === "y" || (k === "z" && ev.shiftKey))) return;
+      const t = ev.target as HTMLElement | null;
+      if (t?.closest("input, textarea, select, [contenteditable=true], [role=dialog]") || document.querySelector("[role=dialog]")) return;
+      ev.preventDefault();
+      void deshacerRehacer(atras);
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }); // eslint-disable-line react-hooks/exhaustive-deps -- se vuelve a atar en cada render para leer `actual` y la revisión vigentes
+
   const cerrarCambio = (b: Borrador | null) => { if (!b) { guardado.borrar(); setErrorCambio(null); } setBorrador(b); };
 
   const recargar = () => setRecarga((n) => n + 1);
@@ -278,7 +336,7 @@ export function Cuadro() {
             <>
               <li>Doble clic en una celda: cambiar su turno o su puesto.</li>
               <li>Arrastra una celda sobre otra: intercambiarlas.</li>
-              <li>Cada cambio queda registrado y se puede anular.</li>
+              <li>Cada cambio queda registrado y se puede anular; Ctrl+Z (⌘Z en Mac) deshace tu último cambio y Ctrl+Y (⌘Y) lo rehace.</li>
             </>
           ) : <li>Puedes exportarlo a Excel o imprimirlo.</li>}
           <li>Borde rojo: hay una alerta; mira la lista de abajo.</li>
