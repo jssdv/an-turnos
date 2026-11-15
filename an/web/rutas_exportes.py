@@ -107,7 +107,7 @@ def banco_xlsx(id: int, request: Request, ctx: Contexto = Depends(contexto_area_
 
 @router.get("/areas/{area}/analiticas.xlsx")
 def analiticas_xlsx(desde: date, hasta: date, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
-    datos = datos_analiticas(ctx, desde, hasta)
+    datos = datos_analiticas(ctx, desde, hasta, riesgo=False)
     with tempfile.TemporaryDirectory() as tmp:
         ruta = exportar.exportar_analiticas(tmp, f"Analiticas_{desde}_{hasta}", datos)
         contenido = ruta.read_bytes()

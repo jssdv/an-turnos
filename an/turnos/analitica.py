@@ -5,7 +5,7 @@ from math import ceil
 
 from . import demanda as dem
 from . import cambios, flujo, puestos, recargos, reglas
-from .dominio import DESCANSO_MIN, intervalo
+from .dominio import DESCANSO_MIN, festivos, intervalo
 
 
 def _ausencias(bd, ini, fin):
@@ -201,20 +201,20 @@ def _rachas_ausencia(bd, ini, fin):
 
 
 def patrones_ausencia(bd, ini, fin):
-    """Ausencias no planeadas: % de días-persona por día de la semana (lunes primero), rachas que empiezan el día después
-    de un festivo y factor Bradford (rachas² × días) por persona y su reparto en el equipo. Bradford sirve para ver
-    patrones, no para sancionar."""
+    """Ausencias no planeadas: % de días-persona por día de la semana (lunes primero) en el rango, rachas que empiezan
+    el día después de un festivo y factor Bradford (rachas² × días). Bradford mira siempre los 12 meses que terminan en
+    `fin` (sus tramos 0-49…500+ suponen un año); sirve para ver patrones, no para sancionar."""
     ctx = bd.contexto(ini.year)
     gente = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
-    rachas = _rachas_ausencia(bd, ini, fin)
     dias = flujo.fechas(ini, fin)
     ausentes = [0] * 7
-    for _, _, a, b in rachas:
+    for _, _, a, b in _rachas_ausencia(bd, ini, fin):
         for f in flujo.fechas(a, b):
             ausentes[f.weekday()] += 1
     por_dia = [ausentes[w] / (n * len(gente)) * 100 if (n := sum(f.weekday() == w for f in dias)) and gente else 0 for w in range(7)]
+    desde_b = fin - timedelta(days=364)
     por = {}
-    for cid, _, a, b in rachas:
+    for cid, _, a, b in _rachas_ausencia(bd, desde_b, fin):
         o = por.setdefault(gente[cid], {"rachas": 0, "dias": 0})
         o["rachas"] += 1
         o["dias"] += (b - a).days + 1
@@ -224,28 +224,40 @@ def patrones_ausencia(bd, ini, fin):
     for nombre in gente.values():
         puntaje = por.get(nombre, {}).get("puntaje", 0)
         equipo[next(k for k, lo in reversed(TRAMOS_BRADFORD) if puntaje >= lo)] += 1
-    tras = sum(1 for _, _, a, _ in rachas if a - timedelta(days=1) in ctx.fest)
-    return {"por_dia_semana": por_dia, "tras_festivo": tras, "bradford": {"equipo": equipo, "por_persona": por}}
+    fest = set().union(*(festivos(y) for y in range(ini.year - 1, fin.year + 1)))
+    antes = ini - timedelta(days=1)  # mirar un día antes: una racha recortada en `ini` no empezó allí
+    tras = sum(1 for _, _, a, _ in _rachas_ausencia(bd, antes, fin) if a >= ini and a - timedelta(days=1) in fest)
+    return {"por_dia_semana": por_dia, "tras_festivo": tras, "bradford": {"desde": desde_b, "equipo": equipo, "por_persona": por}}
+
+
+MIN_HISTORIAL = 3  # días de ausencia en ese día de la semana para tomarlo en serio: con uno solo todo sería «riesgo»
 
 
 def riesgo_proximo(bd, hoy, dias=14):
     """Días de los próximos `dias` con cuadro guardado donde alguna franja queda justa o en falta (margen ≤ 0) y que caen
-    en un día de la semana con más ausencias no planeadas que la media (últimos 365 días)."""
+    en un día de la semana con más ausencias no planeadas que la media en los últimos 365 días (y al menos
+    `MIN_HISTORIAL` días de ausencia en ese día)."""
     ctx = bd.contexto(hoy.year)
     hasta = hoy + timedelta(days=dias - 1)
     con_cuadro = [k for k in bd.periodos() if _cruza(k, hoy, hasta)]
     if not con_cuadro:
         return []
-    tasas = patrones_ausencia(bd, hoy - timedelta(days=365), hoy - timedelta(days=1))["por_dia_semana"]
+    desde_h, fin_h = hoy - timedelta(days=365), hoy - timedelta(days=1)
+    tasas = patrones_ausencia(bd, desde_h, fin_h)["por_dia_semana"]
+    conteo = [0] * 7
+    for _, _, a, b in _rachas_ausencia(bd, desde_h, fin_h):
+        for f in flujo.fechas(a, b):
+            conteo[f.weekday()] += 1
     media = sum(tasas) / 7
     cuadro = bd.asignaciones_rango(hoy - timedelta(days=1), hasta)
     out = []
     for f in flujo.fechas(hoy, hasta):
-        if tasas[f.weekday()] <= media or not any(a <= f <= b for a, b in map(flujo.desde_clave, con_cuadro)):
+        w = f.weekday()
+        if tasas[w] <= media or conteo[w] < MIN_HISTORIAL or not any(a <= f <= b for a, b in map(flujo.desde_clave, con_cuadro)):
             continue
         justas = [reglas.FRANJA_NOMBRE[fr] for fr, m in reglas.margen_dia(ctx, cuadro, f).items() if m is not None and m <= 0]
         if justas:
-            out.append({"fecha": f, "franjas": justas, "tasa": round(tasas[f.weekday()], 2), "media": round(media, 2)})
+            out.append({"fecha": f, "franjas": justas, "tasa": round(tasas[w], 2), "media": round(media, 2)})
     return out
 
 

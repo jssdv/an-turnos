@@ -15,8 +15,8 @@ import { Button } from "@/components/base/buttons/button";
 interface Resumen {
   cobertura: { dias_deficit: number; puestos_sin_cubrir: number }[];
   horas_extra: { ventana: number; semanas: { diurna: number; nocturna: number } }[];
-  fatiga: Record<string, { senales: number }>;
-  riesgo: { fecha: string; franjas: string[] }[];
+  fatiga?: Record<string, { senales: number }>;  // opcionales: un servidor sin actualizar no los trae
+  riesgo?: { fecha: string; franjas: string[] }[];
 }
 const COLOR_AUSENCIA: Record<string, "warning" | "error" | "gray"> = { Vacaciones: "warning", Incapacidad: "error" };
 
@@ -54,7 +54,7 @@ export function Inicio() {
   const errores = agrupar((alertas.datos ?? []).filter((a) => a.nivel === "error")).length;
   const noCumplidas = (solicitudes.datos ?? []).filter((s) => s.estado === "no cumplida").length;
   const cob = resumen.datos?.cobertura[0], extra = resumen.datos?.horas_extra[0];
-  const cansados = resumen.datos ? Object.values(resumen.datos.fatiga).filter((f) => f.senales > 0).length : null;
+  const cansados = resumen.datos ? Object.values(resumen.datos.fatiga ?? {}).filter((f) => f.senales > 0).length : null;
   const horasExtra = extra ? Math.round(extra.semanas.diurna + extra.semanas.nocturna) : null;
   const alCuadro = () => ir(`${r}/cuadro${p ? `/${p.id}` : ""}`);
   const accesos = ([["Registrar ausencia", "novedades?nueva", CalendarMinus01], ["Nueva solicitud", "solicitudes?nueva", Inbox01], ["Descargar reportes", "reportes", FileDownload02]] as [string, string, FC<{ className?: string }>][])
@@ -65,7 +65,7 @@ export function Inicio() {
       filtros={<Button color="primary" size="sm" iconLeading={Calendar} onPress={alCuadro}>Ir al cuadro</Button>} error={periodos.error}>
       {periodos.datos && !p && <Seccion><p className="text-tertiary">Esta área aún no tiene periodos. Créalo desde «Cuadro de turnos» con «Nuevo periodo».</p></Seccion>}
       {recordatorio && <Alert color="warning" action={<Button color="secondary" size="sm" onPress={() => ir(`${r}/cuadro${siguiente ? `/${siguiente.id}` : ""}`)}>Ir al cuadro</Button>}>{recordatorio}</Alert>}
-      {!!resumen.datos?.riesgo.length && (
+      {!!resumen.datos?.riesgo?.length && (
         <Alert color="warning" action={<Button color="secondary" size="sm" onPress={alCuadro}>Ver cuadro</Button>}>
           Días con riesgo de faltar gente (quedan justos y suelen tener más incapacidades): {resumen.datos.riesgo.map((x) => `${fechaCorta(x.fecha)} (${x.franjas.join(", ")})`).join(" · ")}.
         </Alert>

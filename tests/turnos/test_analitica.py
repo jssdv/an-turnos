@@ -318,6 +318,35 @@ def test_estabilidad_no_se_borra_al_republicar():
     assert p["celdas_cambiadas"] == 2 and p["aviso_corto"] == 0, p
 
 
+# --- pendientes menores de la revisión -------------------------------------------------------------
+def test_tras_festivo_en_rango_largo():
+    bd, i = nuevo()
+    bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2026, 10, 13), date(2026, 10, 13)))  # el 12/10/2026 es festivo
+    assert analitica.patrones_ausencia(bd, date(2022, 1, 1), date(2026, 12, 31))["tras_festivo"] == 1
+
+
+def test_tras_festivo_no_cuenta_racha_recortada():
+    bd, i = nuevo()
+    bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2026, 10, 12), date(2026, 10, 14)))  # empezó el festivo mismo
+    assert analitica.patrones_ausencia(bd, date(2026, 10, 13), F)["tras_festivo"] == 0
+
+
+def test_bradford_mira_los_ultimos_12_meses():
+    bd, i = nuevo()
+    bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2025, 1, 10), date(2025, 1, 10)))  # más de un año antes del fin
+    bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2026, 10, 6), date(2026, 10, 6)))
+    r = analitica.patrones_ausencia(bd, date(2024, 1, 1), F)
+    assert r["bradford"]["por_persona"]["A"] == {"rachas": 1, "dias": 1, "puntaje": 1}, r["bradford"]
+    assert r["bradford"]["desde"] == date(2025, 11, 1), r["bradford"]
+
+
+def test_riesgo_pide_historial_minimo():
+    bd, i = nuevo()
+    bd.guardar_novedad(Novedad(i["A"], "Incapacidad", date(2026, 10, 26), date(2026, 10, 26)))  # un solo lunes
+    bd.guardar_cuadro("2026-11-02/2026-11-08", {(i["A"], date(2026, 11, 4)): "M"})
+    assert analitica.riesgo_proximo(bd, date(2026, 11, 2)) == []
+
+
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
     t()
 print("OK")

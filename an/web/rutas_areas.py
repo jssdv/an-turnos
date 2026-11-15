@@ -178,8 +178,8 @@ def analiticas(desde: date, hasta: date, ctx: Contexto = Depends(contexto_area, 
     return datos_analiticas(ctx, desde, hasta)
 
 
-def datos_analiticas(ctx, desde, hasta):
-    """Todas las métricas del rango; las usan la pantalla y el Excel de Analíticas."""
+def datos_analiticas(ctx, desde, hasta, riesgo=True):
+    """Todas las métricas del rango; las usan la pantalla y el Excel de Analíticas (sin `riesgo`: mira desde hoy, no el rango)."""
     if hasta < desde or (hasta - desde).days > MAX_DIAS_ANALITICAS:
         raise HTTPException(422, f"El rango debe ir de «desde» a «hasta» y no pasar de {MAX_DIAS_ANALITICAS} días")
     return {"ausentismo": analitica.ausentismo(ctx.bd, desde, hasta), "cobertura": analitica.cobertura(ctx.bd, desde, hasta),
@@ -187,12 +187,13 @@ def datos_analiticas(ctx, desde, hasta):
             "cambios": analitica.cambios_resumen(ctx.bd, desde, hasta), "horas_extra": analitica.horas_extra(ctx.bd, desde, hasta),
             "equidad": analitica.equidad(ctx.bd, desde, hasta), "banco": analitica.banco(ctx.bd, desde, hasta),
             "estabilidad": analitica.estabilidad(ctx.bd, desde, hasta, _publicados(ctx)), "fatiga": analitica.fatiga(ctx.bd, desde, hasta),
-            "patrones": analitica.patrones_ausencia(ctx.bd, desde, hasta), "riesgo": analitica.riesgo_proximo(ctx.bd, date.today())}
+            "patrones": analitica.patrones_ausencia(ctx.bd, desde, hasta), "riesgo": analitica.riesgo_proximo(ctx.bd, date.today()) if riesgo else []}
 
 
 def _publicados(ctx):
     """{clave: datetime local sin zona} de la primera publicación (la tabla `periodo` es de la web; el núcleo no la ve).
-    La base guarda UTC (CURRENT_TIMESTAMP); los cambios se registran en hora local, así que se pasa a local."""
+    La base guarda UTC (CURRENT_TIMESTAMP); los cambios se registran en hora local, así que se pasa a local. «Local» es
+    la hora del PC donde corre la app portable, que es el de la clínica."""
     def local(v):
         d = v if isinstance(v, datetime) else datetime.fromisoformat(str(v))
         return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone().replace(tzinfo=None)

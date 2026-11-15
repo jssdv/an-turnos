@@ -15,7 +15,7 @@ User decisions: audience = coordinator daily **and** management monthly; all fou
 
 - All metrics in `an/turnos/analitica.py`, returned by the same `/analiticas` endpoint (`an/web/rutas_areas.py:176`). Read-only, like today.
 - Charts: hand SVG (decision in `docs/PLAN_WEB.md:60`). Move `Barras` out of `Analiticas.tsx` into `web/src/componentes/Graficos.tsx` and add `Linea` (multi-series line, `role="img"` + `aria-label`, table fallback stays below). No new deps.
-- Thresholds are params in `PARAMETROS_BASE` (`an/turnos/db.py:65`), editable in Parámetros: `aviso_corto_horas` = 48, `max_dias_seguidos` = 6, `descanso_corto_horas` = 12 (reuse `reglas.DESCANSO_MIN` as default).
+- Thresholds are params with defaults in `PARAMETROS_POR_DEFECTO` (`an/web/rutas_areas.py`) and in each `bd.param(clave, defecto)` call, like the other rule params (not `PARAMETROS_BASE`, which only seeds a few), editable in Parámetros: `aviso_corto_horas` = 48, `max_dias_seguidos` = 6, `descanso_corto_horas` = 12 (reuse `reglas.DESCANSO_MIN` as default).
 - `validar` (`an/turnos/reglas.py:91`) already alerts <12 h rests and night runs per period; fatigue here is history across the range, not new alerts.
 
 ## PRs, in order
