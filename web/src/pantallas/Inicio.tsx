@@ -60,8 +60,10 @@ export function Inicio() {
       )}
       <div className="grid gap-4 lg:grid-cols-2">
         <Seccion titulo="Ausentes hoy">
+          {novedades.datos && !ausentes.length ? <p className="text-sm text-tertiary">Nadie está ausente hoy.</p> : (
           <Tabla descripcion="Personas ausentes hoy" cargando={!novedades.datos && !novedades.error} vacio="Nadie está ausente hoy." columnas={["Persona", "Ausencia", "Hasta"]}
             filas={ausentes.map((n) => [nombre.get(n.colab_id) ?? `#${n.colab_id}`, <Badge size="sm" color={COLOR_AUSENCIA[n.tipo] ?? "gray"}>{n.tipo}</Badge>, fechaCorta(n.hasta)])} />
+          )}
         </Seccion>
         <Seccion titulo="Accesos rápidos">
           <ul className="-my-2 divide-y divide-secondary">

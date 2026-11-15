@@ -4,7 +4,7 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Colaborador, EstadoSolicitud, Periodo, Solicitud, Turno } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Plus, Users01 } from "@untitledui/icons";
-import { Fila, Filtro, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
+import { Fila, Filtro, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
 import { Alert } from "@/components/application/alerts/alert";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
@@ -26,6 +26,7 @@ export function Solicitudes() {
   const ultimo = periodos.datos?.at(-1);
   const estados = usar<EstadoSolicitud[]>(ultimo ? `${base}/periodos/${ultimo.id}/solicitudes` : null);
   const { ocupado, aviso, hacer } = useAccion();
+  const [pedir, confirmacion] = useConfirmar();
   const [ventana, setVentana] = useState(false);
   const [f, setF] = useState({ colab_id: "", tipo: "libre", desde: "", hasta: "", turno: "", prioridad: "normal", nota: "" });
   const nombre = useMemo(() => new Map((personas.datos ?? []).map((p) => [p.id, p.nombre])), [personas.datos]);
@@ -90,10 +91,11 @@ export function Solicitudes() {
             s.prioridad === "alta" ? <Badge size="sm" color="warning">Alta</Badge> : "Normal",
             estado.get(s.id) ? `${estado.get(s.id)!.estado}${estado.get(s.id)!.motivo ? ` (${estado.get(s.id)!.motivo})` : ""}` : "",
             s.nota,
-            editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => hacer(async () => { await enviar("DELETE", `${base}/solicitudes/${s.id}`); lista.recargar(); estados.recargar(); })}>Borrar</Button> : null,
+            editar ? <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => pedir(`¿Borrar la solicitud de ${nombre.get(s.colab_id) ?? `#${s.colab_id}`}?`, "Borrar", () => hacer(async () => { await enviar("DELETE", `${base}/solicitudes/${s.id}`); lista.recargar(); estados.recargar(); }), `${TIPO[s.tipo]}${s.turno ? ` ${s.turno}` : ""}, ${fechaCorta(s.desde)} – ${fechaCorta(s.hasta)}.`)}>Borrar</Button> : null,
           ])}
         />
       </Seccion>
+      {confirmacion}
     </Pagina>
   );
 }
