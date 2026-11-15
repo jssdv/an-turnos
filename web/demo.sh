@@ -12,6 +12,9 @@ from an.web.app import crear_app
 from an.web.trabajador import Trabajador
 pool = conexion.abrir_pool()
 threading.Thread(target=Trabajador(pool).servir, args=(threading.Event(),), daemon=True).start()
-uvicorn.run(crear_app(pool), host="127.0.0.1", port=8000, log_level="warning")
+app = crear_app(pool)
+from pathlib import Path; import os
+app.state.respaldo = (Path(os.environ["AN_BASE"].removeprefix("sqlite:")), Path("web/.demo/respaldos"))  # «Respaldar ahora» en Áreas
+uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
 PY
 cd web && { [ -d node_modules ] || npm ci; } && echo "Abre http://localhost:5173  ·  editor@demo.co / clave-larga-1" && npm run dev

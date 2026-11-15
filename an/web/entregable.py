@@ -140,7 +140,7 @@ def preparar_base(ruta, respaldos):
 
 def respaldar(ruta, destino):
     """Copia consistente de la base y sus áreas (API de respaldo de SQLite, válida con la base abierta) en una carpeta por fecha,
-    y poda a las últimas RESPALDOS_MAX carpetas."""
+    y poda a las últimas RESPALDOS_MAX carpetas. Devuelve la carpeta creada."""
     carpeta = destino / f"{datetime.now():%Y%m%d_%H%M%S}"
     carpeta.mkdir(parents=True, exist_ok=True)
     ok = False
@@ -158,6 +158,7 @@ def respaldar(ruta, destino):
             shutil.rmtree(carpeta, ignore_errors=True)
     for viejo in sorted(d for d in destino.glob("[0-9]*_*") if d.is_dir())[:-RESPALDOS_MAX]:
         shutil.rmtree(viejo, ignore_errors=True)
+    return carpeta
 
 
 def servir_front(app, dist):
@@ -187,6 +188,7 @@ def servicio(estado, ruta):
         os.environ["AN_ORIGEN"] = f"http://localhost:{PUERTO}"
         pool = conexion.abrir_pool(ruta)
         app = crear_app(pool)
+        app.state.respaldo = (ruta, carpeta_respaldos())  # «Respaldar ahora» en Áreas
         servir_front(app, carpeta_front())
         parar = threading.Event()
         threading.Thread(target=Trabajador(pool).servir, args=(parar,), daemon=True).start()
