@@ -15,6 +15,7 @@ import { Button } from "@/components/base/buttons/button";
 interface Resumen {
   cobertura: { dias_deficit: number; puestos_sin_cubrir: number }[];
   horas_extra: { ventana: number; semanas: { diurna: number; nocturna: number } }[];
+  fatiga: Record<string, { senales: number }>;
 }
 const COLOR_AUSENCIA: Record<string, "warning" | "error" | "gray"> = { Vacaciones: "warning", Incapacidad: "error" };
 
@@ -52,6 +53,7 @@ export function Inicio() {
   const errores = agrupar((alertas.datos ?? []).filter((a) => a.nivel === "error")).length;
   const noCumplidas = (solicitudes.datos ?? []).filter((s) => s.estado === "no cumplida").length;
   const cob = resumen.datos?.cobertura[0], extra = resumen.datos?.horas_extra[0];
+  const cansados = resumen.datos ? Object.values(resumen.datos.fatiga).filter((f) => f.senales > 0).length : null;
   const horasExtra = extra ? Math.round(extra.semanas.diurna + extra.semanas.nocturna) : null;
   const alCuadro = () => ir(`${r}/cuadro${p ? `/${p.id}` : ""}`);
   const accesos = ([["Registrar ausencia", "novedades?nueva", CalendarMinus01], ["Nueva solicitud", "solicitudes?nueva", Inbox01], ["Descargar reportes", "reportes", FileDownload02]] as [string, string, FC<{ className?: string }>][])
@@ -72,6 +74,8 @@ export function Inicio() {
           <Indicador titulo="Cobertura" tono={cob && (cob.dias_deficit || cob.puestos_sin_cubrir) ? "aviso" : undefined} valor={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `${cob.dias_deficit} días` : "100 %") : "…"}
             nota={cob ? (cob.dias_deficit || cob.puestos_sin_cubrir ? `Con falta de personal · ${cob.puestos_sin_cubrir} puestos sin cubrir` : "Todos los puestos cubiertos") : "Calculando"} />
           <Indicador titulo="Horas extra" valor={horasExtra === null ? "…" : `${horasExtra} h`} nota={extra ? `Sobre el promedio de ${extra.ventana} semanas` : "Calculando"} />
+          <Indicador titulo="Fatiga" tono={cansados ? "aviso" : undefined} valor={cansados === null ? "…" : String(cansados)}
+            nota={cansados === null ? "Calculando" : cansados ? "personas con señales este periodo (ver Analíticas)" : "Sin señales este periodo"} />
         </Indicadores>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
