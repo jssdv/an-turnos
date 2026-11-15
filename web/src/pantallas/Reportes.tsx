@@ -1,19 +1,28 @@
-import { useState, type FC } from "react";
+import { useState, type FC, type ReactNode } from "react";
 import { useNavigate, useOutletContext } from "react-router";
 import { Building02, Calendar, CalendarDate, Clock, Copy01, Download01, LineChartUp01, Printer } from "@untitledui/icons";
 import { aHHMM, mensaje, usar } from "../api/catalogos";
 import { leer } from "../api/cliente";
 import { exportes } from "../api/exportes";
 import type { Area, Colaborador, Cuadro, Periodo, TipoExporte, Turno } from "../api/tipos";
-import { Filtro, Pagina, Pista, useAccion } from "./comun";
+import { Filtro, Pagina, Pista, Seccion, useAccion, Vacio } from "./comun";
 import { fechaCorta, nombrePeriodo, vigente } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 
-const TIPOS: [TipoExporte, string, string, FC<{ className?: string }>][] = [
+const TIPOS: [TipoExporte, string, string, Icono][] = [
   ["cuadro", "Cuadro de turnos", "La grilla del periodo con las horas de cada semana.", Calendar],
   ["puestos", "Puestos", "Quién está en cada puesto, día por día.", Building02],
   ["horas", "Horas y recargos", "Horas trabajadas, nocturnas, dominicales y festivas por persona.", LineChartUp01],
 ];
+
+type Icono = FC<{ className?: string }>;
+
+/** Tarjeta de una descarga: los botones quedan abajo, alineados entre tarjetas de la misma fila. */
+const Tarjeta = ({ icono: I, titulo, texto, children }: { icono: Icono; titulo: string; texto: string; children: ReactNode }) => (
+  <Seccion className="flex flex-col" titulo={<><I aria-hidden="true" className="size-5 text-fg-quaternary" />{titulo}</>} descripcion={texto}>
+    <div className="mt-auto flex flex-col items-start gap-3">{children}</div>
+  </Seccion>
+);
 
 /** Descargas en Excel del periodo. Cada descarga genera el libro en el servidor y lo borra al bajarlo (como «Exportar» del cuadro). */
 export function Reportes() {
@@ -71,44 +80,32 @@ export function Reportes() {
         </Filtro>
       )}
       acciones={p && <Pista texto="Abre el cuadro de este periodo y la ventana de impresión."><Button color="secondary" size="sm" iconLeading={Printer} onPress={() => ir(`/areas/${area.id}/cuadro/${p.id}?imprimir=1`)}>Imprimir el cuadro</Button></Pista>}>
-      {periodos.datos && !p && <p className="tarjeta p-5 text-tertiary">Aún no hay periodos.</p>}
+      {periodos.datos && !p && <Vacio className="tarjeta">Aún no hay periodos.</Vacio>}
       {p && (
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
           {TIPOS.map(([tipo, titulo, texto, Icono]) => (
-            <section key={tipo} className="tarjeta flex flex-col items-start gap-3 p-5">
-              <Icono aria-hidden="true" className="size-5 text-fg-quaternary" />
-              <h2 className="text-lg font-semibold text-primary">{titulo}</h2>
-              <p className="flex-1 text-sm text-tertiary">{texto}</p>
+            <Tarjeta key={tipo} icono={Icono} titulo={titulo} texto={texto}>
               <Button color="secondary" size="sm" iconLeading={Download01} isDisabled={haciendo !== null} onPress={() => descargar(tipo)}>{haciendo === tipo ? "Preparando…" : "Descargar Excel"}</Button>
-            </section>
+            </Tarjeta>
           ))}
-          <section className="tarjeta flex flex-col items-start gap-3 p-5">
-            <Clock aria-hidden="true" className="size-5 text-fg-quaternary" />
-            <h2 className="text-lg font-semibold text-primary">Banco de horas</h2>
-            <p className="flex-1 text-sm text-tertiary">Saldo de horas por persona y movimientos manuales.</p>
+          <Tarjeta icono={Clock} titulo="Banco de horas" texto="Saldo de horas por persona y movimientos manuales.">
             <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlBanco(area.id, p.id))}>Descargar Excel</Button>
-          </section>
-          <section className="tarjeta flex flex-col items-start gap-3 p-5">
-            <LineChartUp01 aria-hidden="true" className="size-5 text-fg-quaternary" />
-            <h2 className="text-lg font-semibold text-primary">Analíticas</h2>
-            <p className="flex-1 text-sm text-tertiary">Resumen para gerencia o RR. HH. de este periodo: ausentismo, cobertura, estabilidad, fatiga y patrones. Para otro rango, descárgalo desde Analíticas.</p>
+          </Tarjeta>
+          <Tarjeta icono={LineChartUp01} titulo="Analíticas" texto="Resumen para gerencia o RR. HH. de este periodo: ausentismo, cobertura, estabilidad, fatiga y patrones. Para otro rango, descárgalo desde Analíticas.">
             <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlAnaliticas(area.id, ...(p.clave.split("/") as [string, string])))}>Descargar Excel</Button>
-          </section>
-          <section className="tarjeta flex flex-col items-start gap-3 p-5">
-            <CalendarDate aria-hidden="true" className="size-5 text-fg-quaternary" />
-            <h2 className="text-lg font-semibold text-primary">Agendas</h2>
-            <p className="flex-1 text-sm text-tertiary">El horario de cada persona para su calendario (.ics), para imprimir o en texto para su chat.</p>
+          </Tarjeta>
+          <Tarjeta icono={CalendarDate} titulo="Agendas" texto="El horario de cada persona para su calendario (.ics), para imprimir o en texto para su chat.">
             <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlAgendas(area.id, p.id))}>Todas (.zip)</Button>
-            <select aria-label="Persona" className="w-full rounded-lg border border-primary bg-primary px-3 py-2 text-sm text-primary" value={quien} onChange={(x) => setQuien(x.target.value)}>
+            <Filtro etiqueta="Persona" className="w-full" value={quien} onChange={(x) => setQuien(x.target.value)}>
               <option value="">Elige una persona…</option>
               {gente.datos?.filter((c) => c.activo).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
+            </Filtro>
             <div className="flex flex-wrap gap-2">
               <Button color="secondary" size="sm" iconLeading={Download01} isDisabled={!quien} onPress={() => bajar(exportes.urlAgenda(area.id, p.id, Number(quien)))}>Su calendario</Button>
               <Button color="secondary" size="sm" iconLeading={Printer} isDisabled={!quien} onPress={() => ir(`/areas/${area.id}/cuadro/${p.id}?imprimir=1&persona=${quien}`)}>Imprimir su horario</Button>
               <Button color="secondary" size="sm" iconLeading={Copy01} isDisabled={!quien} onPress={() => void copiarHorario()}>Copiar su horario</Button>
             </div>
-          </section>
+          </Tarjeta>
         </div>
       )}
     </Pagina>

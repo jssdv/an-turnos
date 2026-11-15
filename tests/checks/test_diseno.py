@@ -46,6 +46,12 @@ def test_contraste_de_una_regla():
     assert diseno.revisar(_arbol(".a:disabled { color: var(--an-brand-50); background: var(--an-brand-25); }")) == []
 
 
+def test_espacio_fuera_de_la_escala():
+    assert any("escala de 4 px" in x for x in diseno.revisar(_arbol(tsx='const c = "p-[13px] text-sm";')))
+    assert any("escala de 4 px" in x for x in diseno.revisar(_arbol(tsx='const c = "sm:gap-x-[7px]";')))
+    assert diseno.revisar(_arbol(tsx='const c = "p-3 gap-4 max-w-[80ch] grid-cols-[minmax(0,9rem)_1fr]";')) == []
+
+
 def test_tema_de_untitled_admite_colores():
     d = _arbol()
     (d / "web" / "src" / "styles").mkdir()

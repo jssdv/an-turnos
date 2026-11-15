@@ -53,7 +53,7 @@ export function Puestos() {
   return (
     <Pagina titulo="Requerimiento"
       sub="Los turnos del área, si el servicio usa puestos y cuántas personas hacen falta." ayuda={<>Primero define los <strong>turnos</strong> (sus horarios son la base). Luego elige si trabajan por puestos. Con puestos, cada uno tiene su propia <strong>necesidad por turno y día</strong>; sin puestos, la necesidad es la del área. El sistema usa estas reglas al generar el cuadro y te avisa si un puesto queda sin cubrir.</>} error={puestos.error ?? demandas.error ?? parametros.error ?? turnos.error} aviso={aviso}>
-      {editar && <div className="tarjeta px-4 py-3"><Checkbox label="Este servicio trabaja por puestos" hint="Apagado: solo se pide un número de personas por jornada y día de la semana."
+      {editar && <div className="tarjeta p-4 sm:px-5"><Checkbox label="Este servicio trabaja por puestos" hint="Apagado: solo se pide un número de personas por jornada y día de la semana."
         isSelected={usaPuestos} isDisabled={ocupado || !parametros.datos} onChange={cambiarModo} /></div>}
       <div className={usaPuestos ? "grid items-start gap-4 xl:grid-cols-2" : "contents"}>
       <SeccionTurnos base={base} editar={editar} turnos={turnos} />

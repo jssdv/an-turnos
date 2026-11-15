@@ -6,7 +6,7 @@ import { usar } from "../api/catalogos";
 import type { Alerta, Area, Colaborador, Cuadro, EstadoSolicitud, Novedad, Periodo } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
-import { agrupar, Indicador, Indicadores, Pagina, Pasos, Seccion } from "./comun";
+import { agrupar, Indicador, Indicadores, Pagina, Pasos, Seccion, Vacio } from "./comun";
 import { fechaCorta, isoHoy, nombrePeriodo, vigente } from "./fechas";
 import { Badge } from "@/components/base/badges/badges";
 import { Alert } from "@/components/application/alerts/alert";
@@ -84,21 +84,20 @@ export function Inicio() {
             nota={cansados === null ? "Calculando" : cansados ? "personas con señales este periodo (ver Analíticas)" : "Sin señales este periodo"} />
         </Indicadores>
       )}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Seccion titulo="Ausentes hoy">
-          {novedades.datos && !ausentes.length ? <p className="text-sm text-tertiary">Nadie está ausente hoy.</p> : (
+          {novedades.datos && !ausentes.length ? <Vacio>Nadie está ausente hoy.</Vacio> : (
           <Tabla descripcion="Personas ausentes hoy" cargando={!novedades.datos && !novedades.error} vacio="Nadie está ausente hoy." columnas={["Persona", "Ausencia", "Hasta"]}
             filas={ausentes.map((n) => [nombre.get(n.colab_id) ?? `#${n.colab_id}`, <Badge size="sm" color={COLOR_AUSENCIA[n.tipo] ?? "gray"}>{n.tipo}</Badge>, fechaCorta(n.hasta)])} />
           )}
         </Seccion>
         {enCuadroHoy && (
-          <Seccion titulo={`Libres hoy (${libres.length})`}>
-            <p className="mb-3 text-sm text-tertiary">Sin turno ni ausencia: a quién llamar primero si alguien falta.</p>
+          <Seccion titulo={`Libres hoy (${libres.length})`} descripcion="Sin turno ni ausencia: a quién llamar primero si alguien falta.">
             {libres.length ? (
               <ul className="flex flex-wrap gap-2" aria-label="Personas libres hoy">
                 {libres.map((c) => <li key={c.id}><Badge size="sm" color="gray">{c.nombre}</Badge></li>)}
               </ul>
-            ) : <p className="text-sm text-tertiary">Hoy todo el personal activo tiene turno o ausencia.</p>}
+            ) : <Vacio>Hoy todo el personal activo tiene turno o ausencia.</Vacio>}
           </Seccion>
         )}
         <Seccion titulo="Accesos rápidos">

@@ -6,7 +6,7 @@ import { exportes } from "../api/exportes";
 import type { Area } from "../api/tipos";
 import { Barras, Divergente, Linea, Mapa } from "../componentes/Graficos";
 import { Tabla } from "../componentes/Tabla";
-import { Indicador, Indicadores, Pagina, Seccion } from "./comun";
+import { Indicador, Indicadores, Pagina, Seccion, Vacio } from "./comun";
 import { fechaCorta, nombrePeriodo, num } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -81,10 +81,10 @@ export function Analiticas() {
         <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlAnaliticas(area.id, `${desde}-01`, ultimoDia(hasta)))}>Descargar Excel</Button>
       </>}
       filtros={<div className="flex flex-wrap items-start gap-3">
-        <Input className="w-48 [&_label]:sr-only" value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
-        <Input className="w-48 [&_label]:sr-only" value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!ok} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
+        <Input size="sm" className="w-48 [&_label]:sr-only" value={String(desde)} label="Desde (mes)" type="month" onChange={(x) => setDesde(x)} />
+        <Input size="sm" className="w-48 [&_label]:sr-only" value={String(hasta)} hint={ok ? null : "El mes final es anterior al inicial"} isInvalid={!ok} label="Hasta (mes)" type="month" onChange={(x) => setHasta(x)} />
       </div>} sub="Cifras de lo ya registrado. Solo se consulta: aquí no se cambia nada." ayuda={<>Elige el rango de meses. Arriba ves el resumen: <strong>ausentismo</strong> (porcentaje de días perdidos por ausencias), cuántas personas faltaron <strong>a la vez</strong>, días con <strong>déficit</strong> (faltó gente en algún puesto) y cambios de turno. Las tablas de abajo muestran el detalle por persona y por periodo.</>} error={r.error}>
-      {!d || !total ? <p aria-busy="true">Cargando…</p> : (
+      {!d || !total ? <Vacio className="tarjeta" aria-busy="true">Cargando…</Vacio> : (
         <div className="flex flex-col gap-4 print:[&_section]:break-inside-avoid">
           <Indicadores etiqueta="Resumen">
             <Indicador titulo="Ausentismo" valor={`${num(d.ausentismo.pct)} %`} nota={`${total.ausencias} días de ausencia`} />
@@ -94,11 +94,11 @@ export function Analiticas() {
             <Indicador titulo="Cambios tras publicar" valor={total.celdas ? `${num(total.cambiadas / total.celdas * 100)} %` : "—"}
               nota={total.celdas ? `${total.avisoCorto} con poco aviso` : "Sin periodos publicados"} />
           </Indicadores>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Barras titulo="Equidad de domingos y festivos" unidad="días" datos={Object.entries(d.equidad.por_persona).map(([p, o]) => [p, o.domingos + o.festivos])} />
             <Barras titulo="Recargos por persona" unidad="h equivalentes" datos={Object.entries(d.recargos).map(([p, r2]) => [p, r2.equivalentes])} />
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Linea titulo="Ausencias por mes" unidad="días" etiquetas={meses(desde, hasta).map(mesCorto)}
               series={TIPOS.map((t) => ({ nombre: t, valores: meses(desde, hasta).map((m) => d.ausentismo.por_mes[m]?.[t] ?? 0) })).filter((s) => s.valores.some(Boolean))} />
             <Linea titulo="Ausentes a la vez" unidad="personas" etiquetas={d.simultaneos.serie.map(([f]) => fechaCorta(f))}
@@ -110,10 +110,9 @@ export function Analiticas() {
             <Tabla descripcion="Ausencias por persona" vacio="Sin ausencias en el rango." columnas={["Persona", "Total", ...TIPOS]}
               filas={Object.entries(d.ausentismo.por_persona).sort().map(([p, t]) => [p, Object.values(t).reduce((s, x) => s + x, 0), ...TIPOS.map((x) => t[x] ?? 0)])} />
           </Seccion>
-          <Seccion titulo="Patrones de ausencia (no planeadas)">
-            <p className="mb-4 text-sm text-tertiary">Solo incapacidades y licencias: vacaciones y libres solicitados se planean. {d.patrones.tras_festivo === 1 ? "1 ausencia empezó" : `${d.patrones.tras_festivo} ausencias empezaron`} el día después de un festivo.</p>
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
-              <ul className="flex flex-col gap-2.5" aria-label="Ausencias por día de la semana">
+          <Seccion titulo="Patrones de ausencia (no planeadas)" descripcion={<>Solo incapacidades y licencias: vacaciones y libres solicitados se planean. {d.patrones.tras_festivo === 1 ? "1 ausencia empezó" : `${d.patrones.tras_festivo} ausencias empezaron`} el día después de un festivo.</>}>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <ul className="flex flex-col gap-2" aria-label="Ausencias por día de la semana">
                 {d.patrones.por_dia_semana.map((v, w) => (
                   <li key={w} className="grid grid-cols-[2.5rem_1fr_4rem] items-center gap-3 text-xs">
                     <span className="font-medium text-secondary">{SEMANA[w]}</span>
@@ -125,8 +124,8 @@ export function Analiticas() {
               <Tabla descripcion="Factor Bradford del equipo (últimos 12 meses)" vacio="Sin personal." columnas={["Factor Bradford (12 meses)", "Personas"]}
                 filas={Object.entries(d.patrones.bradford.equipo).map(([k, n]) => [k, n])} />
             </div>
-            <h3 className="mt-6 mb-1 text-sm font-semibold text-primary">Factor Bradford por persona{d.patrones.bradford.desde && ` · 12 meses desde el ${fechaCorta(d.patrones.bradford.desde)}`}</h3>
-            <p className="mb-3 text-xs text-tertiary">Ausencias² × días: pesa más faltar seguido y por poco que una sola ausencia larga. Indicador de patrones; no usar para sanciones.</p>
+            <h3 className="mt-6 text-sm font-semibold text-primary">Factor Bradford por persona{d.patrones.bradford.desde && ` · 12 meses desde el ${fechaCorta(d.patrones.bradford.desde)}`}</h3>
+            <p className="mt-1 mb-3 text-sm text-tertiary">Ausencias² × días: pesa más faltar seguido y por poco que una sola ausencia larga. Indicador de patrones; no usar para sanciones.</p>
             <Tabla descripcion="Factor Bradford por persona" vacio="Sin ausencias no planeadas en el rango." columnas={["Persona", "Ausencias", "Días", "Puntaje"]}
               filas={Object.entries(d.patrones.bradford.por_persona).sort(([a, x], [b, y]) => y.puntaje - x.puntaje || a.localeCompare(b)).map(([p, o]) => [p, o.rachas, o.dias, o.puntaje])} />
           </Seccion>
@@ -145,17 +144,15 @@ export function Analiticas() {
             <Tabla descripcion="Cambios por periodo" vacio="Sin cambios registrados." columnas={["Periodo", "Permutas", "Servicio", "Ajustes", "Excepciones"]}
               filas={Object.entries(d.cambios).map(([k, c]) => [nombrePeriodo(k), c.permuta, c.servicio, c.ajuste, c.excepciones])} />
           </Seccion>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
-            <Seccion titulo="Estabilidad del cuadro">
-              <p className="mb-3 text-sm text-tertiary">Cuánto cambió cada periodo después de publicarlo. Publicar con 14 días o más y cambiar poco da horarios predecibles.</p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Seccion titulo="Estabilidad del cuadro" descripcion="Cuánto cambió cada periodo después de publicarlo. Publicar con 14 días o más y cambiar poco da horarios predecibles.">
               <Tabla descripcion="Estabilidad por periodo" vacio="Sin periodos publicados en el rango." columnas={["Periodo", "% cambiado", "Celdas cambiadas", "Con poco aviso", "Publicado con (días)"]}
                 filas={d.estabilidad.periodos.map((p) => [nombrePeriodo(p.periodo), `${num(p.pct)} %`, p.celdas_cambiadas, p.aviso_corto, p.dias_anticipacion])} />
             </Seccion>
             <Barras titulo="Quién cubre más" unidad="turnos" datos={Object.entries(d.estabilidad.cubre_mas)} />
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <Seccion titulo="Señales de fatiga">
-              <p className="mb-3 text-sm text-tertiary">Rachas largas, noches seguidas, descansos cortos entre turnos y fines de semana trabajados en el rango. Los topes se cambian en Parámetros → Analíticas.</p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <Seccion titulo="Señales de fatiga" descripcion="Rachas largas, noches seguidas, descansos cortos entre turnos y fines de semana trabajados en el rango. Los topes se cambian en Parámetros → Analíticas.">
               <Tabla descripcion="Señales de fatiga por persona" vacio="Sin personal." columnas={["Persona", "Señales", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"]}
                 filas={Object.entries(d.fatiga).sort(([a, x], [b, y]) => y.senales - x.senales || a.localeCompare(b))
                   .map(([p, f]) => [p, f.senales, f.max_dias_seguidos, f.max_noches_seguidas, f.descansos_cortos, f.fines_trabajados, num(f.horas_4_sem_max, 1)])} />
@@ -167,22 +164,22 @@ export function Analiticas() {
               <p className="text-sm">Desde el <strong>{d.proximo_recargo.desde.split("-").reverse().join("/")}</strong> el recargo dominical y festivo pasa de {d.proximo_recargo.actual} % a {d.proximo_recargo.nuevo} % (Ley 2466 de 2025). Con las horas de domingo y festivo de este rango son unas <strong>{num(d.proximo_recargo.horas_mes, 1)} h equivalentes más al mes</strong>.</p>
             </Seccion>
           )}
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Linea titulo="Ausencias: últimos 12 meses" unidad="días" etiquetas={d.pronostico.serie.map(([m]) => mesCorto(m))}
               series={[{ nombre: "Días de ausencia", valores: d.pronostico.serie.map(([, n]) => n) }]} />
             <Seccion titulo="Estimado del mes siguiente">
               {d.pronostico.siguiente ? <>
                 <p className="font-mono text-xl font-medium text-primary">{num(d.pronostico.estimado, 1)} días</p>
                 <p className="mt-1 text-sm text-tertiary">Para {mesCorto(d.pronostico.siguiente)}: {d.pronostico.base === "estacional" ? <>promedio de lo que hubo el mismo mes del año pasado ({d.pronostico.mismo_mes_anterior}) y la media de los últimos 3 meses completos ({num(d.pronostico.media_3, 1)})</> : <>media de los últimos 3 meses completos; aún no hay un año de registros para comparar con el mismo mes</>}. Es una referencia para planear vacaciones y reemplazos, no una predicción exacta.</p>
-              </> : <p className="text-tertiary">Sin datos.</p>}
+              </> : <Vacio>Sin datos.</Vacio>}
             </Seccion>
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Barras titulo="Con cuánto aviso llegan las ausencias" unidad="ausencias"
               datos={([["Ya empezado el turno", "tarde"], ["Menos de 24 h", "menos_24h"], ["De 24 a 72 h", "24_72h"], ["Más de 72 h", "mas_72h"]] as const).map(([t, k]) => [t, d.avisos_ausencia.avisos[k]])}
               nota={`Incapacidades y licencias que empiezan en el rango, frente al inicio de su turno publicado.${d.avisos_ausencia.sin_dato ? ` ${d.avisos_ausencia.sin_dato} sin dato (registradas antes de que An guardara la hora).` : ""}`} />
             <Seccion titulo="Reemplazos">
-              {d.avisos_ausencia.pct_cubiertos === null ? <p className="text-tertiary">Sin días de ausencia con turno publicado en el rango.</p> : <>
+              {d.avisos_ausencia.pct_cubiertos === null ? <Vacio>Sin días de ausencia con turno publicado en el rango.</Vacio> : <>
                 <p className="font-mono text-xl font-medium text-primary">{num(d.avisos_ausencia.pct_cubiertos)} %</p>
                 <p className="mt-1 text-sm text-tertiary">de los {d.avisos_ausencia.dias_con_turno} días de ausencia con turno publicado se reemplazaron con un cambio de servicio (por ejemplo desde «¿Quién cubre?»){d.avisos_ausencia.mediana_horas !== null && `; la mitad se cubrió en ${num(d.avisos_ausencia.mediana_horas, 1)} h o menos desde el aviso`}.</p>
               </>}
@@ -200,13 +197,12 @@ export function Analiticas() {
             <Tabla descripcion="Recargos por persona" vacio="Sin recargos en el rango." columnas={["Persona", "Dominical/festivo", "Nocturno", "Equivalentes"]}
               filas={Object.entries(d.recargos).sort().map(([p, r2]) => [p, num(r2.festivo), num(r2.nocturna), num(r2.equivalentes)])} />
           </Seccion>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Divergente titulo="Noches frente a la media" unidad="noches" datos={Object.entries(d.equidad.desviacion ?? {}).map(([p, x]) => [p, x.noches])} />
             <Divergente titulo="Domingos y festivos frente a la media" unidad="días" datos={Object.entries(d.equidad.desviacion ?? {}).map(([p, x]) => [p, x.domingos + x.festivos])} />
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
-            <Seccion titulo="Solicitudes del personal">
-              <p className="mb-3 text-sm text-tertiary">{d.solicitudes.tasa === null ? "Sin solicitudes en el rango." : `Se cumplió el ${num(d.solicitudes.tasa)} % de las solicitudes del rango${d.solicitudes.rango_tasa ? `; entre personas va de una a otra ${num(d.solicitudes.rango_tasa)} puntos` : ""}.`} Mira la tasa junto al número de solicitudes: con pocas, un solo «no» pesa mucho.</p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Seccion titulo="Solicitudes del personal" descripcion={<>{d.solicitudes.tasa === null ? "Sin solicitudes en el rango." : `Se cumplió el ${num(d.solicitudes.tasa)} % de las solicitudes del rango${d.solicitudes.rango_tasa ? `; entre personas va de una a otra ${num(d.solicitudes.rango_tasa)} puntos` : ""}.`} Mira la tasa junto al número de solicitudes: con pocas, un solo «no» pesa mucho.</>}>
               <Tabla descripcion="Solicitudes por tipo" vacio="Sin solicitudes en el rango." columnas={["Tipo", "Pedidas", "Cumplidas"]}
                 filas={Object.entries(d.solicitudes.por_tipo).map(([t, o]) => [{ libre: "Libre", quiero: "Quiero turno", evitar: "Evitar turno" }[t] ?? t, o.pedidas, o.cumplidas])} />
               <div className="mt-4">
@@ -217,8 +213,7 @@ export function Analiticas() {
             <Barras titulo="Concentración de horas extra" unidad="h" datos={Object.entries(d.concentracion_extra.por_persona)}
               nota={d.concentracion_extra.top_pct === null ? "Sin horas extra en el rango." : `${d.concentracion_extra.top_n === 1 ? "La persona" : `Las ${d.concentracion_extra.top_n} personas`} (20 % del equipo) con más horas extra ${d.concentracion_extra.top_n === 1 ? "hizo" : "hicieron"} el ${num(d.concentracion_extra.top_pct)} % del total. Repartirlas baja el riesgo de agotamiento.`} />
           </div>
-          <Seccion titulo="Equidad">
-            <p>Diferencia entre quien más y quien menos tiene: {d.equidad.dispersion.noches} noches, {d.equidad.dispersion.domingos} domingos, {d.equidad.dispersion.festivos} festivos.{d.equidad.estadisticas && ` En promedio cada persona se aleja ${num(d.equidad.estadisticas.noches.mad, 1)} noches de la media del equipo.`}</p>
+          <Seccion titulo="Equidad" descripcion={<>Diferencia entre quien más y quien menos tiene: {d.equidad.dispersion.noches} noches, {d.equidad.dispersion.domingos} domingos, {d.equidad.dispersion.festivos} festivos.{d.equidad.estadisticas && ` En promedio cada persona se aleja ${num(d.equidad.estadisticas.noches.mad, 1)} noches de la media del equipo.`}</>}>
             <Tabla descripcion="Equidad por persona" vacio="Sin personal." columnas={["Persona", "Noches", "Domingos", "Festivos"]}
               filas={Object.entries(d.equidad.por_persona).sort().map(([p, o]) => [p, o.noches, o.domingos, o.festivos])} />
           </Seccion>
