@@ -277,6 +277,20 @@ def test_publicar_restaurar_cerrar_reabrir():
         assert cambio(cli, e, "ajuste", [(c, "2026-10-07", "T")], rev=6).status_code == 200
 
 
+def test_publicar_alimenta_estabilidad():
+    with entorno() as e:
+        if e is None:
+            return
+        cli, c = sesion(e, "editor@a.co"), e.colab["A"]
+        base = f"/api/areas/{e.ar['A']}/analiticas?desde=2026-10-01&hasta=2026-10-31"
+        cambio(cli, e, "ajuste", [(c, "2026-10-07", "M")])
+        assert cli.get(base).json()["estabilidad"]["periodos"] == []  # sin publicar
+        accion(cli, e, "publicar", 1)
+        cambio(cli, e, "ajuste", [(c, "2026-10-07", "T")], rev=2)
+        [p] = cli.get(base).json()["estabilidad"]["periodos"]
+        assert p["celdas_cambiadas"] == 1 and isinstance(p["dias_anticipacion"], int), p
+
+
 def test_cerrar_sin_cuadro_da_409():
     with entorno() as e:
         if e is None:

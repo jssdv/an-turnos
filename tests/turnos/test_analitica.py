@@ -1,6 +1,6 @@
 import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 """Pruebas de las métricas del dashboard de analíticas (solo lectura). Imprime OK."""
-from datetime import date
+from datetime import date, datetime
 
 from an.turnos import analitica, cambios, db
 from an.turnos.dominio import Colaborador, Novedad
@@ -146,6 +146,56 @@ def test_banco():
     assert r["saldos"] == {"A": 11.0, "B": -6.0, "C": 0.0}, r["saldos"]
     assert r["serie"] == [("10/26", 15.0, 6.0), ("11/26", 11.0, 6.0)], r["serie"]
     assert analitica.banco(db.BD(), I, F)["serie"] == [("10/26", 0.0, 0.0)]
+
+
+# --- estabilidad del cuadro ------------------------------------------------------------------------
+def _semana_completa(bd, i):
+    bd.guardar_cuadro(K2, {(i[n], date(2026, 10, d)): "M" for n in "ABC" for d in range(5, 12)})
+
+
+def test_estabilidad_pct_y_sin_publicar():
+    bd, i = nuevo()
+    _semana_completa(bd, i)
+    bd.set_celda(K2, i["A"], date(2026, 10, 5), "T")
+    bd.set_celda(K2, i["B"], date(2026, 10, 6), "L")
+    [p] = analitica.estabilidad(bd, I, F, {K2: datetime(2026, 9, 25, 9, 0)})["periodos"]
+    assert p["celdas_total"] == 21 and p["celdas_cambiadas"] == 2, p
+    assert abs(p["pct"] - 2 / 21 * 100) < 1e-6, p
+    assert analitica.estabilidad(bd, I, F, {})["periodos"] == []  # sin publicar no cuenta
+
+
+def test_estabilidad_aviso_corto():
+    bd, i = nuevo()
+    _semana_completa(bd, i)
+    d = date(2026, 10, 8)
+    [cid] = cambios.servicio(bd, K2, [(i["A"], d, "T")], "falta gente", "u")
+    pub = {K2: datetime(2026, 9, 25)}
+    bd.c.execute("UPDATE cambio_turno SET registrado_en=? WHERE id=?", ("2026-10-07T20:00:00", cid))
+    assert analitica.estabilidad(bd, I, F, pub)["periodos"][0]["aviso_corto"] == 1
+    bd.c.execute("UPDATE cambio_turno SET registrado_en=? WHERE id=?", ("2026-10-03T08:00:00", cid))
+    assert analitica.estabilidad(bd, I, F, pub)["periodos"][0]["aviso_corto"] == 0
+    bd.c.execute("UPDATE cambio_turno SET registrado_en=? WHERE id=?", ("2026-10-07T20:00:00", cid))
+    cambios.anular(bd, cid, "u")
+    assert analitica.estabilidad(bd, I, F, pub)["periodos"][0]["aviso_corto"] == 0  # anulado no cuenta
+
+
+def test_estabilidad_dias_anticipacion():
+    bd, i = nuevo()
+    _semana_completa(bd, i)
+    [p] = analitica.estabilidad(bd, I, F, {K2: datetime(2026, 9, 25, 18, 30)})["periodos"]
+    assert p["dias_anticipacion"] == 10, p
+
+
+def test_estabilidad_cubre_mas():
+    bd, i = nuevo()
+    d5 = date(2026, 10, 5)
+    bd.guardar_cuadro(K2, {(i["A"], d5): "M"})
+    cambios.servicio(bd, K2, [(i["A"], d5, "L"), (i["B"], d5, "M")], "A enfermo", "u")
+    assert analitica.estabilidad(bd, I, F, {K2: datetime(2026, 9, 25)})["cubre_mas"] == {"B": 1}
+
+
+def test_estabilidad_vacio():
+    assert analitica.estabilidad(db.BD(), I, F, {}) == {"periodos": [], "cubre_mas": {}}
 
 
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:

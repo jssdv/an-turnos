@@ -27,6 +27,7 @@ const NUM: [string, string, number, number, string][] = [
   ["fines_semana_libres", "Fines de semana libres al mes", 0, 4, "Sábado y domingo completos sin turno. 0 = no aplicar la regla."],
   ["banco_tope_favor_h", "Banco: máximo a favor (h)", 0, 48, "Horas de más que se pueden guardar por periodo para compensar después. 0 = no compensar."],
   ["banco_tope_deuda_h", "Banco: máximo en deuda (h)", 0, 48, "Horas de menos que se pueden deber por periodo. 0 = no compensar."],
+  ["aviso_corto_horas", "Cambio con poco aviso (horas)", 1, 336, "Un cambio registrado con menos horas que esto antes del turno cuenta como de último momento."],
 ];
 const CONCEPTOS = ["dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio"];
 const NOMBRE_CONCEPTO: Record<string, string> = {
@@ -40,6 +41,7 @@ const GRUPOS: [string, string[]][] = [
   ["Descansos", ["max_noches_seguidas", "libre_tras_noche", "libres_por_semana", "fines_semana_libres", "max_igual_seguidos"]],
   ["Corridos (C, 12 h)", ["max_c_semana", "max_c_seguidos", "peso_corrido", "partir_corridos"]],
   ["Permutas y banco de horas", ["limite_permutas", "banco_tope_favor_h", "banco_tope_deuda_h"]],
+  ["Analíticas", ["aviso_corto_horas"]],
 ];
 
 /** Reglas del área, turnos y tarifas legales (editables: confirmar con RR. HH./legal). */
