@@ -1,11 +1,12 @@
 import { useState, type FC } from "react";
 import { useNavigate, useOutletContext } from "react-router";
-import { Building02, Calendar, CalendarDate, Clock, Download01, LineChartUp01, Printer } from "@untitledui/icons";
-import { mensaje, usar } from "../api/catalogos";
+import { Building02, Calendar, CalendarDate, Clock, Copy01, Download01, LineChartUp01, Printer } from "@untitledui/icons";
+import { aHHMM, mensaje, usar } from "../api/catalogos";
+import { leer } from "../api/cliente";
 import { exportes } from "../api/exportes";
-import type { Area, Colaborador, Periodo, TipoExporte } from "../api/tipos";
+import type { Area, Colaborador, Cuadro, Periodo, TipoExporte, Turno } from "../api/tipos";
 import { Filtro, Pagina, Pista, useAccion } from "./comun";
-import { nombrePeriodo, vigente } from "./fechas";
+import { fechaCorta, nombrePeriodo, vigente } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 
 const TIPOS: [TipoExporte, string, string, FC<{ className?: string }>][] = [
@@ -41,6 +42,24 @@ export function Reportes() {
     }
   };
 
+  // Horario de una persona en texto, para mandarlo por WhatsApp: el cuadro suele vivir en la cartelera y no en el teléfono.
+  const copiarHorario = async () => {
+    if (!p || !quien) return;
+    try {
+      const [cuadro, turnos] = await Promise.all([leer<Cuadro>(`/api/areas/${area.id}/periodos/${p.id}/cuadro?version=cambios`), leer<Turno[]>(`/api/areas/${area.id}/turnos`)]);
+      const t = new Map(turnos.map((x) => [x.codigo, x]));
+      const dias = cuadro.celdas.filter((c) => String(c.colab_id) === quien && c.turno !== "L").sort((a, b) => a.fecha.localeCompare(b.fecha));
+      const nombre = gente.datos?.find((c) => String(c.id) === quien)?.nombre ?? "";
+      const texto = [`Horario de ${nombre} · ${nombrePeriodo(p.clave)}`, "",
+        ...dias.map((c) => { const x = t.get(c.turno); return `${fechaCorta(c.fecha)}: ${x ? `${x.nombre} (${aHHMM(x.inicio)} a ${aHHMM(x.fin)})` : c.turno}`; }),
+        "", dias.length ? "Los demás días: libre." : "Sin turnos en este periodo."].join("\n");
+      await navigator.clipboard.writeText(texto);
+      avisar({ nivel: "ok", texto: `Horario de ${nombre} copiado (${dias.length} turnos). Pégalo en su chat.` });
+    } catch (x) {
+      avisar({ nivel: "error", texto: mensaje(x, "No se pudo copiar el horario.") });
+    }
+  };
+
   // Enlace normal, no de React Aria: su RouterProvider llevaría /api/... por react-router.
   const bajar = (href: string) => Object.assign(document.createElement("a"), { href, download: "" }).click();
 
@@ -72,7 +91,7 @@ export function Reportes() {
           <section className="tarjeta flex flex-col items-start gap-3 p-5">
             <CalendarDate aria-hidden="true" className="size-5 text-fg-quaternary" />
             <h2 className="text-lg font-semibold text-primary">Agendas</h2>
-            <p className="flex-1 text-sm text-tertiary">El horario de cada persona para su calendario (.ics) o para imprimir.</p>
+            <p className="flex-1 text-sm text-tertiary">El horario de cada persona para su calendario (.ics), para imprimir o en texto para su chat.</p>
             <Button color="secondary" size="sm" iconLeading={Download01} onPress={() => bajar(exportes.urlAgendas(area.id, p.id))}>Todas (.zip)</Button>
             <select aria-label="Persona" className="w-full rounded-lg border border-primary bg-primary px-3 py-2 text-sm text-primary" value={quien} onChange={(x) => setQuien(x.target.value)}>
               <option value="">Elige una persona…</option>
@@ -81,6 +100,7 @@ export function Reportes() {
             <div className="flex flex-wrap gap-2">
               <Button color="secondary" size="sm" iconLeading={Download01} isDisabled={!quien} onPress={() => bajar(exportes.urlAgenda(area.id, p.id, Number(quien)))}>Su calendario</Button>
               <Button color="secondary" size="sm" iconLeading={Printer} isDisabled={!quien} onPress={() => ir(`/areas/${area.id}/cuadro/${p.id}?imprimir=1&persona=${quien}`)}>Imprimir su horario</Button>
+              <Button color="secondary" size="sm" iconLeading={Copy01} isDisabled={!quien} onPress={() => void copiarHorario()}>Copiar su horario</Button>
             </div>
           </section>
         </div>
