@@ -9,6 +9,7 @@ import { useSesion } from "../Sesion";
 import { agrupar, Indicador, Indicadores, Pagina, Pasos, Seccion } from "./comun";
 import { fechaCorta, isoHoy, nombrePeriodo, vigente } from "./fechas";
 import { Badge } from "@/components/base/badges/badges";
+import { Alert } from "@/components/application/alerts/alert";
 import { Button } from "@/components/base/buttons/button";
 
 interface Resumen {
@@ -33,14 +34,26 @@ export function Inicio() {
   const novedades = usar<Novedad[]>(`${b}/novedades`);
   const personas = usar<Colaborador[]>(`${b}/colaboradores`);
   const hoy = isoHoy();
+  const editar = area.permiso === "editar";  // quien solo consulta no registra ni genera: sin pasos ni accesos de edición, como en el cuadro
   const nombre = new Map((personas.datos ?? []).map((c) => [c.id, c.nombre]));
   const ausentes = (novedades.datos ?? []).filter((n) => n.desde <= hoy && hoy <= n.hasta);
+  // Libres hoy: activas, sin turno ni ausencia. Es a quién llamar primero si alguien falta (¿Quién cubre? afina con las reglas).
+  const enCuadroHoy = !!cuadro.datos?.celdas.length && !!p && desde <= hoy && hoy <= hasta;
+  const turnoHoy = new Map((cuadro.datos?.celdas ?? []).filter((c) => c.fecha === hoy).map((c) => [c.colab_id, c.turno]));
+  const libres = enCuadroHoy ? (personas.datos ?? []).filter((c) => c.activo && (turnoHoy.get(c.id) ?? "L") === "L" && !ausentes.some((n) => n.colab_id === c.id)) : [];
+  // Publicar con tiempo: el periodo siguiente debería estar publicado (o al menos creado) dos semanas antes de empezar.
+  const dias = (a: string, b: string) => Math.round((Date.parse(a) - Date.parse(b)) / 86_400_000);
+  const cuando = (fecha: string) => { const n = dias(fecha, hoy); return n === 0 ? "hoy" : n === 1 ? "mañana" : `en ${n} días`; };
+  const siguiente = (periodos.datos ?? []).filter((x) => x.clave.split("/")[0] > hoy).sort((x, y) => x.clave.localeCompare(y.clave))[0];
+  const recordatorio = !editar || !periodos.datos ? null
+    : siguiente ? (!siguiente.publicado_en && dias(siguiente.clave.split("/")[0], hoy) <= 14
+      ? `${nombrePeriodo(siguiente.clave)} empieza ${cuando(siguiente.clave.split("/")[0])} y aún no está publicado. Publicarlo con dos semanas deja tiempo para cambios y permutas.` : null)
+    : p && hasta >= hoy && dias(hasta, hoy) <= 14 ? `El periodo actual termina ${cuando(hasta)} y no hay uno siguiente. Créalo y publícalo con tiempo desde «Cuadro de turnos».` : null;
   const errores = agrupar((alertas.datos ?? []).filter((a) => a.nivel === "error")).length;
   const noCumplidas = (solicitudes.datos ?? []).filter((s) => s.estado === "no cumplida").length;
   const cob = resumen.datos?.cobertura[0], extra = resumen.datos?.horas_extra[0];
   const horasExtra = extra ? Math.round(extra.semanas.diurna + extra.semanas.nocturna) : null;
   const alCuadro = () => ir(`${r}/cuadro${p ? `/${p.id}` : ""}`);
-  const editar = area.permiso === "editar";  // quien solo consulta no registra ni genera: sin pasos ni accesos de edición, como en el cuadro
   const accesos = ([["Registrar ausencia", "novedades?nueva", CalendarMinus01], ["Nueva solicitud", "solicitudes?nueva", Inbox01], ["Descargar reportes", "reportes", FileDownload02]] as [string, string, FC<{ className?: string }>][])
     .filter(([, ruta]) => editar || !ruta.endsWith("?nueva"));
 
@@ -48,6 +61,7 @@ export function Inicio() {
     <Pagina titulo="Inicio" sub={`Hola, ${usuario?.nombre?.split(" ")[0] ?? ""}${p ? ` · periodo ${nombrePeriodo(p.clave)}` : ""}`}
       filtros={<Button color="primary" size="sm" iconLeading={Calendar} onPress={alCuadro}>Ir al cuadro</Button>} error={periodos.error}>
       {periodos.datos && !p && <Seccion><p className="text-tertiary">Esta área aún no tiene periodos. Créalo desde «Cuadro de turnos» con «Nuevo periodo».</p></Seccion>}
+      {recordatorio && <Alert color="warning" action={<Button color="secondary" size="sm" onPress={() => ir(`${r}/cuadro${siguiente ? `/${siguiente.id}` : ""}`)}>Ir al cuadro</Button>}>{recordatorio}</Alert>}
       {editar && p && cuadro.datos && alertas.datos && (
         <Pasos hay={cuadro.datos.celdas.length > 0} alertas={alertas.datos} publicado={!!p.publicado_en} alGenerar={alCuadro} alVerAlertas={() => ir(`${r}/cuadro/${p.id}?alertas`)} alPublicar={alCuadro} />
       )}
@@ -67,6 +81,16 @@ export function Inicio() {
             filas={ausentes.map((n) => [nombre.get(n.colab_id) ?? `#${n.colab_id}`, <Badge size="sm" color={COLOR_AUSENCIA[n.tipo] ?? "gray"}>{n.tipo}</Badge>, fechaCorta(n.hasta)])} />
           )}
         </Seccion>
+        {enCuadroHoy && (
+          <Seccion titulo={`Libres hoy (${libres.length})`}>
+            <p className="mb-3 text-sm text-tertiary">Sin turno ni ausencia: a quién llamar primero si alguien falta.</p>
+            {libres.length ? (
+              <ul className="flex flex-wrap gap-2" aria-label="Personas libres hoy">
+                {libres.map((c) => <li key={c.id}><Badge size="sm" color="gray">{c.nombre}</Badge></li>)}
+              </ul>
+            ) : <p className="text-sm text-tertiary">Hoy todo el personal activo tiene turno o ausencia.</p>}
+          </Seccion>
+        )}
         <Seccion titulo="Accesos rápidos">
           <ul className="-my-2 divide-y divide-secondary">
             {accesos.map(([t, ruta, Icono]) => (
