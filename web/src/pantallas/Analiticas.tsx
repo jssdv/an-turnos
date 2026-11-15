@@ -2,46 +2,33 @@ import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
 import { usar } from "../api/catalogos";
 import type { Area } from "../api/tipos";
+import { Barras, Linea } from "../componentes/Graficos";
 import { Tabla } from "../componentes/Tabla";
 import { Indicador, Indicadores, Pagina, Seccion } from "./comun";
 import { fechaCorta, nombrePeriodo, num } from "./fechas";
 import { Input } from "@/components/base/input/input";
 
 interface Datos {
-  ausentismo: { pct: number; por_tipo: Record<string, number>; por_persona: Record<string, Record<string, number>> };
+  ausentismo: { pct: number; por_tipo: Record<string, number>; por_persona: Record<string, Record<string, number>>; por_mes: Record<string, Record<string, number>> };
   cobertura: { periodo: string; dias_deficit: number; dias_exceso: number; puestos_sin_cubrir: number }[];
-  simultaneos: { maximo: number; fecha_maximo: string | null; dias_riesgo: string[] };
+  simultaneos: { serie: [string, number][]; maximo: number; fecha_maximo: string | null; dias_riesgo: string[] };
   cambios: Record<string, { permuta: number; servicio: number; ajuste: number; excepciones: number }>;
   horas_extra: { periodo: string; ventana: number; mes: { diurna: number; nocturna: number }; semanas: { diurna: number; nocturna: number } }[];
   recargos: Record<string, { festivo: number; nocturna: number; equivalentes: number }>;
   equidad: { por_persona: Record<string, { noches: number; domingos: number; festivos: number }>; dispersion: { noches: number; domingos: number; festivos: number } };
-  banco: { saldos: Record<string, number> };
+  banco: { saldos: Record<string, number>; serie: [string, number, number][] };
 }
 const TIPOS = ["Vacaciones", "Incapacidad", "Licencia", "Libre solicitado"];
 const hoy = new Date();
 const mes = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+/** Meses "AAAA-MM" de `a` a `b`, ambos incluidos (los meses sin ausencias no vienen en `por_mes`). */
+const meses = (a: string, b: string) => {
+  const out: string[] = [];
+  for (let [y, n] = a.split("-").map(Number); `${y}-${String(n).padStart(2, "0")}` <= b; n === 12 ? (y++, n = 1) : n++) out.push(`${y}-${String(n).padStart(2, "0")}`);
+  return out;
+};
+const mesCorto = (m: string) => `${m.slice(5)}/${m.slice(2, 4)}`;
 const ultimoDia = (m: string) => { const [y, n] = m.split("-").map(Number); return `${m}-${String(new Date(y, n, 0).getDate()).padStart(2, "0")}`; };
-
-/** Barras horizontales por persona (la más alta = 100 %), ordenadas de mayor a menor. */
-function Barras({ titulo, unidad, datos }: { titulo: string; unidad: string; datos: [string, number][] }) {
-  const max = Math.max(1, ...datos.map(([, v]) => v));
-  return (
-    <Seccion titulo={titulo}>
-      {datos.length === 0 ? <p className="text-tertiary">Sin datos en el rango.</p> : (
-        <ul className="flex flex-col gap-2.5" aria-label={titulo}>
-          {[...datos].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p, v]) => (
-            <li key={p} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs">
-              <span className="truncate font-medium text-secondary">{p}</span>
-              <span className="h-2.5 rounded-xs bg-secondary"><span className="block h-full rounded-xs bg-brand-600" style={{ width: `${(v / max) * 100}%` }} /></span>
-              <span className="text-tertiary tabular-nums">{num(v, 1)} {unidad}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {datos.length > 10 && <p className="mt-3 text-xs text-tertiary">Las 10 más altas de {datos.length}; el detalle completo está en las tablas de abajo.</p>}
-    </Seccion>
-  );
-}
 
 /** Solo lectura: ausentismo, cobertura, cambios, horas extra, recargos, equidad y banco de horas de un rango de meses. «Costo» = horas equivalentes. */
 export function Analiticas() {
@@ -75,6 +62,14 @@ export function Analiticas() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Barras titulo="Equidad de domingos y festivos" unidad="días" datos={Object.entries(d.equidad.por_persona).map(([p, o]) => [p, o.domingos + o.festivos])} />
             <Barras titulo="Recargos por persona" unidad="h equivalentes" datos={Object.entries(d.recargos).map(([p, r2]) => [p, r2.equivalentes])} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Linea titulo="Ausencias por mes" unidad="días" etiquetas={meses(desde, hasta).map(mesCorto)}
+              series={TIPOS.map((t) => ({ nombre: t, valores: meses(desde, hasta).map((m) => d.ausentismo.por_mes[m]?.[t] ?? 0) })).filter((s) => s.valores.some(Boolean))} />
+            <Linea titulo="Ausentes a la vez" unidad="personas" etiquetas={d.simultaneos.serie.map(([f]) => fechaCorta(f))}
+              series={[{ nombre: "Ausentes", valores: d.simultaneos.serie.map(([, n]) => n) }]} />
+            <Linea titulo="Banco de horas" unidad="h" etiquetas={d.banco.serie.map(([m]) => m)}
+              series={[{ nombre: "A favor", valores: d.banco.serie.map(([, f]) => f) }, { nombre: "En deuda", valores: d.banco.serie.map(([, , x]) => x) }]} />
           </div>
           <Seccion titulo="Ausentismo por persona (días)">
             <Tabla descripcion="Ausencias por persona" vacio="Sin ausencias en el rango." columnas={["Persona", "Total", ...TIPOS]}
