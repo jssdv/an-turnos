@@ -179,6 +179,73 @@ def fatiga(bd, ini, fin):
     return out
 
 
+NO_PLANEADAS = ("Incapacidad", "Licencia")  # vacaciones y libres solicitados se planean: no dicen nada del patrón
+TRAMOS_BRADFORD = (("0-49", 0), ("50-199", 50), ("200-499", 200), ("500+", 500))
+
+
+def _rachas_ausencia(bd, ini, fin):
+    """[(colab_id, tipo, desde, hasta)] de ausencias no planeadas: días seguidos de la misma persona y tipo, recortados al rango."""
+    aus, _ = _ausencias(bd, ini, fin)
+    out = []
+    for (cid, f), tipo in sorted(aus.items()):
+        if tipo not in NO_PLANEADAS:
+            continue
+        if out and out[-1][0] == cid and out[-1][1] == tipo and out[-1][3] == f - timedelta(days=1):
+            out[-1] = (cid, tipo, out[-1][2], f)
+        else:
+            out.append((cid, tipo, f, f))
+    return out
+
+
+def patrones_ausencia(bd, ini, fin):
+    """Ausencias no planeadas: % de días-persona por día de la semana (lunes primero), rachas que empiezan el día después
+    de un festivo y factor Bradford (rachas² × días) por persona y su reparto en el equipo. Bradford sirve para ver
+    patrones, no para sancionar."""
+    ctx = bd.contexto(ini.year)
+    gente = {p.id: p.nombre for p in ctx.colabs if p.en_solver}
+    rachas = _rachas_ausencia(bd, ini, fin)
+    dias = flujo.fechas(ini, fin)
+    ausentes = [0] * 7
+    for _, _, a, b in rachas:
+        for f in flujo.fechas(a, b):
+            ausentes[f.weekday()] += 1
+    por_dia = [ausentes[w] / (n * len(gente)) * 100 if (n := sum(f.weekday() == w for f in dias)) and gente else 0 for w in range(7)]
+    por = {}
+    for cid, _, a, b in rachas:
+        o = por.setdefault(gente[cid], {"rachas": 0, "dias": 0})
+        o["rachas"] += 1
+        o["dias"] += (b - a).days + 1
+    for o in por.values():
+        o["puntaje"] = o["rachas"] ** 2 * o["dias"]
+    equipo = {k: 0 for k, _ in TRAMOS_BRADFORD}
+    for nombre in gente.values():
+        puntaje = por.get(nombre, {}).get("puntaje", 0)
+        equipo[next(k for k, lo in reversed(TRAMOS_BRADFORD) if puntaje >= lo)] += 1
+    tras = sum(1 for _, _, a, _ in rachas if a - timedelta(days=1) in ctx.fest)
+    return {"por_dia_semana": por_dia, "tras_festivo": tras, "bradford": {"equipo": equipo, "por_persona": por}}
+
+
+def riesgo_proximo(bd, hoy, dias=14):
+    """Días de los próximos `dias` con cuadro guardado donde alguna franja queda justa o en falta (margen ≤ 0) y que caen
+    en un día de la semana con más ausencias no planeadas que la media (últimos 365 días)."""
+    ctx = bd.contexto(hoy.year)
+    hasta = hoy + timedelta(days=dias - 1)
+    con_cuadro = [k for k in bd.periodos() if _cruza(k, hoy, hasta)]
+    if not con_cuadro:
+        return []
+    tasas = patrones_ausencia(bd, hoy - timedelta(days=365), hoy - timedelta(days=1))["por_dia_semana"]
+    media = sum(tasas) / 7
+    cuadro = bd.asignaciones_rango(hoy - timedelta(days=1), hasta)
+    out = []
+    for f in flujo.fechas(hoy, hasta):
+        if tasas[f.weekday()] <= media or not any(a <= f <= b for a, b in map(flujo.desde_clave, con_cuadro)):
+            continue
+        justas = [reglas.FRANJA_NOMBRE[fr] for fr, m in reglas.margen_dia(ctx, cuadro, f).items() if m is not None and m <= 0]
+        if justas:
+            out.append({"fecha": f, "franjas": justas, "tasa": round(tasas[f.weekday()], 2), "media": round(media, 2)})
+    return out
+
+
 # --- entrega 2: horas, recargos y equidad ---------------------------------------------------------
 def _reportes(bd, ini, fin, ventana=None):
     """[(periodo, [(Colaborador, reporte)])] de los periodos con cuadro que tocan el rango. `ventana` en semanas

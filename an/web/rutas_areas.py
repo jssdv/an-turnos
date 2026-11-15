@@ -181,7 +181,8 @@ def analiticas(desde: date, hasta: date, ctx: Contexto = Depends(contexto_area, 
             "recargos": analitica.recargos_resumen(ctx.bd, desde, hasta), "simultaneos": analitica.simultaneos(ctx.bd, desde, hasta),
             "cambios": analitica.cambios_resumen(ctx.bd, desde, hasta), "horas_extra": analitica.horas_extra(ctx.bd, desde, hasta),
             "equidad": analitica.equidad(ctx.bd, desde, hasta), "banco": analitica.banco(ctx.bd, desde, hasta),
-            "estabilidad": analitica.estabilidad(ctx.bd, desde, hasta, _publicados(ctx)), "fatiga": analitica.fatiga(ctx.bd, desde, hasta)}
+            "estabilidad": analitica.estabilidad(ctx.bd, desde, hasta, _publicados(ctx)), "fatiga": analitica.fatiga(ctx.bd, desde, hasta),
+            "patrones": analitica.patrones_ausencia(ctx.bd, desde, hasta), "riesgo": analitica.riesgo_proximo(ctx.bd, date.today())}
 
 
 def _publicados(ctx):

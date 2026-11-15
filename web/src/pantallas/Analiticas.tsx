@@ -18,8 +18,10 @@ interface Datos {
   equidad: { por_persona: Record<string, { noches: number; domingos: number; festivos: number }>; dispersion: { noches: number; domingos: number; festivos: number } };
   banco: { saldos: Record<string, number>; serie: [string, number, number][] };
   fatiga: Record<string, { max_dias_seguidos: number; rachas_largas: number; max_noches_seguidas: number; descansos_cortos: number; fines_trabajados: number; horas_4_sem_max: number; senales: number }>;
+  patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
+const SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const TIPOS = ["Vacaciones", "Incapacidad", "Licencia", "Libre solicitado"];
 const hoy = new Date();
 const mes = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -66,11 +68,11 @@ export function Analiticas() {
             <Indicador titulo="Cambios tras publicar" valor={total.celdas ? `${num(total.cambiadas / total.celdas * 100)} %` : "—"}
               nota={total.celdas ? `${total.avisoCorto} con poco aviso` : "Sin periodos publicados"} />
           </Indicadores>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
             <Barras titulo="Equidad de domingos y festivos" unidad="días" datos={Object.entries(d.equidad.por_persona).map(([p, o]) => [p, o.domingos + o.festivos])} />
             <Barras titulo="Recargos por persona" unidad="h equivalentes" datos={Object.entries(d.recargos).map(([p, r2]) => [p, r2.equivalentes])} />
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
             <Linea titulo="Ausencias por mes" unidad="días" etiquetas={meses(desde, hasta).map(mesCorto)}
               series={TIPOS.map((t) => ({ nombre: t, valores: meses(desde, hasta).map((m) => d.ausentismo.por_mes[m]?.[t] ?? 0) })).filter((s) => s.valores.some(Boolean))} />
             <Linea titulo="Ausentes a la vez" unidad="personas" etiquetas={d.simultaneos.serie.map(([f]) => fechaCorta(f))}
@@ -82,6 +84,26 @@ export function Analiticas() {
             <Tabla descripcion="Ausencias por persona" vacio="Sin ausencias en el rango." columnas={["Persona", "Total", ...TIPOS]}
               filas={Object.entries(d.ausentismo.por_persona).sort().map(([p, t]) => [p, Object.values(t).reduce((s, x) => s + x, 0), ...TIPOS.map((x) => t[x] ?? 0)])} />
           </Seccion>
+          <Seccion titulo="Patrones de ausencia (no planeadas)">
+            <p className="mb-4 text-sm text-tertiary">Solo incapacidades y licencias: vacaciones y libres solicitados se planean. {d.patrones.tras_festivo === 1 ? "1 ausencia empezó" : `${d.patrones.tras_festivo} ausencias empezaron`} el día después de un festivo.</p>
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
+              <ul className="flex flex-col gap-2.5" aria-label="Ausencias por día de la semana">
+                {d.patrones.por_dia_semana.map((v, w) => (
+                  <li key={w} className="grid grid-cols-[2.5rem_1fr_4rem] items-center gap-3 text-xs">
+                    <span className="font-medium text-secondary">{SEMANA[w]}</span>
+                    <span className="h-2.5 rounded-xs bg-secondary"><span className="block h-full rounded-xs bg-brand-600" style={{ width: `${(v / Math.max(0.0001, ...d.patrones.por_dia_semana)) * 100}%` }} /></span>
+                    <span className="text-right text-tertiary tabular-nums">{num(v, 1)} %</span>
+                  </li>
+                ))}
+              </ul>
+              <Tabla descripcion="Factor Bradford del equipo" vacio="Sin personal." columnas={["Factor Bradford", "Personas"]}
+                filas={Object.entries(d.patrones.bradford.equipo).map(([k, n]) => [k, n])} />
+            </div>
+            <h3 className="mt-6 mb-1 text-sm font-semibold text-primary">Factor Bradford por persona</h3>
+            <p className="mb-3 text-xs text-tertiary">Ausencias² × días: pesa más faltar seguido y por poco que una sola ausencia larga. Indicador de patrones; no usar para sanciones.</p>
+            <Tabla descripcion="Factor Bradford por persona" vacio="Sin ausencias no planeadas en el rango." columnas={["Persona", "Ausencias", "Días", "Puntaje"]}
+              filas={Object.entries(d.patrones.bradford.por_persona).sort(([a, x], [b, y]) => y.puntaje - x.puntaje || a.localeCompare(b)).map(([p, o]) => [p, o.rachas, o.dias, o.puntaje])} />
+          </Seccion>
           <Seccion titulo="Cobertura por periodo">
             <Tabla descripcion="Cobertura por periodo" vacio="Sin periodos en el rango." columnas={["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir"]}
               filas={d.cobertura.map((c) => [nombrePeriodo(c.periodo), c.dias_deficit, c.dias_exceso, c.puestos_sin_cubrir])} />
@@ -90,7 +112,7 @@ export function Analiticas() {
             <Tabla descripcion="Cambios por periodo" vacio="Sin cambios registrados." columnas={["Periodo", "Permutas", "Servicio", "Ajustes", "Excepciones"]}
               filas={Object.entries(d.cambios).map(([k, c]) => [nombrePeriodo(k), c.permuta, c.servicio, c.ajuste, c.excepciones])} />
           </Seccion>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
             <Seccion titulo="Estabilidad del cuadro">
               <p className="mb-3 text-sm text-tertiary">Cuánto cambió cada periodo después de publicarlo. Publicar con 14 días o más y cambiar poco da horarios predecibles.</p>
               <Tabla descripcion="Estabilidad por periodo" vacio="Sin periodos publicados en el rango." columnas={["Periodo", "% cambiado", "Celdas cambiadas", "Con poco aviso", "Publicado con (días)"]}
@@ -98,7 +120,7 @@ export function Analiticas() {
             </Seccion>
             <Barras titulo="Quién cubre más" unidad="turnos" datos={Object.entries(d.estabilidad.cubre_mas)} />
           </div>
-          <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <Seccion titulo="Señales de fatiga">
               <p className="mb-3 text-sm text-tertiary">Rachas largas, noches seguidas, descansos cortos entre turnos y fines de semana trabajados en el rango. Los topes se cambian en Parámetros → Analíticas.</p>
               <Tabla descripcion="Señales de fatiga por persona" vacio="Sin personal." columnas={["Persona", "Señales", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"]}
