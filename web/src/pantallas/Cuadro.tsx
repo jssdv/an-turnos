@@ -9,7 +9,7 @@ import { Planilla, type Foco, type Sel } from "../componentes/Planilla";
 import { Tabla } from "../componentes/Tabla";
 import { AccionesPeriodo } from "./AccionesPeriodo";
 import { Cambios } from "./Cambios";
-import { dias as diasDe, fechaCorta, nombrePeriodo, num } from "./fechas";
+import { dias as diasDe, fechaCorta, isoHoy, nombrePeriodo, num, type DiaCuadro } from "./fechas";
 import { Exportar } from "./Exportar";
 import { Generar } from "./Generar";
 import { RegistrarCambio, esCorrido, sinCupo } from "./RegistrarCambio";
@@ -18,7 +18,7 @@ import { Button } from "@/components/base/buttons/button";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert, COLOR_NIVEL } from "@/components/application/alerts/alert";
 import { Ayuda, agrupar, Estado, Filtro, Pagina, Pasos, Pista } from "./comun";
-import { Calendar, Download01, Printer } from "@untitledui/icons";
+import { Calendar, ChevronLeft, ChevronRight, Download01, Printer } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
 
 interface Datos {
@@ -46,6 +46,8 @@ export function Cuadro() {
   const [sinPanel, setSinPanel] = useState(false);
   const [version, setVersion] = useState<"cambios" | "original">("cambios");
   const [verPuestos, setVerPuestos] = useState(false);
+  const [porSemana, setPorSemana] = useState(() => { try { return localStorage.getItem("cuadro/vista") === "semana"; } catch { return false; } });
+  const [nSemana, setNSemana] = useState(0);
   const [foco, setFoco] = useState<Foco | null>(null);
   const [persona, setPersona] = useState("");  // filtro de la lista de alertas: "" = todas
   const uid = useSesion().usuario?.id ?? 0;
@@ -110,6 +112,7 @@ export function Cuadro() {
   const [cubrir, setCubrir] = useState<{ fecha: string; turno: string; ausente?: { id: number; nombre: string } } | null>(null);
   useEffect(() => {
     if (!datos || !busqueda.has("imprimir")) return;
+    setPorSemana(false);  // se imprime el periodo entero
     setSolo(busqueda.get("persona")); // «Imprimir su horario» de Reportes: solo la fila de esa persona mientras se imprime
     setBusqueda({}, { replace: true });
     window.addEventListener("afterprint", () => setSolo(null), { once: true });
@@ -128,6 +131,17 @@ export function Cuadro() {
 
   const festivos = datos?.cuadro.festivos;
   const dias = useMemo(() => (actual ? diasDe(actual.clave, festivos) : []), [actual, festivos]);
+  // Vista por semana: lunes a domingo (la primera y la última pueden quedar cortas). Al cambiar de periodo arranca en la de hoy.
+  const semanas = useMemo(() => dias.reduce<DiaCuadro[][]>((out, d, i) => {
+    if (i === 0 || new Date(`${d.fecha}T00:00:00Z`).getUTCDay() === 1) out.push([]);
+    out[out.length - 1].push(d);
+    return out;
+  }, []), [dias]);
+  const semanaDe = (fecha: string) => Math.max(0, semanas.findIndex((w) => w.some((d) => d.fecha === fecha)));
+  useEffect(() => setNSemana(semanaDe(isoHoy())), [actual?.id, semanas.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const iSemana = Math.min(nSemana, Math.max(0, semanas.length - 1));
+  const diasVista = porSemana && semanas.length ? semanas[iSemana] : dias;
+  const verSemana = (v: boolean) => { setPorSemana(v); try { localStorage.setItem("cuadro/vista", v ? "semana" : "mes"); } catch { /* sin almacenamiento: no se recuerda */ } };
   const vista = useMemo(() => {
     if (!datos) return null;
     const celdas = new Map(datos.cuadro.celdas.map((c) => [`${c.colab_id}|${c.fecha}`, c]));
@@ -232,7 +246,7 @@ export function Cuadro() {
   );
 
   const deficit = datos?.analiticas.cobertura[0];
-  const irA = (a: Alerta) => a.fecha && setFoco({ fila: a.colab_id, fecha: a.fecha, marca: Date.now() });
+  const irA = (a: Alerta) => { if (!a.fecha) return; setNSemana(semanaDe(a.fecha)); setFoco({ fila: a.colab_id, fecha: a.fecha, marca: Date.now() }); };
   const pulsar = (accion: string) => () => document.querySelector<HTMLElement>(`[data-accion=${accion}]`)?.click();
   const imprimir = { id: "imprimir", label: "Imprimir", icon: Printer, alElegir: () => window.print() };
   const exportar = { id: "exportar", label: "Exportar a Excel", icon: Download01, alElegir: () => setExportando(true) };
@@ -250,12 +264,13 @@ export function Cuadro() {
           <option value="cambios">Cambios (vigente)</option>
           <option value="original">Original (publicada)</option>
         </Filtro>
-        {usaPuestos && (
-          <div className="flex h-9 overflow-hidden rounded-lg text-sm font-medium ring-1 ring-primary ring-inset" role="radiogroup" aria-label="Qué mostrar en cada celda">
-            {([[false, "Turnos"], [true, "Puestos"]] as const).map(([v, t]) => (
-              <button key={t} type="button" role="radio" aria-checked={verPuestos === v} onClick={() => setVerPuestos(v)}
-                className="cursor-pointer px-3 text-tertiary outline-focus-ring not-first:border-l not-first:border-primary hover:text-primary focus-visible:outline-2 focus-visible:-outline-offset-2 aria-checked:bg-quaternary aria-checked:text-primary">{t}</button>
-            ))}
+        {usaPuestos && <Alterna etiqueta="Qué mostrar en cada celda" valor={verPuestos} alCambiar={setVerPuestos} opciones={[[false, "Turnos"], [true, "Puestos"]]} />}
+        <Alterna etiqueta="Cuántos días ver" valor={porSemana} alCambiar={verSemana} opciones={[[false, "Mes"], [true, "Semana"]]} />
+        {porSemana && semanas.length > 1 && (
+          <div className="flex items-center gap-1">
+            <Button color="tertiary" size="sm" iconLeading={ChevronLeft} aria-label="Semana anterior" isDisabled={iSemana === 0} onPress={() => setNSemana(iSemana - 1)} />
+            <span className="min-w-28 text-center text-sm text-secondary tabular-nums" aria-live="polite">Semana {iSemana + 1} de {semanas.length}</span>
+            <Button color="tertiary" size="sm" iconLeading={ChevronRight} aria-label="Semana siguiente" isDisabled={iSemana === semanas.length - 1} onPress={() => setNSemana(iSemana + 1)} />
           </div>
         )}
         {area.permiso !== "editar" && <>
@@ -312,7 +327,7 @@ export function Cuadro() {
           <>
             <Planilla
               descripcion={`Cuadro de turnos de ${nombrePeriodo(actual.clave)}`}
-              dias={dias}
+              dias={diasVista}
               filas={datos.colabs.filter((c) => c.activo && (!solo || String(c.id) === solo)).map((c) => {
                 const h = vista.horas.get(c.id);
                 return { id: c.id, nombre: c.nombre, extra: h ? h.trabajadas : "", extraAlto: !!h && h.trabajadas > h.contratadas };
@@ -464,5 +479,17 @@ function HorasSemana({ horas, colabs }: { horas: Horas[]; colabs: Colaborador[] 
       <Tabla descripcion="Horas trabajadas por semana" vacio="Sin horas todavía." filas={filas}
         columnas={["Colaborador", ...lunes.map((l) => fechaCorta(l)), "Total", "Contratadas", "De más", "De menos"]} />
     </details>
+  );
+}
+
+/** Dos opciones excluyentes en un control segmentado (Turnos/Puestos, Mes/Semana). */
+function Alterna({ etiqueta, valor, alCambiar, opciones }: { etiqueta: string; valor: boolean; alCambiar: (v: boolean) => void; opciones: readonly (readonly [boolean, string])[] }) {
+  return (
+    <div className="flex h-9 overflow-hidden rounded-lg text-sm font-medium ring-1 ring-primary ring-inset" role="radiogroup" aria-label={etiqueta}>
+      {opciones.map(([v, t]) => (
+        <button key={t} type="button" role="radio" aria-checked={valor === v} onClick={() => alCambiar(v)}
+          className="cursor-pointer px-3 text-tertiary outline-focus-ring not-first:border-l not-first:border-primary hover:text-primary focus-visible:outline-2 focus-visible:-outline-offset-2 aria-checked:bg-quaternary aria-checked:text-primary">{t}</button>
+      ))}
+    </div>
   );
 }
