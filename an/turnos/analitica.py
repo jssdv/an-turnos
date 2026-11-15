@@ -5,7 +5,7 @@ from math import ceil
 
 from . import demanda as dem
 from . import cambios, flujo, puestos, recargos, reglas
-from .dominio import intervalo
+from .dominio import DESCANSO_MIN, intervalo
 
 
 def _ausencias(bd, ini, fin):
@@ -128,6 +128,55 @@ def estabilidad(bd, ini, fin, publicados):
                          "pct": cambiadas / total * 100 if total else 0, "aviso_corto": corto,
                          "dias_anticipacion": (a - publicados[k].date()).days})
     return {"periodos": periodos, "cubre_mas": dict(cubre)}
+
+
+def fatiga(bd, ini, fin):
+    """Señales de cansancio por persona en el cuadro vigente del rango (los 27 días previos solo siembran rachas y la
+    ventana de 4 semanas). No son alertas: `validar` ya avisa lo que rompe reglas dentro de cada periodo.
+    `senales` cuenta: racha de días más larga que `max_dias_seguidos`, más noches seguidas que `max_noches_seguidas`
+    (noche-libre-noche, como en `validar`), algún descanso menor a `descanso_corto_horas`, y fines de semana trabajados
+    por encima de la media del equipo + 1."""
+    ctx = bd.contexto(ini.year)
+    gente = [p for p in ctx.colabs if p.en_solver]
+    if not gente:
+        return {}
+    antes = ini - timedelta(days=27)
+    cuadro, dias = bd.asignaciones_rango(antes, fin), flujo.fechas(antes, fin)
+    tope, max_n = int(bd.param("max_dias_seguidos", 6)), int(bd.param("max_noches_seguidas", 2))
+    corto = timedelta(hours=int(bd.param("descanso_corto_horas", DESCANSO_MIN // 60)))
+    paso = ctx.libre_tras_noche + 1
+    out = {}
+    for p in gente:
+        t = lambda d: ctx.turnos.get(cuadro.get((p.id, d), "L"))
+        noche = lambda d: (x := t(d)) is not None and dem.es_noche(x)
+        r = {"max_dias_seguidos": 0, "rachas_largas": 0, "max_noches_seguidas": 0, "descansos_cortos": 0,
+             "fines_trabajados": 0, "horas_4_sem_max": 0.0}
+        racha, fines = 0, set()
+        for d in dias:
+            racha = racha + 1 if t(d) else 0
+            if d < ini:
+                continue
+            r["max_dias_seguidos"] = max(r["max_dias_seguidos"], racha)
+            r["rachas_largas"] += racha == tope + 1
+            ayer = d - timedelta(days=1)
+            if t(d) and t(ayer) and intervalo(t(d), d)[0] - intervalo(t(ayer), ayer)[1] < corto:
+                r["descansos_cortos"] += 1
+            if noche(d):
+                n = 1
+                while noche(d - timedelta(days=paso * n)):
+                    n += 1
+                r["max_noches_seguidas"] = max(r["max_noches_seguidas"], n)
+            if t(d) and d.weekday() >= 5:
+                fines.add(d - timedelta(days=d.weekday() - 5))  # el sábado de ese fin de semana
+            horas = sum(x.horas for k in range(28) if (x := t(d - timedelta(days=k))))
+            r["horas_4_sem_max"] = max(r["horas_4_sem_max"], round(horas, 2))
+        r["fines_trabajados"] = len(fines)
+        out[p.nombre] = r
+    media = sum(r["fines_trabajados"] for r in out.values()) / len(out)
+    for r in out.values():
+        r["senales"] = ((r["rachas_largas"] > 0) + (r["max_noches_seguidas"] > max_n) + (r["descansos_cortos"] > 0)
+                        + (r["fines_trabajados"] > media + 1))
+    return out
 
 
 # --- entrega 2: horas, recargos y equidad ---------------------------------------------------------

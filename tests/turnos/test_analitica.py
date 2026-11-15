@@ -198,6 +198,49 @@ def test_estabilidad_vacio():
     assert analitica.estabilidad(db.BD(), I, F, {}) == {"periodos": [], "cubre_mas": {}}
 
 
+# --- fatiga -----------------------------------------------------------------------------------------
+KO = "2026-10-01/2026-10-31"
+
+
+def test_fatiga_rachas_y_horas():
+    bd, i = nuevo()
+    bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, d)): "M" for d in range(1, 8)})
+    a = analitica.fatiga(bd, I, F)["A"]
+    assert a["max_dias_seguidos"] == 7 and a["rachas_largas"] == 1, a  # tope por defecto: 6
+    assert a["horas_4_sem_max"] == 42, a
+    assert a["senales"] >= 1, a
+    bd.set_param("max_dias_seguidos", 7)
+    assert analitica.fatiga(bd, I, F)["A"]["rachas_largas"] == 0
+
+
+def test_fatiga_descanso_corto_cruza_medianoche():
+    bd, i = nuevo()
+    c = {(i["A"], date(2026, 10, 5)): "NC", (i["A"], date(2026, 10, 6)): "M",  # NC termina 06:00 y M empieza 06:00
+         (i["A"], date(2026, 10, 12)): "NC",                                     # seguida de libre: nada
+         (i["A"], date(2026, 10, 20)): "T", (i["A"], date(2026, 10, 21)): "M"}   # justo 12 h
+    bd.guardar_cuadro(KO, c)
+    assert analitica.fatiga(bd, I, F)["A"]["descansos_cortos"] == 1
+    bd.set_param("descanso_corto_horas", 13)
+    assert analitica.fatiga(bd, I, F)["A"]["descansos_cortos"] == 2
+
+
+def test_fatiga_noches():
+    bd, i = nuevo()
+    bd.guardar_cuadro(KO, {(i["B"], date(2026, 10, d)): "NC" for d in (5, 7, 9)})  # N-L-N-L-N
+    assert analitica.fatiga(bd, I, F)["B"]["max_noches_seguidas"] == 3
+
+
+def test_fatiga_fines():
+    bd, i = nuevo()
+    bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, 3)): "M", (i["A"], date(2026, 10, 18)): "T"})  # sáb 3 y dom 18
+    r = analitica.fatiga(bd, I, F)
+    assert r["A"]["fines_trabajados"] == 2 and r["B"]["fines_trabajados"] == 0, r
+
+
+def test_fatiga_vacio():
+    assert analitica.fatiga(db.BD(), I, F) == {}
+
+
 for t in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
     t()
 print("OK")

@@ -92,7 +92,7 @@ _lista("tarifas", lambda bd: bd.tarifas())
 PARAMETROS_POR_DEFECTO = {
     "periodo_modo": "mes", "periodo_semanas": "4", "ventana_semanas": "3", "limite_permutas": "2", "max_noches_seguidas": "2",
     "max_c_seguidos": "2", "max_igual_seguidos": "3", "libre_tras_noche": "1", "libres_por_semana": "1", "fines_semana_libres": "1", "max_horas_semana": "0", "max_c_semana": "0",
-    "banco_tope_favor_h": "12", "banco_tope_deuda_h": "12", "usa_puestos": "1", "partir_corridos": "1", "peso_corrido": "1", "aviso_corto_horas": "48",
+    "banco_tope_favor_h": "12", "banco_tope_deuda_h": "12", "usa_puestos": "1", "partir_corridos": "1", "peso_corrido": "1", "aviso_corto_horas": "48", "max_dias_seguidos": "6", "descanso_corto_horas": "12",
 }
 
 
@@ -181,7 +181,7 @@ def analiticas(desde: date, hasta: date, ctx: Contexto = Depends(contexto_area, 
             "recargos": analitica.recargos_resumen(ctx.bd, desde, hasta), "simultaneos": analitica.simultaneos(ctx.bd, desde, hasta),
             "cambios": analitica.cambios_resumen(ctx.bd, desde, hasta), "horas_extra": analitica.horas_extra(ctx.bd, desde, hasta),
             "equidad": analitica.equidad(ctx.bd, desde, hasta), "banco": analitica.banco(ctx.bd, desde, hasta),
-            "estabilidad": analitica.estabilidad(ctx.bd, desde, hasta, _publicados(ctx))}
+            "estabilidad": analitica.estabilidad(ctx.bd, desde, hasta, _publicados(ctx)), "fatiga": analitica.fatiga(ctx.bd, desde, hasta)}
 
 
 def _publicados(ctx):

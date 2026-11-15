@@ -17,6 +17,7 @@ interface Datos {
   recargos: Record<string, { festivo: number; nocturna: number; equivalentes: number }>;
   equidad: { por_persona: Record<string, { noches: number; domingos: number; festivos: number }>; dispersion: { noches: number; domingos: number; festivos: number } };
   banco: { saldos: Record<string, number>; serie: [string, number, number][] };
+  fatiga: Record<string, { max_dias_seguidos: number; rachas_largas: number; max_noches_seguidas: number; descansos_cortos: number; fines_trabajados: number; horas_4_sem_max: number; senales: number }>;
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
 const TIPOS = ["Vacaciones", "Incapacidad", "Licencia", "Libre solicitado"];
@@ -96,6 +97,15 @@ export function Analiticas() {
                 filas={d.estabilidad.periodos.map((p) => [nombrePeriodo(p.periodo), `${num(p.pct)} %`, p.celdas_cambiadas, p.aviso_corto, p.dias_anticipacion])} />
             </Seccion>
             <Barras titulo="Quién cubre más" unidad="turnos" datos={Object.entries(d.estabilidad.cubre_mas)} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+            <Seccion titulo="Señales de fatiga">
+              <p className="mb-3 text-sm text-tertiary">Rachas largas, noches seguidas, descansos cortos entre turnos y fines de semana trabajados en el rango. Los topes se cambian en Parámetros → Analíticas.</p>
+              <Tabla descripcion="Señales de fatiga por persona" vacio="Sin personal." columnas={["Persona", "Señales", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"]}
+                filas={Object.entries(d.fatiga).sort(([a, x], [b, y]) => y.senales - x.senales || a.localeCompare(b))
+                  .map(([p, f]) => [p, f.senales, f.max_dias_seguidos, f.max_noches_seguidas, f.descansos_cortos, f.fines_trabajados, num(f.horas_4_sem_max, 1)])} />
+            </Seccion>
+            <Barras titulo="Fines de semana trabajados" unidad="fines" datos={Object.entries(d.fatiga).map(([p, f]) => [p, f.fines_trabajados])} />
           </div>
           <Seccion titulo="Horas extra por periodo">
             <Tabla descripcion="Horas extra" vacio="Sin periodos en el rango." columnas={["Periodo", "Ventana (sem.)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (ventana)", "Nocturnas (ventana)"]}
