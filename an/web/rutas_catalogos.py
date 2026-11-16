@@ -12,7 +12,7 @@ from an.turnos.dominio import PRIORIDADES, TIPOS_COLAB, TIPOS_NOVEDAD, TIPOS_SOL
 from .deps import Contexto, contexto_area
 
 router = APIRouter(prefix="/api/areas/{area}")
-RANGOS_PARAMETROS = {"usa_puestos": (0, 1), "aviso_corto_horas": (1, 336), "max_dias_seguidos": (1, 14), "descanso_corto_horas": (1, 24), "ventana_semanas": (1, 8), "limite_permutas": (0, 20), "banco_tope_favor_h": (0, 48), "banco_tope_deuda_h": (0, 48),
+RANGOS_PARAMETROS = {"usa_puestos": (0, 1), "aviso_corto_horas": (1, 336), "max_dias_seguidos": (1, 14), "max_largos_seguidos": (1, 7), "descanso_corto_horas": (1, 24), "ventana_semanas": (1, 8), "limite_permutas": (0, 20), "banco_tope_favor_h": (0, 48), "banco_tope_deuda_h": (0, 48),
                      "periodo_semanas": (1, 8), "max_noches_seguidas": (0, 7), "max_c_seguidos": (0, 7), "max_igual_seguidos": (0, 7),
                      "libre_tras_noche": (0, 3), "libres_por_semana": (1, 3), "fines_semana_libres": (0, 4), "max_horas_semana": (0, 84), "max_c_semana": (0, 7), "partir_corridos": (0, 1), "peso_corrido": (0, 10)}
 CONCEPTOS_TARIFA = ("dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio")

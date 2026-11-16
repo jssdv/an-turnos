@@ -31,6 +31,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 ## Hecho recientemente
 
+Fatiga según el largo del turno: aviso de turnos de 10 h o más seguidos (por defecto más de 3, guía de la ANA para turnos de 12 h), editable en Parámetros → Analíticas (15/11/2026).
+
 «Restaurar» una copia de respaldo desde Áreas, guardando antes una copia de lo actual (15/11/2026).
 
 Cobertura por puesto: Analíticas y su Excel miden horas faltantes y sobrantes en cada puesto, con el reparto guardado; la gente que sobra en un puesto ya no tapa la que falta en otro (15/11/2026).

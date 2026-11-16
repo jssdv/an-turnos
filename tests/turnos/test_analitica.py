@@ -3,7 +3,7 @@ import os, sys; sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname
 from datetime import date, datetime, timedelta
 
 from an.turnos import analitica, cambios, db
-from an.turnos.dominio import Colaborador, Novedad
+from an.turnos.dominio import Colaborador, Novedad, Turno
 
 I, F = date(2026, 10, 1), date(2026, 10, 31)
 
@@ -234,6 +234,26 @@ def test_fatiga_fines():
     bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, 3)): "M", (i["A"], date(2026, 10, 18)): "T"})  # sáb 3 y dom 18
     r = analitica.fatiga(bd, I, F)
     assert r["A"]["fines_trabajados"] == 2 and r["B"]["fines_trabajados"] == 0, r
+
+
+def test_fatiga_turnos_largos():
+    bd, i = nuevo()
+    bd.guardar_turno(Turno("O", "Ocho horas", 7 * 60, 15 * 60))
+    bd.guardar_cuadro(KO, {**{(i["A"], date(2026, 10, d)): "C" for d in range(5, 9)},     # 4 de 12 h seguidos
+                           **{(i["B"], date(2026, 10, d)): "C" for d in range(5, 8)},     # 3: justo el tope
+                           **{(i["C"], date(2026, 10, d)): "O" for d in range(5, 10)}})   # 5 de 8 h: no son largos
+    r = analitica.fatiga(bd, I, F)
+    assert r["A"]["max_largos_seguidos"] == 4 and r["A"]["senales"] == 1, r["A"]
+    assert r["B"]["max_largos_seguidos"] == 3 and r["B"]["senales"] == 0, r["B"]
+    assert r["C"]["max_largos_seguidos"] == 0 and r["C"]["senales"] == 0, r["C"]
+    bd.set_param("max_largos_seguidos", 4)
+    assert analitica.fatiga(bd, I, F)["A"]["senales"] == 0
+
+
+def test_fatiga_descanso_corto_cuenta_como_senal():
+    bd, i = nuevo()
+    bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, 5)): "NC", (i["A"], date(2026, 10, 6)): "M"})  # 0 h entre los dos
+    assert analitica.fatiga(bd, I, F)["A"]["senales"] == 1
 
 
 def test_fatiga_vacio():

@@ -425,8 +425,8 @@ def exportar_analiticas(carpeta, base, d, titulo="Analíticas", desde=None, hast
     _hoja(wb, "Equidad", ["Persona", "Noches", "Domingos", "Festivos", "Noches vs media", "Dom. y festivos vs media"],
           [[p, o["noches"], o["domingos"], o["festivos"], round(dv[p]["noches"], 2), round(dv[p]["domingos"] + dv[p]["festivos"], 2)]
            for p, o in sorted(d["equidad"]["por_persona"].items())])
-    _hoja(wb, "Fatiga", ["Persona", "Señales", "Rachas largas", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"],
-          [[p, f["senales"], f["rachas_largas"], f["max_dias_seguidos"], f["max_noches_seguidas"], f["descansos_cortos"], f["fines_trabajados"], f["horas_4_sem_max"]]
+    _hoja(wb, "Fatiga", ["Persona", "Señales", "Rachas largas", "Días seguidos (máx.)", "Turnos largos seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"],
+          [[p, f["senales"], f["rachas_largas"], f["max_dias_seguidos"], f["max_largos_seguidos"], f["max_noches_seguidas"], f["descansos_cortos"], f["fines_trabajados"], f["horas_4_sem_max"]]
            for p, f in sorted(d["fatiga"].items(), key=lambda x: (-x[1]["senales"], x[0]))])
     pa = d["patrones"]
     ws = _hoja(wb, "Patrones", ["Día", "% ausencias no planeadas"], [[DIAS[w], _pct(v)] for w, v in enumerate(pa["por_dia_semana"])])
