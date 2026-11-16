@@ -410,6 +410,9 @@ def exportar_analiticas(carpeta, base, d, titulo="Analíticas", desde=None, hast
           [[nom(c["periodo"]), c["dias_deficit"], c["dias_exceso"], c["puestos_sin_cubrir"],
             *((t["horas_faltantes"], t["horas_sobrantes"], _pct(t["cobertura_pct"]), _pct(t["eficiencia_pct"])) if (t := tramos.get(c["periodo"])) else (None,) * 4)]
            for c in d["cobertura"]])
+    if (cp := d.get("cobertura_puestos")) is not None:  # el área no usa puestos: no hay reparto que mostrar
+        _hoja(wb, "Cobertura por puesto", ["Puesto", "Horas obligatorias", "Horas faltantes", "Horas sobrantes", "Cobertura (%)", "Eficiencia (%)"],
+              [[q["puesto"], q["horas_requeridas"], q["horas_faltantes"], q["horas_sobrantes"], _pct(q["cobertura_pct"]), _pct(q["eficiencia_pct"])] for q in cp])
     _hoja(wb, "Cambios", ["Periodo", "Permutas", "Servicio", "Ajustes", "Excepciones"],
           [[nom(k), c["permuta"], c["servicio"], c["ajuste"], c["excepciones"]] for k, c in d["cambios"].items()])
     _hoja(wb, "Estabilidad", ["Periodo", "% cambiado", "Celdas cambiadas", "Con poco aviso", "Publicado con (días)"],
