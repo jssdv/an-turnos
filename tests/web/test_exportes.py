@@ -181,7 +181,7 @@ def test_analiticas_xlsx():
         r = sesion(e, "lector@a.co").get(f"{base}?desde=2026-10-01&hasta=2026-10-31")
         assert r.status_code == 200 and r.headers["content-type"] == XLSX, r.text
         libro = load_workbook(BytesIO(r.content))
-        assert libro.sheetnames == ["Resumen", "Ausentismo", "Cobertura", "Cambios", "Estabilidad", "Horas extra", "Recargos", "Equidad", "Fatiga",
+        assert libro.sheetnames == ["Resumen", "Ausentismo", "Cobertura", "Cobertura por puesto", "Cambios", "Estabilidad", "Horas extra", "Recargos", "Equidad", "Fatiga",
                                     "Patrones", "Banco", "Solicitudes", "Solicitudes por tipo", "Concentración extra", "Avisos", "Pronóstico", "Generaciones"]
         assert libro["Cobertura"]["A2"].value == "Octubre 2026"  # el periodo con su nombre, no «2026-10-01/2026-10-31»
         assert libro["Resumen"]["B2"].number_format == "0.0%" and 0 <= libro["Resumen"]["B2"].value <= 1  # ausentismo como fracción

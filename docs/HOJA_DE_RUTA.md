@@ -33,6 +33,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 Fatiga según el largo del turno: aviso de turnos de 10 h o más seguidos (por defecto más de 3, guía de la ANA para turnos de 12 h), editable en Parámetros → Analíticas (15/11/2026).
 
+Cobertura por puesto: Analíticas y su Excel miden horas faltantes y sobrantes en cada puesto, con el reparto guardado; la gente que sobra en un puesto ya no tapa la que falta en otro (15/11/2026).
+
 Analíticas v4: pestañas (Resumen, Cobertura, Personas, Ausencias, Estabilidad) con rango, pestaña y persona en la dirección; comparación con el rango anterior; ficha por persona; el mapa marca también dónde sobra gente; cobertura y eficiencia por periodo en una línea (15/11/2026).
 
 Exportes más prolijos: todos los Excel salen en A4 apaisado a una página de ancho, con filtros, fechas de verdad y porcentajes como %; hoja «Alertas» en el cuadro, seis hojas nuevas en Analíticas, «Todo el periodo (.zip)» en Reportes e impresión del cuadro con encabezado, leyenda y firma (15/11/2026).

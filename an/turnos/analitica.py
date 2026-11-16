@@ -140,6 +140,40 @@ def cobertura_tramos(bd, ini, fin):
             "por_periodo": por_periodo}
 
 
+def cobertura_puestos(bd, ini, fin):
+    """Lo mismo que `cobertura_tramos` pero puesto a puesto, con el reparto guardado (`asignar_tramos`): quien sobra en
+    un puesto no tapa lo que falta en otro, porque no cualquiera puede ocupar cualquier puesto. Por puesto: horas
+    obligatorias, faltantes (bajo lo obligatorio) y sobrantes (sobre obligatorio + deseable), con cobertura y eficiencia.
+    «Apoyo» (puesto 0) son las horas de quien quedó sin puesto: todas sobran. Los periodos sin reparto guardado no
+    cuentan. None si el área no usa puestos."""
+    ctx = _ctx(bd, ini, fin)
+    if not ctx.usa_puestos:
+        return None
+    cero = [0] * dem.TRAMOS_DIA
+    req, falta, sobra, vistos = defaultdict(int), defaultdict(int), defaultdict(int), set()
+    for k in (k for k in bd.periodos() if _cruza(k, ini, fin)):
+        a, b = flujo.desde_clave(k)
+        ocupa = defaultdict(lambda: [0] * dem.TRAMOS_DIA)  # (fecha, puesto) -> personas por tramo
+        for r in bd.asignacion_puesto(k):
+            for t in range(r.desde // dem.TRAMO_MIN, r.hasta // dem.TRAMO_MIN):
+                ocupa[r.fecha, r.puesto_id][t] += 1
+        if not ocupa:
+            continue
+        for f in (f for f in flujo.fechas(a, b) if ini <= f <= fin):
+            nec = {q: v for q, v in dem.demanda_por_puesto(ctx, f, con_ayer=f != a).items() if any(v[0]) or any(v[1])}
+            for q in nec.keys() | {q for d, q in ocupa if d == f}:
+                (obl, des), hay = nec.get(q, (cero, cero)), ocupa.get((f, q), cero)
+                vistos.add(q)
+                for t in range(dem.TRAMOS_DIA):
+                    req[q] += obl[t]
+                    falta[q] += max(0, obl[t] - hay[t])
+                    sobra[q] += max(0, hay[t] - obl[t] - des[t])
+    cat = bd.catalogo_puestos()
+    orden = sorted(vistos, key=lambda q: (not q, cat[q].numero if q in cat else 99))  # apoyo al final
+    return [{"puesto": "Apoyo (sin puesto)" if not q else cat[q].nombre if q in cat else f"Puesto {q}", "horas_requeridas": req[q] / 2, "horas_faltantes": falta[q] / 2, "horas_sobrantes": sobra[q] / 2, **_pcts(req[q], falta[q], sobra[q])}
+            for q in orden]
+
+
 def cambios_resumen(bd, ini, fin):
     """{periodo: {permuta, servicio, ajuste, excepciones}} de los cambios vigentes (sin anulados)."""
     out = {}
