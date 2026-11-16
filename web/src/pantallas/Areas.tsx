@@ -5,14 +5,15 @@ import type { Area } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { useSesion } from "../Sesion";
 import { Plus } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Ventana } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, useConfirmar, Seccion, Ventana } from "./comun";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { Alert } from "@/components/application/alerts/alert";
 import { Badge } from "@/components/base/badges/badges";
 
-interface Respaldos { carpeta: string | null; respaldos: { nombre: string; fecha: string; archivos: number; bytes: number }[] }
+interface Respaldo { nombre: string; fecha: string; archivos: number; bytes: number }
+interface Respaldos { carpeta: string | null; respaldos: Respaldo[] }
 const tamano = (b: number) => (b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1048576).toFixed(1).replace(".", ",")} MB`);
 const cuando = (iso: string) => new Date(iso).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
 
@@ -26,6 +27,7 @@ export function Areas() {
   const lista = usar<Area[]>(usuario?.es_admin ? "/api/areas" : null);
   const respaldos = usar<Respaldos>(usuario?.es_admin ? "/api/respaldos" : null);
   const { ocupado, aviso, hacer } = useAccion();
+  const [pedir, confirmacion] = useConfirmar();
   const [ventana, setVentana] = useState<null | { modo: "nueva" } | { modo: "nombre" | "eliminar"; area: Area }>(null);
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<Area["tipo"]>("turnos");
@@ -49,6 +51,11 @@ export function Areas() {
     respaldos.recargar();
     return `Copia guardada en la carpeta ${r.nombre}.`;
   });
+  /** Tras restaurar se recarga todo: los datos y las sesiones vienen de la copia. */
+  const restaurar = (r: Respaldo) => pedir("¿Restaurar esta copia?", "Restaurar copia", () => void hacer(async () => {
+    await enviar("POST", `/api/respaldos/${r.nombre}/restaurar`);
+    location.reload();
+  }), `Se reemplazan todos los datos de la clínica por los de la copia del ${cuando(r.fecha).replace(/\.$/, "")}. Antes se guarda una copia de lo actual. Después puede que tengas que volver a ingresar.`);
   const error = aviso?.nivel === "error" && <Alert color="error">{aviso.texto}</Alert>;
 
   return (
@@ -86,6 +93,7 @@ export function Areas() {
           </Formulario>
         )}
       </Ventana>
+      {confirmacion}
       <Seccion titulo="Áreas de la clínica">
         <Tabla
           descripcion="Áreas de la clínica"
@@ -107,14 +115,15 @@ export function Areas() {
           acciones={<Button color="secondary" size="sm" isDisabled={ocupado} onPress={() => void respaldar()}>Respaldar ahora</Button>}>
           <p className="text-sm text-tertiary">
             La app guarda una copia al abrir y al cerrar (las últimas 10) en <span className="font-medium text-secondary break-all">{respaldos.datos.carpeta}</span>.
-            Para volver a una copia: cierra An, copia los archivos de esa carpeta sobre los de tus datos y ábrela de nuevo.
+            «Restaurar» vuelve a los datos de una copia; antes guarda otra con lo actual.
           </p>
           {aviso && !ventana && <Alert color={aviso.nivel === "error" ? "error" : "success"}>{aviso.texto}</Alert>}
           <Tabla
             descripcion="Copias de respaldo"
             vacio="Aún no hay copias."
-            columnas={["Fecha", "Carpeta", "Tamaño"]}
-            filas={respaldos.datos.respaldos.map((r) => [cuando(r.fecha), r.nombre, `${tamano(r.bytes)} · ${r.archivos} archivos`])}
+            columnas={["Fecha", "Carpeta", "Tamaño", ""]}
+            filas={respaldos.datos.respaldos.map((r) => [cuando(r.fecha), r.nombre, `${tamano(r.bytes)} · ${r.archivos} archivos`,
+              <Button color="link-color" size="sm" isDisabled={ocupado} onPress={() => restaurar(r)}>Restaurar</Button>])}
           />
         </Seccion>
       )}

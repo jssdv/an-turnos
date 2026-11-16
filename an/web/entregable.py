@@ -8,6 +8,7 @@ import socket
 import sqlite3
 import sys
 import threading
+import time
 import webbrowser
 from datetime import datetime
 from pathlib import Path
@@ -106,12 +107,12 @@ def revisar_base(ruta, respaldos):
     return version
 
 
-def preparar_base(ruta, respaldos):
-    """Revisa la base, la copia (si ya tiene datos) y crea o actualiza el esquema. La primera vez crea clínica, área y administrador.
+def preparar_base(ruta, respaldos, copiar=True):
+    """Revisa la base, la copia (si ya tiene datos y `copiar`) y crea o actualiza el esquema. La primera vez crea clínica, área y administrador.
     Devuelve el texto del primer acceso (o None)."""
     ruta = Path(ruta)
     version = revisar_base(ruta, respaldos)
-    if version is not None:
+    if version is not None and copiar:
         try:
             respaldar(ruta, respaldos)
         except (OSError, sqlite3.Error) as e:
@@ -138,10 +139,11 @@ def preparar_base(ruta, respaldos):
         raise BaseNoUsable(_error_base(e, ruta, respaldos)) from e
 
 
-def respaldar(ruta, destino):
+def respaldar(ruta, destino, podar=True):
     """Copia consistente de la base y sus áreas (API de respaldo de SQLite, válida con la base abierta) en una carpeta por fecha,
-    y poda a las últimas RESPALDOS_MAX carpetas. Devuelve la carpeta creada."""
-    carpeta = destino / f"{datetime.now():%Y%m%d_%H%M%S}"
+    y (si `podar`) poda a las últimas RESPALDOS_MAX carpetas. Devuelve la carpeta creada."""
+    while (carpeta := destino / f"{datetime.now():%Y%m%d_%H%M%S}").exists():  # dos copias en el mismo segundo: nunca pisar una
+        time.sleep(0.1)
     carpeta.mkdir(parents=True, exist_ok=True)
     ok = False
     try:
@@ -156,7 +158,7 @@ def respaldar(ruta, destino):
     finally:
         if not ok:  # una copia a medias sería el «último respaldo» que se ofrece al recuperar
             shutil.rmtree(carpeta, ignore_errors=True)
-    for viejo in sorted(d for d in destino.glob("[0-9]*_*") if d.is_dir())[:-RESPALDOS_MAX]:
+    for viejo in sorted(d for d in destino.glob("[0-9]*_*") if d.is_dir())[:-RESPALDOS_MAX] if podar else []:
         shutil.rmtree(viejo, ignore_errors=True)
     return carpeta
 

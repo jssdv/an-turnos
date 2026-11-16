@@ -31,6 +31,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 ## Hecho recientemente
 
+«Restaurar» una copia de respaldo desde Áreas, guardando antes una copia de lo actual (15/11/2026).
+
 Aviso de ausencias: cada ausencia guarda cuándo se registró; Analíticas mide avisos cortos y reemplazos (15/11/2026).
 
 Analíticas v3: cobertura por tramo con mapa día × hora, equidad frente a la media, concentración de horas extra, solicitudes cumplidas, pronóstico de ausencias, generaciones del solver y próximo recargo dominical (15/11/2026).
@@ -48,10 +50,9 @@ Puestos editables con demanda por tramos, cobertura derivada, reparto por tramo 
 ## Siguientes (en orden de valor)
 
 1. **Probar la web en el navegador del PC de la clínica.**
-2. **Restaurar** un respaldo desde la app (hoy: copiar a mano la carpeta; respaldar ya se hace desde Áreas).
-3. **Registro de cambios** (quién, cuándo y por qué) en ediciones y cierres.
-4. **Sugerir turnos** para ventanas que ningún turno del catálogo cubre.
-5. Solicitudes y permutas con aprobación; importar el Excel actual.
+2. **Registro de cambios** (quién, cuándo y por qué) en ediciones y cierres.
+3. **Sugerir turnos** para ventanas que ningún turno del catálogo cubre.
+4. Solicitudes y permutas con aprobación; importar el Excel actual.
 
 ## Convenciones del proyecto
 
