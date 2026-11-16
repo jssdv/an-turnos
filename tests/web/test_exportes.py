@@ -135,6 +135,7 @@ def test_identico_a_qt():
     from an.turnos import exportar, flujo
     from an.turnos.db import BD
     from an.turnos.puente import Conexion
+    from an.web import rutas_edicion
     with entorno() as e:
         if e is None:
             return
@@ -149,7 +150,7 @@ def test_identico_a_qt():
             with tempfile.TemporaryDirectory() as t:
                 esperado = {
                     "cuadro": exportar.exportar_cuadro(t, txt, ctx, cuadro, bd.asignaciones(k, "original"), fechas, bd.diferencias(k), bd.asignacion_puesto(k), bd.catalogo_puestos(),
-                                                       flujo.detalle_horas(bd, inicio, fin)),
+                                                       flujo.detalle_horas(bd, inicio, fin), rutas_edicion.alertas(bd, k, inicio, fin)),
                     "puestos": exportar.exportar_puestos(t, txt, ctx, cuadro, fechas, bd.asignacion_puesto(k), bd.capacitacion(k), bd.catalogo_puestos()),
                     "horas": exportar.exportar_horas(t, txt, ctx, bd.tarifas(), cuadro, fechas, int(bd.param("ventana_semanas", 3)))}
                 esperado = {tipo: celdas(load_workbook(r)) for tipo, r in esperado.items()}
@@ -179,8 +180,12 @@ def test_analiticas_xlsx():
         base = f"/api/areas/{e.ar['A']}/analiticas.xlsx"
         r = sesion(e, "lector@a.co").get(f"{base}?desde=2026-10-01&hasta=2026-10-31")
         assert r.status_code == 200 and r.headers["content-type"] == XLSX, r.text
-        assert load_workbook(BytesIO(r.content)).sheetnames == ["Resumen", "Ausentismo", "Cobertura", "Cambios", "Estabilidad", "Horas extra",
-                                                                "Recargos", "Equidad", "Fatiga", "Patrones", "Banco"]
+        libro = load_workbook(BytesIO(r.content))
+        assert libro.sheetnames == ["Resumen", "Ausentismo", "Cobertura", "Cobertura por puesto", "Cambios", "Estabilidad", "Horas extra", "Recargos", "Equidad", "Fatiga",
+                                    "Patrones", "Banco", "Solicitudes", "Solicitudes por tipo", "Concentración extra", "Avisos", "Pronóstico", "Generaciones"]
+        assert libro["Cobertura"]["A2"].value == "Octubre 2026"  # el periodo con su nombre, no «2026-10-01/2026-10-31»
+        assert libro["Resumen"]["B2"].number_format == "0.0%" and 0 <= libro["Resumen"]["B2"].value <= 1  # ausentismo como fracción
+        assert libro["Fatiga"].auto_filter.ref and libro["Fatiga"].print_title_rows == "$1:$1"
         assert "Analiticas_2026-10-01_2026-10-31.xlsx" in r.headers["content-disposition"]
         assert "Rachas largas" in [c.value for c in load_workbook(BytesIO(r.content))["Fatiga"][1]]
         assert sesion(e, "lector@a.co").get(f"{base}?desde=2000-01-01&hasta=2026-10-31").status_code == 422
@@ -219,3 +224,36 @@ if __name__ == "__main__":
             f()
     print("OK")
 
+
+
+def test_libros_listos_para_imprimir_y_filtrar():
+    """Cada hoja sale en A4 apaisado a una página de ancho, con el encabezado repetido; las tablas con filtros y las fechas como fechas."""
+    import datetime
+    from openpyxl import load_workbook
+    with entorno() as e:
+        if e is None:
+            return
+        cli = sesion(e, "editor@a.co")
+        x = cli.post(ruta(e), headers=H, json={"tipo": "cuadro"}).json()
+        libro = load_workbook(BytesIO(cli.get(ruta(e, extra=f"/{x['id']}/descargar")).content))
+        assert "Alertas" in libro.sheetnames and [c.value for c in libro["Alertas"][1]] == ["Nivel", "Fecha", "Colaborador", "Alerta"]
+        for ws in libro.worksheets:
+            assert ws.page_setup.orientation == "landscape" and ws.page_setup.fitToWidth == 1 and ws.sheet_properties.pageSetUpPr.fitToPage, ws.title
+            assert "Página &P de &N" in ws.oddFooter.right.text
+        assert libro["Cuadro"].print_title_cols == "$A:$A" and libro["Cuadro"].auto_filter.ref is None  # la grilla no lleva filtros
+        cambios = libro["Cambios"]
+        assert cambios.auto_filter.ref and all(isinstance(c.value, datetime.datetime) for c in cambios["B"][1:]), [c.value for c in cambios["B"]]
+
+
+def test_reportes_zip():
+    import zipfile
+    with entorno() as e:
+        if e is None:
+            return
+        r = sesion(e, "lector@a.co").get(ruta(e).replace("/exportes", "/reportes.zip"))
+        assert r.status_code == 200 and r.headers["content-type"] == "application/zip", r.text
+        nombres = zipfile.ZipFile(BytesIO(r.content)).namelist()
+        assert sorted(nombres) == sorted(["CUADRO OCTUBRE 2026.xlsx", "PUESTOS OCTUBRE 2026.xlsx", "HORAS Y RECARGOS OCTUBRE 2026.xlsx",
+                                          "BANCO DE HORAS OCTUBRE 2026.xlsx", "Analiticas_2026-10-01_2026-10-31.xlsx"]), nombres
+        assert "REPORTES OCTUBRE 2026.zip" in r.headers["content-disposition"]
+        assert sesion(e, "lector@a.co").get(ruta(e, p=999999).replace("/exportes", "/reportes.zip")).status_code == 404

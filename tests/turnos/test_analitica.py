@@ -366,7 +366,8 @@ def test_cobertura_tramos_horas_y_porcentajes():
     assert abs(r["cobertura_pct"] - (1 - 60 / 72) * 100) < 1e-6 and abs(r["eficiencia_pct"] - (1 - 66 / 72) * 100) < 1e-6, r
     assert r["mapa"][0][12] == 0 and r["mapa"][1][12] == 2 and r["mapa"][0][24] is None, (r["mapa"][0][12], r["mapa"][1][12], r["mapa"][0][24])
     assert r["mapa"][6][12] is None  # domingo sin demanda ni gente
-    assert r["por_periodo"] == [{"periodo": K2, "horas_requeridas": 72, "horas_faltantes": 60, "horas_sobrantes": 6}], r["por_periodo"]
+    assert r["por_periodo"] == [{"periodo": K2, "horas_requeridas": 72, "horas_faltantes": 60, "horas_sobrantes": 6,
+                                 "cobertura_pct": (1 - 60 / 72) * 100, "eficiencia_pct": (1 - 66 / 72) * 100}], r["por_periodo"]
 
 
 def test_cobertura_tramos_eficiencia_no_baja_de_cero():
@@ -376,6 +377,28 @@ def test_cobertura_tramos_eficiencia_no_baja_de_cero():
     bd.guardar_cuadro(K2, {(i[n], lunes + timedelta(days=d)): "C" for n in "ABC" for d in range(6)})  # 3 personas 12 h para 6 h de 2
     r = analitica.cobertura_tramos(bd, I, F)
     assert r["horas_sobrantes"] > r["horas_requeridas"] and r["eficiencia_pct"] == 0, r
+
+
+def test_cobertura_puestos_no_tapa_un_puesto_con_otro():
+    from an.turnos.dominio import AsignacionPuesto
+    bd, i = nuevo()
+    bd.c.execute("DELETE FROM demanda")
+    bd.c.execute("INSERT INTO demanda (puesto_id, tipo_dia, inicio, fin, personas, obligatorio) VALUES (1, 'LS', 360, 720, 2, 1)")
+    bd.c.execute("INSERT INTO demanda (puesto_id, tipo_dia, inicio, fin, personas, obligatorio) VALUES (2, 'LS', 360, 720, 1, 1)")
+    bd.c.commit()
+    lunes = date(2026, 10, 5)
+    bd.guardar_cuadro(K2, {(i[n], lunes): "M" for n in "ABC"})  # 3 personas para 3 obligatorias: el área queda justa
+    bd.guardar_asignacion_puesto(K2, [AsignacionPuesto(lunes, i["A"], 1, 360, 720, 1),  # Lavado pide 2 y tiene 1
+                                      AsignacionPuesto(lunes, i["B"], 2, 360, 720, 1),  # Autoclave pide 1 y tiene 2
+                                      AsignacionPuesto(lunes, i["C"], 2, 360, 720, 1)])
+    area = analitica.cobertura_tramos(bd, lunes, lunes)
+    assert (area["horas_faltantes"], area["horas_sobrantes"]) == (0, 0), area  # sumado, una cosa tapa la otra
+    r = {p["puesto"]: p for p in analitica.cobertura_puestos(bd, lunes, lunes)}
+    assert (r["Lavado"]["horas_requeridas"], r["Lavado"]["horas_faltantes"], r["Lavado"]["horas_sobrantes"]) == (12, 6, 0), r
+    assert (r["Autoclave"]["horas_requeridas"], r["Autoclave"]["horas_faltantes"], r["Autoclave"]["horas_sobrantes"]) == (6, 0, 6), r
+    assert r["Lavado"]["cobertura_pct"] == 50 and list(r) == ["Lavado", "Autoclave"], r
+    bd.set_param("usa_puestos", "0")
+    assert analitica.cobertura_puestos(bd, lunes, lunes) is None  # sin puestos no hay reparto que mirar
 
 
 def test_cobertura_tramos_vacio():
@@ -493,6 +516,18 @@ def test_equidad_descuenta_dias_ausente():
     bd.guardar_cuadro(KO, {(i["A"], date(2026, 10, 5)): "NC", (i["A"], date(2026, 10, 20)): "NC", (i["C"], date(2026, 10, 5)): "NC"})
     d = analitica.equidad(bd, I, date(2026, 10, 30))["desviacion"]
     assert abs(d["A"]["noches"] - d["C"]["noches"]) < 1e-6, d  # 2 noches en 30 días = 1 en 15 disponibles
+
+
+def test_mapa_sobra_cuenta_lo_que_pasa_de_obligatoria_mas_deseable():
+    bd, i = nuevo()
+    bd.c.execute("DELETE FROM demanda")
+    bd.c.execute("INSERT INTO demanda (puesto_id, tipo_dia, inicio, fin, personas, obligatorio) VALUES (1, 'LS', 360, 720, 2, 1)")
+    bd.c.commit()
+    lunes = date(2026, 10, 5)
+    bd.guardar_cuadro(K2, {(i["A"], lunes): "M", (i["B"], lunes): "M", (i["C"], lunes): "M"})  # 3 donde piden 2
+    r = analitica.cobertura_tramos(bd, I, F)
+    assert r["mapa_sobra"][0][12] == 1 and r["mapa"][0][12] == 0, (r["mapa_sobra"][0][12], r["mapa"][0][12])
+    assert r["mapa_sobra"][1][12] == 0 and r["mapa_sobra"][0][24] is None  # martes sin gente: falta, no sobra; sin demanda: nada
 
 
 def test_mapa_promedia_faltantes_sin_festivos():

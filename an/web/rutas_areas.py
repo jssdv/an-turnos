@@ -183,7 +183,7 @@ def datos_analiticas(ctx, desde, hasta, riesgo=True):
     if hasta < desde or (hasta - desde).days > MAX_DIAS_ANALITICAS:
         raise HTTPException(422, f"El rango debe ir de «desde» a «hasta» y no pasar de {MAX_DIAS_ANALITICAS} días")
     return {"ausentismo": analitica.ausentismo(ctx.bd, desde, hasta), "cobertura": analitica.cobertura(ctx.bd, desde, hasta),
-            "cobertura_tramos": analitica.cobertura_tramos(ctx.bd, desde, hasta),
+            "cobertura_tramos": analitica.cobertura_tramos(ctx.bd, desde, hasta), "cobertura_puestos": analitica.cobertura_puestos(ctx.bd, desde, hasta),
             "concentracion_extra": analitica.concentracion_extra(ctx.bd, desde, hasta), "solicitudes": analitica.solicitudes_resumen(ctx.bd, desde, hasta),
             "pronostico": analitica.pronostico_ausencias(ctx.bd, hasta), "corridas": analitica.corridas(_corridas(ctx, desde, hasta)),
             "proximo_recargo": analitica.proximo_recargo(ctx.bd, date.today(), desde, hasta), "avisos_ausencia": analitica.avisos_ausencia(ctx.bd, desde, hasta),

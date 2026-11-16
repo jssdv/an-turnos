@@ -297,7 +297,7 @@ export function Cuadro() {
   const recargar = () => setRecarga((n) => n + 1);
   const cabecera = { titulo: <>Cuadro de turnos<span className="hidden print:inline">{actual && ` · ${nombrePeriodo(actual.clave)}`}</span></> };
   if (error) return <Pagina {...cabecera}><Alert color="error" action={<Button color="secondary" size="sm" onPress={recargar}>Reintentar</Button>}>{error}</Alert></Pagina>;
-  if (!periodos) return <p className="p-6 text-center text-tertiary" aria-busy="true">Cargando…</p>;
+  if (!periodos) return <Vacio aria-busy="true">Cargando…</Vacio>;
   if (!actual) return (
     <Pagina {...cabecera} sub="Esta área aún no tiene periodos. Crea uno para poder generar el cuadro."
       acciones={area.permiso === "editar" && <AccionesPeriodo area={area.id} periodo={null} alTerminar={recargar} />}>{null}</Pagina>
@@ -383,6 +383,11 @@ export function Cuadro() {
           <Vacio className="tarjeta">Este periodo no tiene cuadro todavía.</Vacio>
         ) : (
           <>
+            <p className="hidden justify-between gap-4 text-xs text-secondary print:flex" aria-hidden="true">
+              <span>{area.nombre} · {nombrePeriodo(actual.clave)} · {version === "original" ? "Original publicada"
+                : actual.publicado_en ? `Publicado el ${new Date(actual.publicado_en).toLocaleDateString("es-CO")}, con los cambios registrados` : <strong>BORRADOR: sin publicar</strong>}</span>
+              <span>Impreso el {new Date().toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}</span>
+            </p>
             <Planilla
               descripcion={`Cuadro de turnos de ${nombrePeriodo(actual.clave)}`}
               dias={diasVista}
@@ -414,9 +419,7 @@ export function Cuadro() {
                 nota: (fecha) => { const m = datos.cuadro.margen?.[fecha]?.[f]; return m == null ? undefined : m < 0 ? `Faltan ${-m} en el tramo más justo` : m === 0 ? "Justo: si alguien falta, queda corto" : `Margen: ${m} sobre lo pedido`; },
               }))}
             />
-            <details className="text-sm text-tertiary [&>summary]:w-max [&>summary]:cursor-pointer" data-solo-pantalla>
-            <summary>Leyenda</summary>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2" aria-label="Leyenda">
+            {(() => { const leyenda = <>
               {datos.turnos.filter((t) => t.activo).map((t) => <span key={t.codigo} className="flex items-center gap-1.5"><Ficha codigo={t.codigo} color={t.color} />{t.nombre}</span>)}
               <span className="flex items-center gap-1.5"><Ficha codigo="L" />Libre</span>
               {verPuestos && usaPuestos && datos.puestos.filter((q) => q.activo).map((q) => <span key={q.id}><strong className="text-secondary">{q.numero}</strong> {q.nombre}</span>)}
@@ -424,8 +427,15 @@ export function Cuadro() {
               <span className="flex items-center gap-1.5"><strong className="text-brand-secondary" aria-hidden="true">D</strong>Domingo o festivo (letra verde)</span>
               <span className="flex items-center gap-1.5"><span className="font-semibold text-warning-primary" aria-hidden="true">▲</span>Más horas de las contratadas</span>
               <span className="flex items-center gap-1.5"><span className="rounded bg-utility-yellow-50 px-1 font-semibold text-utility-yellow-700 tabular-nums" aria-hidden="true">3</span>Presentes justos: si alguien falta, queda corto</span>
-            </div>
-            </details>
+            </>; return <>
+              <details className="text-sm text-tertiary [&>summary]:w-max [&>summary]:cursor-pointer" data-solo-pantalla>
+                <summary>Leyenda</summary>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2" aria-label="Leyenda">{leyenda}</div>
+              </details>
+              {/* Al imprimir, la leyenda va abierta y al pie una línea para la firma de quien revisa. */}
+              <div className="hidden flex-wrap gap-x-4 gap-y-1 text-xs text-secondary print:flex" aria-hidden="true">{leyenda}</div>
+              <p className="hidden pt-6 text-xs text-secondary print:block" aria-hidden="true">Revisó: ______________________________ &nbsp;&nbsp; Fecha: ________________ &nbsp;&nbsp; Firma: ______________________________</p>
+            </>; })()}
             <HorasSemana horas={datos.horas} colabs={datos.colabs.filter((c) => c.activo && (!solo || String(c.id) === solo))} />
           </>
         )}

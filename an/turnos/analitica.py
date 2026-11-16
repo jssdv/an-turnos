@@ -100,16 +100,22 @@ def cobertura(bd, ini, fin):
     return out
 
 
+def _pcts(req, falta, sobra):
+    return {"cobertura_pct": (1 - falta / req) * 100 if req else None,
+            "eficiencia_pct": max(0.0, (1 - (falta + sobra) / req) * 100) if req else None}  # con más sobra que demanda, 0 (no negativa)
+
+
 def cobertura_tramos(bd, ini, fin):
     """Personas frente a demanda por tramo de 30 min en los periodos con cuadro del rango. El hueco se mide en cada
     tramo antes de sumar (un tramo sobrado no tapa otro corto). Horas = personas-tramo / 2. Cobertura = 1 − faltantes /
     requeridas; eficiencia = 1 − (faltantes + sobrantes) / requeridas (sobra = por encima de obligatoria + deseable).
     `mapa`: 7 × 48 con el faltante promedio (personas bajo lo obligatorio) por día de la semana y tramo, solo en tramos
-    con demanda y sin festivos (otro tipo de día); None donde nunca hubo demanda. Promediar faltantes, no presentes −
+    con demanda y sin festivos (otro tipo de día); None donde nunca hubo demanda. `mapa_sobra`: igual, con lo que sobra
+    en promedio por encima de obligatoria + deseable (gente que podría estar donde falta). Promediar faltantes, no presentes −
     obligatorias, evita que una semana sobrada tape otra corta. Como en `faltantes_dia`, suma todos los puestos; el
     reparto por puesto se ve en «puestos sin cubrir»."""
     ctx = _ctx(bd, ini, fin)
-    suma, n = [[0] * dem.TRAMOS_DIA for _ in range(7)], [[0] * dem.TRAMOS_DIA for _ in range(7)]
+    suma, sobra_m, n = ([[0] * dem.TRAMOS_DIA for _ in range(7)] for _ in range(3))
     por_periodo = []
     for k in (k for k in bd.periodos() if _cruza(k, ini, fin)):
         a, b = flujo.desde_clave(k)
@@ -124,14 +130,48 @@ def cobertura_tramos(bd, ini, fin):
                 sobra += max(0, hay[t] - obl[t] - des[t])
                 if obl[t] and f not in ctx.fest:
                     suma[f.weekday()][t] += max(0, obl[t] - hay[t])
+                    sobra_m[f.weekday()][t] += max(0, hay[t] - obl[t] - des[t])
                     n[f.weekday()][t] += 1
-        por_periodo.append({"periodo": k, "horas_requeridas": req / 2, "horas_faltantes": falta / 2, "horas_sobrantes": sobra / 2})
+        por_periodo.append({"periodo": k, "horas_requeridas": req / 2, "horas_faltantes": falta / 2, "horas_sobrantes": sobra / 2, **_pcts(req, falta, sobra)})
     req, falta, sobra = (sum(p[c] for p in por_periodo) for c in ("horas_requeridas", "horas_faltantes", "horas_sobrantes"))
-    return {"horas_requeridas": req, "horas_faltantes": falta, "horas_sobrantes": sobra,
-            "cobertura_pct": (1 - falta / req) * 100 if req else None,
-            "eficiencia_pct": max(0.0, (1 - (falta + sobra) / req) * 100) if req else None,  # con más sobra que demanda, 0 (no negativa)
+    return {"horas_requeridas": req, "horas_faltantes": falta, "horas_sobrantes": sobra, **_pcts(req, falta, sobra),
             "mapa": [[round(suma[w][t] / n[w][t], 2) if n[w][t] else None for t in range(dem.TRAMOS_DIA)] for w in range(7)],
+            "mapa_sobra": [[round(sobra_m[w][t] / n[w][t], 2) if n[w][t] else None for t in range(dem.TRAMOS_DIA)] for w in range(7)],
             "por_periodo": por_periodo}
+
+
+def cobertura_puestos(bd, ini, fin):
+    """Lo mismo que `cobertura_tramos` pero puesto a puesto, con el reparto guardado (`asignar_tramos`): quien sobra en
+    un puesto no tapa lo que falta en otro, porque no cualquiera puede ocupar cualquier puesto. Por puesto: horas
+    obligatorias, faltantes (bajo lo obligatorio) y sobrantes (sobre obligatorio + deseable), con cobertura y eficiencia.
+    «Apoyo» (puesto 0) son las horas de quien quedó sin puesto: todas sobran. Los periodos sin reparto guardado no
+    cuentan. None si el área no usa puestos."""
+    ctx = _ctx(bd, ini, fin)
+    if not ctx.usa_puestos:
+        return None
+    cero = [0] * dem.TRAMOS_DIA
+    req, falta, sobra, vistos = defaultdict(int), defaultdict(int), defaultdict(int), set()
+    for k in (k for k in bd.periodos() if _cruza(k, ini, fin)):
+        a, b = flujo.desde_clave(k)
+        ocupa = defaultdict(lambda: [0] * dem.TRAMOS_DIA)  # (fecha, puesto) -> personas por tramo
+        for r in bd.asignacion_puesto(k):
+            for t in range(r.desde // dem.TRAMO_MIN, r.hasta // dem.TRAMO_MIN):
+                ocupa[r.fecha, r.puesto_id][t] += 1
+        if not ocupa:
+            continue
+        for f in (f for f in flujo.fechas(a, b) if ini <= f <= fin):
+            nec = {q: v for q, v in dem.demanda_por_puesto(ctx, f, con_ayer=f != a).items() if any(v[0]) or any(v[1])}
+            for q in nec.keys() | {q for d, q in ocupa if d == f}:
+                (obl, des), hay = nec.get(q, (cero, cero)), ocupa.get((f, q), cero)
+                vistos.add(q)
+                for t in range(dem.TRAMOS_DIA):
+                    req[q] += obl[t]
+                    falta[q] += max(0, obl[t] - hay[t])
+                    sobra[q] += max(0, hay[t] - obl[t] - des[t])
+    cat = bd.catalogo_puestos()
+    orden = sorted(vistos, key=lambda q: (not q, cat[q].numero if q in cat else 99))  # apoyo al final
+    return [{"puesto": "Apoyo (sin puesto)" if not q else cat[q].nombre if q in cat else f"Puesto {q}", "horas_requeridas": req[q] / 2, "horas_faltantes": falta[q] / 2, "horas_sobrantes": sobra[q] / 2, **_pcts(req[q], falta[q], sobra[q])}
+            for q in orden]
 
 
 def cambios_resumen(bd, ini, fin):

@@ -895,6 +895,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/areas/{area}/analiticas.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Analiticas Xlsx */
+        get: operations["analiticas_xlsx_api_areas__area__analiticas_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{area}/periodos/{id}/reportes.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reportes Zip
+         * @description Todo el periodo en un .zip para archivarlo o mandarlo a RR. HH.: cuadro, puestos, horas, banco y analíticas del periodo.
+         */
+        get: operations["reportes_zip_api_areas__area__periodos__id__reportes_zip_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/areas/{area}/periodos/{id}/agendas/{colab}.ics": {
         parameters: {
             query?: never;
@@ -3669,6 +3706,72 @@ export interface operations {
         };
     };
     banco_xlsx_api_areas__area__periodos__id__banco_xlsx_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analiticas_xlsx_api_areas__area__analiticas_xlsx_get: {
+        parameters: {
+            query: {
+                desde: string;
+                hasta: string;
+            };
+            header?: never;
+            path: {
+                area: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reportes_zip_api_areas__area__periodos__id__reportes_zip_get: {
         parameters: {
             query?: never;
             header?: never;
