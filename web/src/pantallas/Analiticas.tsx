@@ -17,6 +17,8 @@ interface Datos {
   ausentismo: { pct: number; por_tipo: Record<string, number>; por_persona: Record<string, Record<string, number>>; por_mes: Record<string, Record<string, number>> };
   cobertura_tramos: { horas_requeridas: number; horas_faltantes: number; horas_sobrantes: number; cobertura_pct: number | null; eficiencia_pct: number | null; mapa: (number | null)[][];
     mapa_sobra?: (number | null)[][]; por_periodo: { periodo: string; horas_requeridas: number; horas_faltantes: number; horas_sobrantes: number; cobertura_pct?: number | null; eficiencia_pct?: number | null }[] };
+  /** null: el área no usa puestos. */
+  cobertura_puestos: { puesto: string; horas_requeridas: number; horas_faltantes: number; horas_sobrantes: number; cobertura_pct: number | null; eficiencia_pct: number | null }[] | null;
   cobertura: { periodo: string; dias_deficit: number; dias_exceso: number; puestos_sin_cubrir: number }[];
   simultaneos: { serie: [string, number][]; maximo: number; fecha_maximo: string | null; dias_riesgo: string[] };
   cambios: Record<string, { permuta: number; servicio: number; ajuste: number; excepciones: number }>;
@@ -35,12 +37,12 @@ interface Datos {
   patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { desde: string; equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
-const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos" | "concentracion_extra" | "solicitudes" | "pronostico" | "corridas" | "proximo_recargo" | "avisos_ausencia"> = {
+const VACIO: Pick<Datos, "estabilidad" | "fatiga" | "patrones" | "cobertura_tramos" | "cobertura_puestos" | "concentracion_extra" | "solicitudes" | "pronostico" | "corridas" | "proximo_recargo" | "avisos_ausencia"> = {
   avisos_ausencia: { avisos: { tarde: 0, menos_24h: 0, "24_72h": 0, mas_72h: 0 }, sin_dato: 0, dias_con_turno: 0, cubiertos: 0, pct_cubiertos: null, mediana_horas: null },
   pronostico: { serie: [], siguiente: "", mismo_mes_anterior: null, media_3: 0, base: "media_3", estimado: 0 }, corridas: [], proximo_recargo: null,
   concentracion_extra: { por_persona: {}, top_n: 0, top_pct: null }, solicitudes: { por_persona: {}, por_tipo: {}, tasa: null },
   cobertura_tramos: { horas_requeridas: 0, horas_faltantes: 0, horas_sobrantes: 0, cobertura_pct: null, eficiencia_pct: null, mapa: Array.from({ length: 7 }, () => Array(48).fill(null)), por_periodo: [] },
-  estabilidad: { periodos: [], cubre_mas: {} }, fatiga: {},
+  cobertura_puestos: null, estabilidad: { periodos: [], cubre_mas: {} }, fatiga: {},
   patrones: { por_dia_semana: [0, 0, 0, 0, 0, 0, 0], tras_festivo: 0, bradford: { desde: "", equipo: {}, por_persona: {} } },
 };
 const SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -96,6 +98,20 @@ function FichaPersona({ p, d }: { p: string; d: Datos }) {
           ["Solicitudes", so ? `${so.cumplidas} de ${so.pedidas} cumplidas (${num(so.tasa)} %)` : "Sin solicitudes"],
         ]} />
       </div>
+    </Seccion>
+  );
+}
+
+/** Puesto a puesto con el reparto guardado: lo que sobra en uno no tapa lo que falta en otro (el total del área sí lo tapa). */
+function CoberturaPuestos({ d }: { d: Datos }) {
+  if (!d.cobertura_puestos) return null;
+  const falta = d.cobertura_puestos.reduce((s, q) => s + q.horas_faltantes, 0), tapadas = falta - d.cobertura_tramos.horas_faltantes;
+  return (
+    <Seccion titulo="Cobertura por puesto" descripcion={<>Cada puesto por separado, con el reparto de puestos guardado: la gente que sobra en uno no tapa lo que falta en otro. «Apoyo» son las horas de quien quedó sin puesto.
+      {tapadas > 0 && <> Por puesto faltan <strong>{num(falta, 1)} h</strong>, {num(tapadas, 1)} h más que en el total del área: allí las tapa gente que sobra en otros puestos.</>}</>}>
+      <Tabla descripcion="Cobertura por puesto" vacio="Sin reparto de puestos en el rango." columnas={["Puesto", "Horas obligatorias", "Horas faltantes", "Horas sobrantes", "Cobertura", "Eficiencia"]}
+        filas={d.cobertura_puestos.map((q) => [q.puesto, num(q.horas_requeridas, 1), num(q.horas_faltantes, 1), num(q.horas_sobrantes, 1),
+          q.cobertura_pct === null ? "—" : `${num(q.cobertura_pct)} %`, q.eficiencia_pct === null ? "—" : `${num(q.eficiencia_pct)} %`])} />
     </Seccion>
   );
 }
@@ -185,6 +201,7 @@ export function Analiticas() {
             <Linea titulo="Cobertura y eficiencia por periodo" unidad="%" etiquetas={d.cobertura_tramos.por_periodo.map((t) => nombrePeriodo(t.periodo))}
               series={([["Cobertura", "cobertura_pct"], ["Eficiencia", "eficiencia_pct"]] as const).map(([nombre, k]) => ({ nombre, valores: d.cobertura_tramos.por_periodo.map((t) => t[k] ?? 0) }))
                 .filter((s) => d.cobertura_tramos.por_periodo.length > 0 && s.valores.some(Boolean))} />
+            <CoberturaPuestos d={d} />
             <Seccion titulo="Cobertura por periodo">
               <Tabla descripcion="Cobertura por periodo" vacio="Sin periodos en el rango." columnas={["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir", "Horas faltantes", "Horas sobrantes"]}
                 filas={d.cobertura.map((c) => { const t = d.cobertura_tramos.por_periodo.find((x) => x.periodo === c.periodo); return [nombrePeriodo(c.periodo), c.dias_deficit, c.dias_exceso, c.puestos_sin_cubrir, t ? num(t.horas_faltantes, 1) : "—", t ? num(t.horas_sobrantes, 1) : "—"]; })} />
