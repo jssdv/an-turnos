@@ -29,6 +29,7 @@ const NUM: [string, string, number, number, string][] = [
   ["banco_tope_deuda_h", "Banco: máximo en deuda (h)", 0, 48, "Horas de menos que se pueden deber por periodo. 0 = no compensar."],
   ["aviso_corto_horas", "Cambio con poco aviso (horas)", 1, 336, "Un cambio registrado con menos horas que esto antes del turno cuenta como de último momento."],
   ["max_dias_seguidos", "Días seguidos de trabajo (aviso)", 1, 14, "Rachas más largas que esto cuentan como señal de fatiga."],
+  ["max_largos_seguidos", "Turnos largos seguidos (aviso)", 1, 7, "Turnos de 10 h o más seguidos. Pasar de esto cuenta como señal de fatiga (la ANA recomienda no más de 3 de 12 h)."],
   ["descanso_corto_horas", "Descanso corto (horas)", 1, 24, "Menos horas que esto entre dos turnos cuenta como regreso rápido."],
 ];
 const CONCEPTOS = ["dominical", "nocturno", "extra_diurna", "extra_nocturna", "noche_inicio"];
@@ -43,7 +44,7 @@ const GRUPOS: [string, string[]][] = [
   ["Descansos", ["max_noches_seguidas", "libre_tras_noche", "libres_por_semana", "fines_semana_libres", "max_igual_seguidos"]],
   ["Corridos (C, 12 h)", ["max_c_semana", "max_c_seguidos", "peso_corrido", "partir_corridos"]],
   ["Permutas y banco de horas", ["limite_permutas", "banco_tope_favor_h", "banco_tope_deuda_h"]],
-  ["Analíticas", ["aviso_corto_horas", "max_dias_seguidos", "descanso_corto_horas"]],
+  ["Analíticas", ["aviso_corto_horas", "max_dias_seguidos", "max_largos_seguidos", "descanso_corto_horas"]],
 ];
 
 /** Reglas del área, turnos y tarifas legales (editables: confirmar con RR. HH./legal). */

@@ -31,7 +31,7 @@ interface Datos {
   concentracion_extra: { por_persona: Record<string, number>; top_n: number; top_pct: number | null };
   solicitudes: { por_persona: Record<string, { pedidas: number; cumplidas: number; parciales: number; no_cumplidas: number; tasa: number }>; por_tipo: Record<string, { pedidas: number; cumplidas: number }>; tasa: number | null; rango_tasa?: number | null };
   banco: { saldos: Record<string, number>; serie: [string, number, number][] };
-  fatiga: Record<string, { max_dias_seguidos: number; rachas_largas: number; max_noches_seguidas: number; descansos_cortos: number; fines_trabajados: number; horas_4_sem_max: number; senales: number }>;
+  fatiga: Record<string, { max_dias_seguidos: number; rachas_largas: number; max_largos_seguidos: number; max_noches_seguidas: number; descansos_cortos: number; fines_trabajados: number; horas_4_sem_max: number; senales: number }>;
   patrones: { por_dia_semana: number[]; tras_festivo: number; bradford: { desde: string; equipo: Record<string, number>; por_persona: Record<string, { rachas: number; dias: number; puntaje: number }> } };
   estabilidad: { periodos: { periodo: string; celdas_cambiadas: number; celdas_total: number; pct: number; aviso_corto: number; dias_anticipacion: number }[]; cubre_mas: Record<string, number> };
 }
@@ -90,7 +90,7 @@ function FichaPersona({ p, d }: { p: string; d: Datos }) {
         <Tabla descripcion={`Detalle de ${p}`} vacio="" columnas={["Tema", "Dato"]} filas={[
           ["Horas extra", `${num(d.concentracion_extra.por_persona[p] ?? 0, 1)} h`],
           ["Banco de horas (saldo)", `${num(d.banco.saldos[p] ?? 0, 1)} h`],
-          ["Señales de fatiga", f ? `${f.senales} · ${f.max_dias_seguidos} días seguidos, ${f.max_noches_seguidas} noches seguidas, ${f.descansos_cortos} descansos cortos, ${f.fines_trabajados} fines trabajados` : "—"],
+          ["Señales de fatiga", f ? `${f.senales} · ${f.max_dias_seguidos} días seguidos, ${f.max_largos_seguidos} turnos largos seguidos, ${f.max_noches_seguidas} noches seguidas, ${f.descansos_cortos} descansos cortos, ${f.fines_trabajados} fines trabajados` : "—"],
           ["Ausencias en el rango", Object.entries(aus).map(([t, n]) => `${t}: ${n}`).join(", ") || "Ninguna"],
           ["Factor Bradford (12 meses)", br ? `${br.puntaje} (${br.rachas} ausencias, ${br.dias} días)` : "0"],
           ["Solicitudes", so ? `${so.cumplidas} de ${so.pedidas} cumplidas (${num(so.tasa)} %)` : "Sin solicitudes"],
@@ -210,10 +210,10 @@ export function Analiticas() {
                 filas={Object.entries(d.equidad.por_persona).sort().map(([p, o]) => [p, o.noches, o.domingos, o.festivos])} />
             </Seccion>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <Seccion titulo="Señales de fatiga" descripcion="Rachas largas, noches seguidas, descansos cortos entre turnos y fines de semana trabajados en el rango. Los topes se cambian en Parámetros → Analíticas.">
-                <Tabla descripcion="Señales de fatiga por persona" vacio="Sin personal." columnas={["Persona", "Señales", "Días seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"]}
+              <Seccion titulo="Señales de fatiga" descripcion="Rachas largas, turnos de 10 h o más seguidos, noches seguidas, descansos cortos entre turnos y fines de semana trabajados en el rango. Los topes se cambian en Parámetros → Analíticas.">
+                <Tabla descripcion="Señales de fatiga por persona" vacio="Sin personal." columnas={["Persona", "Señales", "Días seguidos (máx.)", "Turnos largos seguidos (máx.)", "Noches seguidas (máx.)", "Descansos cortos", "Fines trabajados", "Horas en 4 semanas (máx.)"]}
                   filas={Object.entries(d.fatiga).sort(([a1, x], [b1, y]) => y.senales - x.senales || a1.localeCompare(b1))
-                    .map(([p, f]) => [p, f.senales, f.max_dias_seguidos, f.max_noches_seguidas, f.descansos_cortos, f.fines_trabajados, num(f.horas_4_sem_max, 1)])} />
+                    .map(([p, f]) => [p, f.senales, f.max_dias_seguidos, f.max_largos_seguidos, f.max_noches_seguidas, f.descansos_cortos, f.fines_trabajados, num(f.horas_4_sem_max, 1)])} />
               </Seccion>
               <Barras titulo="Fines de semana trabajados" unidad="fines" datos={Object.entries(d.fatiga).map(([p, f]) => [p, f.fines_trabajados])} />
             </div>

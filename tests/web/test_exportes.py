@@ -187,7 +187,7 @@ def test_analiticas_xlsx():
         assert libro["Resumen"]["B2"].number_format == "0.0%" and 0 <= libro["Resumen"]["B2"].value <= 1  # ausentismo como fracción
         assert libro["Fatiga"].auto_filter.ref and libro["Fatiga"].print_title_rows == "$1:$1"
         assert "Analiticas_2026-10-01_2026-10-31.xlsx" in r.headers["content-disposition"]
-        assert "Rachas largas" in [c.value for c in load_workbook(BytesIO(r.content))["Fatiga"][1]]
+        assert {"Rachas largas", "Turnos largos seguidos (máx.)"} <= {c.value for c in load_workbook(BytesIO(r.content))["Fatiga"][1]}
         assert sesion(e, "lector@a.co").get(f"{base}?desde=2000-01-01&hasta=2026-10-31").status_code == 422
 
 
