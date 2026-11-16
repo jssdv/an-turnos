@@ -255,12 +255,13 @@ export const Indicadores = ({ etiqueta, children }: { etiqueta: string; children
 );
 
 /** Indicador dentro de `Indicadores`: rótulo en versalitas, valor en mono y una nota. `tono` marca el valor (con palabra en la nota, nunca solo color). */
-export function Indicador({ titulo, valor, nota, tono }: { titulo: string; valor: string; nota: string; tono?: "ok" | "aviso" | "error" }) {
+export function Indicador({ titulo, valor, nota, tono, comparacion }: { titulo: string; valor: string; nota: string; tono?: "ok" | "aviso" | "error"; comparacion?: string }) {
   return (
     <div className="flex min-w-0 flex-col px-4 py-3" role="listitem">
       <span className="rotulo">{titulo}</span>
       <strong className={cx("mt-0.5 font-mono text-xl font-medium text-primary", tono === "ok" && "text-success-primary", tono === "aviso" && "text-warning-primary", tono === "error" && "text-error-primary")}>{valor}</strong>
       <span className="text-xs text-tertiary">{nota}</span>
+      {comparacion && <span className="mt-1 text-xs font-medium text-secondary">{comparacion}</span>}
     </div>
   );
 }
