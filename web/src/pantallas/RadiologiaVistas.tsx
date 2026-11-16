@@ -3,13 +3,13 @@ import { usar } from "../api/catalogos";
 import { base, rutaSemana, type Alertas as TAlertas, type Archivo, type Equidad as TEquidad, type EquidadMeses, type Hoja, type Semana } from "../api/radiologia";
 import { Button } from "@/components/base/buttons/button";
 import { Alert } from "@/components/application/alerts/alert";
-import { Seccion } from "./comun";
+import { Seccion, Vacio } from "./comun";
 import { cx } from "@/utils/cx";
 
 const num = (v: number | null | undefined) => (v ?? "");
 
 function Cuadro({ columnas, filas, vacio, clases }: { columnas: string[]; filas: ReactNode[][]; vacio: string; clases?: (f: number, c: number) => string | undefined }) {
-  if (!filas.length) return <p className="p-4 text-center text-tertiary">{vacio}</p>;
+  if (!filas.length) return <Vacio>{vacio}</Vacio>;
   return (
     <table className="w-full border-collapse text-sm [&_td]:border-b [&_td]:border-secondary [&_td]:px-2 [&_td]:py-2 [&_th]:border-b [&_th]:border-secondary [&_th]:bg-secondary [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:text-tertiary">
       <thead><tr>{columnas.map((c) => <th key={c} scope="col">{c}</th>)}</tr></thead>
@@ -25,7 +25,7 @@ export function Resumen({ datos }: { datos: Semana["resumen"] }) {
     <>
       <h2 className="text-display-sm font-semibold text-primary">{datos.semana}</h2>
       {datos.aviso && <Alert color="warning">{datos.aviso}</Alert>}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4">
         {datos.tarjetas.map((t) => (
           <Seccion key={t.titulo} titulo={t.titulo}>
             <div className={cx("text-display-sm font-semibold text-primary", NIVEL[t.nivel as keyof typeof NIVEL])}>{t.valor}</div>

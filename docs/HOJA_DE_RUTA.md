@@ -33,6 +33,8 @@ Estado a oct-2026. v1 está construida; falta validarla con la coordinación. La
 
 «Restaurar» una copia de respaldo desde Áreas, guardando antes una copia de lo actual (15/11/2026).
 
+Espaciado parejo: las tarjetas, los textos de cada sección y los estados vacíos salen de `Seccion` y `Vacio`; `checks/diseno.py` rechaza espacios fuera de la escala de 4 px (15/11/2026).
+
 Aviso de ausencias: cada ausencia guarda cuándo se registró; Analíticas mide avisos cortos y reemplazos (15/11/2026).
 
 Analíticas v3: cobertura por tramo con mapa día × hora, equidad frente a la media, concentración de horas extra, solicitudes cumplidas, pronóstico de ausencias, generaciones del solver y próximo recargo dominical (15/11/2026).

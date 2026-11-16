@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { Seccion } from "../pantallas/comun";
+import { Seccion, Vacio } from "../pantallas/comun";
 import { num } from "../pantallas/fechas";
 import { aHHMM } from "../api/catalogos";
 import { tonoMapa, trazo } from "./trazo";
@@ -8,10 +8,9 @@ import { tonoMapa, trazo } from "./trazo";
 export function Barras({ titulo, unidad, datos, nota }: { titulo: string; unidad: string; datos: [string, number][]; nota?: string }) {
   const max = Math.max(1, ...datos.map(([, v]) => v));
   return (
-    <Seccion titulo={titulo}>
-      {nota && <p className="mb-3 text-sm text-tertiary">{nota}</p>}
-      {datos.length === 0 ? <p className="text-tertiary">Sin datos en el rango.</p> : (
-        <ul className="flex flex-col gap-2.5" aria-label={titulo}>
+    <Seccion titulo={titulo} descripcion={nota}>
+      {datos.length === 0 ? <Vacio>Sin datos en el rango.</Vacio> : (
+        <ul className="flex flex-col gap-2" aria-label={titulo}>
           {[...datos].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p, v]) => (
             <li key={p} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs">
               <span className="truncate font-medium text-secondary">{p}</span>
@@ -36,7 +35,7 @@ export function Linea({ titulo, unidad, etiquetas, series }: { titulo: string; u
   const x = (i: number) => (etiquetas.length > 1 ? (i / (etiquetas.length - 1)) * 100 : 0);
   return (
     <Seccion titulo={titulo}>
-      {!etiquetas.length || !series.length ? <p className="text-tertiary">Sin datos en el rango.</p> : (
+      {!etiquetas.length || !series.length ? <Vacio>Sin datos en el rango.</Vacio> : (
         <>
           <div className="grid grid-cols-[auto_1fr] gap-2 text-xs text-tertiary">
             <div className="flex flex-col justify-between text-right tabular-nums" aria-hidden="true"><span>{num(max, 0)} {unidad}</span><span>0</span></div>
@@ -83,10 +82,9 @@ export function Mapa({ titulo, mapa }: { titulo: string; mapa: (number | null)[]
     .sort((a, b) => b.v - a.v).slice(0, 3);
   const resumen = peores.length ? `Donde más falta: ${peores.map((c) => `${DIAS_MAPA[c.w]} ${tramo(c.t)} (${decir(c.v)})`).join("; ")}.` : "En promedio no falta gente en ningún tramo.";
   return (
-    <Seccion titulo={titulo}>
-      {mapa.flat().every((v) => v === null) ? <p className="text-tertiary">Sin datos en el rango.</p> : (
+    <Seccion titulo={titulo} descripcion={mapa.flat().every((v) => v === null) ? undefined : <span id={id}>{resumen}</span>}>
+      {mapa.flat().every((v) => v === null) ? <Vacio>Sin datos en el rango.</Vacio> : (
         <>
-          <p id={id} className="mb-3 text-sm text-tertiary">{resumen}</p>
           <div role="img" aria-label={titulo} aria-describedby={id} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-xs text-tertiary">
             {mapa.map((fila, w) => (
               <div key={w} className="contents">
@@ -117,10 +115,10 @@ export function Divergente({ titulo, unidad, datos }: { titulo: string; unidad: 
   const max = Math.max(0.0001, ...filas.map(([, v]) => Math.abs(v)));
   return (
     <Seccion titulo={titulo}>
-      {!filas.length ? <p className="text-tertiary">{datos.length ? "Todos están en la media del equipo." : "Sin datos en el rango."}</p> : (
+      {!filas.length ? <Vacio>{datos.length ? "Todos están en la media del equipo." : "Sin datos en el rango."}</Vacio> : (
         <ul className="flex flex-col gap-2" aria-label={titulo}>
           {filas.map(([p, v]) => (
-            <li key={p} className="grid grid-cols-[minmax(0,8rem)_1fr_1fr_auto] items-center gap-x-1 text-xs">
+            <li key={p} className="grid grid-cols-[minmax(0,9rem)_1fr_1fr_auto] items-center gap-x-1 text-xs">
               <span className="truncate pr-2 font-medium text-secondary">{p}</span>
               <span className="flex h-2.5 justify-end">{v < 0 && <span className="block h-full rounded-xs bg-utility-blue-500" style={{ width: `${(-v / max) * 100}%` }} />}</span>
               <span className="flex h-2.5 border-l border-secondary">{v > 0 && <span className="block h-full rounded-xs bg-utility-orange-500" style={{ width: `${(v / max) * 100}%` }} />}</span>

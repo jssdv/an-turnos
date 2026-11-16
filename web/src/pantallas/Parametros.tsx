@@ -4,7 +4,7 @@ import { enviar, usar } from "../api/catalogos";
 import type { Area, Tarifa } from "../api/tipos";
 import { Tabla } from "../componentes/Tabla";
 import { Check, RefreshCcw01 } from "@untitledui/icons";
-import { Fila, Formulario, Pagina, Pista, useAccion, Seccion } from "./comun";
+import { Fila, Formulario, Pagina, Pista, useAccion, Seccion, Vacio } from "./comun";
 import { fechaCorta } from "./fechas";
 import { Button } from "@/components/base/buttons/button";
 import { CampoFecha } from "../componentes/CampoFecha";
@@ -78,8 +78,8 @@ export function Parametros() {
         <Pista texto="Guarda las reglas. El cuadro ya armado no cambia: genera de nuevo para aplicarlas."><Button color="primary" size="sm" iconLeading={Check} type="submit" form="reglas" isDisabled={ocupado}>Guardar reglas</Button></Pista>
         <Pista texto="Descarta lo que cambiaste y vuelve a los valores guardados."><Button color="secondary" size="sm" iconLeading={RefreshCcw01} onPress={() => setV(params.datos!)}>Deshacer</Button></Pista>
       </>} sub="Lo que el sistema respeta al armar el cuadro. Los valores legales son editables: confírmalos con RR. HH." ayuda={<>Las <strong>reglas</strong> limitan cómo se reparten los turnos (descansos, noches seguidas, fines de semana libres). Las <strong>tarifas</strong> son los recargos legales para calcular horas equivalentes. Si cambias algo, vuelve a generar el cuadro o revisa las alertas.</>} error={params.error ?? tarifas.error} aviso={aviso}>
-      {!params.datos ? !params.error && <p className="tarjeta p-5" aria-busy="true">Cargando…</p> : (
-        <form id="reglas" aria-label="Reglas" className="grid items-start gap-4 lg:grid-cols-2" onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
+      {!params.datos ? !params.error && <Vacio className="tarjeta" aria-busy="true">Cargando…</Vacio> : (
+        <form id="reglas" aria-label="Reglas" className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2" onSubmit={(x) => { x.preventDefault(); void guardarReglas(); }}>
           {GRUPOS.map(([titulo, claves], i) => (
             <Seccion key={titulo} titulo={titulo}>
               <fieldset className="flex flex-col gap-4">

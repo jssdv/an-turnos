@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Table } from "@/components/application/table/table";
+import { Vacio } from "../pantallas/comun";
 
 interface Props {
   columnas: string[];
@@ -12,8 +13,8 @@ interface Props {
 
 /** Tabla de Untitled UI armada desde columnas y filas, con estados de carga y vacío (Untitled no los trae); la primera columna (el nombre) no se parte en dos líneas. La grilla del cuadro es `Planilla`. */
 export function Tabla({ columnas, filas, vacio, descripcion, cargando }: Props) {
-  if (cargando) return <p className="p-6 text-center text-tertiary" aria-busy="true">Cargando…</p>;
-  if (!filas.length) return <p className="p-6 text-center text-tertiary">{vacio}</p>;
+  if (cargando) return <Vacio aria-busy="true">Cargando…</Vacio>;
+  if (!filas.length) return <Vacio>{vacio}</Vacio>;
   return (
     <div className="overflow-x-auto">
       <Table aria-label={descripcion} size="sm">

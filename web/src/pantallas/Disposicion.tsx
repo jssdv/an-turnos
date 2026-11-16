@@ -62,7 +62,7 @@ function Buscador({ destinos }: { destinos: { label: string; grupo: string; href
   return (
     <>
       <AriaButton onPress={() => { setQ(""); setSel(0); setAbierto(true); }} aria-keyshortcuts="Meta+K Control+K"
-        className="flex h-8 w-56 cursor-pointer items-center gap-2 rounded-xl bg-secondary px-2.5 text-sm text-placeholder ring-1 ring-secondary outline-focus-ring ring-inset hover:text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2">
+        className="flex h-9 w-56 cursor-pointer items-center gap-2 rounded-xl bg-secondary px-2.5 text-sm text-placeholder ring-1 ring-secondary outline-focus-ring ring-inset hover:text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2">
         <SearchLg aria-hidden="true" className="size-4" />Ir a…<kbd className="ml-auto rounded-sm px-1 font-mono text-xs text-tertiary ring-1 ring-primary ring-inset">⌘K</kbd>
       </AriaButton>
       <Ventana abierto={abierto} alCambiar={setAbierto} titulo="Ir a">
