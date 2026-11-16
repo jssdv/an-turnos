@@ -100,6 +100,11 @@ def cobertura(bd, ini, fin):
     return out
 
 
+def _pcts(req, falta, sobra):
+    return {"cobertura_pct": (1 - falta / req) * 100 if req else None,
+            "eficiencia_pct": max(0.0, (1 - (falta + sobra) / req) * 100) if req else None}  # con más sobra que demanda, 0 (no negativa)
+
+
 def cobertura_tramos(bd, ini, fin):
     """Personas frente a demanda por tramo de 30 min en los periodos con cuadro del rango. El hueco se mide en cada
     tramo antes de sumar (un tramo sobrado no tapa otro corto). Horas = personas-tramo / 2. Cobertura = 1 − faltantes /
@@ -125,11 +130,9 @@ def cobertura_tramos(bd, ini, fin):
                 if obl[t] and f not in ctx.fest:
                     suma[f.weekday()][t] += max(0, obl[t] - hay[t])
                     n[f.weekday()][t] += 1
-        por_periodo.append({"periodo": k, "horas_requeridas": req / 2, "horas_faltantes": falta / 2, "horas_sobrantes": sobra / 2})
+        por_periodo.append({"periodo": k, "horas_requeridas": req / 2, "horas_faltantes": falta / 2, "horas_sobrantes": sobra / 2, **_pcts(req, falta, sobra)})
     req, falta, sobra = (sum(p[c] for p in por_periodo) for c in ("horas_requeridas", "horas_faltantes", "horas_sobrantes"))
-    return {"horas_requeridas": req, "horas_faltantes": falta, "horas_sobrantes": sobra,
-            "cobertura_pct": (1 - falta / req) * 100 if req else None,
-            "eficiencia_pct": max(0.0, (1 - (falta + sobra) / req) * 100) if req else None,  # con más sobra que demanda, 0 (no negativa)
+    return {"horas_requeridas": req, "horas_faltantes": falta, "horas_sobrantes": sobra, **_pcts(req, falta, sobra),
             "mapa": [[round(suma[w][t] / n[w][t], 2) if n[w][t] else None for t in range(dem.TRAMOS_DIA)] for w in range(7)],
             "por_periodo": por_periodo}
 

@@ -1,13 +1,16 @@
 """Salidas en Excel: cuadro mensual, planilla de puestos y reporte de horas y recargos. Nunca sobrescribe."""
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
+from openpyxl.worksheet.properties import PageSetupProperties
 
 from an.nucleo.xlsx import poner_texto
 
+from . import flujo
 from . import recargos
 from . import reglas
 from .dominio import DIAS, Puesto, intervalo
@@ -33,6 +36,51 @@ def _encabezado(ws, fila, textos, col=1):
     for i, t in enumerate(textos):
         c = ws.cell(fila, col + i, t)
         c.fill, c.font, c.alignment = ENCABEZADO, Font(bold=True, color="FFFFFF"), CENTRO
+
+
+class _Pct(float):
+    """Porcentaje 0–100 del núcleo: en Excel va como fracción con formato «0,0 %» para que se pueda sumar o graficar."""
+
+
+def _pct(v):
+    return None if v is None else _Pct(v)
+
+
+def _valor(celda, v):
+    """Fecha con formato dd/mm/aaaa, porcentaje como fracción, vacío en vez de «—» y texto que Excel no lea como fórmula."""
+    if isinstance(v, _Pct):
+        celda.value, celda.number_format = v / 100, "0.0%"
+    elif isinstance(v, date):
+        celda.value, celda.number_format = v, "dd/mm/yyyy"
+    else:
+        poner_texto(celda, v)
+    return celda
+
+
+def _tabla(ws):
+    """Hoja de una tabla con encabezado en la fila 1: encabezado fijo al desplazarse y filtros en cada columna."""
+    ws.freeze_panes = ws.freeze_panes or "B2"
+    if ws.max_row > 1:
+        ws.auto_filter.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+
+
+def _terminar(wb, titulo):
+    """Lo que lleva todo libro antes de guardarse: A4 apaisado a una página de ancho, las filas y columnas fijas repetidas
+    en cada hoja impresa y, en el margen, el título, cuándo se generó y el número de página."""
+    hecho = f"Generado el {datetime.now():%d/%m/%Y %H:%M}"
+    for ws in wb.worksheets:
+        ws.page_setup.orientation, ws.page_setup.paperSize = "landscape", ws.PAPERSIZE_A4
+        ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
+        ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+        if ws.freeze_panes:
+            letra, fila = coordinate_from_string(ws.freeze_panes)
+            if fila > 1:
+                ws.print_title_rows = f"1:{fila - 1}"
+            if (col := column_index_from_string(letra)) > 1:
+                ws.print_title_cols = f"A:{get_column_letter(col - 1)}"
+        ws.oddHeader.left.text = f"{titulo} · {ws.title}".replace("&", "&&")
+        ws.oddFooter.left.text = hecho
+        ws.oddFooter.right.text = "Página &P de &N"
 
 
 def _ancho(ws, primera, resto, desde=2):
@@ -151,9 +199,13 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None, detalle=N
     ws.freeze_panes = "B2"
 
 
-def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias, filas_puestos=(), catalogo=None, detalle=None):
+NIVELES = {"error": "Por corregir", "aviso": "Para revisar", "info": "Deseable sin cubrir"}
+
+
+def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias, filas_puestos=(), catalogo=None, detalle=None, alertas=None):
     """Hojas: Cuadro (de `cambios`, celdas modificadas en amarillo; con `detalle`, columnas de horas y contadores por turno),
-    Cuadro con puestos (con contador por puesto), Original, Cambios (diferencias) y Turnos (catálogo que leen las fórmulas)."""
+    Cuadro con puestos (con contador por puesto), Original, Cambios (diferencias), Turnos (catálogo que leen las fórmulas)
+    y, con `alertas` ([reglas.Alerta]), Alertas: el registro de lo que el cuadro incumple, para revisarlo o archivarlo."""
     wb = Workbook()
     _hoja_cuadro(wb.active, ctx, cuadro, fechas, comparar=original, detalle=detalle)
     wb.active.title = "Cuadro"
@@ -170,9 +222,10 @@ def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias
     _encabezado(ws, 1, ["Colaborador", "Fecha", "Antes", "Después"])
     nombres = {p.id: p.nombre for p in ctx.colabs}
     for r, (cid, f, antes, ahora) in enumerate(diferencias, 2):
-        for c, v in enumerate((nombres.get(cid, cid), f.strftime("%d/%m/%Y"), antes, ahora), 1):
-            poner_texto(ws.cell(r, c), v)
+        for c, v in enumerate((nombres.get(cid, cid), f, antes, ahora), 1):
+            _valor(ws.cell(r, c), v)
     _ancho(ws, 26, 14)
+    _tabla(ws)
     if detalle is not None:  # lo leen las fórmulas de horas del cuadro
         tur = wb.create_sheet("Turnos")
         _encabezado(tur, 1, ["Código", "Nombre", "Horas"])
@@ -180,6 +233,14 @@ def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias
             for c, v in enumerate((t.codigo, t.nombre, round(t.horas, 2)), 1):
                 poner_texto(tur.cell(r, c), v) if c < 3 else tur.cell(r, c, v)
         _ancho(tur, 10, 14)
+        _tabla(tur)
+    if alertas is not None:
+        orden = list(NIVELES)
+        _hoja(wb, "Alertas", ["Nivel", "Fecha", "Colaborador", "Alerta"],
+              [[NIVELES.get(a.nivel, a.nivel), a.fecha, nombres.get(a.colab_id, ""), a.texto]
+               for a in sorted(alertas, key=lambda a: (orden.index(a.nivel) if a.nivel in orden else 9, a.fecha or date.min))], primera=16)
+        wb["Alertas"].column_dimensions["D"].width = 90
+    _terminar(wb, f"Cuadro {mes_txt}")
     ruta = ruta_libre(carpeta, f"CUADRO {mes_txt.upper()}")
     wb.save(ruta)
     return ruta
@@ -220,6 +281,7 @@ def exportar_puestos(carpeta, mes_txt, ctx, cuadro, fechas, filas, capacitacion,
         ws.cell(10, 1, "(P1)/(P2): grupo de pausa — el grupo 1 sale primero y el 2 cubre; se alternan cada día.")
         _ancho(ws, 14, 26)
         ws.freeze_panes = "B2"
+    _terminar(wb, f"Puestos {mes_txt}")
     ruta = ruta_libre(carpeta, f"PUESTOS {mes_txt.upper()}")
     wb.save(ruta)
     return ruta
@@ -250,7 +312,8 @@ def exportar_horas(carpeta, mes_txt, ctx, tarifas, cuadro, fechas, ventana_sem):
             sem.cell(r, c, round(rep["semanas"].get(l, 0), 1))
     _ancho(ws, 24, 14)
     _ancho(sem, 24, 12)
-    ws.freeze_panes = "B2"
+    _tabla(ws)
+    _tabla(sem)
     nota = wb.create_sheet("Régimen")
     f0 = fechas[0]
     filas = [("Régimen de horas", f"Art. 165 CST: promedio en ventanas de {ventana_sem} semanas contra la jornada contratada."),
@@ -266,6 +329,7 @@ def exportar_horas(carpeta, mes_txt, ctx, tarifas, cuadro, fechas, ventana_sem):
         nota.cell(r, 1, a).font = Font(bold=True)
         nota.cell(r, 2, b)
     _ancho(nota, 28, 90)
+    _terminar(wb, f"Horas y recargos {mes_txt}")
     ruta = ruta_libre(carpeta, f"HORAS Y RECARGOS {mes_txt.upper()}")
     wb.save(ruta)
     return ruta
@@ -281,13 +345,15 @@ def exportar_banco(carpeta, mes_txt, filas, movimientos, nombres):
         for c, v in enumerate([f["nombre"], f["anterior"], f["periodo"], f["total"], "Cerrado" if f["cerrado"] else "Proyectado"], 1):
             poner_texto(ws.cell(r, c), v)
     _ancho(ws, 24, 12)
-    ws.freeze_panes = "B2"
+    _tabla(ws)
     mv = wb.create_sheet("Movimientos")
     _encabezado(mv, 1, ["Fecha", "Colaborador", "Horas", "Concepto", "Nota"])
     for r, (_, cid, fecha, horas, concepto, nota) in enumerate(movimientos, 2):
-        for c, v in enumerate([f"{fecha:%d/%m/%Y}", nombres.get(cid, ""), horas, concepto, nota], 1):
-            poner_texto(mv.cell(r, c), v)
+        for c, v in enumerate([fecha, nombres.get(cid, ""), horas, concepto, nota], 1):
+            _valor(mv.cell(r, c), v)
     _ancho(mv, 12, 24)
+    _tabla(mv)
+    _terminar(wb, f"Banco de horas {mes_txt}")
     ruta = ruta_libre(carpeta, f"BANCO DE HORAS {mes_txt.upper()}")
     wb.save(ruta)
     return ruta
@@ -298,48 +364,58 @@ def _hoja(wb, titulo, columnas, filas, primera=24):
     _encabezado(ws, 1, columnas)
     for r, fila in enumerate(filas, 2):
         for c, v in enumerate(fila, 1):
-            poner_texto(ws.cell(r, c), v)
+            _valor(ws.cell(r, c), v)
     _ancho(ws, primera, 14)
-    ws.freeze_panes = "B2"
+    _tabla(ws)
     return ws
 
 
-def exportar_analiticas(carpeta, base, d):
-    """Analíticas de un rango para gerencia o RR. HH.: una hoja por bloque, con los datos de `datos_analiticas`."""
+def exportar_analiticas(carpeta, base, d, titulo="Analíticas", desde=None, hasta=None):
+    """Analíticas de un rango para gerencia o RR. HH.: una hoja por bloque, con los datos de `datos_analiticas`.
+    Porcentajes como fracción con formato %, periodos con su nombre («Octubre 2026») y celdas vacías donde no hay dato."""
     tipos = list(ABREV_NOVEDAD)
     est = d["estabilidad"]["periodos"]
     celdas = sum(p["celdas_total"] for p in est)
+    nom = lambda k: flujo.etiqueta(*flujo.desde_clave(k))
+    ct, av = d["cobertura_tramos"], d["avisos_ausencia"]
     wb = Workbook()
     wb.remove(wb.active)
-    _hoja(wb, "Resumen", ["Indicador", "Valor"], [
-        ["Ausentismo (%)", round(d["ausentismo"]["pct"], 2)],
+    ws = _hoja(wb, "Resumen", ["Indicador", "Valor"], [
+        ["Ausentismo (%)", _pct(d["ausentismo"]["pct"])],
         ["Ausentes a la vez (máximo)", d["simultaneos"]["maximo"]],
         ["Días con déficit", sum(c["dias_deficit"] for c in d["cobertura"])],
-        ["Cobertura por tramo (%)", round(d["cobertura_tramos"]["cobertura_pct"], 2) if d["cobertura_tramos"]["cobertura_pct"] is not None else "—"],
-        ["Horas faltantes (personas × horas)", d["cobertura_tramos"]["horas_faltantes"]],
-        ["Horas sobrantes (personas × horas)", d["cobertura_tramos"]["horas_sobrantes"]],
+        ["Cobertura por tramo (%)", _pct(ct["cobertura_pct"])],
+        ["Horas faltantes (personas × horas)", ct["horas_faltantes"]],
+        ["Horas sobrantes (personas × horas)", ct["horas_sobrantes"]],
         ["Cambios de turno", sum(c["permuta"] + c["servicio"] + c["ajuste"] for c in d["cambios"].values())],
-        ["Cambios tras publicar (%)", round(sum(p["celdas_cambiadas"] for p in est) / celdas * 100, 2) if celdas else "—"],
+        ["Cambios tras publicar (%)", _pct(sum(p["celdas_cambiadas"] for p in est) / celdas * 100 if celdas else None)],
         ["Cambios con poco aviso", sum(p["aviso_corto"] for p in est)],
         ["Personas con señales de fatiga", sum(f["senales"] > 0 for f in d["fatiga"].values())],
-        ["Solicitudes cumplidas (%)", d["solicitudes"]["tasa"] if d["solicitudes"]["tasa"] is not None else "—"],
+        ["Solicitudes cumplidas (%)", _pct(d["solicitudes"]["tasa"])],
         ["Ausencias estimadas el mes siguiente (días)", d["pronostico"]["estimado"]],
-        ["Ausencias no planeadas avisadas con menos de 24 h", d["avisos_ausencia"]["avisos"]["tarde"] + d["avisos_ausencia"]["avisos"]["menos_24h"]],
-        ["Días de ausencia con turno que se reemplazaron (%)", d["avisos_ausencia"]["pct_cubiertos"] if d["avisos_ausencia"]["pct_cubiertos"] is not None else "—"],
+        ["Ausencias no planeadas avisadas con menos de 24 h", av["avisos"]["tarde"] + av["avisos"]["menos_24h"]],
+        ["Días de ausencia con turno que se reemplazaron (%)", _pct(av["pct_cubiertos"])],
         *([[f"Próximo recargo dominical: {d['proximo_recargo']['actual']:g} % → {d['proximo_recargo']['nuevo']:g} % desde el {d['proximo_recargo']['desde']:%d/%m/%Y} (h equivalentes más al mes)",
             d["proximo_recargo"]["horas_mes"]]] if d["proximo_recargo"] else []),
-        ["Horas extra del 20 % con más (%)", d["concentracion_extra"]["top_pct"] if d["concentracion_extra"]["top_pct"] is not None else "—"],
+        ["Horas extra del 20 % con más (%)", _pct(d["concentracion_extra"]["top_pct"])],
     ], primera=32)
+    if desde and hasta:  # bajo la tabla, para que los filtros no la incluyan
+        for k, (a, b) in enumerate((("Rango", f"{desde:%d/%m/%Y} a {hasta:%d/%m/%Y}"), ("Generado", f"{datetime.now():%d/%m/%Y %H:%M}")), ws.max_row + 2):
+            ws.cell(k, 1, a).font = Font(bold=True)
+            ws.cell(k, 2, b)
     _hoja(wb, "Ausentismo", ["Persona", "Total", *tipos],
           [[p, sum(t.values()), *(t.get(x, 0) for x in tipos)] for p, t in sorted(d["ausentismo"]["por_persona"].items())])
-    _hoja(wb, "Cobertura", ["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir"],
-          [[c["periodo"], c["dias_deficit"], c["dias_exceso"], c["puestos_sin_cubrir"]] for c in d["cobertura"]])
+    tramos = {t["periodo"]: t for t in ct["por_periodo"]}
+    _hoja(wb, "Cobertura", ["Periodo", "Días con déficit", "Días con exceso", "Puestos sin cubrir", "Horas faltantes", "Horas sobrantes", "Cobertura (%)", "Eficiencia (%)"],
+          [[nom(c["periodo"]), c["dias_deficit"], c["dias_exceso"], c["puestos_sin_cubrir"],
+            *((t["horas_faltantes"], t["horas_sobrantes"], _pct(t["cobertura_pct"]), _pct(t["eficiencia_pct"])) if (t := tramos.get(c["periodo"])) else (None,) * 4)]
+           for c in d["cobertura"]])
     _hoja(wb, "Cambios", ["Periodo", "Permutas", "Servicio", "Ajustes", "Excepciones"],
-          [[k, c["permuta"], c["servicio"], c["ajuste"], c["excepciones"]] for k, c in d["cambios"].items()])
+          [[nom(k), c["permuta"], c["servicio"], c["ajuste"], c["excepciones"]] for k, c in d["cambios"].items()])
     _hoja(wb, "Estabilidad", ["Periodo", "% cambiado", "Celdas cambiadas", "Con poco aviso", "Publicado con (días)"],
-          [[p["periodo"], round(p["pct"], 2), p["celdas_cambiadas"], p["aviso_corto"], p["dias_anticipacion"]] for p in est])
+          [[nom(p["periodo"]), _pct(p["pct"]), p["celdas_cambiadas"], p["aviso_corto"], p["dias_anticipacion"]] for p in est])
     _hoja(wb, "Horas extra", ["Periodo", "Ventana (sem.)", "Diurnas (mes)", "Nocturnas (mes)", "Diurnas (ventana)", "Nocturnas (ventana)"],
-          [[h["periodo"], h["ventana"], h["mes"]["diurna"], h["mes"]["nocturna"], h["semanas"]["diurna"], h["semanas"]["nocturna"]] for h in d["horas_extra"]])
+          [[nom(h["periodo"]), h["ventana"], h["mes"]["diurna"], h["mes"]["nocturna"], h["semanas"]["diurna"], h["semanas"]["nocturna"]] for h in d["horas_extra"]])
     _hoja(wb, "Recargos", ["Persona", "Dominical/festivo (h)", "Nocturno (h)", "Equivalentes (h)"],
           [[p, r["festivo"], r["nocturna"], r["equivalentes"]] for p, r in sorted(d["recargos"].items())])
     dv = d["equidad"]["desviacion"]
@@ -350,8 +426,8 @@ def exportar_analiticas(carpeta, base, d):
           [[p, f["senales"], f["rachas_largas"], f["max_dias_seguidos"], f["max_noches_seguidas"], f["descansos_cortos"], f["fines_trabajados"], f["horas_4_sem_max"]]
            for p, f in sorted(d["fatiga"].items(), key=lambda x: (-x[1]["senales"], x[0]))])
     pa = d["patrones"]
-    ws = _hoja(wb, "Patrones", ["Día", "% ausencias no planeadas"], [[DIAS[w], round(v, 2)] for w, v in enumerate(pa["por_dia_semana"])])
-    fila = 11
+    ws = _hoja(wb, "Patrones", ["Día", "% ausencias no planeadas"], [[DIAS[w], _pct(v)] for w, v in enumerate(pa["por_dia_semana"])])
+    fila = ws.max_row + 2
     ws.cell(fila, 1, f"Ausencias que empezaron tras un festivo: {pa['tras_festivo']}")
     ws.cell(fila + 1, 1, f"Factor Bradford (ausencias² × días) de los 12 meses desde el {pa['bradford']['desde']:%d/%m/%Y}. Indicador de patrones; no usar para sanciones.")
     _encabezado(ws, fila + 3, ["Persona", "Ausencias", "Días", "Puntaje"])
@@ -359,6 +435,19 @@ def exportar_analiticas(carpeta, base, d):
         for c, v in enumerate([p, o["rachas"], o["dias"], o["puntaje"]], 1):
             poner_texto(ws.cell(r, c), v)
     _hoja(wb, "Banco", ["Persona", "Saldo (h)"], sorted(d["banco"]["saldos"].items()))
+    so = d["solicitudes"]
+    _hoja(wb, "Solicitudes", ["Persona", "Pedidas", "Cumplidas", "Parciales", "No cumplidas", "Cumplidas (%)"],
+          [[p, o["pedidas"], o["cumplidas"], o["parciales"], o["no_cumplidas"], _pct(o["tasa"])] for p, o in sorted(so["por_persona"].items())])
+    _hoja(wb, "Solicitudes por tipo", ["Tipo", "Pedidas", "Cumplidas"],
+          [[{"libre": "Libre", "quiero": "Quiero turno", "evitar": "Evitar turno"}.get(t, t), o["pedidas"], o["cumplidas"]] for t, o in so["por_tipo"].items()])
+    _hoja(wb, "Concentración extra", ["Persona", "Horas extra"], [[p, round(h, 1)] for p, h in sorted(d["concentracion_extra"]["por_persona"].items(), key=lambda x: (-x[1], x[0]))])
+    _hoja(wb, "Avisos", ["Aviso frente al turno", "Ausencias"],
+          [["Ya empezado el turno", av["avisos"]["tarde"]], ["Menos de 24 h", av["avisos"]["menos_24h"]], ["De 24 a 72 h", av["avisos"]["24_72h"]],
+           ["Más de 72 h", av["avisos"]["mas_72h"]], ["Sin dato (registradas antes de guardar la hora)", av["sin_dato"]]], primera=40)
+    _hoja(wb, "Pronóstico", ["Mes", "Días de ausencia"], [[f"{flujo.MESES[int(m[5:]) - 1]} {m[:4]}", n] for m, n in d["pronostico"]["serie"]], primera=12)
+    _hoja(wb, "Generaciones", ["Periodo", "Corridas", "Terminadas bien (%)", "Duración típica (s)", "Personas-tramo faltantes (última)", "Solicitudes sin cumplir (última)"],
+          [[nom(c["periodo"]), c["corridas"], _pct(c["pct_bien"]), None if c["mediana_seg"] is None else round(c["mediana_seg"]), c["faltan_ultima"], c["solicitudes_ultima"]] for c in d["corridas"]])
+    _terminar(wb, titulo)
     ruta = ruta_libre(carpeta, base)
     wb.save(ruta)
     return ruta

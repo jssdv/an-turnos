@@ -16,6 +16,7 @@ from an.turnos import exportar, flujo
 
 from .deps import Contexto, contexto_area_lectura
 from .rutas_areas import datos_analiticas
+from .rutas_edicion import alertas
 
 router = APIRouter(prefix="/api")
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -36,7 +37,8 @@ def _libro(bd, tipo, carpeta, clave, cuadro):
     ctx, fechas, txt = bd.contexto(inicio.year), flujo.fechas(inicio, fin), flujo.etiqueta(inicio, fin)
     if tipo == "cuadro":
         return exportar.exportar_cuadro(carpeta, txt, ctx, cuadro, bd.asignaciones(clave, "original"), fechas, bd.diferencias(clave),
-                                        bd.asignacion_puesto(clave), bd.catalogo_puestos(), flujo.detalle_horas(bd, inicio, fin))
+                                        bd.asignacion_puesto(clave), bd.catalogo_puestos(), flujo.detalle_horas(bd, inicio, fin),
+                                        alertas(bd, clave, inicio, fin))
     if tipo == "puestos":
         return exportar.exportar_puestos(carpeta, txt, ctx, cuadro, fechas, bd.asignacion_puesto(clave), bd.capacitacion(clave), bd.catalogo_puestos())
     return exportar.exportar_horas(carpeta, txt, ctx, bd.tarifas(), cuadro, fechas, int(bd.param("ventana_semanas", 3)))
@@ -107,12 +109,35 @@ def banco_xlsx(id: int, request: Request, ctx: Contexto = Depends(contexto_area_
 
 @router.get("/areas/{area}/analiticas.xlsx")
 def analiticas_xlsx(desde: date, hasta: date, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
-    datos = datos_analiticas(ctx, desde, hasta, riesgo=False)
     with tempfile.TemporaryDirectory() as tmp:
-        ruta = exportar.exportar_analiticas(tmp, f"Analiticas_{desde}_{hasta}", datos)
-        contenido = ruta.read_bytes()
+        contenido = _analiticas(ctx, tmp, desde, hasta).read_bytes()
     request.state.evento = "exportacion"
-    return Response(contenido, media_type=XLSX, headers=_adjunto(ruta.name))
+    return Response(contenido, media_type=XLSX, headers=_adjunto(f"Analiticas_{desde}_{hasta}.xlsx"))
+
+
+def _analiticas(ctx, carpeta, desde, hasta):
+    return exportar.exportar_analiticas(carpeta, f"Analiticas_{desde}_{hasta}", datos_analiticas(ctx, desde, hasta, riesgo=False),
+                                        f"Analíticas {desde:%d/%m/%Y} a {hasta:%d/%m/%Y}", desde, hasta)
+
+
+@router.get("/areas/{area}/periodos/{id}/reportes.zip")
+def reportes_zip(id: int, request: Request, ctx: Contexto = Depends(contexto_area_lectura, scope="function")):
+    """Todo el periodo en un .zip para archivarlo o mandarlo a RR. HH.: cuadro, puestos, horas, banco y analíticas del periodo."""
+    inicio, fin = _periodo(ctx, id)
+    clave = flujo.clave(inicio, fin)
+    cuadro = ctx.bd.asignaciones(clave)
+    if not cuadro:
+        raise HTTPException(409, "No hay cuadro para exportar.")
+    nombres = {p.id: p.nombre for p in ctx.bd.colaboradores(solo_activos=False)}
+    buf = BytesIO()
+    with tempfile.TemporaryDirectory() as tmp, zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        rutas = [_libro(ctx.bd, t, tmp, clave, cuadro) for t in ("cuadro", "puestos", "horas")]
+        rutas.append(exportar.exportar_banco(tmp, flujo.etiqueta(inicio, fin), flujo.estado_banco(ctx.bd, inicio, fin), ctx.bd.movimientos(), nombres))
+        rutas.append(_analiticas(ctx, tmp, inicio, fin))
+        for r in rutas:
+            z.write(r, r.name)
+    request.state.evento = "exportacion"
+    return Response(buf.getvalue(), media_type="application/zip", headers=_adjunto(f"REPORTES {flujo.etiqueta(inicio, fin).upper()}.zip"))
 
 
 def _agendas(ctx, id):

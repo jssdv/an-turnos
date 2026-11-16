@@ -109,4 +109,12 @@ input[type="search"]::-webkit-search-cancel-button {
     #contenido { overflow: visible !important; padding: 0 !important; }
     #contenido [role="alert"], #contenido [role="status"] { display: none !important; }
     [data-solo-pantalla] { display: none !important; }
+    /* Cuadro: el mes entero a lo ancho de un A4 apaisado (277 mm: ~30 mm de nombres y ~8 mm por día), encabezado en cada hoja. */
+    [data-planilla] { overflow: visible !important; max-width: none !important; border: 0 !important; }
+    [data-planilla] table { width: 100% !important; min-width: 0 !important; table-layout: fixed; font-size: 7.5pt; }
+    [data-planilla] th, [data-planilla] td { position: static !important; min-width: 0 !important; height: auto !important; padding: 1px !important; }
+    [data-planilla] th[scope="row"], [data-planilla] thead th:first-child { width: 30mm; font-size: 7.5pt; }
+    [data-planilla] td * { min-width: 0 !important; height: auto !important; padding-inline: 0 !important; font-size: 7.5pt !important; }
+    [data-planilla] thead { display: table-header-group; }
+    [data-planilla] tr { break-inside: avoid; }
 }
