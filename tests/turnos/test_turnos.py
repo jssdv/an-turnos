@@ -161,6 +161,7 @@ def test_fin_de_semana_y_libres():
 def test_etiqueta_y_puesto_principal():
     from an.turnos import puestos
     from an.turnos.dominio import AsignacionPuesto
+    assert puestos.etiqueta("C", [3, 5]) == "C·3/5" and puestos.etiqueta("C", [3]) == "C·3" and puestos.etiqueta("C", [0, 2]) == "C·A/2"
     assert puestos.etiqueta("M", 2) == "M·2" and puestos.etiqueta("T", 0) == "T·A" and puestos.etiqueta("NC", None) == "NC"
     d = date(2026, 10, 5)
     filas = [AsignacionPuesto(d, 7, 31, 360, 720, 1), AsignacionPuesto(d, 7, 39, 720, 780, 1), AsignacionPuesto(d, 8, 0, 360, 1080, 2)]
