@@ -14,7 +14,7 @@ from . import flujo
 from . import recargos
 from . import reglas
 from .dominio import DIAS, Puesto, intervalo
-from .puestos import alertas_reparto, etiqueta, leyenda, por_persona
+from .puestos import alertas_reparto, etiqueta, leyenda, secuencia_puestos
 
 ABREV_NOVEDAD = {"Vacaciones": "VAC", "Incapacidad": "INC", "Licencia": "LIC", "Libre solicitado": "LIB"}
 ENCABEZADO = PatternFill("solid", fgColor="1F3864")
@@ -186,7 +186,8 @@ def _hoja_cuadro(ws, ctx, cuadro, fechas, comparar=None, puestos=None, detalle=N
             for f in fechas:
                 i = col[f]
                 letra = get_column_letter(i)
-                c = ws.cell(fila + k, i, f'=COUNTIF({letra}$2:{letra}${n},"*·{q.numero or "A"}")')
+                rg, z = f"{letra}$2:{letra}${n}", q.numero or "A"  # el puesto cuenta aunque sea una de las mitades de una C partida («C·3/5»)
+                c = ws.cell(fila + k, i, f'=COUNTIF({rg},"*·{z}")+COUNTIF({rg},"*·{z}/*")+COUNTIF({rg},"*/{z}")')
                 c.alignment = CENTRO
                 if f in sin:
                     c.fill = PatternFill("solid", fgColor="FF7C80")
@@ -214,9 +215,10 @@ def exportar_cuadro(carpeta, mes_txt, ctx, cuadro, original, fechas, diferencias
         cat = catalogo or ctx.puestos
         activos = sorted((q for q in cat.values() if q.activo), key=lambda q: q.numero)
         falta = {q.id: {a.fecha for a in alertas_reparto(ctx, filas_puestos, fechas, cat) if f": {q.nombre} sin cubrir" in a.texto} for q in activos}
-        _hoja_cuadro(con, ctx, cuadro, fechas, puestos=por_persona(filas_puestos, {i: p.numero for i, p in cat.items()}),
+        _hoja_cuadro(con, ctx, cuadro, fechas, puestos=secuencia_puestos(filas_puestos, {i: p.numero for i, p in cat.items()}),
                      contadores=[(q, falta[q.id]) for q in activos] + [(Puesto(0, 0, "Apoyo"), set())] if detalle is not None else None)
         poner_texto(con.cell(con.max_row + 2, 1), leyenda(cat))
+        poner_texto(con.cell(con.max_row + 1, 1), "«C·3/5»: turno largo partido, puesto de la primera mitad / puesto de la segunda")
     _hoja_cuadro(wb.create_sheet("Original"), ctx, original, fechas)
     ws = wb.create_sheet("Cambios")
     _encabezado(ws, 1, ["Colaborador", "Fecha", "Antes", "Después"])

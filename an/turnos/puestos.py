@@ -22,9 +22,31 @@ def por_persona(filas, numeros):
     return out
 
 
+def secuencia_puestos(filas, numeros):
+    """{(colab_id, fecha): [números de puesto en orden horario]} (0 = apoyo); tramos seguidos en el mismo puesto cuentan una vez,
+    así una C partida en dos puestos da [3, 5]. `numeros` mapea el id de puesto a su número."""
+    por_dia = defaultdict(list)
+    for f in filas:
+        por_dia[f.colab_id, f.fecha].append(f)
+    out = {}
+    for k, fs in por_dia.items():
+        seq = []
+        for f in sorted(fs, key=lambda f: f.desde):
+            n = numeros[f.puesto_id] if f.puesto_id else 0
+            if not seq or seq[-1] != n:
+                seq.append(n)
+        out[k] = seq
+    return out
+
+
 def etiqueta(cod, puesto):
-    """Texto de celda con el puesto: «M·2» (número 2), «T·A» (apoyo); sin puesto, solo el código."""
-    return cod if puesto is None else f"{cod}·{puesto or 'A'}"
+    """Texto de celda con el puesto: «M·2» (número 2), «T·A» (apoyo), «C·3/5» (turno largo partido: puesto de cada mitad,
+    lista de números en orden horario); sin puesto, solo el código."""
+    if puesto is None:
+        return cod
+    if isinstance(puesto, (list, tuple)):
+        return f"{cod}·" + "/".join(str(n or "A") for n in puesto) if puesto else cod
+    return f"{cod}·{puesto or 'A'}"
 
 
 def leyenda(puestos):
